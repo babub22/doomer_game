@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34031.279
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "doomer_game", "doomer_game.vcxproj", "{C3DAB773-BF8B-463B-B072-6B8644C5E00E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C3DAB773-BF8B-463B-B072-6B8644C5E00E}.Debug|x64.ActiveCfg = Debug|x64
+		{C3DAB773-BF8B-463B-B072-6B8644C5E00E}.Debug|x64.Build.0 = Debug|x64
+		{C3DAB773-BF8B-463B-B072-6B8644C5E00E}.Debug|x86.ActiveCfg = Debug|Win32
+		{C3DAB773-BF8B-463B-B072-6B8644C5E00E}.Debug|x86.Build.0 = Debug|Win32
+		{C3DAB773-BF8B-463B-B072-6B8644C5E00E}.Release|x64.ActiveCfg = Release|x64
+		{C3DAB773-BF8B-463B-B072-6B8644C5E00E}.Release|x64.Build.0 = Release|x64
+		{C3DAB773-BF8B-463B-B072-6B8644C5E00E}.Release|x86.ActiveCfg = Release|Win32
+		{C3DAB773-BF8B-463B-B072-6B8644C5E00E}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5AE6D35A-FCD4-4891-AF66-C8F03C1A1B5C}
+	EndGlobalSection
+EndGlobal
