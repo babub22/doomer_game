@@ -170,8 +170,7 @@ int main(int argc, char* argv[]) {
 	    }
 	  }
         }
-
-
+	
 	for (int y = 0; y < gridH; y++) {
 	  for (int x = 0; x < gridW; x++) {
 	    vec2 tile = { (float)x / 10 , (float)y / 10 };

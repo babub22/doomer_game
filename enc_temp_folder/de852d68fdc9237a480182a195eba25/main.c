@@ -170,21 +170,18 @@ int main(int argc, char* argv[]) {
 	    }
 	  }
         }
-
-
+	
 	for (int y = 0; y < gridH; y++) {
 	  for (int x = 0; x < gridW; x++) {
 	    vec2 tile = { (float)x / 10 , (float)y / 10 };
+	      renderRect(toIsoVec2(tile), 0.1f, 0.1f, greenColor);
 	      
 	     if(grid[y][x].center == 2){
 	       //tile.y+=0.1f;
 	       renderRect(toIsoVec2(tile), 0.1f, 0.2f, redColor);
-	       tile.x += 0.2f;
-	       	       tile.y += 0.2f;
+	       tile.y += 0.2f;
 		 renderRect(toIsoVec2(tile), 0.1f, 0.1f, redColor);
-		 continue;
 	     }
-	      renderRect(toIsoVec2(tile), 0.1f, 0.1f, greenColor);
 	  }
         }
 
