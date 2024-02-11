@@ -4,6 +4,10 @@ typedef struct {
 	float x, y;
 } vec2;
 
+typedef struct {
+  float x, y, z;
+} vec3;
+
 typedef struct{
   float x,y,w,h;
 } rect2;
@@ -13,36 +17,18 @@ typedef struct {
 	float w, h;
 } Entity;
 
-
-//   0 <- Top
-// 0 + 0 <- Right
-//   0 <- Bot
-
 typedef struct{
-  bool exist;
-
-  vec2 leftBot;
-  vec2 rightTop;  
-} Wall;
-
-typedef enum{
-  topWall,
-  botWall,
-  rightWall,
-  leftWall,
-  wallsCounter
-} WallsTypes;
-
-typedef struct{
-  /*Wall* walls;
+  int walls;  // top, bot, left, right
   
-  Wall topWall;
-  Wall botWall;
-  Wall rightWall;
-  Wall leftWall;
-  */
   int center;    
 } Tile;
+
+typedef enum{
+  top,
+  bot,
+  right,
+  left,
+} WallType;
 
 vec2 toIsoVec2(vec2 point);
 

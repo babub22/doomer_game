@@ -1,205 +1,303 @@
 #include "deps.h"
 #include "main.h"
 
-void renderRect(vec2 leftBot, float w, float h, float c1, float c2, float c3){
-    glBegin(GL_LINE_LOOP);
+void renderWall(vec3 pos, WallType wall ,float w, float h, float r, float g, float b){
+  glPushMatrix();
+  glTranslated(0.5, 0.5, 0.5);
+  glColor3d(r, g, b);
 
-    /*leftTop.x -= leftTop.x / 2;
-    leftTop.y -= leftTop.y / 2;*/
+  glBegin(GL_LINES);
 
-    // 0.0, 0.0 - center of rect
-    // top - positive coords
-    // down - neg coords
+  const float blockW = 0.1f;
+  const float blockD = 0.1f;
 
-    glColor3f(c1, c2, c3); // Red
-    glVertex2f(leftBot.x + w, leftBot.y + h);
-    glVertex2f(leftBot.x, leftBot.y + h);
-    glVertex2f(leftBot.x + w, leftBot.y);
-    glEnd();
+  switch(wall){
+  case(top):{
+    glVertex3d(pos.x, pos.y, pos.z);
+    glVertex3d(pos.x, pos.y + h, pos.z);
 
-    glBegin(GL_LINE_LOOP);
+    glVertex3d(pos.x + blockW,pos.y, pos.z);
+    glVertex3d(pos.x + blockW,pos.y + h, pos.z);
 
-    //    glColor3f(0.0f, 1.0f, 0.0f); // Green
-    glVertex2f(leftBot.x, leftBot.y + h);
-    glVertex2f(leftBot.x, leftBot.y);
-    glVertex2f(leftBot.x + w, leftBot.y);
+    glVertex3d(pos.x ,pos.y + h, pos.z);
+    glVertex3d(pos.x + blockW,pos.y + h, pos.z);
 
-    glEnd();
+    glVertex3d(pos.x,pos.y, pos.z);
+    glVertex3d(pos.x + blockW ,pos.y +h, pos.z);
+
+    break;
+  }
+  case(bot):{
+    glVertex3d(pos.x, pos.y, pos.z + blockD);
+    glVertex3d(pos.x, pos.y + h, pos.z + blockD);
+
+    glVertex3d(pos.x + blockW,pos.y, pos.z + blockD);
+    glVertex3d(pos.x + blockW,pos.y + h, pos.z  + blockD);
+
+    glVertex3d(pos.x ,pos.y + h, pos.z + blockD);
+    glVertex3d(pos.x + blockW,pos.y, pos.z  + blockD);
+
+    glVertex3d(pos.x ,pos.y + h, pos.z + blockD);
+    glVertex3d(pos.x + blockW,pos.y + h, pos.z + blockD);
+
+    break;
+  }
+  case(left):{
+    glVertex3d(pos.x, pos.y, pos.z);
+    glVertex3d(pos.x, pos.y + h, pos.z + blockD);
+
+    glVertex3d(pos.x,pos.y, pos.z);
+    glVertex3d(pos.x,pos.y + h, pos.z);
+
+    glVertex3d(pos.x ,pos.y + h, pos.z);
+    glVertex3d(pos.x,pos.y + h, pos.z + blockD);
+
+    glVertex3d(pos.x ,pos.y, pos.z  + blockD);
+    glVertex3d(pos.x,pos.y + h, pos.z + blockD);
+  
+    break;
+  }
+  case(right):{
+    glVertex3d(pos.x + blockW, pos.y, pos.z);
+    glVertex3d(pos.x + blockW, pos.y + h, pos.z);
+
+    glVertex3d(pos.x + blockW,pos.y, pos.z + blockD);
+    glVertex3d(pos.x + blockW,pos.y + h, pos.z + blockD);
+
+    glVertex3d(pos.x + blockW,pos.y + h, pos.z);
+    glVertex3d(pos.x + blockW,pos.y + h, pos.z + blockD);
+
+    glVertex3d(pos.x + blockW,pos.y + h, pos.z);
+    glVertex3d(pos.x + blockW,pos.y, pos.z + blockD);
+
+    break;
+  }
+  default: break;
+  }
+  
+  glEnd();
+
+  glPopMatrix();
+}
+
+void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b){
+  glPushMatrix();
+  glTranslated(0.5, 0.5, 0.5);
+  glColor3d(r, g, b);
+
+  glBegin(GL_LINES);
+
+  glVertex3d(pos.x, pos.y, pos.z);
+  glVertex3d(pos.x, pos.y + h, pos.z);
+
+  glVertex3d(pos.x ,pos.y, pos.z);
+  glVertex3d(pos.x + w,pos.y, pos.z);
+
+  glVertex3d(pos.x ,pos.y, pos.z);
+  glVertex3d(pos.x ,pos.y, pos.z+d);
+
+  glVertex3d(pos.x ,pos.y+ h, pos.z);
+  glVertex3d(pos.x + w,pos.y+ h, pos.z);
+
+  glVertex3d(pos.x ,pos.y+h, pos.z);
+  glVertex3d(pos.x ,pos.y+h, pos.z+d);
+
+  glVertex3d(pos.x + w,pos.y+h, pos.z);
+  glVertex3d(pos.x + w,pos.y, pos.z);
+
+  glVertex3d(pos.x ,pos.y+h, pos.z+d);
+  glVertex3d(pos.x ,pos.y, pos.z+d);
+
+  glVertex3d(pos.x ,pos.y+h, pos.z+d);
+  glVertex3d(pos.x + w,pos.y+h, pos.z+d);
+
+  glVertex3d(pos.x + w,pos.y+h, pos.z);
+  glVertex3d(pos.x + w,pos.y+h, pos.z+d);
+
+  glVertex3d(pos.x + w,pos.y+h, pos.z+d);
+  glVertex3d(pos.x + w,pos.y, pos.z+d);
+  
+  glVertex3d(pos.x + w,pos.y+h, pos.z);
+  glVertex3d(pos.x + w,pos.y+h, pos.z+d);
+
+  glVertex3d(pos.x ,pos.y, pos.z+d);
+  glVertex3d(pos.x + w,pos.y, pos.z+d);
+  
+  glVertex3d(pos.x + w,pos.y, pos.z);
+  glVertex3d(pos.x + w,pos.y, pos.z+d);  
+
+  glEnd();
+  
+  glPopMatrix();
 }
 
 int main(int argc, char* argv[]) {
-    SDL_Init(SDL_INIT_VIDEO);
+  SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_Window* window = SDL_CreateWindow("SDL2 OpenGL Example",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        800, 600,
-        SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+  SDL_Window* window = SDL_CreateWindow("Doomer game",
+					SDL_WINDOWPOS_CENTERED,
+					SDL_WINDOWPOS_CENTERED,
+					800, 600,
+					SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 
-    SDL_GLContext context = SDL_GL_CreateContext(window);
+  SDL_GLContext context = SDL_GL_CreateContext(window);
 
-    glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
+  glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
 
-
-    const int gridH = 5;
-    const int gridW = 6;
+  const int gridH = 5;
+  const int gridW = 6;
     
-    Tile** grid = malloc(sizeof(Tile*) * gridH);
+  Tile** grid = malloc(sizeof(Tile*) * gridH);
 
-    // init grid
-    {
-      for(int y=0;y<gridH;y++){
-	grid[y] = malloc(sizeof(Tile) * gridW);
-	for(int x=0;x<gridW;x++){
-	  if(y==gridH-1 || x == gridW - 1){
-	    grid[y][x].center = 2;
-	    
-	    continue;
+  // init grid
+  {
+    for(int z=0;z<gridH;z++){
+      grid[z] = calloc(gridW,sizeof(Tile));
+      for(int x=0;x<gridW;x++){
+	if(z==0){
+	  grid[z][x].walls |= (1 << top); 
+	}
+
+	if(x==0){
+	  grid[z][x].walls |= (1 << left);
+	}
+
+	if(x==gridW-1){
+	  grid[z][x].walls |= (1 << right);
+	}
+
+
+	if(z==gridH-1){
+	  grid[z][x].walls |= (1 << bot);
+	}
+
+	
+	grid[z][x].center = 1;
+      }
+    }
+  }
+
+  const float entityW = 0.1f / 2.0f; 
+    
+  Entity e1 = { (vec2) { 0.1f - 0.25f, 0.1f - 0.25f }, 0.1f, 0.17f };
+  Entity e2 = { (vec2) { 0.1f - 0.25f, 0.2f - 0.25f }, 0.1f, 0.17f };
+
+  Entity* curSelectedEntity = &e1;
+    
+  bool quit = false;
+  while (!quit) {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_QUIT) {
+	quit = true;
+      }
+
+      const Uint8* currentKeyStates = SDL_GetKeyboardState( NULL );
+
+      if( currentKeyStates[ SDL_SCANCODE_UP ] )
+	{
+	  float dx = curSelectedEntity->pos.x;
+	  float dy = curSelectedEntity->pos.y + 0.1f;
+
+	  //if(grid[(int)dx*10][(int)dy*10] == 1){
+	  curSelectedEntity->pos.y = dy;
+	  //}
+	}
+      else if( currentKeyStates[ SDL_SCANCODE_DOWN ] )
+	{
+	  float dx = curSelectedEntity->pos.x;
+	  float dy = curSelectedEntity->pos.y - 0.1f;
+
+	  //if(grid[(int)dx*10][(int)dy*10] == 1){
+	  curSelectedEntity->pos.y = dy;
+	  //}
+	}
+      else if( currentKeyStates[ SDL_SCANCODE_LEFT ] )
+	{
+	  float dx = curSelectedEntity->pos.x - 0.1f ;
+	  float dy = curSelectedEntity->pos.y;
+
+	  //		if(grid[(int)dx*10][(int)dy*10] == 1){
+	  curSelectedEntity->pos.x = dx;
+	  //}
+	}
+      else if( currentKeyStates[ SDL_SCANCODE_RIGHT ] )
+	{
+	  float dx = curSelectedEntity->pos.x + 0.1f;
+	  float dy = curSelectedEntity->pos.y;
+
+	  //		if(grid[(int)dx*10][(int)dy*10] == 1){
+	  curSelectedEntity->pos.x = dx;
+	  //}
+	}
+      else if( currentKeyStates[ SDL_SCANCODE_1 ] )
+	{
+	  curSelectedEntity = &e1;
+	}
+      else if( currentKeyStates[ SDL_SCANCODE_2 ] )
+	{
+	  curSelectedEntity = &e2;
+	}
+    }
+
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
+    /* use this length so that camera is 1 unit away from origin */
+    double dist = sqrt(1 / 3.0);
+
+    gluLookAt(dist, dist, dist,  /* position of camera */
+	      0.0,  0.0,  0.0,   /* where camera is pointing at */
+	      0.0,  1.0,  0.0);  /* which direction is up */
+    glMatrixMode(GL_MODELVIEW);
+
+    if(true)
+      {
+	glBegin(GL_LINES);
+
+	glColor3d(1.0, 0.0, 0.0);
+	glVertex3d(0.0, 0.0, 0.0);
+	glVertex3d(1.0, 0.0, 0.0);
+
+	glColor3d(0.0, 1.0, 0.0);
+	glVertex3d(0.0, 0.0, 0.0);
+	glVertex3d(0.0, 1.0, 0.0);
+
+	glColor3d(0.0, 0.0, 1.0);
+	glVertex3d(0.0, 0.0, 0.0);
+	glVertex3d(0.0, 0.0, 1.0);
+
+	glEnd();
+      }
+
+    for (int z = 0; z < gridH; z++) {
+      for (int x = 0; x < gridW; x++) {
+	vec3 tile = { (float)x / 10 ,0, (float)z / 10 };
+
+	renderCube(tile, 0.1f, 0.1f, 0.1f,darkPurple);
+
+	tile.y+=0.1f;
+	for (int i = 0; i < sizeof(grid[z][x].walls); i++) {
+	  if((grid[z][x].walls >> i) & 1){
+	    renderWall(tile, i, 0.1f, 0.1f,redColor);
 	  }
-
-	  grid[y][x].center = 1;
 	}
       }
     }
 
-    const float entityW = 0.1f / 2.0f; 
-    
-    Entity e1 = { (vec2) { 0.1f - 0.25f, 0.1f - 0.25f }, 0.1f, 0.17f };
-    Entity e2 = { (vec2) { 0.1f - 0.25f, 0.2f - 0.25f }, 0.1f, 0.17f };
 
-    Entity* curSelectedEntity = &e1;
-    
-    bool quit = false;
-    while (!quit) {
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-	      quit = true;
-            }
+    glFlush();
+ 
+    SDL_GL_SwapWindow(window);
+  }
 
-	    const Uint8* currentKeyStates = SDL_GetKeyboardState( NULL );
+  SDL_GL_DeleteContext(context);
+  SDL_DestroyWindow(window);
+  SDL_Quit();
 
-	    if( currentKeyStates[ SDL_SCANCODE_UP ] )
-	      {
-		float dx = curSelectedEntity->pos.x;
-		float dy = curSelectedEntity->pos.y + 0.1f;
-
-		//if(grid[(int)dx*10][(int)dy*10] == 1){
-		  curSelectedEntity->pos.y = dy;
-		  //}
-	      }
-	    else if( currentKeyStates[ SDL_SCANCODE_DOWN ] )
-	      {
-		float dx = curSelectedEntity->pos.x;
-		float dy = curSelectedEntity->pos.y - 0.1f;
-
-		//if(grid[(int)dx*10][(int)dy*10] == 1){
-		  curSelectedEntity->pos.y = dy;
-		  //}
-	      }
-	    else if( currentKeyStates[ SDL_SCANCODE_LEFT ] )
-	      {
-		float dx = curSelectedEntity->pos.x - 0.1f ;
-		float dy = curSelectedEntity->pos.y;
-
-		//		if(grid[(int)dx*10][(int)dy*10] == 1){
-		  curSelectedEntity->pos.x = dx;
-		  //}
-	      }
-	    else if( currentKeyStates[ SDL_SCANCODE_RIGHT ] )
-	      {
-		float dx = curSelectedEntity->pos.x + 0.1f;
-		float dy = curSelectedEntity->pos.y;
-
-		//		if(grid[(int)dx*10][(int)dy*10] == 1){
-		  curSelectedEntity->pos.x = dx;
-		  //}
-	      }
-	    else if( currentKeyStates[ SDL_SCANCODE_1 ] )
-	      {
-		curSelectedEntity = &e1;
-	      }
-	    else if( currentKeyStates[ SDL_SCANCODE_2 ] )
-	      {
-		curSelectedEntity = &e2;
-	      }
-	    else if( currentKeyStates[ SDL_SCANCODE_Q ] )
-	      {
-		curSelectedEntity = &e2;
-	      }
-
-	    else if( currentKeyStates[ SDL_SCANCODE_E ] )
-	      {
-		curSelectedEntity = &e2;
-	      }
-        }
-
-        glClear(GL_COLOR_BUFFER_BIT);
-
-	// draw X-Y axis
-	if(true)
-	{
-	  glBegin(GL_LINES);
-
-	  glColor3f(redColor); // Red
-	  glVertex2f(0,-5);
-	  glVertex2f(0,5);
-
-	  glVertex2f(5,0);
-	  glVertex2f(-5,0);
-
-	  glEnd();
-	}
-
-	
-	//renderRect((vec2){0.1f,0.2f}, 0.1f, 0.1f, redColor);
-	// 	
-	for (int y = 0; y < gridH; y++) {
-	  for (int x = 0; x < gridW; x++) {
-	    if(grid[y][x].center){
-	      vec2 tile = { (float)x / 10 , (float)y / 10 };
-	      // cenralize grid
-	      tile.x -= 0.7f;
-	      tile.y -= 0.7f;
-
-	      if(grid[y][x].center == 1){
-		renderRect(tile, 0.1f, 0.1f, greenColor);
-	      }else if(grid[y][x].center == 2){
-		renderRect(tile, 0.1f, 0.1f, redColor);
-	      }
-	    }
-	  }
-        }
-
-
-	for (int y = 0; y < gridH; y++) {
-	  for (int x = 0; x < gridW; x++) {
-	    vec2 tile = { (float)x / 10 , (float)y / 10 };
-	      
-	     if(grid[y][x].center == 2){
-	       //tile.y+=0.1f;
-	       renderRect(toIsoVec2(tile), 0.1f, 0.2f, redColor);
-	       tile.x += 0.2f;
-	       	       tile.y += 0.2f;
-		 renderRect(toIsoVec2(tile), 0.1f, 0.1f, redColor);
-		 continue;
-	     }
-	      renderRect(toIsoVec2(tile), 0.1f, 0.1f, greenColor);
-	  }
-        }
-
-	  //	renderRect(toIsoVec2(e1.pos), e1.w, e1.h, blueColor);
-	  //	renderRect(toIsoVec2(e2.pos), e2.w, e2.h, darkPurple);
-		
-                   //glEnd();
-        SDL_GL_SwapWindow(window);
-    }
-
-    SDL_GL_DeleteContext(context);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-
-    return 0;
+  return 0;
 }
 
 vec2 toIsoVec2(vec2 point){
