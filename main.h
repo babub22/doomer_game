@@ -13,8 +13,8 @@ typedef struct{
 } rect2;
 
 typedef struct {
-	vec2 pos; // normal XY
-	float w, h;
+	vec3 pos; // normal XY
+  float w, h, d;
 } Entity;
 
 typedef struct{
@@ -31,6 +31,13 @@ typedef enum{
 } WallType;
 
 vec2 toIsoVec2(vec2 point);
+
+void renderWall(vec3 pos, float blockW, float blockD, WallType wall, float wallH, float r, float g, float b);
+
+void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
+
+#define cursorW 0.005f
+#define cursorH 0.005f
 
 #define greenColor 0.0f, 1.0f, 0.0f
 
