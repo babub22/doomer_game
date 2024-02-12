@@ -36,6 +36,8 @@ void renderWall(vec3 pos, float blockW, float blockD, WallType wall, float wallH
 
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
 
+#define FPS 60
+
 #define cursorW 0.005f
 #define cursorH 0.005f
 

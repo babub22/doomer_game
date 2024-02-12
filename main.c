@@ -59,6 +59,8 @@ int main(int argc, char* argv[]) {
     
   bool quit = false;
   while (!quit) {
+    Uint32 starttime = GetTickCount();
+
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
@@ -171,6 +173,22 @@ int main(int argc, char* argv[]) {
 
       glVertex2f(cursor.x + relWindowX, cursor.y + relWindowY);
       glVertex2f(cursor.x - relWindowX, cursor.y - relWindowY);
+
+      /*
+      for(int x=0;x<windowW;x+=10){
+	for(int y=0;y<windowH;y+=10){
+	  int block = 1;
+	  
+	  glVertex2f(x+block, y);
+	  glVertex2f(x+block, y+block);
+
+	  glVertex2f(x, y + block);
+	  glVertex2f(x + block, y + block);
+	}
+      }
+      */
+
+      
       
       glEnd();
     }
@@ -179,6 +197,14 @@ int main(int argc, char* argv[]) {
     glFlush();
  
     SDL_GL_SwapWindow(window);
+
+    Uint32 endtime = GetTickCount();
+    Uint32 deltatime = endtime - starttime;
+
+    if (deltatime > (1000 / FPS)) {
+    } else {
+      Sleep((1000 / FPS) - deltatime);
+    }
   }
 
   SDL_GL_DeleteContext(context);
