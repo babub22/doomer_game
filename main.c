@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
     
   Tile** grid = malloc(sizeof(Tile*) * gridH);
 
-  vec2 cursor = {0};
+  Mouse mouse = { .h = 0.005f, .w = 0.005f};
   
   // init grid
   {
@@ -56,6 +56,8 @@ int main(int argc, char* argv[]) {
   const float entityD = 0.05f;
     
   Entity e1 = { (vec3) { 0.1f + entityW / 2.0f, 0.0f + 0.1f, 0.1f + entityD / 2.0f }, 0.05f, 0.17f, 0.05f };
+
+  float zoom = 1;
     
   bool quit = false;
   while (!quit) {
@@ -68,10 +70,9 @@ int main(int argc, char* argv[]) {
       }
 
       if (event.type == SDL_MOUSEMOTION) {
-	cursor.x = event.motion.x;
-	cursor.y = event.motion.y;
+	mouse.screenPos.x = event.motion.x;
+	mouse.screenPos.y = event.motion.y;
       }
-
 
       const Uint8* currentKeyStates = SDL_GetKeyboardState( NULL );
 
@@ -103,6 +104,13 @@ int main(int argc, char* argv[]) {
 
 	  e1.pos.x = dx;
 	}
+      else if(currentKeyStates[ SDL_SCANCODE_W ]){
+	zoom+=0.1f;
+      }
+      else if(currentKeyStates[ SDL_SCANCODE_S ]){
+	zoom-=0.1f;
+      }
+
     }
 
     glClear(GL_COLOR_BUFFER_BIT);
@@ -110,42 +118,41 @@ int main(int argc, char* argv[]) {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
 
+
     /* use this length so that camera is 1 unit away from origin */
-    double dist = sqrt(1 / 3.0);
+    double dist = sqrt(zoom / 3.0);
 
     gluLookAt(dist, dist, dist,  /* position of camera */
 	      0.0,  0.0,  0.0,   /* where camera is pointing at */
 	      0.0,  1.0,  0.0);  /* which direction is up */
     glMatrixMode(GL_MODELVIEW);
 
-    if(true)
-      {
-	glBegin(GL_LINES);
-
-	glColor3d(1.0, 0.0, 0.0);
-	glVertex3d(0.0, 0.0, 0.0);
-	glVertex3d(1.0, 0.0, 0.0);
-
-	glColor3d(0.0, 1.0, 0.0);
-	glVertex3d(0.0, 0.0, 0.0);
-	glVertex3d(0.0, 1.0, 0.0);
-
-	glColor3d(0.0, 0.0, 1.0);
-	glVertex3d(0.0, 0.0, 0.0);
-	glVertex3d(0.0, 0.0, 1.0);
-
-	glEnd();
-      }
-
     for (int z = 0; z < gridH; z++) {
       for (int x = 0; x < gridW; x++) {
-	vec3 tile = { (float)x / 10 ,0, (float)z / 10 };
+	vec3 tile = { (float)x / 10 , 0, (float)z / 10 };
+
+	if (rayIntersectsTriangle(mouse.start, mouse.end, (vec3d) {tile.x,tile.y,tile.z})) {
+	  glBegin(GL_TRIANGLES);
+	  
+	  glColor3d(darkPurple);
+
+	  glVertex3d(tile.x, tile.y, tile.z);
+	  glVertex3d(tile.x + 0.1f, tile.y, tile.z);
+	  glVertex3d(tile.x + 0.1f, tile.y, tile.z + 0.1f);
+
+	  glVertex3d(tile.x, tile.y, tile.z);
+	  glVertex3d(tile.x, tile.y, tile.z + 0.1f);
+	  glVertex3d(tile.x + 0.1f, tile.y, tile.z + 0.1f);
+
+	  glEnd();
+	}
+
 	const float blockW = 0.1f;
 	const float blockD = 0.1f;
 
-	renderCube(tile, 0.1f, blockW, 0.1f,darkPurple);
+	renderTile(tile, blockW, 0.1f, darkPurple);
+	//	renderCube(tile, 0.1f, blockW, 0.1f,darkPurple);
 
-	tile.y+=0.1f;
 	for (int wallType = 0; wallType < sizeof(grid[z][x].walls); wallType++) {
 	  if((grid[z][x].walls >> wallType) & 1){
 	    renderWall(tile, blockW, blockD, wallType, 0.1f,redColor);
@@ -154,7 +161,57 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    printf("nest\n\n");
+    
     renderCube(e1.pos, e1.w, e1.h, e1.d,greenColor);
+
+    if(true)
+      {
+	glBegin(GL_LINES);
+
+	glColor3d(redColor);
+	glVertex3d(0.0, 0.0, 0.0);
+	glVertex3d(1.0, 0.0, 0.0);
+
+	glColor3d(greenColor);
+	glVertex3d(0.0, 0.0, 0.0);
+	glVertex3d(0.0, 1.0, 0.0);
+
+	glColor3d(blueColor);
+	glVertex3d(0.0, 0.0, 0.0);
+	glVertex3d(0.0, 0.0, 1.0);
+
+	glEnd();
+      }
+
+    // cursor world projection
+    {
+      vec3d start = {0};
+      vec3d end = {0};
+      
+      double matModelView[16], matProjection[16]; 
+      int viewport[4]; 
+      glGetDoublev( GL_MODELVIEW_MATRIX, matModelView ); 
+      glGetDoublev( GL_PROJECTION_MATRIX, matProjection ); 
+      glGetIntegerv( GL_VIEWPORT, viewport );
+
+      double winX = (double)mouse.screenPos.x; 
+      double winY = viewport[3] - (double)mouse.screenPos.y; 
+
+      gluUnProject(winX, winY, 0.0, matModelView, matProjection, 
+		   viewport, &start.x, &start.y, &start.z);
+
+      gluUnProject(winX, winY, 10.0, matModelView, matProjection, 
+		   viewport, &end.x, &end.y, &end.z);
+
+      mouse.start = start;
+      mouse.end = end;
+      
+      glBegin(GL_LINES);
+      glVertex3d(start.x, start.y, start.z);
+      glVertex3d(start.x,start.y+0.2f, start.z);
+      glEnd();      
+    }
 
     // renderCursor
     {
@@ -165,31 +222,15 @@ int main(int argc, char* argv[]) {
 
       glBegin(GL_LINES);
 
-      float relWindowX = cursorW * windowW;
-      float relWindowY = cursorH * windowH;
+      float relWindowX = mouse.w * windowW;
+      float relWindowY = mouse.h * windowH;
       
-      glVertex2f(cursor.x - relWindowX, cursor.y + relWindowY);
-      glVertex2f(cursor.x + relWindowX, cursor.y - relWindowY);
+      glVertex2f(mouse.screenPos.x - relWindowX, mouse.screenPos.y + relWindowY);
+      glVertex2f(mouse.screenPos.x + relWindowX, mouse.screenPos.y - relWindowY);
 
-      glVertex2f(cursor.x + relWindowX, cursor.y + relWindowY);
-      glVertex2f(cursor.x - relWindowX, cursor.y - relWindowY);
+      glVertex2f(mouse.screenPos.x + relWindowX, mouse.screenPos.y + relWindowY);
+      glVertex2f(mouse.screenPos.x - relWindowX, mouse.screenPos.y - relWindowY);
 
-      /*
-      for(int x=0;x<windowW;x+=10){
-	for(int y=0;y<windowH;y+=10){
-	  int block = 1;
-	  
-	  glVertex2f(x+block, y);
-	  glVertex2f(x+block, y+block);
-
-	  glVertex2f(x, y + block);
-	  glVertex2f(x + block, y + block);
-	}
-      }
-      */
-
-      
-      
       glEnd();
     }
 
@@ -217,7 +258,6 @@ int main(int argc, char* argv[]) {
 vec2 toIsoVec2(vec2 point){
   return (vec2){ point.x - point.y, (point.x + point.y)/2 };
 }
-
 
 void renderWall(vec3 pos, float blockW, float blockD, WallType wall, float wallH, float r, float g, float b){
   glPushMatrix();
@@ -344,4 +384,87 @@ void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b){
   glEnd();
   
   glPopMatrix();
+}
+
+bool rayIntersectsTriangle(const vec3d start, const vec3d end, const vec3d point) {
+  vec3d dirfrac = {0};
+
+  vec3d norm = normalize(end);
+  
+  dirfrac.x = 1.0f / norm.x;
+  dirfrac.y = 1.0f / norm.y;
+  dirfrac.z = 1.0f / norm.z;
+  // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
+  // r.org is origin of ray
+
+  vec3d rt = { point.x+0.1f, point.y, point.z+0.1f  };
+  vec3d lb = { point.x, point.y, point.z };
+
+  float t1 = (lb.x - start.x)*dirfrac.x;
+  float t2 = (rt.x - start.x)*dirfrac.x;
+  float t3 = (lb.y - start.y)*dirfrac.y;
+  float t4 = (rt.y - start.y)*dirfrac.y;
+  float t5 = (lb.z - start.z)*dirfrac.z;
+  float t6 = (rt.z - start.z)*dirfrac.z;
+
+  float tmin = max(max(min(t1, t2), min(t3, t4)), min(t5, t6));
+  float tmax = min(min(max(t1, t2), max(t3, t4)), max(t5, t6));
+
+  
+  bool res = false;
+  float t;
+
+  if (tmax < 0)
+    {
+      // if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
+      t = tmax;
+      res= false;//false;
+    }
+  else if (tmin > tmax)
+    {
+      // if tmin > tmax, ray doesn't intersect AABB
+      t = tmax;
+      res= false;
+    }
+  else{
+    t = tmin;
+    res= true;
+  }
+
+  if(res)
+  printf("%f \n",t);
+
+  return res;
+}
+
+vec3d normalize(vec3d vec) {
+    float vecLen = sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
+    vec3d norm = { 0 };
+
+    if (vecLen != 0.0f) {
+        norm.x = vec.x / vecLen;
+        norm.y = vec.y / vecLen;
+        norm.z = vec.z / vecLen;
+    }
+
+    return norm;
+}
+
+void renderTile(vec3 pos, float w, float d, float r, float g, float b){
+  glBegin(GL_LINES);
+  glColor3d(r, g, b);
+  
+  glVertex3d(pos.x, pos.y, pos.z);
+  glVertex3d(pos.x + w, pos.y, pos.z);
+
+  glVertex3d(pos.x + w,pos.y, pos.z);
+  glVertex3d(pos.x + w,pos.y, pos.z + d);
+
+  glVertex3d(pos.x + w,pos.y, pos.z+d);
+  glVertex3d(pos.x ,pos.y, pos.z +d);
+
+  glVertex3d(pos.x ,pos.y, pos.z+d);
+  glVertex3d(pos.x,pos.y, pos.z);
+
+  glEnd();
 }

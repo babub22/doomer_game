@@ -8,12 +8,16 @@ typedef struct {
   float x, y, z;
 } vec3;
 
+typedef struct {
+	double x, y, z;
+} vec3d;
+
 typedef struct{
   float x,y,w,h;
 } rect2;
 
 typedef struct {
-	vec3 pos; // normal XY
+  vec3 pos; // normal XY
   float w, h, d;
 } Entity;
 
@@ -30,16 +34,30 @@ typedef enum{
   left,
 } WallType;
 
+typedef struct{
+  vec3d worldPos;
+
+  vec3d start;
+  vec3d end;
+
+  vec2 screenPos;
+
+  float w, h; // of cursor
+} Mouse;
+
 vec2 toIsoVec2(vec2 point);
 
 void renderWall(vec3 pos, float blockW, float blockD, WallType wall, float wallH, float r, float g, float b);
 
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
 
-#define FPS 60
+void renderTile(vec3 pos, float w, float d, float r, float g, float b);
 
-#define cursorW 0.005f
-#define cursorH 0.005f
+vec3d normalize(vec3d vec);
+
+bool rayIntersectsTriangle(const vec3d start, const vec3d end, const vec3d point);
+
+#define FPS 60
 
 #define greenColor 0.0f, 1.0f, 0.0f
 
