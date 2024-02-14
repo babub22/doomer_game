@@ -1,6 +1,9 @@
 #include "deps.h"
 #include "main.h"
 
+Object** objsStore;
+size_t objsStoreSize;
+
 int main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
 
@@ -12,13 +15,29 @@ int main(int argc, char* argv[]) {
 					SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 
   SDL_GLContext context = SDL_GL_CreateContext(window);
-
+  
   SDL_ShowCursor(SDL_DISABLE);
 
   glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
-    
-  Tile** grid = malloc(sizeof(Tile*) * (gridH + balkonH));
 
+  uint8_t a = 0, b = doorT, c = windowT, d = halfWallT;
+  int combined = 0;
+
+  combined |= (a << 0);                      // Put 'a' in the least significant bits
+  combined |= (b << 8);               // Shift 'b' 8 bits to the left and combine
+  combined |= (c << 16);              // Shift 'c' 16 bits to the left and combine
+  combined |= (d << 24);              // Shift 'd' 24 bits to the left and combine
+
+  // Extracting back the values
+  uint8_t extracted_a = (combined >> 0) & 0xFF;
+  uint8_t extracted_b = (combined >> 8) & 0xFF;
+  uint8_t extracted_c = (combined >> 16) & 0xFF;
+  uint8_t extracted_d = (combined >> 24) & 0xFF;
+
+  printf("Extracted values: %u %u %u %u\n", extracted_a, extracted_b, extracted_c, extracted_d);
+  
+  Tile** grid = malloc(sizeof(Tile*) * (gridH + balkonH));
+  
   Mouse mouse = { .h = 0.005f, .w = 0.005f};
   
   // init grid
@@ -37,22 +56,35 @@ int main(int argc, char* argv[]) {
 	}
 	
 	if(z==0){
-	  grid[z][x].walls |= (1 << top); 
+	  grid[z][x].walls |= (wallT << top); 
 	}
 
 	if(x==0 || (isBalkonZ && x == centerX)){
-	  grid[z][x].walls |= (1 << left);
+	  grid[z][x].walls |= (wallT << left);
 	}
 
 	if(x==gridW-1 || (isBalkonZ && x == centerX+2)){
-	  grid[z][x].walls |= (1 << right);
+	  grid[z][x].walls |= (wallT << right);
 	}
 
 	if(z==gridH-1 || isBalkonZ){
-	  grid[z][x].walls |= (1 << bot);
-	  
 	  if(z==gridH-1 && x==(gridW-1)/2){
-	    grid[z][x].doors |= (1 << bot);
+	    grid[z][x].walls |= (doorT << bot);
+
+	    Object* newDoor = malloc(sizeof(Object));
+	    newDoor->pos = (vec3){x,0,z};
+	    newDoor->type = doorObj;
+	    
+	    DoorInfo* doorInf = malloc(sizeof(DoorInfo));
+	    doorInf->opened = false;
+	    doorInf->dir = bot;
+
+	    newDoor->objInfo = doorInf;
+
+	    addObjToTile(&grid[z][x], newDoor);
+	    addObjToStore(newDoor);
+	  }else{
+	    grid[z][x].walls |= (wallT << bot);
 	  }
 	}
 
@@ -76,6 +108,12 @@ int main(int argc, char* argv[]) {
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
 	quit = true;
+      }
+
+      if(event.type == SDL_MOUSEBUTTONDOWN){
+	if(event.button.button == SDL_BUTTON_LEFT){
+	  mouse.click = true;
+	}
       }
 
       if (event.type == SDL_MOUSEMOTION) {
@@ -119,14 +157,12 @@ int main(int argc, char* argv[]) {
       else if(currentKeyStates[ SDL_SCANCODE_S ]){
 	zoom-=0.1f;
       }
-
     }
 
     glClear(GL_COLOR_BUFFER_BIT);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-
 
     /* use this length so that camera is 1 unit away from origin */
     double dist = sqrt(zoom / 3.0);
@@ -156,10 +192,10 @@ int main(int argc, char* argv[]) {
 	  continue;
 	}
 
-    const vec3 rt = { tile.x+0.1f, tile.y, tile.z + 0.1f };
-    const vec3 lb = tile;
+	const vec3 rt = { tile.x+0.1f, tile.y, tile.z + 0.1f };
+	const vec3 lb = tile;
 	
-    if (rayIntersectsTriangle(mouse.start, mouse.end, lb, rt)) {
+	if (rayIntersectsTriangle(mouse.start, mouse.end, lb, rt)) {
 	  glBegin(GL_TRIANGLES);
 	  
 	  glColor3d(darkPurple);
@@ -176,94 +212,114 @@ int main(int argc, char* argv[]) {
 	}
 
 
-    renderTile(tile, blockW, 0.1f, darkPurple);
+	renderTile(tile, blockW, 0.1f, darkPurple);
 
-	for (int wallType = 0; wallType < sizeof(grid[z][x].walls); wallType++) {
-	  if ((grid[z][x].doors >> wallType) & 1) {
+	for(int side=0;side<sideCounter*8;side+=8){
+	  WallType type = (grid[z][x].walls >> side) & 0xFF;
 
-	    // render door frame
-	    {
-	      glBegin(GL_LINE_LOOP);
+	  switch(type){
+	  case(doorT):{
+	    for(int i=0;i<grid[z][x].objsSize;i++){
+	      if(grid[z][x].objs[i]->type == doorObj){
+		DoorInfo* doorInfo = (DoorInfo*) grid[z][x].objs[i]->objInfo;
+
+		/*
+
+		// render door frame
+		{
+		  glBegin(GL_LINE_LOOP);
 	  
-	      glColor3d(redColor);
+		  glColor3d(redColor);
 
-	      // first plank of frame(left)
-	      glVertex3d(tile.x, tile.y, tile.z + blockD);
-	      glVertex3d(tile.x + doorXPad/2, tile.y, tile.z + blockD);
-	      glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
+		  // first plank of frame(left)
+		  glVertex3d(tile.x, tile.y, tile.z + blockD);
+		  glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
+		  glVertex3d(tile.x + doorXPad/2, tile.y, tile.z + blockD);
 
-	      glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-	      glVertex3d(tile.x + doorXPad/2, tile.y + doorH, tile.z + blockD);
-	      glVertex3d(tile.x + doorXPad/2, tile.y, tile.z + blockD);
+		  glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
+		  glVertex3d(tile.x + doorXPad/2, tile.y + doorH, tile.z + blockD);
+		  glVertex3d(tile.x + doorXPad/2, tile.y, tile.z + blockD);
 
-	      // top plank of frame
+		  // top plank of frame
+		  glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
+		  glVertex3d(tile.x + blockW + doorXPad/2, tile.y + blockHForDoor, tile.z + blockD);
+		  glVertex3d(tile.x, tile.y + blockHForDoor, tile.z + blockD);
+
+		  glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
+		  glVertex3d(tile.x + blockW, tile.y + blockHForDoor, tile.z + blockD);
+		  glVertex3d(tile.x + blockW, tile.y + doorH, tile.z + blockD);
+
+		  // second plank of frame (right)
+		  glVertex3d(tile.x + doorW + doorXPad, tile.y + doorH, tile.z + blockD);
+		  glVertex3d(tile.x + doorW + doorXPad/2, tile.y, tile.z + blockD);
+		  glVertex3d(tile.x + doorW + doorXPad /2, tile.y + doorH, tile.z + blockD);
+
+		  glVertex3d(tile.x + doorW + doorXPad/2, tile.y, tile.z + blockD);
+		  glVertex3d(tile.x + doorW + doorXPad, tile.y, tile.z + blockD);
+		  glVertex3d(tile.x + doorW + doorXPad, tile.y + doorH, tile.z + blockD);
 	      
-	      glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-	      glVertex3d(tile.x, tile.y + blockHForDoor, tile.z + blockD);
-	      glVertex3d(tile.x + blockW + doorXPad/2, tile.y + blockHForDoor, tile.z + blockD);
+		  glEnd();
+		}
+*/
+		
+		vec3 doorPos = {tile.x + doorXPad / 2,tile.y,tile.z};
 
-	      glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-	      glVertex3d(tile.x + blockW, tile.y + blockHForDoor, tile.z + blockD);
-	      glVertex3d(tile.x + blockW, tile.y + doorH, tile.z + blockD);
+		vec3 lb = {0};
+		vec3 rt = {0};
 
-	      // second plank of frame (right)
+		switch(doorInfo->dir){
+		case(top):{
+		  lb = doorPos;
+		  rt = (vec3){tile.x+doorW, tile.y+doorH, tile.z};
+		  break;
+		}
+		case(bot):{
+		  lb = (vec3){tile.x,tile.y, tile.z + blockD};
+		  rt = (vec3){tile.x+doorW, tile.y+doorH, tile.z + blockD};
+		  break;
+		}
+		case(left):{
+		  lb = (vec3){tile.x,tile.y, tile.z};
+		  rt = (vec3){tile.x, tile.y+doorH, tile.z + blockD};
+		  break;
+		}
+		case(right):{
+		  lb = (vec3){tile.x + doorW,tile.y, tile.z};
+		  rt = (vec3){tile.x+ doorW, tile.y+doorH, tile.z + blockD};
+		  break;
+		}
+		default: break;
+		}
 
-	      glVertex3d(tile.x + doorW + doorXPad, tile.y + doorH, tile.z + blockD);
-	      glVertex3d(tile.x + doorW + doorXPad/2, tile.y, tile.z + blockD);
-	      glVertex3d(tile.x + doorW + doorXPad /2, tile.y + doorH, tile.z + blockD);
-
-	      glVertex3d(tile.x + doorW + doorXPad/2, tile.y, tile.z + blockD);
-	      glVertex3d(tile.x + doorW + doorXPad, tile.y, tile.z + blockD);
-	      glVertex3d(tile.x + doorW + doorXPad, tile.y + doorH, tile.z + blockD);
-	      
-	      glEnd();
-	    }
-
-	    vec3 doorPos = {tile.x + doorXPad / 2,tile.y,tile.z};
-
-	    vec3 lb = {0};
-	    vec3 rt = {0};
-
-	    switch(wallType){
-	    case(top):{
-	      lb = doorPos;
-	      rt = (vec3){tile.x+doorW, tile.y+doorH, tile.z};
-	      break;
-	    }
-	    case(bot):{
-	      lb = (vec3){tile.x,tile.y, tile.z + blockD};
-	      rt = (vec3){tile.x+doorW, tile.y+doorH, tile.z + blockD};
-	      break;
-	    }
-	    case(left):{
-	      lb = (vec3){tile.x,tile.y, tile.z};
-	      rt = (vec3){tile.x, tile.y+doorH, tile.z + blockD};
-	      break;
-	    }
-	    case(right):{
-	      lb = (vec3){tile.x + doorW,tile.y, tile.z};
-	      rt = (vec3){tile.x+ doorW, tile.y+doorH, tile.z + blockD};
-	      break;
-	    }
-	    default: break;
-	    }
-
-
-	    if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt)){
-	      renderWall(doorPos, GL_TRIANGLE_STRIP, doorW, blockD, wallType, doorH, blueColor);
-	    }else{
-	      renderWall(doorPos, GL_LINES, doorW, blockD, wallType, doorH, blueColor);
-	    };
+		
+		if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt)){
+		  if(mouse.click){
+		    doorInfo->opened = !doorInfo->opened;
+		  }
+		  
+		  if(doorInfo->opened){
+		    continue;
+		  }
+		  
+		  renderWall(doorPos, GL_TRIANGLE_STRIP, doorW, blockD, doorInfo->dir, doorH, blueColor);
+		}else{
+		  if(doorInfo->opened){
+		    continue;
+		  }
+		  
+		  renderWall(doorPos, GL_LINES, doorW, blockD, doorInfo->dir, doorH, blueColor);
+		};
 	    
-	    continue;
+	      }
+	    }
+
+	    break;
 	  }
-	    
-	  // wall rendering + wall selection
-	  if((grid[z][x].walls >> wallType) & 1){
+	  case(wallT):{
 	    vec3 lb = {0};
 	    vec3 rt = {0};
 
-	    switch(wallType){
+	    switch(side){
 	    case(top):{
 	      lb = tile;
 	      rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z};
@@ -288,109 +344,111 @@ int main(int argc, char* argv[]) {
 	    }
 
 	    if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt)){
-	      renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, wallType, blockH,redColor);
+	      renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, blockH,redColor);
 	    }else{
-	      renderWall(tile, GL_LINES, blockW, blockD, wallType, blockH,redColor);
+	      renderWall(tile, GL_LINES, blockW, blockD, side, blockH,redColor);
 	    };
+
+	    break;
 	  }
-	}
+	  default: break;
+	  }
+	  //	}
       }
     }
+  }
     
-    renderCube(e1.pos, e1.w, e1.h, e1.d,greenColor);
+  renderCube(e1.pos, e1.w, e1.h, e1.d,greenColor);
 
-    if(true)
-      {
-	glBegin(GL_LINES);
-
-	glColor3d(redColor);
-	glVertex3d(0.0, 0.0, 0.0);
-	glVertex3d(1.0, 0.0, 0.0);
-
-	glColor3d(greenColor);
-	glVertex3d(0.0, 0.0, 0.0);
-	glVertex3d(0.0, 1.0, 0.0);
-
-	glColor3d(blueColor);
-	glVertex3d(0.0, 0.0, 0.0);
-	glVertex3d(0.0, 0.0, 1.0);
-
-	glEnd();
-      }
-
-    // cursor world projection
+  if(true)
     {
-      vec3d start = {0};
-      vec3d end = {0};
-      
-      double matModelView[16], matProjection[16]; 
-      int viewport[4]; 
-      glGetDoublev( GL_MODELVIEW_MATRIX, matModelView ); 
-      glGetDoublev( GL_PROJECTION_MATRIX, matProjection ); 
-      glGetIntegerv( GL_VIEWPORT, viewport );
-
-      double winX = (double)mouse.screenPos.x; 
-      double winY = viewport[3] - (double)mouse.screenPos.y; 
-
-      gluUnProject(winX, winY, 0.0, matModelView, matProjection, 
-		   viewport, &start.x, &start.y, &start.z);
-
-      gluUnProject(winX, winY, 10.0, matModelView, matProjection, 
-		   viewport, &end.x, &end.y, &end.z);
-
-      mouse.start = vec3dToVec3(start);
-      mouse.end = vec3dToVec3(end);
-      
-      glBegin(GL_LINES);
-      glVertex3d(start.x, start.y, start.z);
-      glVertex3d(start.x,start.y+0.2f, start.z);
-      glEnd();      
-    }
-
-    // renderCursor
-    {
-      glMatrixMode(GL_PROJECTION);
-      glPushMatrix();
-      glLoadIdentity();
-      glOrtho(0, windowW, windowH, 0, -1, 1); // orthographic projection
-
       glBegin(GL_LINES);
 
-      float relWindowX = mouse.w * windowW;
-      float relWindowY = mouse.h * windowH;
-      
-      glVertex2f(mouse.screenPos.x - relWindowX, mouse.screenPos.y + relWindowY);
-      glVertex2f(mouse.screenPos.x + relWindowX, mouse.screenPos.y - relWindowY);
+      glColor3d(redColor);
+      glVertex3d(0.0, 0.0, 0.0);
+      glVertex3d(1.0, 0.0, 0.0);
 
-      glVertex2f(mouse.screenPos.x + relWindowX, mouse.screenPos.y + relWindowY);
-      glVertex2f(mouse.screenPos.x - relWindowX, mouse.screenPos.y - relWindowY);
+      glColor3d(greenColor);
+      glVertex3d(0.0, 0.0, 0.0);
+      glVertex3d(0.0, 1.0, 0.0);
+
+      glColor3d(blueColor);
+      glVertex3d(0.0, 0.0, 0.0);
+      glVertex3d(0.0, 0.0, 1.0);
 
       glEnd();
     }
 
-    
-    glFlush();
- 
-    SDL_GL_SwapWindow(window);
+  // cursor world projection
+  {
+    vec3d start = {0};
+    vec3d end = {0};
+      
+    double matModelView[16], matProjection[16]; 
+    int viewport[4]; 
+    glGetDoublev( GL_MODELVIEW_MATRIX, matModelView ); 
+    glGetDoublev( GL_PROJECTION_MATRIX, matProjection ); 
+    glGetIntegerv( GL_VIEWPORT, viewport );
 
-    Uint32 endtime = GetTickCount();
-    Uint32 deltatime = endtime - starttime;
+    double winX = (double)mouse.screenPos.x; 
+    double winY = viewport[3] - (double)mouse.screenPos.y; 
 
-    if (deltatime > (1000 / FPS)) {
-    } else {
-      Sleep((1000 / FPS) - deltatime);
-    }
+    gluUnProject(winX, winY, 0.0, matModelView, matProjection, 
+		 viewport, &start.x, &start.y, &start.z);
+
+    gluUnProject(winX, winY, 10.0, matModelView, matProjection, 
+		 viewport, &end.x, &end.y, &end.z);
+
+    mouse.start = vec3dToVec3(start);
+    mouse.end = vec3dToVec3(end);
+      
+    glBegin(GL_LINES);
+    glVertex3d(start.x, start.y, start.z);
+    glVertex3d(start.x,start.y+0.2f, start.z);
+    glEnd();      
   }
 
-  SDL_GL_DeleteContext(context);
-  SDL_DestroyWindow(window);
-  SDL_Quit();
+  // renderCursor
+  {
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, windowW, windowH, 0, -1, 1); // orthographic projection
 
-  return 0;
+    glBegin(GL_LINES);
+
+    float relWindowX = mouse.w * windowW;
+    float relWindowY = mouse.h * windowH;
+      
+    glVertex2f(mouse.screenPos.x - relWindowX, mouse.screenPos.y + relWindowY);
+    glVertex2f(mouse.screenPos.x + relWindowX, mouse.screenPos.y - relWindowY);
+
+    glVertex2f(mouse.screenPos.x + relWindowX, mouse.screenPos.y + relWindowY);
+    glVertex2f(mouse.screenPos.x - relWindowX, mouse.screenPos.y - relWindowY);
+
+    glEnd();
+  }
+
+    
+  glFlush();
+
+  mouse.click = false;
+  SDL_GL_SwapWindow(window);
+
+  Uint32 endtime = GetTickCount();
+  Uint32 deltatime = endtime - starttime;
+
+  if (deltatime > (1000 / FPS)) {
+  } else {
+    Sleep((1000 / FPS) - deltatime);
+  }
 }
 
-vec2 toIsoVec2(vec2 point){
-  return (vec2){ point.x - point.y, (point.x + point.y)/2 };
+SDL_GL_DeleteContext(context);
+SDL_DestroyWindow(window);
+SDL_Quit();
+
+return 0;
 }
 
 void renderWall(vec3 pos, GLenum mode , float blockW, float blockD, WallType wall, float wallH, float r, float g, float b){
@@ -439,11 +497,11 @@ void renderWall(vec3 pos, GLenum mode , float blockW, float blockD, WallType wal
     glVertex3d(pos.x, pos.y + wallH, pos.z + blockD);
     glVertex3d(pos.x,pos.y + wallH, pos.z);
 
-        glVertex3d(pos.x ,pos.y + wallH, pos.z+ blockD);
-        glVertex3d(pos.x,pos.y, pos.z + blockD);
+    glVertex3d(pos.x ,pos.y + wallH, pos.z+ blockD);
+    glVertex3d(pos.x,pos.y, pos.z + blockD);
 
-        glVertex3d(pos.x,pos.y + wallH, pos.z + blockD);
-        glVertex3d(pos.x ,pos.y, pos.z);
+    glVertex3d(pos.x,pos.y + wallH, pos.z + blockD);
+    glVertex3d(pos.x ,pos.y, pos.z);
   
     break;
   }
@@ -564,24 +622,24 @@ bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, cons
     t = tmin;
     res= true;
   }
-
+
   if(res)
-  printf("%f \n",t);
+    printf("%f \n",t);
 
   return res;
 }
 
 vec3 normalize(const vec3 vec) {
-    float vecLen = sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
-    vec3 norm = { 0 };
+  float vecLen = sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
+  vec3 norm = { 0 };
 
-    if (vecLen != 0.0f) {
-        norm.x = vec.x / vecLen;
-        norm.y = vec.y / vecLen;
-        norm.z = vec.z / vecLen;
-    }
+  if (vecLen != 0.0f) {
+    norm.x = vec.x / vecLen;
+    norm.y = vec.y / vecLen;
+    norm.z = vec.z / vecLen;
+  }
 
-    return norm;
+  return norm;
 }
 
 void renderTile(vec3 pos, float w, float d, float r, float g, float b){
@@ -601,4 +659,30 @@ void renderTile(vec3 pos, float w, float d, float r, float g, float b){
   glVertex3d(pos.x,pos.y, pos.z);
 
   glEnd();
+}
+
+void addObjToStore(Object* obj){
+  objsStoreSize++;
+  
+  if(objsStore == NULL){
+    objsStore = malloc(sizeof(Object*));
+  }else{
+    objsStore = realloc(objsStore, objsStoreSize * sizeof(Object*));
+  }
+
+  // to O(1) lookuping
+  obj->id = objsStoreSize-1;
+  objsStore[objsStoreSize-1] = obj;
+}
+
+void addObjToTile(Tile* tile, Object* obj){
+  tile->objsSize++;
+	    
+  if(!tile->objs){
+    tile->objs = malloc(sizeof(Object*));
+  }else{
+    tile->objs = realloc(tile->objs,tile->objsSize * sizeof(Object*));
+  }
+
+  tile->objs[tile->objsSize-1] = obj;
 }
