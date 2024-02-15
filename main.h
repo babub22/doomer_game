@@ -21,12 +21,16 @@ typedef struct {
   float w, h, d;
 } Entity;
 
+typedef struct{
+  int frames;
+} AnimTimer;
+
 typedef enum{
-  top = 0,
-  bot = 8,
-  right = 16,
-  left = 24,
-  sideCounter = 4,
+  top,
+  bot,
+  right ,
+  left ,
+  sideCounter,
 } WallSide;
 
 typedef enum{
@@ -38,7 +42,6 @@ typedef enum{
 
 typedef struct{
   bool opened;
-  WallType dir;
 } DoorInfo;
 
 typedef enum{
@@ -50,6 +53,8 @@ typedef struct{
   vec3 pos;
   ObjectType type;
   void* objInfo;
+
+  AnimTimer anim;
 } Object;
 
 typedef struct{
