@@ -28,10 +28,10 @@ typedef struct{
 typedef enum{
   top,
   bot,
-  right ,
-  left ,
+  right,
+  left,
   sideCounter,
-} WallSide;
+} Side;
 
 typedef enum{
   wallT=1,
@@ -58,26 +58,33 @@ typedef struct{
 } Object;
 
 typedef struct{
-  // maybe make walls contains types
-  // topDoor/topWall/topWindow
-  // it assumes that we can have
-  // only wall or door or window
-  int walls;  // top, bot, left, right
-
-  Object** objs; // on this tile
+  int walls;
+  Object** wallsData;
+  
+  Object** objs; // without walls objs
   size_t objsSize;
   
   int center;    
 } Tile;
 
 typedef struct{
+  // ray of cursor
   vec3 start;
   vec3 end;
 
   vec2 screenPos;
 
-  bool click; // in this frame
+  bool clickR;
+  bool clickL; // in this frame
 
+  // cur selected
+  Side tileSide;
+  Side wallSide;
+  
+  Tile* selectedTile;
+
+  WallType brush;
+  
   float w, h; // of cursor
 } Mouse;
 
@@ -89,11 +96,11 @@ void renderWall(vec3 pos, GLenum mode, float blockW, float blockD, WallType wall
 
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
 
-void renderTile(vec3 pos, float w, float d, float r, float g, float b);
+void renderTile(vec3 pos, GLenum mode, float w, float d, float r, float g, float b);
 
 vec3 normalize(const vec3 vec);
 
-bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, const vec3 rt);
+bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, const vec3 rt, vec3* posOfIntersection);
 
 void addObjToStore(Object* obj);
 
@@ -107,10 +114,12 @@ void addObjToStore(Object* obj);
 
 #define darkPurple 0.1f, 0.0f, 0.1f
 
-#define gridH 5
-#define gridW 6
+#define gridH 8
+#define gridW 8
 
 #define balkonH 1
 
 #define windowW 800
 #define windowH 600
+
+#define game "Doomer game"

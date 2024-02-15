@@ -130,10 +130,11 @@ int main(int argc, char* argv[]) {
 
 	    if(newSize==0){
 	      free(mouse.selectedTile->wallsData);
-	      mouse.selectedTile->wallsData = NULL;
-	    } else if(mouse.wallSide+1 > newSize) {
+		  mouse.selectedTile->wallsData = NULL;
+		} else if(mouse.wallSide+1 > newSize) {
 	      mouse.selectedTile->wallsData = realloc(mouse.selectedTile->wallsData, newSize * sizeof(Object*));
-	    }
+		}
+	    //}
 	  }
 	}
       }
@@ -273,12 +274,12 @@ int main(int argc, char* argv[]) {
 		  
 		  
 		  if(mouse.tileSide+1 > wallsSize) {
-		    if (!grid[z][x].wallsData) {
-		      grid[z][x].wallsData = malloc((mouse.tileSide + 1) * sizeof(Object*));
-		    }
-		    else {
-		      grid[z][x].wallsData = realloc(grid[z][x].wallsData, (mouse.tileSide + 1) * sizeof(Object*));
-		    }
+			  if (!grid[z][x].wallsData) {
+				  grid[z][x].wallsData = malloc((mouse.tileSide + 1) * sizeof(Object*));
+			  }
+			  else {
+				  grid[z][x].wallsData = realloc(grid[z][x].wallsData, (mouse.tileSide + 1) * sizeof(Object*));
+			  }
 		  }
 	      	      
 		  Object* newDoor = calloc(1,sizeof(Object));
@@ -354,8 +355,8 @@ int main(int argc, char* argv[]) {
 	    bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL);
 
 	    if(isIntersect){
-	      mouse.wallSide = side;
-	      mouse.selectedTile = &grid[z][x];
+			mouse.wallSide = side;
+			mouse.selectedTile = &grid[z][x];
 
 	      if(mouse.clickL && doorObj->anim.frames == 0){
 		doorInfo->opened = !doorInfo->opened;
