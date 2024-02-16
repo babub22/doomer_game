@@ -38,6 +38,7 @@ typedef enum{
   doorT,
   windowT,
   halfWallT,
+  wallTypeCounter
 } WallType;
 
 typedef struct{
@@ -116,8 +117,6 @@ void addObjToStore(Object* obj);
 
 #define gridH 8
 #define gridW 8
-
-#define balkonH 1
 
 #define windowW 800
 #define windowH 600

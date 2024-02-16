@@ -347,12 +347,12 @@ int main(int argc, char* argv[]) {
 
 	  switch(type){
 	  case(doorT):{
-	    // should i use doorObj->pos insteadOf tile.x/y/z&
 	    Object* doorObj = grid[z][x].wallsData[side];
 	    DoorInfo* doorInfo = (DoorInfo*) doorObj->objInfo;
 
+	    vec3 doorPos = {tile.x + doorXPad / 2,tile.y,tile.z};
+
 	    // lb/rt only to intersection checking
-	    vec3 doorPos = {0};
 	    vec3 lb = {0};
 	    vec3 rt = {0};
 
@@ -376,7 +376,7 @@ int main(int argc, char* argv[]) {
 	    case(bot):{
 	      if(doorInfo->opened){
 		lb = (vec3){tile.x + doorXPad/2,tile.y, tile.z + blockW};
-		rt = (vec3){lb.x, tile.y+doorH, lb.z + doorW};
+		rt = (vec3){lb.x, tile.y+doorH, tile.z + doorW};
 	      }else{
 		lb = (vec3){tile.x + doorXPad/2,tile.y, tile.z + blockW};
 		rt = (vec3){lb.x+doorW, tile.y+doorH, tile.z + blockW};
@@ -440,6 +440,7 @@ int main(int argc, char* argv[]) {
 	    }
 
 	    if(side == left || side == right){
+	      //	      doorPos.z += doorXPad/2;
 	      renderWall(doorPos, mode, blockD, doorW, side, doorH, blueColor);
 	    }else{
 	      renderWall(doorPos, mode, doorW, blockD, side, doorH, blueColor);
