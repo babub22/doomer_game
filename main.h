@@ -9,7 +9,7 @@ typedef struct {
 } vec3;
 
 typedef struct {
-	double x, y, z;
+  double x, y, z;
 } vec3d;
 
 typedef struct{
@@ -18,6 +18,9 @@ typedef struct{
 
 typedef struct {
   vec3 pos; // normal XY
+
+  float angle;
+  
   float w, h, d;
 } Entity;
 
@@ -51,7 +54,9 @@ typedef enum{
 
 typedef struct{
   int id;
+
   vec3 pos;
+  
   ObjectType type;
   void* objInfo;
 
@@ -78,9 +83,11 @@ typedef struct{
   bool clickR;
   bool clickL; // in this frame
 
-  // cur selected
   Side tileSide;
   Side wallSide;
+
+  vec3 intersection;
+  vec2 gridIntesec;
   
   Tile* selectedTile;
 

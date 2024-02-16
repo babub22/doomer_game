@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
 
   Tile** grid = malloc(sizeof(Tile*) * (gridH));
   
-  Mouse mouse = { .h = 0.005f, .w = 0.005f, .brush = 0 };
+  Mouse mouse = { .h = 0.005f, .w = 0.005f, .brush = 0, .end = {-1,-1}, .start = {-1,-1} };
   
   // init grid
   {
@@ -58,9 +58,9 @@ int main(int argc, char* argv[]) {
   }
 
   const float entityW = 0.1f / 2.0f;
-  const float entityD = 0.05f;
+  const float entityD = 0.025f / 2;
     
-  Entity e1 = { (vec3) { 0.1f + entityW / 2.0f, 0.0f + 0.1f, 0.1f + entityD / 2.0f }, 0.05f, 0.17f, 0.05f };
+  Entity player = { (vec3) { 0.3f,0.0f,0.3f }, 90.0f, entityW, 0.17f, entityD };
 
   float zoom = 1;
     
@@ -93,31 +93,31 @@ int main(int argc, char* argv[]) {
 
       if( currentKeyStates[ SDL_SCANCODE_UP ] )
 	{
-	  float dx = e1.pos.x;
-	  float dz = e1.pos.z - 0.1f;
+	  float dx = player.pos.x;
+	  float dz = player.pos.z - 0.1f;
 
-	  e1.pos.z = dz;
+	  player.pos.z = dz;
 	}
       else if( currentKeyStates[ SDL_SCANCODE_DOWN ] )
 	{
-	  float dx = e1.pos.x;
-	  float dz = e1.pos.z + 0.1f;
+	  float dx = player.pos.x;
+	  float dz = player.pos.z + 0.1f;
 
-	  e1.pos.z = dz;
+	  player.pos.z = dz;
 	}
       else if( currentKeyStates[ SDL_SCANCODE_LEFT ] )
 	{
-	  float dx = e1.pos.x - 0.1f ;
-	  float dz = e1.pos.z;
+	  float dx = player.pos.x - 0.1f ;
+	  float dz = player.pos.z;
 
-	  e1.pos.x = dx;
+	  player.pos.x = dx;
 	}
       else if( currentKeyStates[ SDL_SCANCODE_RIGHT ] )
 	{
-	  float dx = e1.pos.x + 0.1f;
-	  float dz = e1.pos.z;
+	  float dx = player.pos.x + 0.1f;
+	  float dz = player.pos.z;
 
-	  e1.pos.x = dx;
+	  player.pos.x = dx;
 	}
       else if(currentKeyStates[ SDL_SCANCODE_0 ]){
 	mouse.brush = 0;
@@ -161,10 +161,11 @@ int main(int argc, char* argv[]) {
     }
 
     mouse.selectedTile = NULL;
-    
+    mouse.gridIntesec = (vec2){-1,-1};
     mouse.wallSide = -1;
     mouse.tileSide = -1;
-	
+    mouse.intersection = (vec3){-1,-1};
+	    
     glClear(GL_COLOR_BUFFER_BIT);
 
     glMatrixMode(GL_PROJECTION);
@@ -195,6 +196,9 @@ int main(int argc, char* argv[]) {
 	
 	  if (rayIntersectsTriangle(mouse.start, mouse.end, lb, rt, &intersection)) {
 	    mouse.selectedTile = &grid[z][x];
+	    mouse.gridIntesec = (vec2){x,z};
+	    mouse.intersection = intersection;
+
 	    
 	    vec3 relIntersectionToTile = { intersection.x - tile.x, intersection.y - tile.y, intersection.z - tile.z };
 	    
@@ -423,7 +427,8 @@ int main(int argc, char* argv[]) {
 	    if(isIntersect){
 	      mouse.wallSide = side;
 	      mouse.selectedTile = &grid[z][x];
-
+	      mouse.gridIntesec = (vec2){x,z};
+	      
 	      if(mouse.clickL && doorObj->anim.frames == 0){
 		doorInfo->opened = !doorInfo->opened;
 	      }
@@ -483,7 +488,8 @@ int main(int argc, char* argv[]) {
 	    if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL)){
 	      mouse.wallSide = side;
 	      mouse.selectedTile = &grid[z][x];
-		
+	      mouse.gridIntesec = (vec2){x,z};
+	      
 	      renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, blockH,redColor);
 	    }else{
 	      renderWall(tile, GL_LINES, blockW, blockD, side, blockH,redColor);
@@ -522,7 +528,8 @@ int main(int argc, char* argv[]) {
 	    if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL)){
 	      mouse.wallSide = side;
 	      mouse.selectedTile = &grid[z][x];
-		
+	      mouse.gridIntesec = (vec2){x,z};
+	      
 	      renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, 0.05f,redColor);
 	    }else{
 	      renderWall(tile, GL_LINES, blockW, blockD, side, 0.05f,redColor);
@@ -545,8 +552,63 @@ int main(int argc, char* argv[]) {
 	obj->anim.frames--;
       }
     }
+
+    // render player
+    {
+      glPushMatrix();
+
+         if(mouse.intersection.x != -1 && mouse.intersection.z != -1){
+	player.angle = atan2(mouse.intersection.x - (player.pos.x + 0.1f/2), mouse.intersection.z - (player.pos.z + 0.1f/2)) * 180 / M_PI;
+	}
+
+      glTranslatef(player.pos.x,0.0f, player.pos.z);
+      glRotatef(player.angle, 0.0f, 1.0f, 0.0f);
+      glTranslatef(-player.pos.x, -player.pos.y, -player.pos.z);
+
+      const float headH = player.h / 6;
+      
+      const float trueW = player.pos.x + (player.w/3) * 2 - player.pos.x;
+      const float trueH = player.pos.z + headH/3 - player.pos.z;
+      
+      glTranslatef( -0.1f/2, 0.0f, -0.1f/2);
+      
+      // draw humanoid
+      {
+	vec3 centrPos = { player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f/2 + player.d/2};
+
+	// head
+	renderCube((vec3){ centrPos.x - headH/2, centrPos.y + player.h - headH, centrPos.z - headH/2 - player.d/2 }, headH, headH, headH, greenColor);
+
+	// body
+	renderCube((vec3){ centrPos.x - (player.w/3)/2, centrPos.y, centrPos.z - headH/2 }, player.w/3, player.h - headH, player.d ,greenColor);
+
+	const float armH = 0.08f;
+
+	// r arm
+	renderCube((vec3){ centrPos.x - ( (player.w/3)/2) * 3, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z - headH/2 }, player.w/3, armH , player.d ,greenColor);
+
+	// l arm
+	renderCube((vec3){ centrPos.x +  (player.w/3)/2, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z - headH/2 }, player.w/3, armH, player.d ,greenColor);
+      }
+
+      // draw arrow
+      {
+	glBegin(GL_LINES);
+
+	glVertex3f(player.pos.x + 0.1f/2, player.pos.y, player.pos.z);
+	glVertex3f(player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f);
+
+	glVertex3f(player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f);
+	glVertex3f(player.pos.x, player.pos.y, player.pos.z + 0.1f / 2);
+
+	glVertex3f(player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f);
+	glVertex3f(player.pos.x + 0.1f, player.pos.y, player.pos.z + 0.1f / 2);
+
+	glEnd();
+      }
     
-    renderCube(e1.pos, e1.w, e1.h, e1.d,greenColor);
+      glPopMatrix();
+    }
 
     if(true)
       {
@@ -599,7 +661,6 @@ int main(int argc, char* argv[]) {
     // renderCursor
     {
       glMatrixMode(GL_PROJECTION);
-      //glPushMatrix();
       glLoadIdentity();
       glOrtho(0, windowW, windowH, 0, -1, 1); // orthographic projection
 
