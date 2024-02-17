@@ -1,7 +1,7 @@
 #pragma once
 
 typedef struct {
-	float x, y;
+  float x, y;
 } vec2;
 
 typedef struct {
@@ -16,25 +16,46 @@ typedef struct{
   float x,y,w,h;
 } rect2;
 
-typedef struct {
-  vec3 pos; // normal XY
-
-  float angle;
-  
-  float w, h, d;
-} Entity;
-
 typedef struct{
-  int frames;
-} AnimTimer;
+  float x,y,z,w,h,d;
+} box;
 
 typedef enum{
   top,
   bot,
   right,
   left,
-  sideCounter,
+  basicSideCounter,
+  topLeft,
+  botLeft,
+  botRight,
+  rightTop,
+  sideCounter
 } Side;
+
+typedef struct{
+  vec3 min;
+    vec3 max;
+} AABB;
+
+typedef struct {
+  // use pos as min for AABB
+  vec3 pos; // normal XY
+
+  vec3 min; // normal XY
+  vec3 max;
+
+  float angle;
+  Side side;
+
+  
+  // vec3 colBox;
+  float w, h, d;
+} Entity;
+
+typedef struct{
+  int frames;
+} AnimTimer;
 
 typedef enum{
   wallT=1,
@@ -129,3 +150,6 @@ void addObjToStore(Object* obj);
 #define windowH 600
 
 #define game "Doomer game"
+
+#define speed 0.001f/2
+

@@ -23,26 +23,18 @@ int main(int argc, char* argv[]) {
   
   const float blockW =  0.1f;
   const float blockD =  0.1f;
-    const float blockH =  0.025f;
+  const float blockH =  0.2f;
 
-  const float doorXPad =  blockW / 4;
+  const float doorPad =  blockW / 4;
     
-  const float doorW =  blockW - doorXPad;
+  const float doorW =  blockW - doorPad;
 
   const float doorFrameH = 0.2f;
-  //const float doorH =  blockH * 0.85;
   const float doorH =  doorFrameH * 0.85;
 
-  float* heightOf = malloc(sizeof(float) * wallTypeCounter-1);
-
-  {
-    heightOf[wallT] = 0.025f;
-    heightOf[doorT] = 0.2f * 0.85;
-    heightOf[windowT] = 0.025f;
-    heightOf[halfWallT] = 0.05f;
-  }
-
   Tile** grid = malloc(sizeof(Tile*) * (gridH));
+
+  float INCREASER = 0;
   
   Mouse mouse = { .h = 0.005f, .w = 0.005f, .brush = 0, .end = {-1,-1}, .start = {-1,-1} };
   
@@ -56,11 +48,14 @@ int main(int argc, char* argv[]) {
       }
     }
   }
-
+  
+  const float entityH = 0.17f;
   const float entityW = 0.1f / 2.0f;
-  const float entityD = 0.025f / 2;
+  const float entityD = entityH / 6;
+
+  vec3 initPos = { 0.3f,0.0f,0.3f };
     
-  Entity player = { (vec3) { 0.3f,0.0f,0.3f }, 90.0f, entityW, 0.17f, entityD };
+  Entity player = { initPos,initPos, (vec3){initPos.x + entityW, initPos.y + entityH, initPos.z + entityD}, 180.0f, 0, entityW, entityH, entityD };
 
   float zoom = 1;
     
@@ -88,73 +83,153 @@ int main(int argc, char* argv[]) {
 	mouse.screenPos.x = event.motion.x;
 	mouse.screenPos.y = event.motion.y;
       }
+    }
 
-      const Uint8* currentKeyStates = SDL_GetKeyboardState( NULL );
+    const Uint8* currentKeyStates = SDL_GetKeyboardState( NULL );
 
-      if( currentKeyStates[ SDL_SCANCODE_UP ] )
-	{
-	  float dx = player.pos.x;
-	  float dz = player.pos.z - 0.1f;
+    if( currentKeyStates[ SDL_SCANCODE_W ] )
+      {
+	float dx = speed * sin(player.angle * M_PI / 180);  
+	float dz = speed * cos(player.angle * M_PI / 180); 
 
-	  player.pos.z = dz;
-	}
-      else if( currentKeyStates[ SDL_SCANCODE_DOWN ] )
-	{
-	  float dx = player.pos.x;
-	  float dz = player.pos.z + 0.1f;
+	vec3 colBox = { player.pos.x + player.w/2, player.pos.y, player.pos.z + 0.1f/2 - (player.d * 0.75f)/2 };
+	
+	vec3 playerLB = { colBox.x, colBox.y, colBox.z };
+	vec3 playerRT = { colBox.x + player.w, colBox.y + player.h, colBox.z + player.d };
 
-	  player.pos.z = dz;
-	}
-      else if( currentKeyStates[ SDL_SCANCODE_LEFT ] )
-	{
-	  float dx = player.pos.x - 0.1f ;
-	  float dz = player.pos.z;
+	vec2 tile = { (colBox.x + dx)/blockW, (colBox.z+dz)/blockD };
 
-	  player.pos.x = dx;
-	}
-      else if( currentKeyStates[ SDL_SCANCODE_RIGHT ] )
-	{
-	  float dx = player.pos.x + 0.1f;
-	  float dz = player.pos.z;
+	bool isIntersect = false;
 
-	  player.pos.x = dx;
-	}
-      else if(currentKeyStates[ SDL_SCANCODE_0 ]){
-	mouse.brush = 0;
-      }
-      else if(currentKeyStates[ SDL_SCANCODE_1 ]){
-	mouse.brush = wallT;
-      }
-      else if(currentKeyStates[ SDL_SCANCODE_2 ]){
-	mouse.brush = doorT;
-      }
-      else if(currentKeyStates[ SDL_SCANCODE_3 ]){
-	mouse.brush = halfWallT;
-      }
-      else if(currentKeyStates[ SDL_SCANCODE_4 ]){
-	// brush = windowT;
-      }
-      else if(currentKeyStates[ SDL_SCANCODE_DELETE ]){
-	if(mouse.wallSide != -1){
-	  WallType type = (mouse.selectedTile->walls >> (mouse.wallSide*8)) & 0xFF;
-	  mouse.selectedTile->walls &= ~(0xFF << (mouse.wallSide * 8));
-
-	  if(type == doorT){
-	    int newSize = 0;
+	for(int side=0;side<basicSideCounter;side++){
+	  WallType type = (grid[(int)tile.y][(int)tile.x].walls >> (side*8)) & 0xFF;
+	  vec3 pos = { (float)(int)tile.x * blockW, 0.0f,  (float)(int)tile.y * blockD };
+	  
+	  if(type == wallT){
+	    vec3 rt = {0};
+	    vec3 lb = {0};
 	    
-	    for(int side=sideCounter;side!=0;side--){
-	      if (((mouse.selectedTile->walls >> ((side-1) * 8)) & 0xFF) == doorT) {
-		newSize = side;
-		break;
-	      };
+	    switch(side){
+	    case(top):{
+	      lb = (vec3){pos.x, pos.y, pos.z};
+	      rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z};
+
+	      break;
+	    }
+	    case(bot):{
+	      lb = (vec3){pos.x, pos.y, pos.z + blockD};
+	      rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + blockD};
+
+	      break;
+	    }
+	    case(left):{
+	      lb = (vec3){pos.x, pos.y, pos.z};
+	      rt = (vec3){ pos.x, pos.y + blockH, pos.z + blockD };
+  
+	      break;
+	    }
+	    case(right):{
+	      lb = (vec3){ pos.x + blockW, pos.y, pos.z };
+	      rt = (vec3){ pos.x + blockW,pos.y + blockH, pos.z + blockD };
+
+	      break;
+	    }
+	    default: break;
 	    }
 
-	    if(newSize==0){
-	      free(mouse.selectedTile->wallsData);
-	      mouse.selectedTile->wallsData = NULL;
-	    } else if(mouse.wallSide+1 > newSize) {
-	      mouse.selectedTile->wallsData = realloc(mouse.selectedTile->wallsData, newSize * sizeof(Object*));
+	    if(playerLB.x <= rt.x &&
+	       playerRT.x >= lb.x &&
+	       playerLB.y <= rt.y &&
+	       playerRT.y >= lb.y &&
+	       playerLB.z <= rt.z &&
+	       playerRT.z >= lb.z){
+	      isIntersect = true;
+	      break;
 	    }
+
+
+	    if((lb.x <= playerRT.x && rt.x >= playerLB.x) &&
+	       (lb.y <= playerRT.y && rt.y >= playerLB.y) &&
+	       (lb.z <= playerRT.z && rt.z >= playerLB.z)){
+	    }
+	  }
+	}
+	
+	if(!isIntersect){
+	  player.pos.x += dx;  
+	  player.pos.z += dz;
+	}
+    
+      }
+    else if( currentKeyStates[ SDL_SCANCODE_S ] )
+      {
+	player.pos.x -= speed * sin(player.angle * M_PI / 180);  
+	player.pos.z -= speed * cos(player.angle * M_PI / 180); 
+      }
+    /*    else if( curentKeyStates[ SDL_SCANCODE_D ] )
+	  {
+	  float strafeAngle = player.angle;
+
+	  if(player.side == left || player.side == right || player.side == bot || player.side == top){
+	  strafeAngle += 90;
+	  }
+	
+	  player.pos.x += speed * sin(strafeAngle * M_PI / 180);
+	  player.pos.z -= speed * cos(strafeAngle * M_PI / 180);
+	  }
+	  else if( currentKeyStates[ SDL_SCANCODE_A ] )
+	  {
+	  float strafeAngle = player.angle;
+
+	  if(player.side == left || player.side == right || player.side == bot || player.side == top){
+	  strafeAngle += 90;
+	  }
+
+	  player.pos.x -= speed * sin(strafeAngle * M_PI / 180);
+	  player.pos.z += speed * cos(strafeAngle * M_PI / 180);
+
+	  }*/
+    else if(currentKeyStates[ SDL_SCANCODE_0 ]){
+      mouse.brush = 0;
+    }
+    else if(currentKeyStates[ SDL_SCANCODE_1 ]){
+      mouse.brush = wallT;
+    }
+    else if(currentKeyStates[ SDL_SCANCODE_2 ]){
+      mouse.brush = doorT;
+    }
+    else if(currentKeyStates[ SDL_SCANCODE_3 ]){
+      mouse.brush = halfWallT;
+    }
+    else if(currentKeyStates[SDL_SCANCODE_EQUALS]){
+		INCREASER += 0.01f;
+    }
+    else if(currentKeyStates[ SDL_SCANCODE_MINUS ]){
+		INCREASER -= 0.01f;
+    }
+    else if(currentKeyStates[ SDL_SCANCODE_4 ]){
+      // brush = windowT;
+    }
+    else if(currentKeyStates[ SDL_SCANCODE_DELETE ]){
+      if(mouse.wallSide != -1){
+	WallType type = (mouse.selectedTile->walls >> (mouse.wallSide*8)) & 0xFF;
+	mouse.selectedTile->walls &= ~(0xFF << (mouse.wallSide * 8));
+
+	if(type == doorT){
+	  int newSize = 0;
+	    
+	  for(int side=basicSideCounter;side!=0;side--){
+	    if (((mouse.selectedTile->walls >> ((side-1) * 8)) & 0xFF) == doorT) {
+	      newSize = side;
+	      break;
+	    };
+	  }
+
+	  if(newSize==0){
+	    free(mouse.selectedTile->wallsData);
+	    mouse.selectedTile->wallsData = NULL;
+	  } else if(mouse.wallSide+1 > newSize) {
+	    mouse.selectedTile->wallsData = realloc(mouse.selectedTile->wallsData, newSize * sizeof(Object*));
 	  }
 	}
       }
@@ -179,9 +254,29 @@ int main(int argc, char* argv[]) {
 	      0.0f,  1.0f,  0.0f);  /* which direction is up */
     glMatrixMode(GL_MODELVIEW);
     
+    // axises    
+    if(true)
+      {
+	glBegin(GL_LINES);
+
+	glColor3d(redColor);
+	glVertex3d(0.0, 0.0, 0.0);
+	glVertex3d(1.0, 0.0, 0.0);
+
+	glColor3d(greenColor);
+	glVertex3d(0.0, 0.0, 0.0);
+	glVertex3d(0.0, 1.0, 0.0);
+
+	glColor3d(blueColor);
+	glVertex3d(0.0, 0.0, 0.0);
+	glVertex3d(0.0, 0.0, 1.0);
+
+	glEnd();
+      }
+
     for (int z = 0; z < gridH; z++) {
       for (int x = 0; x < gridW; x++) {
-	vec3 tile = { (double)x / 10 , 0, (double)z / 10 };
+	vec3 tile = { (float)x / 10 , 0, (float)z / 10 };
 
 	if(!grid[z][x].center){
 	  continue;
@@ -249,10 +344,10 @@ int main(int argc, char* argv[]) {
 	      break;
 	    }
 	    case(doorT):{
-	      vec3 doorPos = {tile.x + doorXPad / 2,tile.y,tile.z };
+	      vec3 doorPos = {tile.x + doorPad / 2,tile.y,tile.z };
 	      
 	      if(mouse.tileSide == left || mouse.tileSide == right){
-		doorPos.z += doorXPad/2;
+		doorPos.z += doorPad/2;
 		renderWall(doorPos, GL_TRIANGLE_STRIP, blockD, doorW, mouse.tileSide, doorH, blueColor);
 	      }else{
 		renderWall(doorPos, GL_TRIANGLE_STRIP, doorW, blockD, mouse.tileSide, doorH, blueColor);
@@ -283,7 +378,7 @@ int main(int argc, char* argv[]) {
 		    if(type == doorT){
 		      int newSize = 0;
 	    
-		      for(int side=sideCounter;side!=0;side--){
+		      for(int side=basicSideCounter;side!=0;side--){
 			if (((mouse.selectedTile->walls >> ((side-1) * 8)) & 0xFF) == doorT) {
 			  newSize = side;
 			  break;
@@ -306,13 +401,14 @@ int main(int argc, char* argv[]) {
 
 		  // to get wallsSize can be optimized
 		  // to O(4) -> O(1) by using if's 
-		  for(int side=sideCounter;side!=0;side--){
-		    if ((grid[z][x].walls >> ((side-1) * 8)) & 0xFF) {
-		      wallsSize = side;
-		      break;
-		    };
+		  if(grid[z][x].walls !=0){
+		    for(int side=basicSideCounter;side!=0;side--){
+		      if (((grid[z][x].walls >> ((side-1) * 8)) & 0xFF) == doorT) {
+			wallsSize = side;
+			break;
+		      };
+		    }
 		  }
-		  
 		  
 		  if(mouse.tileSide+1 > wallsSize) {
 		    if (!grid[z][x].wallsData) {
@@ -346,201 +442,202 @@ int main(int argc, char* argv[]) {
 	}
 
 	// walls rendering
-	for(int side=0;side<sideCounter;side++){
-	  WallType type = (grid[z][x].walls >> (side*8)) & 0xFF;
+	if(grid[z][x].walls !=0)
+	  for(int side=0;side<basicSideCounter;side++){
+	    WallType type = (grid[z][x].walls >> (side*8)) & 0xFF;
 
-	  switch(type){
-	  case(doorT):{
-	    // should i use doorObj->pos insteadOf tile.x/y/z&
-	    Object* doorObj = grid[z][x].wallsData[side];
-	    DoorInfo* doorInfo = (DoorInfo*) doorObj->objInfo;
+	    switch(type){
+	    case(doorT):{
+	      // should i use doorObj->pos insteadOf tile.x/y/z&
+	      Object* doorObj = grid[z][x].wallsData[side];
+	      DoorInfo* doorInfo = (DoorInfo*) doorObj->objInfo;
 
-	    // lb/rt only to intersection checking
-	    vec3 doorPos = {0};
-	    vec3 lb = {0};
-	    vec3 rt = {0};
+	      // lb/rt only to intersection checking
+	      vec3 doorPos = {0};
+	      vec3 lb = {0};
+	      vec3 rt = {0};
 
-	    vec3 postRotationPos = { 0 };
+	      vec3 postRotationPos = { 0 };
 
-	    switch(side){
-	    case(top):{
-	      if(doorInfo->opened){
-		lb = (vec3){tile.x + doorXPad / 2 + doorW,tile.y,tile.z};
-		rt = (vec3){lb.x, tile.y+doorH, tile.z-doorW};
-	      }else{
-		lb = (vec3){tile.x + doorXPad / 2,tile.y,tile.z};
-		rt = (vec3){lb.x + doorW, tile.y+doorH, tile.z};
+	      switch(side){
+	      case(top):{
+		if(doorInfo->opened){
+		  lb = (vec3){tile.x + doorPad / 2 + doorW,tile.y,tile.z};
+		  rt = (vec3){lb.x, tile.y+doorH, tile.z-doorW};
+		}else{
+		  lb = (vec3){tile.x + doorPad / 2,tile.y,tile.z};
+		  rt = (vec3){lb.x + doorW, tile.y+doorH, tile.z};
+		}
+
+		doorPos = (vec3){tile.x + doorPad / 2,tile.y,tile.z};
+
+		postRotationPos = (vec3){0, 0, 0.1f -doorPad};
+		break;
+	      }
+	      case(bot):{
+		if(doorInfo->opened){
+		  lb = (vec3){tile.x + doorPad/2,tile.y, tile.z + blockW};
+		  rt = (vec3){lb.x, tile.y+doorH, lb.z + doorW};
+		}else{
+		  lb = (vec3){tile.x + doorPad/2,tile.y, tile.z + blockW};
+		  rt = (vec3){lb.x+doorW, tile.y+doorH, tile.z + blockW};
+		}
+	      
+		doorPos = (vec3){tile.x + doorPad / 2,tile.y,tile.z};
+	      
+		postRotationPos = (vec3){-0.2f+doorPad, 0, -0.1f};
+		break;
+	      }
+	      case(left):{
+		if(doorInfo->opened){
+		  lb = (vec3){tile.x, tile.y, tile.z + doorPad/2 + doorW};
+		  rt = (vec3){tile.x-doorW, tile.y+doorH, lb.z};
+		}else{
+		  lb = (vec3){tile.x, tile.y, tile.z + doorPad/2};
+		  rt = (vec3){tile.x, tile.y+doorH, lb.z + doorW};
+		}
+
+		doorPos = (vec3){tile.x,tile.y,tile.z + doorPad/2};
+	      
+		postRotationPos = (vec3){-0.1f+doorPad, 0, -0.1f+doorPad};
+		break;
+	      }
+	      case(right):{
+		if(doorInfo->opened){
+		  lb = (vec3){tile.x + blockW,tile.y, tile.z + doorPad/2};
+		  rt = (vec3){lb.x + doorW, tile.y+doorH, lb.z};
+		}else{
+		  lb = (vec3){tile.x + blockW,tile.y, tile.z + doorPad/2};
+		  rt = (vec3){tile.x + blockW, tile.y+doorH, lb.z + doorW};
+		}
+	      
+		doorPos = (vec3){tile.x,tile.y,tile.z + doorPad/2};
+	      
+		postRotationPos = (vec3){-0.1f, 0, 0.1f};
+		break;
+	      }
+	      default: break;
 	      }
 
-	      doorPos = (vec3){tile.x + doorXPad / 2,tile.y,tile.z};
+	      bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL);
 
-	      postRotationPos = (vec3){0, 0, 0.1f -doorXPad};
-	      break;
-	    }
-	    case(bot):{
-	      if(doorInfo->opened){
-		lb = (vec3){tile.x + doorXPad/2,tile.y, tile.z + blockW};
-		rt = (vec3){lb.x, tile.y+doorH, lb.z + doorW};
-	      }else{
-		lb = (vec3){tile.x + doorXPad/2,tile.y, tile.z + blockW};
-		rt = (vec3){lb.x+doorW, tile.y+doorH, tile.z + blockW};
-	      }
+	      if(isIntersect){
+		mouse.wallSide = side;
+		mouse.selectedTile = &grid[z][x];
+		mouse.gridIntesec = (vec2){x,z};
 	      
-	      doorPos = (vec3){tile.x + doorXPad / 2,tile.y,tile.z};
-	      
-	      postRotationPos = (vec3){-0.2f+doorXPad, 0, -0.1f};
-	      break;
-	    }
-	    case(left):{
-	      if(doorInfo->opened){
-		lb = (vec3){tile.x, tile.y, tile.z + doorXPad/2 + doorW};
-		rt = (vec3){tile.x-doorW, tile.y+doorH, lb.z};
-	      }else{
-		lb = (vec3){tile.x, tile.y, tile.z + doorXPad/2};
-		rt = (vec3){tile.x, tile.y+doorH, lb.z + doorW};
+		if(mouse.clickL && doorObj->anim.frames == 0){
+		  doorInfo->opened = !doorInfo->opened;
+		}
 	      }
 
-	      doorPos = (vec3){tile.x,tile.y,tile.z + doorXPad/2};
-	      
-	      postRotationPos = (vec3){-0.1f+doorXPad, 0, -0.1f+doorXPad};
-	      break;
-	    }
-	    case(right):{
-	      if(doorInfo->opened){
-		lb = (vec3){tile.x + blockW,tile.y, tile.z + doorXPad/2};
-		rt = (vec3){lb.x + doorW, tile.y+doorH, lb.z};
-	      }else{
-		lb = (vec3){tile.x + blockW,tile.y, tile.z + doorXPad/2};
-		rt = (vec3){tile.x + blockW, tile.y+doorH, lb.z + doorW};
-	      }
-	      
-	      doorPos = (vec3){tile.x,tile.y,tile.z + doorXPad/2};
-	      
-	      postRotationPos = (vec3){-0.1f, 0, 0.1f};
-	      break;
-	    }
-	    default: break;
-	    }
-
-	    bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL);
-
-	    if(isIntersect){
-	      mouse.wallSide = side;
-	      mouse.selectedTile = &grid[z][x];
-	      mouse.gridIntesec = (vec2){x,z};
-	      
-	      if(mouse.clickL && doorObj->anim.frames == 0){
-		doorInfo->opened = !doorInfo->opened;
-	      }
-	    }
-
-	    GLenum mode = isIntersect ? GL_TRIANGLE_STRIP : GL_LINES;
+	      GLenum mode = isIntersect ? GL_TRIANGLE_STRIP : GL_LINES;
 		
-	    if(doorInfo->opened){
-	      glPushMatrix();
-	      glTranslatef(doorPos.x, doorPos.y, doorPos.z);
-	      glRotatef(90, 0, 1, 0);
-	      glTranslatef(-doorPos.x, -doorPos.y, -doorPos.z);
-	      glTranslatef(postRotationPos.x,postRotationPos.y,postRotationPos.z);
+	      if(doorInfo->opened){
+		glPushMatrix();
+		glTranslatef(doorPos.x, doorPos.y, doorPos.z);
+		glRotatef(90, 0, 1, 0);
+		glTranslatef(-doorPos.x, -doorPos.y, -doorPos.z);
+		glTranslatef(postRotationPos.x,postRotationPos.y,postRotationPos.z);
+	      }
+
+	      if(side == left || side == right){
+		renderWall(doorPos, mode, blockD, doorW, side, doorH, blueColor);
+	      }else{
+		renderWall(doorPos, mode, doorW, blockD, side, doorH, blueColor);
+	      }
+
+	      if(doorInfo->opened){
+		glPopMatrix();
+		break;
+	      }
+
+	      break;
+	    }
+	    case(wallT):{
+	      vec3 lb = {0};
+	      vec3 rt = {0};
+
+	      switch(side){
+	      case(top):{
+		lb = tile;
+		rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z};
+		break;
+	      }
+	      case(bot):{
+		lb = (vec3){tile.x,tile.y, tile.z + blockD};
+		rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z + blockD};
+		break;
+	      }
+	      case(left):{
+		lb = (vec3){tile.x,tile.y, tile.z};
+		rt = (vec3){tile.x, tile.y+blockH, tile.z + blockD};
+		break;
+	      }
+	      case(right):{
+		lb = (vec3){tile.x + blockW,tile.y, tile.z};
+		rt = (vec3){tile.x+ blockW, tile.y+blockH, tile.z + blockD};
+		break;
+	      }
+	      default: break;
+	      }
+
+	      if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL)){
+		mouse.wallSide = side;
+		mouse.selectedTile = &grid[z][x];
+		mouse.gridIntesec = (vec2){x,z};
+	      
+		renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, blockH,redColor);
+	      }else{
+		renderWall(tile, GL_LINES, blockW, blockD, side, blockH,redColor);
+	      };
+
+	      break;
+	    }
+	    case(halfWallT):{
+	      vec3 lb = {0};
+	      vec3 rt = {0};
+
+	      switch(side){
+	      case(top):{
+		lb = tile;
+		rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z};
+		break;
+	      }
+	      case(bot):{
+		lb = (vec3){tile.x,tile.y, tile.z + blockD};
+		rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z + blockD};
+		break;
+	      }
+	      case(left):{
+		lb = (vec3){tile.x,tile.y, tile.z};
+		rt = (vec3){tile.x, tile.y+blockH, tile.z + blockD};
+		break;
+	      }
+	      case(right):{
+		lb = (vec3){tile.x + blockW,tile.y, tile.z};
+		rt = (vec3){tile.x+ blockW, tile.y+blockH, tile.z + blockD};
+		break;
+	      }
+	      default: break;
+	      }
+
+	      if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL)){
+		mouse.wallSide = side;
+		mouse.selectedTile = &grid[z][x];
+		mouse.gridIntesec = (vec2){x,z};
+	      
+		renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, 0.05f,redColor);
+	      }else{
+		renderWall(tile, GL_LINES, blockW, blockD, side, 0.05f,redColor);
+	      };
+
+	      break;
 	    }
 
-	    if(side == left || side == right){
-	      renderWall(doorPos, mode, blockD, doorW, side, doorH, blueColor);
-	    }else{
-	      renderWall(doorPos, mode, doorW, blockD, side, doorH, blueColor);
-	    }
-
-	    if(doorInfo->opened){
-	      glPopMatrix();
-	      break;
-	    }
-
-	    break;
-	  }
-	  case(wallT):{
-	    vec3 lb = {0};
-	    vec3 rt = {0};
-
-	    switch(side){
-	    case(top):{
-	      lb = tile;
-	      rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z};
-	      break;
-	    }
-	    case(bot):{
-	      lb = (vec3){tile.x,tile.y, tile.z + blockD};
-	      rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z + blockD};
-	      break;
-	    }
-	    case(left):{
-	      lb = (vec3){tile.x,tile.y, tile.z};
-	      rt = (vec3){tile.x, tile.y+blockH, tile.z + blockD};
-	      break;
-	    }
-	    case(right):{
-	      lb = (vec3){tile.x + blockW,tile.y, tile.z};
-	      rt = (vec3){tile.x+ blockW, tile.y+blockH, tile.z + blockD};
-	      break;
-	    }
 	    default: break;
 	    }
-
-	    if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL)){
-	      mouse.wallSide = side;
-	      mouse.selectedTile = &grid[z][x];
-	      mouse.gridIntesec = (vec2){x,z};
-	      
-	      renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, blockH,redColor);
-	    }else{
-	      renderWall(tile, GL_LINES, blockW, blockD, side, blockH,redColor);
-	    };
-
-	    break;
 	  }
-	  case(halfWallT):{
-	    vec3 lb = {0};
-	    vec3 rt = {0};
-
-	    switch(side){
-	    case(top):{
-	      lb = tile;
-	      rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z};
-	      break;
-	    }
-	    case(bot):{
-	      lb = (vec3){tile.x,tile.y, tile.z + blockD};
-	      rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z + blockD};
-	      break;
-	    }
-	    case(left):{
-	      lb = (vec3){tile.x,tile.y, tile.z};
-	      rt = (vec3){tile.x, tile.y+blockH, tile.z + blockD};
-	      break;
-	    }
-	    case(right):{
-	      lb = (vec3){tile.x + blockW,tile.y, tile.z};
-	      rt = (vec3){tile.x+ blockW, tile.y+blockH, tile.z + blockD};
-	      break;
-	    }
-	    default: break;
-	    }
-
-	    if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL)){
-	      mouse.wallSide = side;
-	      mouse.selectedTile = &grid[z][x];
-	      mouse.gridIntesec = (vec2){x,z};
-	      
-	      renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, 0.05f,redColor);
-	    }else{
-	      renderWall(tile, GL_LINES, blockW, blockD, side, 0.05f,redColor);
-	    };
-
-	    break;
-	  }
-
-	  default: break;
-	  }
-	}
       }
     }
 
@@ -552,83 +649,183 @@ int main(int argc, char* argv[]) {
 	obj->anim.frames--;
       }
     }
-
+    
     // render player
     {
-      glPushMatrix();
-
-         if(mouse.intersection.x != -1 && mouse.intersection.z != -1){
+      if(mouse.intersection.x != -1 && mouse.intersection.z != -1){
 	player.angle = atan2(mouse.intersection.x - (player.pos.x + 0.1f/2), mouse.intersection.z - (player.pos.z + 0.1f/2)) * 180 / M_PI;
-	}
+      }
 
-      glTranslatef(player.pos.x,0.0f, player.pos.z);
-      glRotatef(player.angle, 0.0f, 1.0f, 0.0f);
-      glTranslatef(-player.pos.x, -player.pos.y, -player.pos.z);
+      vec3 colBox = { player.pos.x + player.w/2, player.pos.y, player.pos.z + 0.1f/2 - (player.d * 0.75f)/2 };
 
       const float headH = player.h / 6;
       
       const float trueW = player.pos.x + (player.w/3) * 2 - player.pos.x;
       const float trueH = player.pos.z + headH/3 - player.pos.z;
-      
+
+      const float bodyD = player.d * 0.75f;
+
+      Side side = 0;
+      bool harder = true;
+
+#define middleAngle 45
+	  
+      if(player.angle<0){
+	float angle = abs(player.angle);
+	
+	if(angle > 180.0f/2){
+	  if(angle <= 120.0f){
+	    side = left;
+	  }else if(harder && angle > 90 + (90-middleAngle) / 2 && angle <= 90 + (90-middleAngle)/2 + middleAngle){
+	    side = topLeft;
+	  }else{
+	    side = top;
+	  }
+	}else{
+	  if(angle <= 30.0f){
+	    side = bot;
+	  }else if(harder && angle > 0 + (90-middleAngle) / 2 && angle <=  0 + (90-middleAngle)/2 + middleAngle){
+	    side = botLeft;
+	  }else{
+	    side = left;
+	  }
+	}
+      }else{
+	if(player.angle > 180.0f/2){
+	  if(player.angle <= 120.0f){
+	    side = right;
+	  }else if(harder && player.angle > 90 + (90-middleAngle) / 2 && player.angle <=  90 + (90-middleAngle)/2 + middleAngle){
+	    side = rightTop;
+	  }
+	  else{
+	    side = top;
+	  }
+	}else{
+	  if(player.angle <= 30.0f){
+	    side = bot;
+	  }
+	  else if(harder &&player.angle >  0 + (90-middleAngle) / 2 && player.angle <=  0 + (90-middleAngle)/2 + middleAngle){
+	    side = botRight;
+	  }
+	  else{
+	    side = right;
+	  }
+	}
+      }
+
+      player.side = side;
+
+      float modelview[16];
+
+      glPushMatrix();
+      glTranslatef(player.pos.x,0.0f, player.pos.z);
+      glRotatef(player.angle, 0.0f, 1.0f, 0.0f);
+      glTranslatef(-player.pos.x, -player.pos.y, -player.pos.z);
+
       glTranslatef( -0.1f/2, 0.0f, -0.1f/2);
+
+      glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
       
       // draw humanoid
       {
-	vec3 centrPos = { player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f/2 + player.d/2};
+	vec3 centrPos = { player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f/2 - bodyD/2};
 
 	// head
-	renderCube((vec3){ centrPos.x - headH/2, centrPos.y + player.h - headH, centrPos.z - headH/2 - player.d/2 }, headH, headH, headH, greenColor);
+	renderCube((vec3){ centrPos.x - headH/2, centrPos.y + player.h - headH, centrPos.z }, headH, headH, headH, greenColor);
 
 	// body
-	renderCube((vec3){ centrPos.x - (player.w/3)/2, centrPos.y, centrPos.z - headH/2 }, player.w/3, player.h - headH, player.d ,greenColor);
+	renderCube((vec3){ centrPos.x - (player.w/3)/2, centrPos.y, centrPos.z }, player.w/3, player.h - headH, bodyD ,greenColor);
 
 	const float armH = 0.08f;
 
 	// r arm
-	renderCube((vec3){ centrPos.x - ( (player.w/3)/2) * 3, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z - headH/2 }, player.w/3, armH , player.d ,greenColor);
+	renderCube((vec3){ centrPos.x - ( (player.w/3)/2) * 3, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z }, player.w/3, armH , bodyD ,greenColor);
 
 	// l arm
-	renderCube((vec3){ centrPos.x +  (player.w/3)/2, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z - headH/2 }, player.w/3, armH, player.d ,greenColor);
-      }
+	renderCube((vec3){ centrPos.x +  (player.w/3)/2, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z }, player.w/3, armH, bodyD ,greenColor);
 
-      // draw arrow
-      {
+	// collision box
+	vec3 colBox = { player.pos.x + player.w/2, player.pos.y, player.pos.z + 0.1f/2 - (player.d * 0.75f)/2 };
+
+	renderCube(colBox, player.w,player.h, player.d,redColor);
+	
+
+	glPopMatrix();
+
+	vec3 minP = player.min;
+	vec3 maxP = player.max;
+	
+	minP.x += -player.min.x;
+	minP.z += -player.min.z;
+
+	maxP.x += -player.max.x;
+	maxP.z += -player.max.z;
+	
+	float cosTheta = cos(player.angle * 3.14159265 / 180); // Convert degrees to radians
+	float sinTheta = sin(player.angle * 3.14159265 / 180);
+
+	minP.x = minP.x * cosTheta - minP.z * sinTheta;
+	minP.z = minP.x * sinTheta + minP.z * cosTheta;
+	
+	maxP.x = maxP.x * cosTheta - maxP.z * sinTheta;
+	maxP.z = maxP.x * sinTheta + maxP.z * cosTheta;
+
+	minP.x += player.min.x;
+	minP.z += player.min.z;
+
+	maxP.x += player.max.x;
+	maxP.z += player.max.z;
+
+	printf("Min: %f %f \n",minP.x,minP.z);
+	printf("Max: %f %f \n",maxP.x,maxP.z);
+
+	
+	//minP.x += -0.1f/2;
+	//minP.z += -0.1f/2;
+
+	
+	//maxP.x += -0.1f/2;
+	//	maxP.z += -0.1f/2;
+
+	maxP.x = max(minP.x, maxP.x) - player.w/2;
+	maxP.z = max(minP.z, maxP.z) - player.d/2;
+
+	minP.x = min(minP.x, maxP.x) - player.w/2;
+	minP.z = min(minP.z, maxP.z) - player.d/2;
+
+	
 	glBegin(GL_LINES);
+	glVertex3d(minP.x ,minP.y,minP.z);
+	glVertex3d(minP.x ,minP.y,maxP.z);
+	
+	glVertex3d(minP.x ,minP.y,minP.z);
+	glVertex3d(maxP.x,minP.y,minP.z );
 
-	glVertex3f(player.pos.x + 0.1f/2, player.pos.y, player.pos.z);
-	glVertex3f(player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f);
+	glVertex3d(maxP.x,minP.y,minP.z );
+	glVertex3d(maxP.x,minP.y,maxP.z );
 
-	glVertex3f(player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f);
-	glVertex3f(player.pos.x, player.pos.y, player.pos.z + 0.1f / 2);
-
-	glVertex3f(player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f);
-	glVertex3f(player.pos.x + 0.1f, player.pos.y, player.pos.z + 0.1f / 2);
-
-	glEnd();
-      }
-    
-      glPopMatrix();
-    }
-
-    if(true)
-      {
-	glBegin(GL_LINES);
-
-	glColor3d(redColor);
-	glVertex3d(0.0, 0.0, 0.0);
-	glVertex3d(1.0, 0.0, 0.0);
-
-	glColor3d(greenColor);
-	glVertex3d(0.0, 0.0, 0.0);
-	glVertex3d(0.0, 1.0, 0.0);
+	glVertex3d(minP.x,minP.y,maxP.z );
+	glVertex3d(maxP.x,minP.y,maxP.z );
 
 	glColor3d(blueColor);
-	glVertex3d(0.0, 0.0, 0.0);
-	glVertex3d(0.0, 0.0, 1.0);
+	glVertex3d(minP.x,minP.y,minP.z );
+	glVertex3d(minP.x,maxP.y,minP.z );
 
+	glColor3d(greenColor);
+	glVertex3d(maxP.x,minP.y,maxP.z );
+	glVertex3d(maxP.x,maxP.y,maxP.z );
+	
 	glEnd();
-      }
 
+	glBegin(GL_LINES);
+
+	glVertex3d(player.min.x, player.min.y, player.min.z);
+	glVertex3d(player.min.x, player.min.y, player.min.z);
+      
+	glEnd();
+
+      }
+    }
     // cursor world projection
     {
       vec3d start = {0};
@@ -668,7 +865,7 @@ int main(int argc, char* argv[]) {
 
       float relWindowX = mouse.w * windowW;
       float relWindowY = mouse.h * windowH;
-      
+
       glVertex2f(mouse.screenPos.x - relWindowX, mouse.screenPos.y + relWindowY);
       glVertex2f(mouse.screenPos.x + relWindowX, mouse.screenPos.y - relWindowY);
 
@@ -736,8 +933,8 @@ void renderWall(vec3 pos, GLenum mode , float blockW, float blockD, WallType wal
     glVertex3d(pos.x + blockW,pos.y, pos.z + blockD);
     glVertex3d(pos.x + blockW,pos.y + wallH, pos.z  + blockD);
 
-    glVertex3d(pos.x ,pos.y + wallH, pos.z + blockD);
     glVertex3d(pos.x + blockW,pos.y, pos.z  + blockD);
+    glVertex3d(pos.x ,pos.y + wallH, pos.z + blockD);
 
     glVertex3d(pos.x ,pos.y + wallH, pos.z + blockD);
     glVertex3d(pos.x + blockW,pos.y + wallH, pos.z + blockD);
@@ -745,13 +942,14 @@ void renderWall(vec3 pos, GLenum mode , float blockW, float blockD, WallType wal
     break;
   }
   case(left):{
-    glVertex3d(pos.x,pos.y + wallH, pos.z);
-    glVertex3d(pos.x, pos.y, pos.z);
-
-    //    glVertex3d(pos.x,pos.y, pos.z);
     glVertex3d(pos.x, pos.y + wallH, pos.z + blockD);
     glVertex3d(pos.x,pos.y + wallH, pos.z);
+    
+    glVertex3d(pos.x, pos.y, pos.z);
+    glVertex3d(pos.x,pos.y + wallH, pos.z);
 
+
+    //    glVertex3d(pos.x,pos.y, pos.z);
     glVertex3d(pos.x ,pos.y + wallH, pos.z+ blockD);
     glVertex3d(pos.x,pos.y, pos.z + blockD);
 
@@ -973,15 +1171,15 @@ glColor3d(redColor);
 // first plank of frame(left)
 glVertex3d(tile.x, tile.y, tile.z + blockD);
 glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + doorXPad/2, tile.y, tile.z + blockD);
+glVertex3d(tile.x + doorPad/2, tile.y, tile.z + blockD);
 
 glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + doorXPad/2, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + doorXPad/2, tile.y, tile.z + blockD);
+glVertex3d(tile.x + doorPad/2, tile.y + doorH, tile.z + blockD);
+glVertex3d(tile.x + doorPad/2, tile.y, tile.z + blockD);
 
 // top plank of frame
 glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + blockW + doorXPad/2, tile.y + doorFrameH, tile.z + blockD);
+glVertex3d(tile.x + blockW + doorPad/2, tile.y + doorFrameH, tile.z + blockD);
 glVertex3d(tile.x, tile.y + doorFrameH, tile.z + blockD);
 
 glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
@@ -989,13 +1187,13 @@ glVertex3d(tile.x + blockW, tile.y + doorFrameH, tile.z + blockD);
 glVertex3d(tile.x + blockW, tile.y + doorH, tile.z + blockD);
 
 // second plank of frame (right)
-glVertex3d(tile.x + doorW + doorXPad, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + doorW + doorXPad/2, tile.y, tile.z + blockD);
-glVertex3d(tile.x + doorW + doorXPad /2, tile.y + doorH, tile.z + blockD);
+glVertex3d(tile.x + doorW + doorPad, tile.y + doorH, tile.z + blockD);
+glVertex3d(tile.x + doorW + doorPad/2, tile.y, tile.z + blockD);
+glVertex3d(tile.x + doorW + doorPad /2, tile.y + doorH, tile.z + blockD);
 
-glVertex3d(tile.x + doorW + doorXPad/2, tile.y, tile.z + blockD);
-glVertex3d(tile.x + doorW + doorXPad, tile.y, tile.z + blockD);
-glVertex3d(tile.x + doorW + doorXPad, tile.y + doorH, tile.z + blockD);
+glVertex3d(tile.x + doorW + doorPad/2, tile.y, tile.z + blockD);
+glVertex3d(tile.x + doorW + doorPad, tile.y, tile.z + blockD);
+glVertex3d(tile.x + doorW + doorPad, tile.y + doorH, tile.z + blockD);
 	      
 glEnd();
 }
