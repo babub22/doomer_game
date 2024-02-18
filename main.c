@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
   const float entityD = entityH / 6;
 
   vec3 initPos = { 0.3f,0.0f,0.3f };
-    
+  
   Entity player = { initPos,initPos, (vec3){initPos.x + entityW, initPos.y + entityH, initPos.z + entityD}, 180.0f, 0, entityW, entityH, entityD };
 
   float zoom = 1;
@@ -92,15 +92,14 @@ int main(int argc, char* argv[]) {
 	float dx = speed * sin(player.angle * M_PI / 180);  
 	float dz = speed * cos(player.angle * M_PI / 180); 
 
-	vec3 colBox = { player.pos.x + player.w/2, player.pos.y, player.pos.z + 0.1f/2 - (player.d * 0.75f)/2 };
+	//	vec3 colBox = { player.max.x + player.w/2, player.max.y, player.max.z + 0.1f/2 - (player.d * 0.75f)/2 };
 	
-	vec3 playerLB = { colBox.x, colBox.y, colBox.z };
-	vec3 playerRT = { colBox.x + player.w, colBox.y + player.h, colBox.z + player.d };
-
-	vec2 tile = { (colBox.x + dx)/blockW, (colBox.z+dz)/blockD };
+	vec2 tile = { (player.max.x + dx)/blockW, (player.max.z+dz)/blockD };
 
 	bool isIntersect = false;
 
+	if (grid[(int)tile.y][(int)tile.x].walls != 0) {
+	
 	for(int side=0;side<basicSideCounter;side++){
 	  WallType type = (grid[(int)tile.y][(int)tile.x].walls >> (side*8)) & 0xFF;
 	  vec3 pos = { (float)(int)tile.x * blockW, 0.0f,  (float)(int)tile.y * blockD };
@@ -108,51 +107,50 @@ int main(int argc, char* argv[]) {
 	  if(type == wallT){
 	    vec3 rt = {0};
 	    vec3 lb = {0};
-	    
+
+	    const float wallD = 0.01f;
+
 	    switch(side){
 	    case(top):{
 	      lb = (vec3){pos.x, pos.y, pos.z};
-	      rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z};
+	      rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + wallD};
 
 	      break;
 	    }
 	    case(bot):{
 	      lb = (vec3){pos.x, pos.y, pos.z + blockD};
-	      rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + blockD};
+	      rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + blockD + wallD};
 
 	      break;
 	    }
 	    case(left):{
 	      lb = (vec3){pos.x, pos.y, pos.z};
-	      rt = (vec3){ pos.x, pos.y + blockH, pos.z + blockD };
+	      rt = (vec3){ pos.x + wallD, pos.y + blockH, pos.z + blockD };
   
 	      break;
 	    }
 	    case(right):{
 	      lb = (vec3){ pos.x + blockW, pos.y, pos.z };
-	      rt = (vec3){ pos.x + blockW,pos.y + blockH, pos.z + blockD };
+	      rt = (vec3){ pos.x + blockW + wallD,pos.y + blockH, pos.z + blockD }; 
 
 	      break;
 	    }
 	    default: break;
 	    }
-
-	    if(playerLB.x <= rt.x &&
-	       playerRT.x >= lb.x &&
-	       playerLB.y <= rt.y &&
-	       playerRT.y >= lb.y &&
-	       playerLB.z <= rt.z &&
-	       playerRT.z >= lb.z){
+		bool a = true;
+	    
+	    if(player.min.x + dx <= rt.x &&
+	       player.max.x + dx >= lb.x &&
+	       player.min.y <= rt.y &&
+	       player.max.y >= lb.y &&
+	       player.min.z + dz <= rt.z &&
+	       player.max.z + dz >= lb.z){
 	      isIntersect = true;
 	      break;
 	    }
 
-
-	    if((lb.x <= playerRT.x && rt.x >= playerLB.x) &&
-	       (lb.y <= playerRT.y && rt.y >= playerLB.y) &&
-	       (lb.z <= playerRT.z && rt.z >= playerLB.z)){
-	    }
 	  }
+	}
 	}
 	
 	if(!isIntersect){
@@ -359,7 +357,7 @@ int main(int argc, char* argv[]) {
 	      break;
 	    }
 	    case(halfWallT):{
-	      renderWall(tile, GL_LINES, blockW, blockD, mouse.tileSide, 0.05f,redColor);
+	      renderWall(tile, GL_LINES, blockW, blockD, mouse.tileSide, blockH * 0.4f,redColor);
 
 	      break;
 	    }
@@ -627,9 +625,9 @@ int main(int argc, char* argv[]) {
 		mouse.selectedTile = &grid[z][x];
 		mouse.gridIntesec = (vec2){x,z};
 	      
-		renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, 0.05f,redColor);
+		renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, blockH * 0.4f,redColor);
 	      }else{
-		renderWall(tile, GL_LINES, blockW, blockD, side, 0.05f,redColor);
+		renderWall(tile, GL_LINES, blockW, blockD, side, blockH * 0.4f,redColor);
 	      };
 
 	      break;
@@ -722,9 +720,9 @@ int main(int argc, char* argv[]) {
       glRotatef(player.angle, 0.0f, 1.0f, 0.0f);
       glTranslatef(-player.pos.x, -player.pos.y, -player.pos.z);
 
-      glTranslatef( -0.1f/2, 0.0f, -0.1f/2);
-
+      glTranslatef(-0.1f/2, 0.0f, -0.1f/2);
       glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+
       
       // draw humanoid
       {
@@ -746,82 +744,59 @@ int main(int argc, char* argv[]) {
 
 	// collision box
 	vec3 colBox = { player.pos.x + player.w/2, player.pos.y, player.pos.z + 0.1f/2 - (player.d * 0.75f)/2 };
-
-	renderCube(colBox, player.w,player.h, player.d,redColor);
 	
 
 	glPopMatrix();
 
-	vec3 minP = player.min;
-	vec3 maxP = player.max;
+	vec3 minPoint = (vec3){player.pos.x + player.w/2, player.pos.y, player.pos.z  + 0.1f/2 - (player.d * 0.75f)/2};
+	vec3 maxPoint = (vec3){player.pos.x + player.w/2 + player.w, player.pos.y + player.h, player.pos.z + player.d  + 0.1f/2 - (player.d * 0.75f)/2};
+
+	vec3 vert[8] = { minPoint, {minPoint.x + player.w, minPoint.y, minPoint.z},
+			 {minPoint.x, minPoint.y, minPoint.z + player.d},
+			 {minPoint.x + player.w, minPoint.y, minPoint.z + player.d}, maxPoint,
+			 {maxPoint.x - player.w, maxPoint.y, maxPoint.z},
+			 {maxPoint.x, maxPoint.y, maxPoint.z - player.d},
+			 {maxPoint.x - player.w, maxPoint.y, maxPoint.z - player.d}
+	};
+
+	player.min = (vec3){1000,1000,1000};
+	player.max = (vec3){0,0,0};
 	
-	minP.x += -player.min.x;
-	minP.z += -player.min.z;
+	for(int i=0; i<8;i++){
+	  vert[i] = matrixMultPoint(modelview, vert[i]);
+	    
+	  player.min.x = min(player.min.x, vert[i].x);
+	  player.min.y = min(player.min.y, vert[i].y);
+	  player.min.z = min(player.min.z, vert[i].z);
+	    
+	  player.max.x = max(player.max.x, vert[i].x);
+	  player.max.y = max(player.max.y, vert[i].y);
+	  player.max.z = max(player.max.z, vert[i].z);
+	}
 
-	maxP.x += -player.max.x;
-	maxP.z += -player.max.z;
-	
-	float cosTheta = cos(player.angle * 3.14159265 / 180); // Convert degrees to radians
-	float sinTheta = sin(player.angle * 3.14159265 / 180);
 
-	minP.x = minP.x * cosTheta - minP.z * sinTheta;
-	minP.z = minP.x * sinTheta + minP.z * cosTheta;
-	
-	maxP.x = maxP.x * cosTheta - maxP.z * sinTheta;
-	maxP.z = maxP.x * sinTheta + maxP.z * cosTheta;
-
-	minP.x += player.min.x;
-	minP.z += player.min.z;
-
-	maxP.x += player.max.x;
-	maxP.z += player.max.z;
-
-	printf("Min: %f %f \n",minP.x,minP.z);
-	printf("Max: %f %f \n",maxP.x,maxP.z);
-
-	
-	//minP.x += -0.1f/2;
-	//minP.z += -0.1f/2;
-
-	
-	//maxP.x += -0.1f/2;
-	//	maxP.z += -0.1f/2;
-
-	maxP.x = max(minP.x, maxP.x) - player.w/2;
-	maxP.z = max(minP.z, maxP.z) - player.d/2;
-
-	minP.x = min(minP.x, maxP.x) - player.w/2;
-	minP.z = min(minP.z, maxP.z) - player.d/2;
-
-	
 	glBegin(GL_LINES);
-	glVertex3d(minP.x ,minP.y,minP.z);
-	glVertex3d(minP.x ,minP.y,maxP.z);
+
+	glVertex3d(vert[0].x,vert[0].y,vert[0].z);
+	glVertex3d(vert[1].x,vert[1].y, vert[1].z);
+
+	glVertex3d(vert[1].x,vert[1].y,vert[1].z);
+	glVertex3d(vert[2].x,vert[2].y,vert[2].z);
+
+	glVertex3d(vert[0].x,vert[0].y,vert[0].z);
+	glVertex3d(vert[2].x,vert[2].y,vert[2].z);
 	
-	glVertex3d(minP.x ,minP.y,minP.z);
-	glVertex3d(maxP.x,minP.y,minP.z );
-
-	glVertex3d(maxP.x,minP.y,minP.z );
-	glVertex3d(maxP.x,minP.y,maxP.z );
-
-	glVertex3d(minP.x,minP.y,maxP.z );
-	glVertex3d(maxP.x,minP.y,maxP.z );
+	glVertex3d(vert[2].x,vert[2].y,vert[2].z);
+	glVertex3d(vert[3].x,vert[3].y,vert[3].z);
 
 	glColor3d(blueColor);
-	glVertex3d(minP.x,minP.y,minP.z );
-	glVertex3d(minP.x,maxP.y,minP.z );
+	glVertex3d(player.min.x,player.min.y,player.min.z );
+	glVertex3d(player.min.x,player.max.y,player.min.z );
 
 	glColor3d(greenColor);
-	glVertex3d(maxP.x,minP.y,maxP.z );
-	glVertex3d(maxP.x,maxP.y,maxP.z );
-	
-	glEnd();
+	glVertex3d(player.max.x,player.min.y,player.max.z );
+	glVertex3d(player.max.x,player.max.y,player.max.z );
 
-	glBegin(GL_LINES);
-
-	glVertex3d(player.min.x, player.min.y, player.min.z);
-	glVertex3d(player.min.x, player.min.y, player.min.z);
-      
 	glEnd();
 
       }
@@ -1158,6 +1133,17 @@ void addObjToTile(Tile* tile, Object* obj){
   tile->objs[tile->objsSize-1] = obj;
 }
 
+vec3 matrixMultPoint(const float matrix[16], vec3 point){
+  GLfloat p[4] = {point.x, point.y, point.z, 1.0f};
+  GLfloat res[4] = {0};
+  
+  res[0] = matrix[0]*p[0]+matrix[4]*p[1]+matrix[8]*p[2]+matrix[12]*p[3];
+  res[1] = matrix[1]*p[0]+matrix[5]*p[1]+matrix[9]*p[2]+matrix[13]*p[3];
+  res[2] = matrix[2]*p[0]+matrix[6]*p[1]+matrix[10]*p[2]+matrix[14]*p[3];
+  res[3] = matrix[3]*p[0]+matrix[7]*p[1]+matrix[11]*p[2]+matrix[15]*p[3];
+
+  return (vec3){ res[0], res[1], res[2] };
+}
 
 
 /*

@@ -35,7 +35,7 @@ typedef enum{
 
 typedef struct{
   vec3 min;
-    vec3 max;
+  vec3 max;
 } AABB;
 
 typedef struct {
@@ -133,6 +133,8 @@ bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, cons
 
 void addObjToStore(Object* obj);
 
+vec3 matrixMultPoint(const float matrix[16], vec3 point);
+
 #define FPS 60
 
 #define greenColor 0.0f, 1.0f, 0.0f
@@ -142,6 +144,9 @@ void addObjToStore(Object* obj);
 #define blueColor 0.0f, 0.0f, 1.0f
 
 #define darkPurple 0.1f, 0.0f, 0.1f
+
+#define cyan 0.0f, 1.0f, 1.0f
+#define white 1.0f, 1.0f, 1.0f 
 
 #define gridH 8
 #define gridW 8
