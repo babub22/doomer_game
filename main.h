@@ -81,6 +81,9 @@ typedef struct{
   ObjectType type;
   void* objInfo;
 
+  vec3 min;
+  vec3 max;
+
   AnimTimer anim;
 } Object;
 

@@ -32,19 +32,26 @@ int main(int argc, char* argv[]) {
   const float doorFrameH = 0.2f;
   const float doorH =  doorFrameH * 0.85;
 
-  Tile** grid = malloc(sizeof(Tile*) * (gridH));
+  int floor = 0;
+    
 
   float INCREASER = 0;
   
   Mouse mouse = { .h = 0.005f, .w = 0.005f, .brush = 0, .end = {-1,-1}, .start = {-1,-1} };
   
+  Tile*** grid = malloc(sizeof(Tile*) * (floor+1));
+  
   // init grid
   {
-    for(int z=0;z<gridH;z++){
-      grid[z] = calloc(gridW,sizeof(Tile));
+    for(int y=0;y<floor+1;y++){
+      grid[y] = malloc(sizeof(Tile*) * (gridH));
+    
+      for(int z=0;z<gridH;z++){
+	grid[y][z] = calloc(gridW,sizeof(Tile));
       
-      for(int x=0;x<gridW;x++){
-	grid[z][x].center = 1;
+	for(int x=0;x<gridW;x++){
+	  grid[y][z][x].center = 1;
+	}
       }
     }
   }
@@ -53,10 +60,10 @@ int main(int argc, char* argv[]) {
   const float entityW = 0.1f / 2.0f;
   const float entityD = entityH / 6;
 
-  vec3 initPos = { 0.3f,0.0f,0.3f };
+  vec3 initPos = { 0.3f + 0.1f/2, 0.0f, 0.3f + 0.1f/2 }; //+ 0.1f/2 - (entityD * 0.75f)/2 };
   
   Entity player = { initPos,initPos, (vec3){initPos.x + entityW, initPos.y + entityH, initPos.z + entityD}, 180.0f, 0, entityW, entityH, entityD };
-
+  
   float zoom = 1;
     
   bool quit = false;
@@ -98,59 +105,58 @@ int main(int argc, char* argv[]) {
 
 	bool isIntersect = false;
 
-	if (grid[(int)tile.y][(int)tile.x].walls != 0) {
-	
-	for(int side=0;side<basicSideCounter;side++){
-	  WallType type = (grid[(int)tile.y][(int)tile.x].walls >> (side*8)) & 0xFF;
-	  vec3 pos = { (float)(int)tile.x * blockW, 0.0f,  (float)(int)tile.y * blockD };
+	if (grid[floor][(int)tile.y][(int)tile.x].walls != 0) {	
+	  for(int side=0;side<basicSideCounter;side++){
+	    WallType type = (grid[floor][(int)tile.y][(int)tile.x].walls >> (side*8)) & 0xFF;
+	    vec3 pos = { (float)(int)tile.x * blockW, 0.0f,  (float)(int)tile.y * blockD };
 	  
-	  if(type == wallT){
-	    vec3 rt = {0};
-	    vec3 lb = {0};
+	    if(type == wallT){
+	      vec3 rt = {0};
+	      vec3 lb = {0};
 
-	    const float wallD = 0.01f;
+	      const float wallD = 0.01f;
 
-	    switch(side){
-	    case(top):{
-	      lb = (vec3){pos.x, pos.y, pos.z};
-	      rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + wallD};
+	      switch(side){
+	      case(top):{
+		lb = (vec3){pos.x, pos.y, pos.z};
+		rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + wallD};
 
-	      break;
-	    }
-	    case(bot):{
-	      lb = (vec3){pos.x, pos.y, pos.z + blockD};
-	      rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + blockD + wallD};
+		break;
+	      }
+	      case(bot):{
+		lb = (vec3){pos.x, pos.y, pos.z + blockD};
+		rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + blockD + wallD};
 
-	      break;
-	    }
-	    case(left):{
-	      lb = (vec3){pos.x, pos.y, pos.z};
-	      rt = (vec3){ pos.x + wallD, pos.y + blockH, pos.z + blockD };
+		break;
+	      }
+	      case(left):{
+		lb = (vec3){pos.x, pos.y, pos.z};
+		rt = (vec3){ pos.x + wallD, pos.y + blockH, pos.z + blockD };
   
-	      break;
-	    }
-	    case(right):{
-	      lb = (vec3){ pos.x + blockW, pos.y, pos.z };
-	      rt = (vec3){ pos.x + blockW + wallD,pos.y + blockH, pos.z + blockD }; 
+		break;
+	      }
+	      case(right):{
+		lb = (vec3){ pos.x + blockW, pos.y, pos.z };
+		rt = (vec3){ pos.x + blockW,pos.y + blockH, pos.z + blockD }; 
 
-	      break;
-	    }
-	    default: break;
-	    }
-		bool a = true;
+		break;
+	      }
+	      default: break;
+	      }
+	      bool a = true;
 	    
-	    if(player.min.x + dx <= rt.x &&
-	       player.max.x + dx >= lb.x &&
-	       player.min.y <= rt.y &&
-	       player.max.y >= lb.y &&
-	       player.min.z + dz <= rt.z &&
-	       player.max.z + dz >= lb.z){
-	      isIntersect = true;
-	      break;
-	    }
+	      if(player.min.x + dx <= rt.x &&
+		 player.max.x + dx >= lb.x &&
+		 player.min.y <= rt.y &&
+		 player.max.y >= lb.y &&
+		 player.min.z + dz <= rt.z &&
+		 player.max.z + dz >= lb.z){
+		isIntersect = true;
+		break;
+	      }
 
+	    }
 	  }
-	}
 	}
 	
 	if(!isIntersect){
@@ -200,10 +206,21 @@ int main(int argc, char* argv[]) {
       mouse.brush = halfWallT;
     }
     else if(currentKeyStates[SDL_SCANCODE_EQUALS]){
-		INCREASER += 0.01f;
+      floor++;
+
+      grid = realloc(grid, sizeof(Tile**) * (floor+1));
+      grid[floor] = malloc(sizeof(Tile*) * (gridH));
+      
+      for(int z=0;z<gridH;z++){
+	grid[floor][z] = calloc(gridW,sizeof(Tile));
+      
+	for(int x=0;x<gridW;x++){
+	  grid[floor][z][x].center = 1;
+	}
+      }
     }
     else if(currentKeyStates[ SDL_SCANCODE_MINUS ]){
-		INCREASER -= 0.01f;
+      floor--;
     }
     else if(currentKeyStates[ SDL_SCANCODE_4 ]){
       // brush = windowT;
@@ -272,11 +289,12 @@ int main(int argc, char* argv[]) {
 	glEnd();
       }
 
+    for (int y = 0; y < floor+1; y++) {
     for (int z = 0; z < gridH; z++) {
       for (int x = 0; x < gridW; x++) {
 	vec3 tile = { (float)x / 10 , 0, (float)z / 10 };
 
-	if(!grid[z][x].center){
+	if(!grid[y][z][x].center){
 	  continue;
 	}
 
@@ -288,10 +306,9 @@ int main(int argc, char* argv[]) {
 	  vec3 intersection = {0};
 	
 	  if (rayIntersectsTriangle(mouse.start, mouse.end, lb, rt, &intersection)) {
-	    mouse.selectedTile = &grid[z][x];
+	    mouse.selectedTile = &grid[y][z][x];
 	    mouse.gridIntesec = (vec2){x,z};
 	    mouse.intersection = intersection;
-
 	    
 	    vec3 relIntersectionToTile = { intersection.x - tile.x, intersection.y - tile.y, intersection.z - tile.z };
 	    
@@ -399,9 +416,9 @@ int main(int argc, char* argv[]) {
 
 		  // to get wallsSize can be optimized
 		  // to O(4) -> O(1) by using if's 
-		  if(grid[z][x].walls !=0){
+		  if(grid[y][z][x].walls !=0){
 		    for(int side=basicSideCounter;side!=0;side--){
-		      if (((grid[z][x].walls >> ((side-1) * 8)) & 0xFF) == doorT) {
+		      if (((grid[y][z][x].walls >> ((side-1) * 8)) & 0xFF) == doorT) {
 			wallsSize = side;
 			break;
 		      };
@@ -409,11 +426,11 @@ int main(int argc, char* argv[]) {
 		  }
 		  
 		  if(mouse.tileSide+1 > wallsSize) {
-		    if (!grid[z][x].wallsData) {
-		      grid[z][x].wallsData = malloc((mouse.tileSide + 1) * sizeof(Object*));
+		    if (!grid[y][z][x].wallsData) {
+		      grid[y][z][x].wallsData = malloc((mouse.tileSide + 1) * sizeof(Object*));
 		    }
 		    else {
-		      grid[z][x].wallsData = realloc(grid[z][x].wallsData, (mouse.tileSide + 1) * sizeof(Object*));
+		      grid[y][z][x].wallsData = realloc(grid[y][z][x].wallsData, (mouse.tileSide + 1) * sizeof(Object*));
 		    }
 		  }
 	      	      
@@ -425,29 +442,28 @@ int main(int argc, char* argv[]) {
 		  doorInfo->opened = false;
 		  
 		  newDoor->objInfo = doorInfo;
-		  grid[z][x].wallsData[mouse.tileSide] = newDoor;
+		  grid[y][z][x].wallsData[mouse.tileSide] = newDoor;
 		
 		  addObjToStore(newDoor);
 		}
 
-		
-		grid[z][x].walls |= (mouse.brush << mouse.tileSide*8);
+		grid[y][z][x].walls |= (mouse.brush << mouse.tileSide*8);
 	      }
 	    }
 	  }
-	  
+ 	  
 	  renderTile(tile, GL_LINES, blockW, 0.1f, darkPurple);
 	}
 
 	// walls rendering
-	if(grid[z][x].walls !=0)
+	if(grid[y][z][x].walls !=0)
 	  for(int side=0;side<basicSideCounter;side++){
-	    WallType type = (grid[z][x].walls >> (side*8)) & 0xFF;
+	    WallType type = (grid[y][z][x].walls >> (side*8)) & 0xFF;
 
 	    switch(type){
 	    case(doorT):{
 	      // should i use doorObj->pos insteadOf tile.x/y/z&
-	      Object* doorObj = grid[z][x].wallsData[side];
+	      Object* doorObj = grid[y][z][x].wallsData[side];
 	      DoorInfo* doorInfo = (DoorInfo*) doorObj->objInfo;
 
 	      // lb/rt only to intersection checking
@@ -521,7 +537,7 @@ int main(int argc, char* argv[]) {
 
 	      if(isIntersect){
 		mouse.wallSide = side;
-		mouse.selectedTile = &grid[z][x];
+		mouse.selectedTile = &grid[y][z][x];
 		mouse.gridIntesec = (vec2){x,z};
 	      
 		if(mouse.clickL && doorObj->anim.frames == 0){
@@ -582,7 +598,7 @@ int main(int argc, char* argv[]) {
 
 	      if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL)){
 		mouse.wallSide = side;
-		mouse.selectedTile = &grid[z][x];
+		mouse.selectedTile = &grid[y][z][x];
 		mouse.gridIntesec = (vec2){x,z};
 	      
 		renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, blockH,redColor);
@@ -622,7 +638,7 @@ int main(int argc, char* argv[]) {
 
 	      if(rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL)){
 		mouse.wallSide = side;
-		mouse.selectedTile = &grid[z][x];
+		mouse.selectedTile = &grid[y][z][x];
 		mouse.gridIntesec = (vec2){x,z};
 	      
 		renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, blockH * 0.4f,redColor);
@@ -638,7 +654,7 @@ int main(int argc, char* argv[]) {
 	  }
       }
     }
-
+  }
     // process logic of objs
     for(int i=0;i<objsStoreSize;i++){
       Object* obj = objsStore[i];
@@ -654,13 +670,7 @@ int main(int argc, char* argv[]) {
 	player.angle = atan2(mouse.intersection.x - (player.pos.x + 0.1f/2), mouse.intersection.z - (player.pos.z + 0.1f/2)) * 180 / M_PI;
       }
 
-      vec3 colBox = { player.pos.x + player.w/2, player.pos.y, player.pos.z + 0.1f/2 - (player.d * 0.75f)/2 };
-
       const float headH = player.h / 6;
-      
-      const float trueW = player.pos.x + (player.w/3) * 2 - player.pos.x;
-      const float trueH = player.pos.z + headH/3 - player.pos.z;
-
       const float bodyD = player.d * 0.75f;
 
       Side side = 0;
@@ -716,40 +726,37 @@ int main(int argc, char* argv[]) {
       float modelview[16];
 
       glPushMatrix();
-      glTranslatef(player.pos.x,0.0f, player.pos.z);
+      glTranslatef(player.pos.x,0.0f, player.pos.z + (entityD * 0.75f)/2);
       glRotatef(player.angle, 0.0f, 1.0f, 0.0f);
-      glTranslatef(-player.pos.x, -player.pos.y, -player.pos.z);
+      glTranslatef(-player.pos.x, -player.pos.y, -player.pos.z - (entityD * 0.75f)/2);
 
-      glTranslatef(-0.1f/2, 0.0f, -0.1f/2);
       glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
-
       
       // draw humanoid
       {
-	vec3 centrPos = { player.pos.x + 0.1f/2, player.pos.y, player.pos.z + 0.1f/2 - bodyD/2};
+	vec3 centrPos = { player.pos.x, player.pos.y, player.pos.z };
 
 	// head
-	renderCube((vec3){ centrPos.x - headH/2, centrPos.y + player.h - headH, centrPos.z }, headH, headH, headH, greenColor);
+	renderCube((vec3){ player.pos.x - headH/2, centrPos.y + player.h - headH, centrPos.z }, headH, headH, headH, greenColor);
 
 	// body
-	renderCube((vec3){ centrPos.x - (player.w/3)/2, centrPos.y, centrPos.z }, player.w/3, player.h - headH, bodyD ,greenColor);
+	renderCube((vec3){ player.pos.x - (player.w/3)/2, centrPos.y, centrPos.z }, player.w/3, player.h - headH, bodyD ,greenColor);
 
 	const float armH = 0.08f;
 
 	// r arm
-	renderCube((vec3){ centrPos.x - ( (player.w/3)/2) * 3, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z }, player.w/3, armH , bodyD ,greenColor);
+	renderCube((vec3){ player.pos.x - ( (player.w/3)/2) * 3, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z }, player.w/3, armH , bodyD ,greenColor);
 
 	// l arm
-	renderCube((vec3){ centrPos.x +  (player.w/3)/2, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z }, player.w/3, armH, bodyD ,greenColor);
-
-	// collision box
-	vec3 colBox = { player.pos.x + player.w/2, player.pos.y, player.pos.z + 0.1f/2 - (player.d * 0.75f)/2 };
-	
+	renderCube((vec3){ player.pos.x +  (player.w/3)/2, player.h + centrPos.y - armH - headH - 0.01f, centrPos.z }, player.w/3, armH, bodyD ,greenColor);
 
 	glPopMatrix();
+      }
 
-	vec3 minPoint = (vec3){player.pos.x + player.w/2, player.pos.y, player.pos.z  + 0.1f/2 - (player.d * 0.75f)/2};
-	vec3 maxPoint = (vec3){player.pos.x + player.w/2 + player.w, player.pos.y + player.h, player.pos.z + player.d  + 0.1f/2 - (player.d * 0.75f)/2};
+      // recalculate AABB
+      {
+	vec3 minPoint = (vec3){player.pos.x - player.w/2, player.pos.y, player.pos.z };
+	vec3 maxPoint = (vec3){player.pos.x - player.w/2 + player.w, player.pos.y + player.h, player.pos.z + player.d };
 
 	vec3 vert[8] = { minPoint, {minPoint.x + player.w, minPoint.y, minPoint.z},
 			 {minPoint.x, minPoint.y, minPoint.z + player.d},
@@ -759,8 +766,8 @@ int main(int argc, char* argv[]) {
 			 {maxPoint.x - player.w, maxPoint.y, maxPoint.z - player.d}
 	};
 
-	player.min = (vec3){1000,1000,1000};
-	player.max = (vec3){0,0,0};
+	player.min = vert[0];
+	player.max = vert[0];
 	
 	for(int i=0; i<8;i++){
 	  vert[i] = matrixMultPoint(modelview, vert[i]);
@@ -773,8 +780,7 @@ int main(int argc, char* argv[]) {
 	  player.max.y = max(player.max.y, vert[i].y);
 	  player.max.z = max(player.max.z, vert[i].z);
 	}
-
-
+	
 	glBegin(GL_LINES);
 
 	glVertex3d(vert[0].x,vert[0].y,vert[0].z);
