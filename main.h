@@ -168,6 +168,8 @@ void addObjToStore(Object* obj);
 
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
+Object* doorConstructor(vec3 pos, bool opened);
+
 #define FPS 60
 
 #define greenColor 0.0f, 1.0f, 0.0f
@@ -181,11 +183,25 @@ vec3 matrixMultPoint(const float matrix[16], vec3 point);
 #define cyan 0.0f, 1.0f, 1.0f
 #define white 1.0f, 1.0f, 1.0f 
 
-#define gridZ 30
-#define gridX 30
-#define gridY 12
-
 #define game "Doomer game"
 
 #define speed 0.001f/2
 
+
+/*
+
+        
+  fprintf(map,"%d %d %d \n", gridY, gridZ, gridX);
+      
+  for (int y = 0; y < gridY; y++) {
+  for (int z = 0; z < gridZ; z++) {
+  for (int x = 0; x < gridX; x++) {
+  fprintf(map,"%d,", grid[y][z][x].walls);
+  }
+  }
+	
+  fprintf(map,"\n");
+  }
+
+
+*/

@@ -53,6 +53,7 @@ int main(int argc, char* argv[]) {
   float dist = sqrt(1 / 3.0);
   Camera camera = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
   bool cameraMode = true;
+
   // set up camera
   {
     camera.dir = normalize((vec3){camera.pos.x - camera.target.x, camera.pos.y - camera.target.y , camera.pos.z - camera.target.z});
@@ -60,21 +61,78 @@ int main(int argc, char* argv[]) {
     camera.up = (vec3){ 0.0f, 1.0f, 0.0f };
     camera.front = (vec3){ -camera.pos.x, -camera.pos.y, -camera.pos.z };
   }
+
   
-  Tile*** grid = malloc(sizeof(Tile**) * (gridY));
+  int gridX = 30;
+  int gridY = 15;
+  int gridZ = 30;
   
-  // init grid
+  Tile*** grid = NULL;
+
+  // load or init grid
   {
-    for(int y=0;y<gridY;y++){
-      grid[y] = malloc(sizeof(Tile*) * (gridZ));
+    FILE *map = fopen("map.doomer","r");
+
+    if(map == NULL){
+      grid = malloc(sizeof(Tile**) * (gridY));
+  
+      {
+	for(int y=0;y<gridY;y++){
+	  grid[y] = malloc(sizeof(Tile*) * (gridZ));
     
-      for(int z=0;z<gridZ;z++){
-	grid[y][z] = calloc(gridX,sizeof(Tile));
+	  for(int z=0;z<gridZ;z++){
+	    grid[y][z] = calloc(gridX,sizeof(Tile));
       
-	for(int x=0;x<gridX;x++){
-	  grid[y][z][x].center = 1;
+	    for(int x=0;x<gridX;x++){
+	      grid[y][z][x].center = 1;
+	    }
+	  }
 	}
       }
+
+      printf("Map not found!\n");
+    }else{
+      fscanf(map,"%d %d %d \n", &gridY, &gridZ, &gridX);
+
+      grid = malloc(sizeof(Tile**) * (gridY));
+      
+      for (int y = 0; y < gridY; y++) {
+	grid[y] = malloc(sizeof(Tile*) * (gridZ));
+
+	for (int z = 0; z < gridZ; z++) {
+	  grid[y][z] = malloc(sizeof(Tile) * (gridX));
+	  
+	  for (int x = 0; x < gridX; x++) {
+	    fscanf(map,"%d",&grid[y][z][x].walls);
+	    grid[y][z][x].center = 1;
+
+	    if(grid[y][z][x].walls != 0){
+	      bool firstObj = false;
+	      
+	      for(int side=basicSideCounter;side!=0;side--){
+		if (((grid[y][z][x].walls >> ((side-1) * 8)) & 0xFF) == doorT) {
+		  // from end to start and first encouted obj
+		  // set len of array
+		  if(!firstObj){
+		    grid[y][z][x].wallsData = malloc(side * sizeof(Object*));
+		    firstObj = true;
+		  }
+		  
+		  Object* newDoor = doorConstructor((vec3){x,y,z}, false);
+		  grid[y][z][x].wallsData[side-1] = newDoor;
+		
+		  addObjToStore(newDoor);
+		};
+	      }
+	    }
+
+	    fgetc(map); // read ,
+	  }
+	}
+	fgetc(map); // read \n
+      }
+
+      printf("Map loaded! \n");
     }
   }
   
@@ -101,7 +159,6 @@ int main(int argc, char* argv[]) {
     lastFrame = currentFrame;
 
     cameraSpeed = 0.5f * deltaTime;
-
     
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -313,7 +370,7 @@ int main(int argc, char* argv[]) {
       mouse.brush = halfWallT;
     }
     else if(currentKeyStates[SDL_SCANCODE_P]){
-		testProsp = !testProsp;
+      testProsp = !testProsp;
     }
     else if(currentKeyStates[SDL_SCANCODE_EQUALS]){
       if(floor < gridY-1){
@@ -324,6 +381,25 @@ int main(int argc, char* argv[]) {
       if(floor != 0){
 	floor--;
       }
+    }
+    else if(currentKeyStates[SDL_SCANCODE_F5]){
+      FILE *map = fopen("map.doomer", "w");
+      
+      fprintf(map,"%d %d %d \n", gridY, gridZ, gridX);
+      
+      for (int y = 0; y < gridY; y++) {
+	for (int z = 0; z < gridZ; z++) {
+	  for (int x = 0; x < gridX; x++) {
+	    fprintf(map,"%d,", grid[y][z][x].walls);
+	  }
+	}
+	
+	fprintf(map,"\n");
+      }
+
+      printf("Map saved!\n");
+      
+      fclose(map);
     }
     else if(currentKeyStates[ SDL_SCANCODE_4 ]){
       // 2.5fh = windowT;
@@ -401,173 +477,167 @@ int main(int argc, char* argv[]) {
 	glEnd();
       }
 
-      for (int z = 0; z < gridZ; z++) {
-	for (int x = 0; x < gridX; x++) {
-	  // building only on current floor
-	  vec3 tile = { (float)x / 10, (float) floor * blockH, (float)z / 10 };
+    for (int z = 0; z < gridZ; z++) {
+      for (int x = 0; x < gridX; x++) {
+	// building only on current floor
+	vec3 tile = { (float)x / 10, (float) floor * blockH, (float)z / 10 };
 
-	  if(!grid[floor][z][x].center){
-	    continue;
-	  }
+	if(!grid[floor][z][x].center){
+	  continue;
+	}
 
-	  // tile things
-	  {
-	    const vec3 rt = { tile.x+ 0.1f + INCREASER, tile.y, tile.z +  0.1f + INCREASER };
-	    const vec3 lb = { tile.x, tile.y, tile.z };
+	// tile things
+	{
+	  const vec3 rt = { tile.x+ 0.1f + INCREASER, tile.y, tile.z +  0.1f + INCREASER };
+	  const vec3 lb = { tile.x, tile.y, tile.z };
 
-	    vec3 intersection = {0};
+	  vec3 intersection = {0};
 	
-	    if (rayIntersectsTriangle(mouse.start, mouse.end, lb, rt, &intersection)) {
-	      mouse.selectedTile = &grid[floor][z][x];
-	      mouse.gridIntesec = (vec2){x,z};
-	      mouse.intersection = intersection;
+	  if (rayIntersectsTriangle(mouse.start, mouse.end, lb, rt, &intersection)) {
+	    mouse.selectedTile = &grid[floor][z][x];
+	    mouse.gridIntesec = (vec2){x,z};
+	    mouse.intersection = intersection;
 	    
-	      vec3 relIntersectionToTile = { intersection.x - tile.x, intersection.y - tile.y, intersection.z - tile.z };
+	    vec3 relIntersectionToTile = { intersection.x - tile.x, intersection.y - tile.y, intersection.z - tile.z };
 	    
-	      if(relIntersectionToTile.x < blockW/4){
-		mouse.tileSide = left;
-	      }else if(relIntersectionToTile.x > (blockW/4)*3){
-		mouse.tileSide = right;
+	    if(relIntersectionToTile.x < blockW/4){
+	      mouse.tileSide = left;
+	    }else if(relIntersectionToTile.x > (blockW/4)*3){
+	      mouse.tileSide = right;
+	    }else{
+	      if(relIntersectionToTile.z < blockD/4){
+		mouse.tileSide = top;
+	      }
+	      else if(relIntersectionToTile.z > (blockD/4) * 3){
+		mouse.tileSide = bot;
 	      }else{
-		if(relIntersectionToTile.z < blockD/4){
-		  mouse.tileSide = top;
-		}
-		else if(relIntersectionToTile.z > (blockD/4) * 3){
-		  mouse.tileSide = bot;
-		}else{
-		  mouse.tileSide = -1;
-		}
+		mouse.tileSide = -1;
 	      }
+	    }
 
-	      switch(mouse.tileSide){
-	      case(top):{
-		renderTile((vec3){tile.x + blockW/4, tile.y, tile.z}, GL_TRIANGLE_STRIP, blockW/4 *2, blockD/4, darkPurple);
+	    switch(mouse.tileSide){
+	    case(top):{
+	      renderTile((vec3){tile.x + blockW/4, tile.y, tile.z}, GL_TRIANGLE_STRIP, blockW/4 *2, blockD/4, darkPurple);
 
-		break;
-	      }
-	      case(bot):{
-		renderTile((vec3){tile.x + blockW/4, tile.y, tile.z + (blockD/4)*3}, GL_TRIANGLE_STRIP, blockW/4 *2, blockD/4, darkPurple);
+	      break;
+	    }
+	    case(bot):{
+	      renderTile((vec3){tile.x + blockW/4, tile.y, tile.z + (blockD/4)*3}, GL_TRIANGLE_STRIP, blockW/4 *2, blockD/4, darkPurple);
 	      
-		break;
-	      }
-	      case(right):{
-		renderTile((vec3){tile.x+(blockW/4) * 3, tile.y, tile.z + (blockD/4)}, GL_TRIANGLE_STRIP, blockW/4, blockD/4 * 2, darkPurple);
+	      break;
+	    }
+	    case(right):{
+	      renderTile((vec3){tile.x+(blockW/4) * 3, tile.y, tile.z + (blockD/4)}, GL_TRIANGLE_STRIP, blockW/4, blockD/4 * 2, darkPurple);
 	      
-		break;
-	      }
-	      case(left):{
-		renderTile((vec3){tile.x, tile.y, tile.z + (blockD/4)},GL_TRIANGLE_STRIP , blockW/4, blockD/4 * 2, darkPurple);
+	      break;
+	    }
+	    case(left):{
+	      renderTile((vec3){tile.x, tile.y, tile.z + (blockD/4)},GL_TRIANGLE_STRIP , blockW/4, blockD/4 * 2, darkPurple);
 
-		break;
-	      }
-	      default: break;
-	      }
+	      break;
+	    }
+	    default: break;
+	    }
 
-	      // render brush phantom
-	      switch(mouse.brush){
-	      case(wallT):{
-		renderWall(tile, GL_LINES, blockW, blockD, mouse.tileSide, blockH,redColor);
+	    // render brush phantom
+	    switch(mouse.brush){
+	    case(wallT):{
+	      renderWall(tile, GL_LINES, blockW, blockD, mouse.tileSide, blockH,redColor);
 	    
-		break;
-	      }
-	      case(doorT):{
-		vec3 doorPos = {tile.x + doorPad / 2,tile.y,tile.z };
+	      break;
+	    }
+	    case(doorT):{
+	      vec3 doorPos = {tile.x + doorPad / 2,tile.y,tile.z };
 	      
-		if(mouse.tileSide == left || mouse.tileSide == right){
-		  doorPos.z += doorPad/2;
-		  renderWall(doorPos, GL_TRIANGLE_STRIP, blockD, doorW, mouse.tileSide, doorH, blueColor);
-		}else{
-		  renderWall(doorPos, GL_TRIANGLE_STRIP, doorW, blockD, mouse.tileSide, doorH, blueColor);
-		}
+	      if(mouse.tileSide == left || mouse.tileSide == right){
+		doorPos.z += doorPad/2;
+		renderWall(doorPos, GL_TRIANGLE_STRIP, blockD, doorW, mouse.tileSide, doorH, blueColor);
+	      }else{
+		renderWall(doorPos, GL_TRIANGLE_STRIP, doorW, blockD, mouse.tileSide, doorH, blueColor);
+	      }
 	       
-		break;
-	      }
-	      case(windowT):{
-		break;
-	      }
-	      case(halfWallT):{
-		renderWall(tile, GL_LINES, blockW, blockD, mouse.tileSide, blockH * 0.4f,redColor);
+	      break;
+	    }
+	    case(windowT):{
+	      break;
+	    }
+	    case(halfWallT):{
+	      renderWall(tile, GL_LINES, blockW, blockD, mouse.tileSide, blockH * 0.4f,redColor);
 
-		break;
-	      }
-	      default: break;//assert(0 && "Unsuported brush type");
-	      }
+	      break;
+	    }
+	    default: break;//assert(0 && "Unsuported brush type");
+	    }
 
-	      if(mouse.tileSide != -1){
-		if(mouse.clickR){
-		  // delete if something exist on this place
-		  {
-		    WallType type = (mouse.selectedTile->walls >> (mouse.tileSide*8)) & 0xFF;
+	    if(mouse.tileSide != -1){
+	      if(mouse.clickR){
+		// delete if something exist on this place
+		{
+		  WallType type = (mouse.selectedTile->walls >> (mouse.tileSide*8)) & 0xFF;
 
-		    if(type){
-		      mouse.selectedTile->walls &= ~(0xFF << (mouse.tileSide * 8));
+		  if(type){
+		    mouse.selectedTile->walls &= ~(0xFF << (mouse.tileSide * 8));
 
-		      if(type == doorT){
-			int newSize = 0;
+		    if(type == doorT){
+		      int newSize = 0;
 	    
-			for(int side=basicSideCounter;side!=0;side--){
-			  if (((mouse.selectedTile->walls >> ((side-1) * 8)) & 0xFF) == doorT) {
-			    newSize = side;
-			    break;
-			  };
-			}
-
-			if(newSize==0){
-			  free(mouse.selectedTile->wallsData);
-			  mouse.selectedTile->wallsData = NULL;
-			} else if(mouse.tileSide+1 > newSize) {
-			  mouse.selectedTile->wallsData = realloc(mouse.selectedTile->wallsData, newSize * sizeof(Object*));
-			}
-		      }
-		    }
-		  }
-	      
-
-		  if(mouse.brush == doorT){
-		    int wallsSize = 0;
-
-		    // to get wallsSize can be optimized
-		    // to O(4) -> O(1) by using if's 
-		    if(grid[floor][z][x].walls !=0){
 		      for(int side=basicSideCounter;side!=0;side--){
-			if (((grid[floor][z][x].walls >> ((side-1) * 8)) & 0xFF) == doorT) {
-			  wallsSize = side;
+			if (((mouse.selectedTile->walls >> ((side-1) * 8)) & 0xFF) == doorT) {
+			  newSize = side;
 			  break;
 			};
 		      }
-		    }
-		  
-		    if(mouse.tileSide+1 > wallsSize) {
-		      if (!grid[floor][z][x].wallsData) {
-			grid[floor][z][x].wallsData = malloc((mouse.tileSide + 1) * sizeof(Object*));
-		      }
-		      else {
-			grid[floor][z][x].wallsData = realloc(grid[floor][z][x].wallsData, (mouse.tileSide + 1) * sizeof(Object*));
-		      }
-		    }
-	      	      
-		    Object* newDoor = calloc(1,sizeof(Object));
-		    newDoor->pos = (vec3){x,floor,z};
-		    newDoor->type = doorObj;
-	    
-		    DoorInfo* doorInfo = malloc(sizeof(DoorInfo));
-		    doorInfo->opened = false;
-		  
-		    newDoor->objInfo = doorInfo;
-		    grid[floor][z][x].wallsData[mouse.tileSide] = newDoor;
-		
-		    addObjToStore(newDoor);
-		  }
 
-		  grid[floor][z][x].walls |= (mouse.brush << mouse.tileSide*8);
+		      if(newSize==0){
+			free(mouse.selectedTile->wallsData);
+			mouse.selectedTile->wallsData = NULL;
+		      } else if(mouse.tileSide+1 > newSize) {
+			mouse.selectedTile->wallsData = realloc(mouse.selectedTile->wallsData, newSize * sizeof(Object*));
+		      }
+		    }
+		  }
 		}
+	      
+
+		if(mouse.brush == doorT){
+		  int wallsSize = 0;
+
+		  // to get wallsSize can be optimized
+		  // to O(4) -> O(1) by using if's 
+		  if(grid[floor][z][x].walls !=0){
+		    for(int side=basicSideCounter;side!=0;side--){
+		      if (((grid[floor][z][x].walls >> ((side-1) * 8)) & 0xFF) == doorT) {
+			wallsSize = side;
+			break;
+		      };
+		    }
+		  }
+		  
+		  if(mouse.tileSide+1 > wallsSize) {
+		    if (!grid[floor][z][x].wallsData) {
+		      grid[floor][z][x].wallsData = malloc((mouse.tileSide + 1) * sizeof(Object*));
+		    }
+		    else {
+		      grid[floor][z][x].wallsData = realloc(grid[floor][z][x].wallsData, (mouse.tileSide + 1) * sizeof(Object*));
+		    }
+		  }
+	      	      
+		  Object* newDoor = doorConstructor((vec3){x,floor,z}, false);
+		  
+		  grid[floor][z][x].wallsData[mouse.tileSide] = newDoor;
+		
+		  addObjToStore(newDoor);
+		}
+
+		grid[floor][z][x].walls |= (mouse.brush << mouse.tileSide*8);
 	      }
 	    }
- 	  
-	    renderTile(tile, GL_LINES, blockW, 0.1f, darkPurple);
 	  }
+ 	  
+	  renderTile(tile, GL_LINES, blockW, 0.1f, darkPurple);
+	}
 
-    for (int y = 0; y < gridY; y++) {
+	for (int y = 0; y < gridY; y++) {
 	  vec3 tile = { (float)x / 10, (float) y * blockH, (float)z / 10 };
 	  // walls rendering
 	  if(grid[y][z][x].walls !=0)
@@ -923,7 +993,7 @@ int main(int argc, char* argv[]) {
     }
 
 
-        // cursor world projection
+    // cursor world projection
     {
       vec3d start = {0};
       vec3d end = {0};
@@ -953,7 +1023,7 @@ int main(int argc, char* argv[]) {
       glVertex3d(start.x,start.y+0.2f, start.z);
       glEnd();      
     }
-    printf("Start: %f %f %f \n End: %f %f %f \n",mouse.start.x, mouse.start.y, mouse.start.z,mouse.end.x, mouse.end.y, mouse.end.z);
+    //printf("Start: %f %f %f \n End: %f %f %f \n",mouse.start.x, mouse.start.y, mouse.start.z,mouse.end.x, mouse.end.y, mouse.end.z);
 		
     // renderCursor
     {
@@ -1418,6 +1488,19 @@ bool gluInvertMatrix(const double m[16], double invOut[16])
     invOut[i] = inv[i] * det;
 
   return true;
+}
+
+Object* doorConstructor(vec3 pos, bool opened){
+  Object* newDoor = calloc(1,sizeof(Object));
+  newDoor->pos = pos;
+  newDoor->type = doorObj;
+	    
+  DoorInfo* doorInfo = malloc(sizeof(DoorInfo));
+  doorInfo->opened = opened;
+		  
+  newDoor->objInfo = doorInfo;
+
+  return newDoor;
 }
 
 /*
