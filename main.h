@@ -181,8 +181,9 @@ vec3 matrixMultPoint(const float matrix[16], vec3 point);
 #define cyan 0.0f, 1.0f, 1.0f
 #define white 1.0f, 1.0f, 1.0f 
 
-#define gridH 8
-#define gridW 8
+#define gridZ 30
+#define gridX 30
+#define gridY 12
 
 #define game "Doomer game"
 
