@@ -9,6 +9,10 @@ typedef struct {
 } vec3;
 
 typedef struct {
+  float x, y, z, i;
+} vec4;
+
+typedef struct {
   double x, y, z;
 } vec3d;
 
@@ -73,6 +77,22 @@ typedef enum{
   doorObj,
 } ObjectType;
 
+typedef float mat4[16];
+typedef float mat3[9];
+
+typedef struct{
+  vec3 pos;
+  vec3 target;
+  vec3 dir;
+
+  vec3 front;
+  vec3 up;
+  vec3 right;
+
+  float yaw;
+  float pitch;
+} Camera;
+
 typedef struct{
   int id;
 
@@ -110,6 +130,8 @@ typedef struct{
   Side tileSide;
   Side wallSide;
 
+  int wheel;
+
   vec3 intersection;
   vec2 gridIntesec;
   
@@ -120,17 +142,25 @@ typedef struct{
   float w, h; // of cursor
 } Mouse;
 
+#define rad(deg) deg * M_PI / 180
+
 #define vec3dToVec3(vec3d) (vec3){vec3d.x,vec3d.y,vec3d.z}
 
 void addObjToTile(Tile* tile, Object* obj);
 
 void renderWall(vec3 pos, GLenum mode, float blockW, float blockD, WallType wall, float wallH, float r, float g, float b);
 
+bool gluInvertMatrix(const double m[16], double invOut[16]);
+
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
 
 void renderTile(vec3 pos, GLenum mode, float w, float d, float r, float g, float b);
 
 vec3 normalize(const vec3 vec);
+
+int dot(const vec3 v1, const vec3 v2);
+
+vec3 cross(const vec3 v1, const vec3 v2);
 
 bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, const vec3 rt, vec3* posOfIntersection);
 
@@ -153,9 +183,6 @@ vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 #define gridH 8
 #define gridW 8
-
-#define windowW 800
-#define windowH 600
 
 #define game "Doomer game"
 

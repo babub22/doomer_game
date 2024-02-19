@@ -362,12 +362,23 @@ int main(int argc, char* argv[]) {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     
+
+
+    
     float fov = cameraMode ? 30.0f : 20.0f;
     float dist = 5.5f;
     
+    
     gluPerspective(fov, 1, 0.1f, 100.0f);
 
+    //        gluPerspective(20.0f, 1, 0.1f, 100.0f);
+
+
     if(!cameraMode){
+      //    gluLookAt(5.5f + zoom, 5.5f + zoom, 5.5f + zoom,  /* position of camera */
+      //	  0.0f, 0.0f , 0.0f,   /* where camera is pointing at */
+      //	  0.0f,  1.0f,  0.0f);  /* which direction is up */
+
       gluLookAt(3, 3, 3,  /* position of camera */
 		0.0f, 0.0f , 0.0f,   /* where camera is pointing at */
 		0.0f,  1.0f,  0.0f);  /* which direction is up */
