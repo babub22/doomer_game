@@ -562,6 +562,8 @@ int main(int argc, char* argv[]) {
 
 	    switch(mouse.tileSide){
 	    case(top):{
+	      //	      renderTile((vec3){tile.x + blockW/4, tile.y, tile.z - blockW/8}, GL_TRIANGLE_STRIP, blockW/4 *2, blockD/4, darkPurple);
+
 	      renderTile((vec3){tile.x + blockW/4, tile.y, tile.z}, GL_TRIANGLE_STRIP, blockW/4 *2, blockD/4, darkPurple);
 
 	      break;
@@ -861,6 +863,9 @@ int main(int argc, char* argv[]) {
 		  mouse.wallTile = (vec3){x,y,z};
 
 		  minIntersectionDist = intersectionDistance;
+		  
+		  //		  renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, blockH,redColor);
+
 		}else{
 		  renderWall(tile, GL_LINES, blockW, blockD, side, blockH,redColor);
 		};
@@ -905,6 +910,8 @@ int main(int argc, char* argv[]) {
 		  mouse.wallTile = (vec3){x,y,z};
 
 		  minIntersectionDist = intersectionDistance;
+		  
+		  //		  renderWall(tile, GL_TRIANGLE_STRIP, blockW, blockD, side, blockH * 0.4f,redColor);
 		}else{
 		  renderWall(tile, GL_LINES, blockW, blockD, side, blockH * 0.4f,redColor);
 		};
@@ -918,6 +925,11 @@ int main(int argc, char* argv[]) {
 	}
       }
     }
+
+    /*
+    printf("Grid: %f %f %f \n", mouse.gridIntersect.x, mouse.gridIntersect.y, mouse.gridIntersect.z);
+    printf("Wall tile: %f %f %f \n", mouse.wallTile.x, mouse.wallTile.y, mouse.wallTile.z);
+    */
     
     // higlight intersected wall with min dist
     if(mouse.wallSide != -1)

@@ -1,7 +1,10 @@
 #pragma once
 
 typedef struct {
-  float x, y;
+  // x z because i use vec2
+  // only when i work with grid
+  // without height
+  float x, z;
 } vec2;
 
 typedef struct {
@@ -111,8 +114,10 @@ typedef struct{
   int walls;
   Object** wallsData;
   
-  Object** objs; // without walls objs
-  size_t objsSize;
+  //  Object** objs; // without walls objs
+  //size_t objsSize;
+
+  vec3 pos; // on grid
   
   int center;    
 } Tile;
@@ -128,12 +133,18 @@ typedef struct{
   bool clickL; // in this frame
 
   Side tileSide;
+
   Side wallSide;
+  vec3 wallTile;
+  // tile under selected wall
 
   int wheel;
 
+  float interDist;
+  //  bool is 
+  
   vec3 intersection;
-  vec2 gridIntesec;
+  vec2 gridIntersect;
   
   Tile* selectedTile;
 
@@ -145,8 +156,6 @@ typedef struct{
 #define rad(deg) deg * M_PI / 180
 
 #define vec3dToVec3(vec3d) (vec3){vec3d.x,vec3d.y,vec3d.z}
-
-void addObjToTile(Tile* tile, Object* obj);
 
 void renderWall(vec3 pos, GLenum mode, float blockW, float blockD, WallType wall, float wallH, float r, float g, float b);
 
@@ -162,13 +171,15 @@ int dot(const vec3 v1, const vec3 v2);
 
 vec3 cross(const vec3 v1, const vec3 v2);
 
-bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, const vec3 rt, vec3* posOfIntersection);
+bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, const vec3 rt, vec3* posOfIntersection, float* dist);
 
 void addObjToStore(Object* obj);
 
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 Object* doorConstructor(vec3 pos, bool opened);
+
+bool oppositeTileTo(vec2 XZ, Side side, vec2* opTile, Side* opSid);
 
 #define FPS 60
 
@@ -187,6 +198,7 @@ Object* doorConstructor(vec3 pos, bool opened);
 
 #define speed 0.001f/2
 
+#define wallD 0.0012f
 
 /*
 
