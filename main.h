@@ -8,8 +8,16 @@ typedef struct {
 } vec2;
 
 typedef struct {
+  int x, z;
+} vec2i;
+
+typedef struct {
   float x, y, z;
 } vec3;
+
+typedef struct {
+  int x, y, z;
+} vec3i;
 
 typedef struct {
   float x, y, z, i;
@@ -33,6 +41,7 @@ typedef enum{
   right,
   left,
   basicSideCounter,
+  center,
   topLeft,
   botLeft,
   botRight,
@@ -66,9 +75,12 @@ typedef struct{
 
 typedef enum{
   wallT=1,
-  doorT,
-  windowT,
+  //  doorT,
   halfWallT,
+  doorFrameT,
+  windowT,
+  //windowLeftT,
+  //windowRightT,
   wallTypeCounter
 } WallType;
 
@@ -96,6 +108,17 @@ typedef struct{
   float pitch;
 } Camera;
 
+// to add new texture to game
+// add to this enum and to
+// ./texture/ .bmp image with
+// same number
+typedef enum{
+  woodPlanks,
+  metal,
+  ground,
+  texturesCounter
+} Texture;
+
 typedef struct{
   int id;
 
@@ -112,15 +135,28 @@ typedef struct{
 
 typedef struct{
   int walls;
+  int wallsTx;
+  
   Object** wallsData;
-  
-  //  Object** objs; // without walls objs
-  //size_t objsSize;
 
-  vec3 pos; // on grid
-  
-  int center;    
+  // 1 byte - empty/net/textured
+  // 2 byte - under texture id
+  // 3 byte - over texture id
+  // 4 byte - empty
+  int ground;    
 } Tile;
+
+typedef enum{
+  netTile = 1,
+  texturedTile,
+} GroundType;
+
+typedef enum{
+  // 1,2 to access .ground
+  // with bitwise
+  fromUnder = 1,
+  fromOver = 2,
+} GroundInter;
 
 typedef struct{
   // ray of cursor
@@ -135,16 +171,20 @@ typedef struct{
   Side tileSide;
 
   Side wallSide;
-  vec3 wallTile;
+  vec3i wallTile;
+  WallType wallType;
+  Texture wallTx;
   // tile under selected wall
 
+  GroundInter groundInter;
+  
   int wheel;
 
   float interDist;
   //  bool is 
   
   vec3 intersection;
-  vec2 gridIntersect;
+  vec2i gridIntersect;
   
   Tile* selectedTile;
 
@@ -153,11 +193,19 @@ typedef struct{
   float w, h; // of cursor
 } Mouse;
 
+typedef struct{
+  const int sizeX;
+  const int sizeY;
+  char *data;
+} Image;
+
+typedef struct{
+  float w, h, d;
+} Sizes;
+
 #define rad(deg) deg * M_PI / 180
 
 #define vec3dToVec3(vec3d) (vec3){vec3d.x,vec3d.y,vec3d.z}
-
-void renderWall(vec3 pos, GLenum mode, float blockW, float blockD, WallType wall, float wallH, float r, float g, float b);
 
 bool gluInvertMatrix(const double m[16], double invOut[16]);
 
@@ -179,7 +227,23 @@ vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 Object* doorConstructor(vec3 pos, bool opened);
 
-bool oppositeTileTo(vec2 XZ, Side side, vec2* opTile, Side* opSid);
+bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSid);
+
+vec3* wallPosBySide(vec3 basePos, Side side, float wallH, float wallD, float tileD, float tileW);
+
+void renderWall(vec3* pos, Texture tx);
+
+void renderWallBorder(vec3* pos, Side side, float borderT, float r, float g, float b);
+
+void renderWindow(vec3* pos, Texture tx);
+
+void renderDoorFrame(vec3* pos, Texture tx);
+
+bool deleteIn(int* num, int index, uint8_t newValue);
+
+bool setIn(int* num, int index, uint8_t newValue);
+
+uint8_t valueIn(int num, int index);
 
 #define FPS 60
 
@@ -195,25 +259,22 @@ bool oppositeTileTo(vec2 XZ, Side side, vec2* opTile, Side* opSid);
 #define white 1.0f, 1.0f, 1.0f 
 
 #define game "Doomer game"
+#define texturesFolder "./textures/"
 
 #define speed 0.001f/2
 
-#define wallD 0.0012f
+#define bBlockW 0.1f
+#define bBlockD 0.1f
+#define bBlockH 0.2f
 
-/*
+#define selBorderD 0.01f
+#define selBorderT 0.01f
 
-        
-  fprintf(map,"%d %d %d \n", gridY, gridZ, gridX);
-      
-  for (int y = 0; y < gridY; y++) {
-  for (int z = 0; z < gridZ; z++) {
-  for (int x = 0; x < gridX; x++) {
-  fprintf(map,"%d,", grid[y][z][x].walls);
-  }
-  }
-	
-  fprintf(map,"\n");
-  }
+  /*
+    GL_QUADS order
 
-
-*/
+  glTexCoord2f(0.0f, 1.0f); glVertex3d(pos[0].x, pos[0].y, pos[0].z);
+  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+  glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+   */

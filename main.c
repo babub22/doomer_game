@@ -8,13 +8,27 @@ int gridX = 30;
 int gridY = 15;
 int gridZ = 30;
 
+GLuint* mappedTextures;
+SDL_Surface** textures;
+
+Camera camera = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
+
+const float wallD = 0.0012f;
+
+const Sizes wallsSizes[wallTypeCounter+1] = { {0}, {bBlockW,bBlockH,bBlockD}, {bBlockW,bBlockH * 0.4f,bBlockD}, {bBlockW,bBlockH,bBlockD}, {bBlockW,bBlockH,bBlockD}};
+
+const float doorH = bBlockH * 0.85f;
+const float doorPad =  bBlockW / 4;
+
+const float doorTopPad = bBlockH - bBlockH * 0.85f;
+
 int main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
 
   char windowTitle[] = game;
 
-  const float windowW = 800.0f;
-  const float windowH = 600.0f;
+  const float windowW = 1280.0f;
+  const float windowH = 720.0f;
   
   SDL_Window* window = SDL_CreateWindow(windowTitle,
 					SDL_WINDOWPOS_CENTERED,
@@ -30,29 +44,53 @@ int main(int argc, char* argv[]) {
 
   glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
 
-  const float blockW =  0.1f;
-  const float blockD =  0.1f;
-  const float blockH =  0.2f;
-
-  const float doorPad =  blockW / 4;
     
-  const float doorW =  blockW - doorPad;
+  const float doorW =  bBlockW - doorPad;
 
   const float doorFrameH = 0.2f;
-  const float doorH =  doorFrameH * 0.85;
 
   float zoom = 0.0f;
   
   int floor = 0;
+  bool highlighting = 1;
+  
+  // init opengl
+  {
+    glEnable(GL_BLEND);
+    //glShadeModel(GL_SMOOTH);
+    glClearDepth(1.0f);
+    glEnable(GL_DEPTH_TEST);  
+    glDepthFunc(GL_LEQUAL);
+  }
+  
+  // load textures
+  {
+    textures = malloc(texturesCounter * sizeof(SDL_Surface*));
 
-  bool testProsp = false;
+    GLuint mappedTextures[texturesCounter];
+    glGenTextures(texturesCounter, mappedTextures);
+    
+    for(int i=0;i<texturesCounter;i++){
+      char path[60];
+      sprintf(path, texturesFolder"%d.bmp",i);
+    
+      textures[i] = SDL_LoadBMP(path);
 
-  float INCREASER = 0;
+      if (!textures[i]) {
+	printf("Loading of texture \"%d.bmp\" failed", i);
+	exit(0);
+      }
+
+      glBindTexture(GL_TEXTURE_2D, mappedTextures[i]);
+      
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+  }
   
   Mouse mouse = { .h = 0.005f, .w = 0.005f, .brush = 0, .end = {-1,-1}, .start = {-1,-1}, .interDist = 1000.0f  };
 
   float dist = sqrt(1 / 3.0);
-  Camera camera = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
   bool cameraMode = true;
 
   // set up camera
@@ -81,7 +119,7 @@ int main(int argc, char* argv[]) {
 	    grid[y][z] = calloc(gridX,sizeof(Tile));
       
 	    for(int x=0;x<gridX;x++){
-	      grid[y][z][x].center = 1;
+	      setIn(&grid[y][z][x].ground, 0, netTile);
 	    }
 	  }
 	}
@@ -100,28 +138,34 @@ int main(int argc, char* argv[]) {
 	  grid[y][z] = malloc(sizeof(Tile) * (gridX));
 	  
 	  for (int x = 0; x < gridX; x++) {
-	    fscanf(map,"%d",&grid[y][z][x].walls);
-	    grid[y][z][x].center = 1;
+	    fscanf(map,"[Wls: %d, WlsTx %d, Grd: %d]",&grid[y][z][x].walls, &grid[y][z][x].wallsTx, &grid[y][z][x].ground);
 
-	    if(grid[y][z][x].walls != 0){
+	    if(grid[y][z][x].ground == 0 || valueIn(grid[y][z][x].ground, 0) == 0){
+	      setIn(&grid[y][z][x].ground,0,netTile);
+	    }
+	    
+	    //grid[y][z][x].center = 1;
+
+	    /*
+	      /*	    if(grid[y][z][x].walls != 0){
 	      bool firstObj = false;
 	      
 	      for(int side=basicSideCounter;side!=0;side--){
-		if (((grid[y][z][x].walls >> ((side-1) * 8)) & 0xFF) == doorT) {
-		  // from end to start and first encouted obj
-		  // set len of array
-		  if(!firstObj){
-		    grid[y][z][x].wallsData = malloc(side * sizeof(Object*));
-		    firstObj = true;
-		  }
-		  
-		  Object* newDoor = doorConstructor((vec3){x,y,z}, false);
-		  grid[y][z][x].wallsData[side-1] = newDoor;
-		
-		  addObjToStore(newDoor);
-		};
+	      if (((grid[y][z][x].walls >> ((side-1) * 8)) & 0xFF) == doorT) {
+	      // from end to start and first encouted obj
+	      // set len of array
+	      if(!firstObj){
+	      grid[y][z][x].wallsData = malloc(side * sizeof(Object*));
+	      firstObj = true;
 	      }
-	    }
+		  
+	      Object* newDoor = doorConstructor((vec3){x,y,z}, false);
+	      grid[y][z][x].wallsData[side-1] = newDoor;
+		
+	      addObjToStore(newDoor);
+	      };
+	      }
+	      } */
 
 	    fgetc(map); // read ,
 	  }
@@ -165,6 +209,112 @@ int main(int argc, char* argv[]) {
 
       if(event.type == SDL_KEYDOWN){
 	switch(event.key.keysym.scancode){
+	case(SDL_SCANCODE_UP):{
+	  if(mouse.wallType != -1){
+	    Texture nextTx = 0;
+	      
+	    if(mouse.wallTx != texturesCounter - 1){
+	      nextTx = mouse.wallTx + 1;
+	    }else{
+	      nextTx = 0;
+	    }
+
+	    setIn(&grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);
+	  }else if(mouse.groundInter != -1){
+	    GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
+
+	    if(type != texturedTile){
+	      setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
+	      setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, 0);
+	    }else{
+	      Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
+	      
+	      if(curTx == texturesCounter-1){
+		setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
+	      }else{
+		setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx+1);
+	      }
+	    }
+	  }
+
+	  break;
+	}
+	case(SDL_SCANCODE_DOWN):{
+	  if(mouse.wallType != -1){
+	    Texture prevTx = 0;
+	      
+	    if(mouse.wallTx != 0){
+	      prevTx = mouse.wallTx - 1;
+	    }else{
+	      prevTx = texturesCounter - 1;
+	    }
+	    
+	    setIn(&grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, prevTx);
+	  }else if(mouse.groundInter != -1){
+	    GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
+
+	    if(type != texturedTile){
+	      setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
+	      setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, texturesCounter - 1);
+	    }else{
+	      Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
+	      
+	      if(curTx == 0){
+		setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
+	      }else{
+		setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx-1);
+	      }
+	    }
+	  }
+
+	  break;
+	}
+	case(SDL_SCANCODE_LEFT):{
+	  if(mouse.wallType != -1){
+	    WallType prevType = 0;
+	      
+	    if(mouse.wallType != 1){
+	      prevType = mouse.wallType - 1;
+	    }else{
+	      prevType = wallTypeCounter - 1;
+	    }
+
+	    Side oppositeSide = 0;
+	    vec2i oppositeTile = {0};
+
+	    setIn(&grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, prevType);
+	    
+	    if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, &oppositeSide)) {
+	      setIn(&grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, prevType);
+	    }
+	  }
+	  
+	  break;
+	}
+	case(SDL_SCANCODE_RIGHT):{
+	  if(mouse.wallType != -1){
+	    WallType nextType = 0;
+	      
+	    if(mouse.wallType != wallTypeCounter - 1){
+	      nextType = mouse.wallType + 1;
+	    }else{
+	      nextType = 1;
+	    }
+
+	    Side oppositeSide = 0;
+	    vec2i oppositeTile = {0};
+
+	    setIn(&grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, nextType);
+	    
+	    if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, &oppositeSide)) {
+	      setIn(&grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, nextType);
+	    }
+	  }
+
+	  break;
+	}
+
+	  
 	case(SDL_SCANCODE_SPACE):{
 	  cameraMode = !cameraMode;
       
@@ -200,7 +350,7 @@ int main(int argc, char* argv[]) {
 	  for (int y = 0; y < gridY; y++) {
 	    for (int z = 0; z < gridZ; z++) {
 	      for (int x = 0; x < gridX; x++) {
-		fprintf(map,"%d,", grid[y][z][x].walls);
+		fprintf(map,"[Wls: %d, WlsTx %d, Grd: %d],", grid[y][z][x].walls, grid[y][z][x].wallsTx, grid[y][z][x].ground);
 	      }
 	    }
 	
@@ -212,38 +362,42 @@ int main(int argc, char* argv[]) {
 	  fclose(map);
 	  break;
 	}
+	case(SDL_SCANCODE_H):{
+	  highlighting = !highlighting;
+	  break;
+	}
 	case(SDL_SCANCODE_DELETE):{
 	  if(mouse.wallSide != -1){
-	    WallType type = (mouse.selectedTile->walls >> (mouse.wallSide*8)) & 0xFF;
+   WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide*8)) & 0xFF;
 
-	    if(type == doorT){
-	      mouse.selectedTile->walls &= ~(0xFF << (mouse.wallSide * 8));
+	    /* if(type == doorT){
+	       mouse.selectedTile->walls &= ~(0xFF << (mouse.wallSide * 8));
 	      
-	      int newSize = 0;
+	       int newSize = 0;
 	    
-	      for(int side=basicSideCounter;side!=0;side--){
-		if (((mouse.selectedTile->walls >> ((side-1) * 8)) & 0xFF) == doorT) {
-		  newSize = side;
-		  break;
-		};
-	      }
+	       for(int side=basicSideCounter;side!=0;side--){
+	       if (((mouse.selectedTile->walls >> ((side-1) * 8)) & 0xFF) == doorT) {
+	       newSize = side;
+	       break;
+	       };
+	       }
 
-	      if(newSize==0){
-		free(mouse.selectedTile->wallsData);
-		mouse.selectedTile->wallsData = NULL;
-	      } else if(mouse.wallSide+1 > newSize) {
-		mouse.selectedTile->wallsData = realloc(mouse.selectedTile->wallsData, newSize * sizeof(Object*));
-	      }
-	    }else{
-	      Side oppositeSide = 0;
-	      vec2 oppositeTile = {0};
+	       if(newSize==0){
+	       free(mouse.selectedTile->wallsData);
+	       mouse.selectedTile->wallsData = NULL;
+	       } else if(mouse.wallSide+1 > newSize) {
+	       mouse.selectedTile->wallsData = realloc(mouse.selectedTile->wallsData, newSize * sizeof(Object*));
+	       }
+	       }else{*/
+	    Side oppositeSide = 0;
+	    vec2i oppositeTile = {0};
 
-	      grid[(int)mouse.wallTile.y][(int)mouse.wallTile.z][(int)mouse.wallTile.x].walls &= ~(0xFF << (mouse.wallSide * 8));
+	    grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls &= ~(0xFF << (mouse.wallSide * 8));
 	      
-	      if(oppositeTileTo((vec2){mouse.wallTile.x, mouse.wallTile.z}, mouse.wallSide,&oppositeTile,&oppositeSide)){
-		grid[(int)mouse.wallTile.y][(int)oppositeTile.z][(int)oppositeTile.x].walls &= ~(0xFF << (oppositeSide * 8));
-	      }
+	    if(oppositeTileTo((vec2i){mouse.wallTile.x, mouse.wallTile.z}, mouse.wallSide,&oppositeTile,&oppositeSide)){
+	      grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls &= ~(0xFF << (oppositeSide * 8));
 	    }
+	    //}
 	  }
 
 	  break;
@@ -319,14 +473,14 @@ int main(int argc, char* argv[]) {
 
 	  //	vec3 colBox = { player.max.x + player.w/2, player.max.y, player.max.z + 0.1f/2 - (player.d * 0.75f)/2 };
 	
-	  vec2 tile = { (player.max.x + dx)/blockW, (player.max.z+dz)/blockD };
+	  vec2 tile = { (player.max.x + dx)/bBlockW, (player.max.z+dz)/bBlockD };
 
 	  bool isIntersect = false;	  
 
 	  if (grid[floor][(int)tile.z][(int)tile.x].walls != 0) {	
 	    for(int side=0;side<basicSideCounter;side++){
 	      WallType type = (grid[floor][(int)tile.z][(int)tile.x].walls >> (side*8)) & 0xFF;
-	      vec3 pos = { (float)(int)tile.x * blockW, 0.0f,  (float)(int)tile.z * blockD };
+	      vec3 pos = { (float)(int)tile.x * bBlockW, 0.0f,  (float)(int)tile.z * bBlockD };
 	  
 	      if(type == wallT){
 		vec3 rt = {0};
@@ -337,25 +491,25 @@ int main(int argc, char* argv[]) {
 		switch(side){
 		case(top):{
 		  lb = (vec3){pos.x, pos.y, pos.z};
-		  rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + wallD};
+		  rt = (vec3){pos.x + bBlockW, pos.y + bBlockH, pos.z + wallD};
 
 		  break;
 		}
 		case(bot):{
-		  lb = (vec3){pos.x, pos.y, pos.z + blockD};
-		  rt = (vec3){pos.x + blockW, pos.y + blockH, pos.z + blockD + wallD};
+		  lb = (vec3){pos.x, pos.y, pos.z + bBlockD};
+		  rt = (vec3){pos.x + bBlockW, pos.y + bBlockH, pos.z + bBlockD + wallD};
 
 		  break;
 		}
 		case(left):{
 		  lb = (vec3){pos.x, pos.y, pos.z};
-		  rt = (vec3){ pos.x + wallD, pos.y + blockH, pos.z + blockD };
+		  rt = (vec3){ pos.x + wallD, pos.y + bBlockH, pos.z + bBlockD };
   
 		  break;
 		}
 		case(right):{
-		  lb = (vec3){ pos.x + blockW, pos.y, pos.z };
-		  rt = (vec3){ pos.x + blockW,pos.y + blockH, pos.z + blockD }; 
+		  lb = (vec3){ pos.x + bBlockW, pos.y, pos.z };
+		  rt = (vec3){ pos.x + bBlockW,pos.y + bBlockH, pos.z + bBlockD }; 
 
 		  break;
 		}
@@ -435,14 +589,14 @@ int main(int argc, char* argv[]) {
 
       }
     /*    else if(currentKeyStates[ SDL_SCANCODE_SPACE ]){
-      cameraMode = !cameraMode;
+	  cameraMode = !cameraMode;
       
-      if(cameraMode){
-        SDL_SetRelativeMouseMode(SDL_TRUE);
-      }else{
-	SDL_SetRelativeMouseMode(SDL_FALSE);
-      }
-    }*/
+	  if(cameraMode){
+	  SDL_SetRelativeMouseMode(SDL_TRUE);
+	  }else{
+	  SDL_SetRelativeMouseMode(SDL_FALSE);
+	  }
+	  }*/
 
     // brush settings
     {
@@ -455,33 +609,36 @@ int main(int argc, char* argv[]) {
       }
     
       if(currentKeyStates[ SDL_SCANCODE_2 ]){
-	mouse.brush = doorT;
+	mouse.brush = halfWallT;
       }
     
       if(currentKeyStates[ SDL_SCANCODE_3 ]){
-	mouse.brush = halfWallT;
+        mouse.brush = doorFrameT;
       }
 
       if(currentKeyStates[ SDL_SCANCODE_4 ]){
-	// 2.5fh = windowT;
+        mouse.brush = windowT;
       }
     }
 
     mouse.selectedTile = NULL;
-    mouse.gridIntersect = (vec2){-1,-1};
+    mouse.gridIntersect = (vec2i){-1,-1};
     mouse.wallSide = -1;
-    mouse.wallTile = (vec3){-1,-1,-1};
+    mouse.wallTile = (vec3i){-1,-1,-1};
+    mouse.wallType = -1;
+    mouse.wallTx =   mouse.wallTx = -1;
     mouse.tileSide = -1;
     mouse.intersection = (vec3){-1,-1};
+    mouse.groundInter = -1;
 	    
-    glClear(GL_COLOR_BUFFER_BIT);
-    glMatrixMode(GL_PROJECTION);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
+    glMatrixMode(GL_PROJECTION);
     
-    float fov = cameraMode ? 45.0f : 20.0f;
+    float fov = cameraMode ? 50.0f : 30.0f;
     float dist = 5.5f;
     
-    gluPerspective(fov, 1, 0.1f, 100.0f);
+    gluPerspective(fov, windowW/windowH, 0.1f, 100.0f);
 
     if(!cameraMode){
       gluLookAt(3, 3, 3,  /* position of camera */
@@ -516,119 +673,113 @@ int main(int argc, char* argv[]) {
 	glEnd();
       }
 
-    //    bool rayIntersected = false;
-
-    //        mouse.interDist = 100.0f ;
-
     float minIntersectionDist = 1000.0f;
     
     for (int z = 0; z < gridZ; z++) {
       for (int x = 0; x < gridX; x++) {
 	// building only on current floor
-	vec3 tile = { (float)x / 10, (float) floor * blockH, (float)z / 10 };
-
-	if(!grid[floor][z][x].center){
-	  continue;
-	}
+	vec3 tile = { (float)x / 10, (float) floor * bBlockH, (float)z / 10 };
 
 	// tile things
 	{
-	  const vec3 rt = { tile.x+ 0.1f + INCREASER, tile.y, tile.z +  0.1f + INCREASER };
+	  const vec3 rt = { tile.x+ bBlockW, tile.y, tile.z + bBlockD };
 	  const vec3 lb = { tile.x, tile.y, tile.z };
 
 	  vec3 intersection = {0};
 	
 	  if (rayIntersectsTriangle(mouse.start, mouse.end, lb, rt, &intersection, NULL)) {
 	    mouse.selectedTile = &grid[floor][z][x];
-	    mouse.gridIntersect = (vec2){x,z};
+	    mouse.gridIntersect = (vec2i){x,z};
 	    mouse.intersection = intersection;
+	    mouse.groundInter = intersection.y <= camera.pos.y ? fromOver : fromUnder;
 	    
-	    vec3 relIntersectionToTile = { intersection.x - tile.x, intersection.y - tile.y, intersection.z - tile.z };
-	    
-	    if(relIntersectionToTile.x < blockW/4){
+	    const float borderArea = bBlockW/8;
+
+	    if(intersection.x < lb.x + borderArea){
 	      mouse.tileSide = left;
-	    }else if(relIntersectionToTile.x > (blockW/4)*3){
+	    }else if(intersection.x > rt.x - borderArea){
 	      mouse.tileSide = right;
 	    }else{
-	      if(relIntersectionToTile.z < blockD/4){
+	      if(intersection.z < lb.z +borderArea){
 		mouse.tileSide = top;
 	      }
-	      else if(relIntersectionToTile.z > (blockD/4) * 3){
+	      else if(intersection.z > rt.z - borderArea){
 		mouse.tileSide = bot;
+	      }else if(intersection.z > (lb.z + bBlockD/2) - borderArea && intersection.z < (lb.z + bBlockD/2) + borderArea && intersection.x >(lb.x + bBlockW/2) - borderArea && intersection.x < (lb.x +bBlockW/2) + borderArea){
+		mouse.tileSide = center;
 	      }else{
 		mouse.tileSide = -1;
 	      }
 	    }
 
-	    switch(mouse.tileSide){
-	    case(top):{
-	      renderTile((vec3){tile.x + blockW/4, tile.y, tile.z}, GL_TRIANGLE_STRIP, blockW/4 *2, blockD/4, darkPurple);
+	    const float selectionW = borderArea * 3;
 
-	      break;
-	    }
-	    case(bot):{
-	      renderTile((vec3){tile.x + blockW/4, tile.y, tile.z + (blockD/4)*3}, GL_TRIANGLE_STRIP, blockW/4 *2, blockD/4, darkPurple);
+	    if(mouse.tileSide == center){
+	      renderTile((vec3){tile.x + bBlockD/2 - borderArea, tile.y, tile.z + bBlockD/2 - borderArea}, GL_TRIANGLE_STRIP, borderArea*2, borderArea*2, darkPurple);
+	    }else if(mouse.tileSide == top || mouse.tileSide == bot){
+	      float zPos = tile.z;
 	      
-	      break;
-	    }
-	    case(right):{
-	      renderTile((vec3){tile.x+(blockW/4) * 3, tile.y, tile.z + (blockD/4)}, GL_TRIANGLE_STRIP, blockW/4, blockD/4 * 2, darkPurple);
-	      
-	      break;
-	    }
-	    case(left):{
-	      renderTile((vec3){tile.x, tile.y, tile.z + (blockD/4)},GL_TRIANGLE_STRIP , blockW/4, blockD/4 * 2, darkPurple);
-
-	      break;
-	    }
-	    default: break;
-	    }
-
-	    // render brush phantom
-	    switch(mouse.brush){
-	    case(wallT):{
-	      Side oppositeSide = 0;
-	      vec2 oppositeTile = {0};
-
-	      renderWall(tile, GL_LINES, blockW, blockD, mouse.tileSide, blockH,redColor);
-	      
-	      if(oppositeTileTo((vec2){x, z}, mouse.tileSide,&oppositeTile,&oppositeSide)){
-		renderWall((vec3){ oppositeTile.x * blockW, (float) floor * blockH, oppositeTile.z * blockD  }, GL_LINES, blockW, blockD, oppositeSide, blockH,redColor);
-	      }
-	      
-	      break;
-	    }
-	    case(doorT):{
-	      vec3 doorPos = {tile.x + doorPad / 2,tile.y,tile.z };
-	      
-	      if(mouse.tileSide == left || mouse.tileSide == right){
-		doorPos.z += doorPad/2;
-		renderWall(doorPos, GL_TRIANGLE_STRIP, blockD, doorW, mouse.tileSide, doorH, blueColor);
+	      if(mouse.tileSide == top){
+		zPos -= borderArea / 2;
 	      }else{
-		renderWall(doorPos, GL_TRIANGLE_STRIP, doorW, blockD, mouse.tileSide, doorH, blueColor);
+		zPos += bBlockD - borderArea/2;
 	      }
-	       
-	      break;
-	    }
-	    case(windowT):{
-	      break;
-	    }
-	    case(halfWallT):{
-	      Side oppositeSide = 0;
-	      vec2 oppositeTile = {0};
-
-	      renderWall(tile, GL_LINES, blockW, blockD, mouse.tileSide, blockH * 0.4f,redColor);
 	      
-	      if(oppositeTileTo((vec2){x, z}, mouse.tileSide,&oppositeTile,&oppositeSide)){
-		renderWall((vec3){ oppositeTile.x * blockW, (float) floor * blockH, oppositeTile.z * blockD  }, GL_LINES, blockW, blockD, oppositeSide, blockH * 0.4f,redColor);
+	      renderTile((vec3){tile.x + borderArea + selectionW/2, tile.y, zPos}, GL_TRIANGLE_STRIP, borderArea * 3, borderArea, darkPurple);
+	    }else if(mouse.tileSide == left || mouse.tileSide == right){
+	      float xPos = tile.x;
+	      
+	      if(mouse.tileSide == right){
+		xPos += bBlockW - borderArea/2;
+	      }else{
+		xPos -= borderArea/2;
+	      }
+	      
+	      renderTile((vec3){xPos, tile.y, tile.z + bBlockW/2 - selectionW / 2}, GL_TRIANGLE_STRIP, borderArea, borderArea * 3, darkPurple);
+	    }
+
+	    if(mouse.tileSide != -1 && mouse.tileSide != center){
+	    
+	      Side oppositeSide = 0;
+	      vec2i oppositeTile = {0};
+
+	      vec3* wallPos = wallPosBySide(tile, mouse.tileSide, wallsSizes[mouse.brush].h, wallD, bBlockD, bBlockW);
+
+
+	      switch(mouse.brush){
+	      case(windowT):{
+		renderWindow(wallPos,0);
+		break;
+	      }
+	      case(doorFrameT):{
+		renderDoorFrame(wallPos,0);
+		break;
+	      }
+	      default: {
+		renderWall(wallPos, 0);
+		break;
+	      };
+	      }
+	      
+	      if(oppositeTileTo((vec2i){x, z}, mouse.tileSide,&oppositeTile,&oppositeSide)){
+		vec3* wallPos = wallPosBySide((vec3){(float)oppositeTile.x / 10, tile.y, (float)oppositeTile.z / 10}, oppositeSide, wallsSizes[mouse.brush].h, wallD, bBlockD, bBlockW);
+		switch(mouse.brush){
+		case(windowT):{
+		  renderWindow(wallPos,0);
+		  break;
+		}
+		case(doorFrameT):{
+		  renderDoorFrame(wallPos,0);
+		  break;
+		}
+		default: {
+		  renderWall(wallPos, 0);
+		  break;
+		};
+		}
 	      }
 
-	      break;
-	    }
-	    default: break;//assert(0 && "Unsuported brush type");
-	    }
 
-	    if(mouse.tileSide != -1){
 	      if(mouse.clickR){
 		// delete if something exist on this place
 		{
@@ -636,307 +787,230 @@ int main(int argc, char* argv[]) {
 
 		  if(type){
 		    mouse.selectedTile->walls &= ~(0xFF << (mouse.tileSide * 8));
+		  }
+		}
 
-		    if(type == doorT){
-		      int newSize = 0;
+		Side oppositeSide = 0;
+		vec2i oppositeTile = {0};
+
+		setIn(&grid[floor][z][x].walls, mouse.tileSide, mouse.brush);
+		setIn(&grid[floor][z][x].wallsTx, mouse.tileSide, 0); // first texture
+		  
+		if(oppositeTileTo((vec2i){x, z}, mouse.tileSide,&oppositeTile,&oppositeSide)){
+		  grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].walls |= (mouse.brush << oppositeSide*8);
+		}
+	      }
+	      //}
+
+
 	    
-		      for(int side=basicSideCounter;side!=0;side--){
-			if (((mouse.selectedTile->walls >> ((side-1) * 8)) & 0xFF) == doorT) {
-			  newSize = side;
-			  break;
-			};
-		      }
-
-		      if(newSize==0){
-			free(mouse.selectedTile->wallsData);
-			mouse.selectedTile->wallsData = NULL;
-		      } else if(mouse.tileSide+1 > newSize) {
-			mouse.selectedTile->wallsData = realloc(mouse.selectedTile->wallsData, newSize * sizeof(Object*));
-		      }
-		    }
-		  }
-		}
-	      
-
-		if(mouse.brush == doorT){
-		  int wallsSize = 0;
-
-		  // to get wallsSize can be optimized
-		  // to O(4) -> O(1) by using if's 
-		  if(grid[floor][z][x].walls !=0){
-		    for(int side=basicSideCounter;side!=0;side--){
-		      if (((grid[floor][z][x].walls >> ((side-1) * 8)) & 0xFF) == doorT) {
-			wallsSize = side;
-			break;
-		      };
-		    }
-		  }
-		  
-		  if(mouse.tileSide+1 > wallsSize) {
-		    if (!grid[floor][z][x].wallsData) {
-		      grid[floor][z][x].wallsData = malloc((mouse.tileSide + 1) * sizeof(Object*));
-		    }
-		    else {
-		      grid[floor][z][x].wallsData = realloc(grid[floor][z][x].wallsData, (mouse.tileSide + 1) * sizeof(Object*));
-		    }
-		  }
-	      	      
-		  Object* newDoor = doorConstructor((vec3){x,floor,z}, false);
-		  
-		  grid[floor][z][x].wallsData[mouse.tileSide] = newDoor;
-		
-		  addObjToStore(newDoor);
-
-		  grid[floor][z][x].walls |= (mouse.brush << mouse.tileSide*8);
-		}else{
-		  Side oppositeSide = 0;
-		  vec2 oppositeTile = {0};
-	      
-		  grid[floor][z][x].walls |= (mouse.brush << mouse.tileSide*8);
-		  
-		  if(oppositeTileTo((vec2){x, z}, mouse.tileSide,&oppositeTile,&oppositeSide)){
-		    grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].walls |= (mouse.brush << oppositeSide*8);
-		  }
-		}
-	      }
 	    }
-	  }
  	  
-	  renderTile(tile, GL_LINES, blockW, 0.1f, darkPurple);
-	}
+	  }
+
+	  GroundType type = valueIn(grid[floor][z][x].ground, 0);
+
+	  if(type == netTile){
+	    renderTile(tile, GL_LINES, bBlockW, 0.1f, darkPurple);
+	  }
 	
-	
-	for (int y = 0; y < gridY; y++) {
-	  vec3 tile = { (float)x / 10, (float) y * blockH, (float)z / 10 };
-	  // walls rendering
-	  if(grid[y][z][x].walls !=0)
-	    for(int side=0;side<basicSideCounter;side++){
-	      WallType type = (grid[y][z][x].walls >> (side*8)) & 0xFF;
+	  for (int y = 0; y < gridY; y++) {
+	    vec3 tile = { (float)x / 10, (float) y * bBlockH, (float)z / 10 };
 
-	      switch(type){
-	      case(doorT):{
-		// should i use doorObj->pos insteadOf tile.x/y/z&
-		Object* doorObj = grid[y][z][x].wallsData[side];
-		DoorInfo* doorInfo = (DoorInfo*) doorObj->objInfo;
-
-		// lb/rt only to intersection checking
-		vec3 doorPos = {0};
-		vec3 lb = {0};
-		vec3 rt = {0};
-
-		vec3 postRotationPos = { 0 };
-
-		switch(side){
-		case(top):{
-		  if(doorInfo->opened){
-		    lb = (vec3){tile.x + doorPad / 2 + doorW,tile.y,tile.z};
-		    rt = (vec3){lb.x, tile.y+doorH, tile.z-doorW};
-		  }else{
-		    lb = (vec3){tile.x + doorPad / 2,tile.y,tile.z};
-		    rt = (vec3){lb.x + doorW, tile.y+doorH, tile.z};
-		  }
-
-		  doorPos = (vec3){tile.x + doorPad / 2,tile.y,tile.z};
-
-		  postRotationPos = (vec3){0, 0, 0.1f -doorPad};
-		  break;
-		}
-		case(bot):{
-		  if(doorInfo->opened){
-		    lb = (vec3){tile.x + doorPad/2,tile.y, tile.z + blockW};
-		    rt = (vec3){lb.x, tile.y+doorH, lb.z + doorW};
-		  }else{
-		    lb = (vec3){tile.x + doorPad/2,tile.y, tile.z + blockW};
-		    rt = (vec3){lb.x+doorW, tile.y+doorH, tile.z + blockW};
-		  }
+	    // tile rendering
+	    {
+	      GroundType type = valueIn(grid[y][z][x].ground, 0);
 	      
-		  doorPos = (vec3){tile.x + doorPad / 2,tile.y,tile.z};
-	      
-		  postRotationPos = (vec3){-0.2f+doorPad, 0, -0.1f};
-		  break;
-		}
-		case(left):{
-		  if(doorInfo->opened){
-		    lb = (vec3){tile.x, tile.y, tile.z + doorPad/2 + doorW};
-		    rt = (vec3){tile.x-doorW, tile.y+doorH, lb.z};
-		  }else{
-		    lb = (vec3){tile.x, tile.y, tile.z + doorPad/2};
-		    rt = (vec3){tile.x, tile.y+doorH, lb.z + doorW};
-		  }
+	      if(type == texturedTile){
+		Texture underTx = valueIn(grid[y][z][x].ground, 1);
+		Texture overTx = valueIn(grid[y][z][x].ground, 2);
 
-		  doorPos = (vec3){tile.x,tile.y,tile.z + doorPad/2};
-	      
-		  postRotationPos = (vec3){-0.1f+doorPad, 0, -0.1f+doorPad};
-		  break;
-		}
-		case(right):{
-		  if(doorInfo->opened){
-		    lb = (vec3){tile.x + blockW,tile.y, tile.z + doorPad/2};
-		    rt = (vec3){lb.x + doorW, tile.y+doorH, lb.z};
-		  }else{
-		    lb = (vec3){tile.x + blockW,tile.y, tile.z + doorPad/2};
-		    rt = (vec3){tile.x + blockW, tile.y+doorH, lb.z + doorW};
-		  }
-	      
-		  doorPos = (vec3){tile.x,tile.y,tile.z + doorPad/2};
-	      
-		  postRotationPos = (vec3){-0.1f, 0, 0.1f};
-		  break;
-		}
-		default: break;
-		}
-		
-		float intersectionDistance = 0.0f;
-		bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL, &intersectionDistance);
+		glEnable(GL_TEXTURE_2D);
+		glColor3f(1.0f, 1.0f, 1.0f);
 
-		if(isIntersect && minIntersectionDist > intersectionDistance){
-		  mouse.wallSide = side;
-		  mouse.selectedTile = &grid[y][z][x];
-		  mouse.wallTile = (vec3){x,y,z};
+		// int i
 
-		  minIntersectionDist = intersectionDistance;
+		// if y==0 i= over
+
+		int i = y == 0 ? 2 : 1;
+
+		for(;i<=2;i++){
+		  Texture tx = valueIn(grid[y][z][x].ground, i);
+
+		  float yPos = tile.y;
 		  
-		  if(mouse.clickL && doorObj->anim.frames == 0){
-		    doorInfo->opened = !doorInfo->opened;
+		  if(i == fromOver){
+		    yPos += wallD;
+		  }else if(i== fromUnder){
+		    yPos -= wallD;
 		  }
-		}
+		  
+		  glBindTexture(GL_TEXTURE_2D, tx+1);
+		  glTexImage2D(GL_TEXTURE_2D, 0, 3, textures[tx]->w,
+			       textures[tx]->h, 0, GL_RGB,
+			       GL_UNSIGNED_BYTE, textures[tx]->pixels);
+  
+		  glBegin(GL_TRIANGLES);
 
-		GLenum mode = isIntersect ? GL_TRIANGLE_STRIP : GL_LINES;
+		  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+		  
+		  glTexCoord2f(0.0f, 1.0f); glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d);
+		  glTexCoord2f(1.0f, 1.0f); glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d);
+		  glTexCoord2f(0.0f, 0.0f); glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z);
+  
+		  glTexCoord2f(1.0f, 1.0f); glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d);
+		  glTexCoord2f(0.0f, 0.0f); glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z);
+		  glTexCoord2f(1.0f, 0.0f); glVertex3d(tile.x, yPos, tile.z);
+
+		  glEnd();
+
+		  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
+		}
 		
-		if(doorInfo->opened){
-		  glPushMatrix();
-		  glTranslatef(doorPos.x, doorPos.y, doorPos.z);
-		  glRotatef(90, 0, 1, 0);
-		  glTranslatef(-doorPos.x, -doorPos.y, -doorPos.z);
-		  glTranslatef(postRotationPos.x,postRotationPos.y,postRotationPos.z);
-		}
-
-		if(side == left || side == right){
-		  renderWall(doorPos, mode, blockD, doorW, side, doorH, blueColor);
-		}else{
-		  renderWall(doorPos, mode, doorW, blockD, side, doorH, blueColor);
-		}
-
-		if(doorInfo->opened){
-		  glPopMatrix();
-		  break;
-		}
-
-		break;
-	      }
-	      case(wallT):{
-		vec3 lb = {0};
-		vec3 rt = {0};
-
-		switch(side){
-		case(top):{
-		  lb = tile;
-		  rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z};
-		  break;
-		}
-		case(bot):{
-		  lb = (vec3){tile.x,tile.y, tile.z + blockD};
-		  rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z + blockD};
-		  break;
-		}
-		case(left):{
-		  lb = (vec3){tile.x,tile.y, tile.z};
-		  rt = (vec3){tile.x, tile.y+blockH, tile.z + blockD};
-		  break;
-		}
-		case(right):{
-		  lb = (vec3){tile.x + blockW,tile.y, tile.z};
-		  rt = (vec3){tile.x+ blockW, tile.y+blockH, tile.z + blockD};
-		  break;
-		}
-		default: break;
-		}
-		  		
-		float intersectionDistance = 0.0f;
-		bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL, &intersectionDistance);
-
-		if(isIntersect && minIntersectionDist > intersectionDistance){
-		  mouse.wallSide = side;
-		  mouse.selectedTile = &grid[y][z][x];
-		  mouse.wallTile = (vec3){x,y,z};
-
-		  minIntersectionDist = intersectionDistance;
-		}else{
-		  renderWall(tile, GL_LINES, blockW, blockD, side, blockH,redColor);
-		};
-
-		break;
-	      }
-	      case(halfWallT):{
-		vec3 lb = {0};
-		vec3 rt = {0};
-
-		switch(side){
-		case(top):{
-		  lb = tile;
-		  rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z};
-		  break;
-		}
-		case(bot):{
-		  lb = (vec3){tile.x,tile.y, tile.z + blockD};
-		  rt = (vec3){tile.x+blockW, tile.y+blockH, tile.z + blockD};
-		  break;
-		}
-		case(left):{
-		  lb = (vec3){tile.x,tile.y, tile.z};
-		  rt = (vec3){tile.x, tile.y+blockH, tile.z + blockD};
-		  break;
-		}
-		case(right):{
-		  lb = (vec3){tile.x + blockW,tile.y, tile.z};
-		  rt = (vec3){tile.x+ blockW, tile.y+blockH, tile.z + blockD};
-		  break;
-		}
-		default: break;
-		}
-
+		glDisable(GL_TEXTURE_2D);
 		
-		float intersectionDistance = 0.0f;
-		bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL, &intersectionDistance);
-
-		if(isIntersect && minIntersectionDist > intersectionDistance){
-		  mouse.wallSide = side;
-		  mouse.selectedTile = &grid[y][z][x];
-		  mouse.wallTile = (vec3){x,y,z};
-
-		  minIntersectionDist = intersectionDistance;
-		}else{
-		  renderWall(tile, GL_LINES, blockW, blockD, side, blockH * 0.4f,redColor);
-		};
-
-		break;
-	      }
-
-	      default: break;
+		glEnd();
 	      }
 	    }
+
+	    
+	    // walls rendering
+	    if(grid[y][z][x].walls !=0){
+	      for(int side=0;side<basicSideCounter;side++){
+		WallType type = (grid[y][z][x].walls >> (side*8)) & 0xFF;
+
+		if(type != 0){
+		  vec3* wallPos = wallPosBySide(tile, side, wallsSizes[type].h, wallD, bBlockD, bBlockW);
+
+		  vec3 lb = {0};
+		  vec3 rt = {0};
+		
+		  lb.x = min(wallPos[3].x, wallPos[2].x);
+		  lb.y = wallPos[3].y;
+		  lb.z = min(wallPos[3].z, wallPos[2].z);
+
+		  rt.x = max(wallPos[0].x, wallPos[1].x);
+		  rt.y = wallPos[0].y;
+		  rt.z = max(wallPos[0].z, wallPos[1].z);
+		  
+		  Texture tx = valueIn(grid[y][z][x].wallsTx, side);
+
+		  if(y >= floor){
+		    float intersectionDistance = 0.0f;
+		    bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, NULL, &intersectionDistance);
+
+		    if(isIntersect && minIntersectionDist > intersectionDistance){
+		      mouse.wallSide = side;
+		      mouse.wallTile = (vec3i){x,y,z};
+		      mouse.wallType = type;
+		      mouse.wallTx = tx;
+		  
+		      minIntersectionDist = intersectionDistance;
+		    }
+		  }
+		  
+		  switch(type){
+		  case(windowT):{
+		    renderWindow(wallPos,tx);
+		    break;
+		  }
+		  case(doorFrameT):{
+		    renderDoorFrame(wallPos,tx);
+		    break;
+		  }
+		  default: {
+		    renderWall(wallPos, tx);
+		    break;
+		  };
+		}
+		}
+	      }
+	    }
+	    
+	  }
 	}
       }
     }
     
     // higlight intersected wall with min dist
-    if(mouse.wallSide != -1)
-    {
-      mouse.interDist = minIntersectionDist;
+    if(highlighting && mouse.wallSide != -1)
+      {
+	mouse.interDist = minIntersectionDist;
       
-      WallType type = (grid[(int)mouse.wallTile.y][(int)mouse.wallTile.z][(int)mouse.wallTile.x].walls >> (mouse.wallSide*8)) & 0xFF;
-      vec3 pos = { (float)mouse.wallTile.x * blockW, (float) mouse.wallTile.y * blockH, (float)mouse.wallTile.z * blockD };
+	vec3 pos = { (float)mouse.wallTile.x * bBlockW, (float) mouse.wallTile.y * bBlockH, (float)mouse.wallTile.z * bBlockD };
 
-      // TODO: Here exist we highlight not nearest wall
-      // but first wall
-      if(type == halfWallT){
-	renderWall(pos, GL_TRIANGLE_STRIP, blockW, blockD, mouse.wallSide, blockH * 0.4f, redColor);
-      }
-      else {
-	renderWall(pos, GL_TRIANGLE_STRIP, blockW, blockD, mouse.wallSide, blockH,redColor);
-      }
-    }else{
+	if(mouse.wallType == halfWallT){
+	  vec3* wallPos = wallPosBySide(pos, mouse.wallSide, bBlockH * 0.4f, wallD, bBlockD, bBlockW);
+	  renderWallBorder(wallPos,mouse.wallSide, selBorderT, redColor);
+	}
+	else {
+	  vec3* wallPos = wallPosBySide(pos, mouse.wallSide, bBlockH, wallD, bBlockD, bBlockW);
+	  renderWallBorder(wallPos,mouse.wallSide, selBorderT, redColor);
+	} 
+      }else{
       mouse.interDist = 0.0f;
+    }
+
+    //highlight intersected tile
+    if(highlighting && mouse.groundInter != -1){
+      GroundType type = valueIn(mouse.selectedTile->ground, 0);
+
+      if(type != 0){
+	vec3 tile = { (float)mouse.gridIntersect.x * bBlockW, floor * bBlockH, (float) mouse.gridIntersect.z * bBlockD };
+	  
+	float yPos = tile.y;
+		  
+	if(mouse.groundInter == fromOver){
+	  yPos += wallD;
+	}else if(mouse.groundInter == fromUnder){
+	  yPos -= wallD;
+	}
+	
+	glColor3d(redColor);
+      
+	glBegin(GL_TRIANGLES);
+
+	// right
+	glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+	glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + selBorderT);
+	glVertex3d(tile.x + wallsSizes[wallT].w - selBorderT, yPos, tile.z + selBorderT);
+
+	glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+	glVertex3d(tile.x + wallsSizes[wallT].w - selBorderT, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+	glVertex3d(tile.x + wallsSizes[wallT].w - selBorderT, yPos, tile.z + selBorderT);
+
+	// left
+	glVertex3d(tile.x + selBorderT, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+	glVertex3d(tile.x + selBorderT, yPos, tile.z + selBorderT);
+	glVertex3d(tile.x, yPos, tile.z + selBorderT);
+
+	glVertex3d(tile.x + selBorderT, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+	glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+	glVertex3d(tile.x, yPos, tile.z + selBorderT);
+	
+	// bot
+	glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d);
+	glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d);
+	glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+
+	glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d);
+	glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+	glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+	
+	// top
+	glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + selBorderT);
+	glVertex3d(tile.x, yPos, tile.z + selBorderT);
+	glVertex3d(tile.x, yPos, tile.z);
+
+	glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + selBorderT);
+	glVertex3d(tile.x, yPos, tile.z);
+	glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z);
+	
+	glEnd();
+      }
     }
 
     // process logic of objs
@@ -957,56 +1031,6 @@ int main(int argc, char* argv[]) {
       const float headH = player.h / 6;
       const float bodyD = player.d * 0.75f;
 
-      Side side = 0;
-      bool harder = true;
-
-#define middleAngle 45
-	  
-      if(player.angle<0){
-	float angle = abs(player.angle);
-	
-	if(angle > 180.0f/2){
-	  if(angle <= 120.0f){
-	    side = left;
-	  }else if(harder && angle > 90 + (90-middleAngle) / 2 && angle <= 90 + (90-middleAngle)/2 + middleAngle){
-	    side = topLeft;
-	  }else{
-	    side = top;
-	  }
-	}else{
-	  if(angle <= 30.0f){
-	    side = bot;
-	  }else if(harder && angle > 0 + (90-middleAngle) / 2 && angle <=  0 + (90-middleAngle)/2 + middleAngle){
-	    side = botLeft;
-	  }else{
-	    side = left;
-	  }
-	}
-      }else{
-	if(player.angle > 180.0f/2){
-	  if(player.angle <= 120.0f){
-	    side = right;
-	  }else if(harder && player.angle > 90 + (90-middleAngle) / 2 && player.angle <=  90 + (90-middleAngle)/2 + middleAngle){
-	    side = rightTop;
-	  }
-	  else{
-	    side = top;
-	  }
-	}else{
-	  if(player.angle <= 30.0f){
-	    side = bot;
-	  }
-	  else if(harder &&player.angle >  0 + (90-middleAngle) / 2 && player.angle <=  0 + (90-middleAngle)/2 + middleAngle){
-	    side = botRight;
-	  }
-	  else{
-	    side = right;
-	  }
-	}
-      }
-
-      player.side = side;
-
       float modelview[16];
 
       glPushMatrix();
@@ -1018,7 +1042,7 @@ int main(int argc, char* argv[]) {
       
       // draw humanoid
       {
-	vec3 centrPos = { player.pos.x, player.pos.y + (floor * blockH), player.pos.z };
+	vec3 centrPos = { player.pos.x, player.pos.y + (floor * bBlockH), player.pos.z };
 
 	// head
 	renderCube((vec3){ player.pos.x - headH/2, centrPos.y + player.h - headH, centrPos.z }, headH, headH, headH, greenColor);
@@ -1091,7 +1115,6 @@ int main(int argc, char* argv[]) {
 
       }
     }
-
 
     // cursor world projection
     {
@@ -1173,82 +1196,415 @@ int main(int argc, char* argv[]) {
   return 0;
 }
 
-void renderWall(vec3 pos, GLenum mode , float blockW, float blockD, WallType wall, float wallH, float r, float g, float b){
-  //  glPushMatrix();
-  //glTranslated(0.5, 0.5, 0.5);
-  glColor3d(r, g, b);
+void renderWindow(vec3* pos, Texture tx){
+  glEnable(GL_TEXTURE_2D);
 
-  glBegin(mode);
+  glColor3f(1.0f, 1.0f, 1.0f);
+  
+  glBindTexture(GL_TEXTURE_2D, tx+1);
+  glTexImage2D(GL_TEXTURE_2D, 0, 3, textures[tx]->w,
+	       textures[tx]->h, 0, GL_RGB,
+	       GL_UNSIGNED_BYTE, textures[tx]->pixels);
+  
+  glBegin(GL_TRIANGLES);
 
-  switch(wall){
-  case(top):{
-    glVertex3d(pos.x, pos.y, pos.z + wallD);
-    glVertex3d(pos.x, pos.y + wallH, pos.z + wallD);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glVertex3d(pos.x + blockW,pos.y, pos.z + wallD);
-    glVertex3d(pos.x + blockW,pos.y + wallH, pos.z + wallD);
+  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
-    glVertex3d(pos.x ,pos.y + wallH, pos.z + wallD);
-    glVertex3d(pos.x + blockW,pos.y + wallH, pos.z + wallD);
+  bool rightOrLeftWall = !(pos[0].x != pos[1].x);
 
-    glVertex3d(pos.x,pos.y, pos.z + wallD);
-    glVertex3d(pos.x + blockW ,pos.y +wallH, pos.z + wallD);
+  const float windowBotH = bBlockH * 0.35f;
+  
+  // top
+  glTexCoord2f(0.0f, 1.0f); glVertex3d(pos[0].x, pos[0].y, pos[0].z);
+  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
 
+  glTexCoord2f(1.0f, 1.0f);
+  glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+  glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+  glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+  glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+
+  if(rightOrLeftWall){
+    // left
+    glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+    
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
+
+    glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+
+    //
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
+
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z - doorPad/2);
+
+    glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+
+    // right
+    glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z + doorPad/2);
+
+    glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+      
+    glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w) , 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z + doorPad/2);
+
+    //
+    glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+      
+    glTexCoord2f(1.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z);
+    
+    glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w) , 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z + doorPad/2);
+  }else{
+    // left
+    glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+    
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x +  doorPad/2, pos[0].y - doorTopPad, pos[0].z);
+
+    glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+
+    //
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x + doorPad/2, pos[0].y - doorTopPad, pos[0].z);
+
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[3].x + doorPad/2, pos[3].y + windowBotH, pos[3].z);
+
+    glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+
+    // right
+    glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x - doorPad/2, pos[1].y - doorTopPad, pos[0].z);
+
+    glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[0].z);
+      
+    glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w) , 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[2].x - doorPad/2, pos[2].y + windowBotH, pos[2].z);
+
+    //
+    glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[0].z);
+      
+    glTexCoord2f(1.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z);
+    
+    glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w) , 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[2].x - doorPad/2, pos[2].y + windowBotH, pos[2].z);
+  }
+
+  // bot
+  glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+  glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+
+  glTexCoord2f(1.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+  glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z);
+
+  glTexCoord2f(0.0f, 0.0f);
+  glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  
+  glTexCoord2f(1.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
+  glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z);
+  
+  glTexCoord2f(1.0f, 0.0f);
+  glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+  
+  glTexCoord2f(0.0f, 0.0f);
+  glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  
+  glEnd();
+  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
+
+  glDisable(GL_TEXTURE_2D);
+
+  free(pos);
+}
+
+void renderDoorFrame(vec3* pos, Texture tx){
+  glEnable(GL_TEXTURE_2D);
+
+  glColor3f(1.0f, 1.0f, 1.0f);
+  
+  glBindTexture(GL_TEXTURE_2D, tx+1);
+  glTexImage2D(GL_TEXTURE_2D, 0, 3, textures[tx]->w,
+	       textures[tx]->h, 0, GL_RGB,
+	       GL_UNSIGNED_BYTE, textures[tx]->pixels);
+  
+  glBegin(GL_TRIANGLES);
+
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+
+  bool rightOrLeftWall = !(pos[0].x != pos[1].x);
+  
+  // top
+  glTexCoord2f(0.0f, 1.0f); glVertex3d(pos[0].x, pos[0].y, pos[0].z);
+  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+
+  glTexCoord2f(1.0f, 1.0f);
+  glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+  glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+  glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+  glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+
+  if(rightOrLeftWall){
+  // left
+    glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+
+    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
+
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+
+    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w) , 1.0f - (doorTopPad / wallsSizes[doorFrameT].h) );
+    glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
+    
+    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w) , 0.0f );
+    glVertex3d(pos[3].x, pos[3].y, pos[3].z - doorPad/2);
+    
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  
+    // right
+    glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z + doorPad/2);
+
+    glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+    
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+
+    glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z + doorPad/2);
+    
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+
+    glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f);
+    glVertex3d(pos[2].x, pos[2].y, pos[2].z + doorPad/2);
+  }else{
+    glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x + doorPad/2, pos[0].y - doorTopPad, pos[0].z);
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+
+    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x + doorPad/2, pos[0].y - doorTopPad, pos[0].z);
+
+    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[3].x + doorPad/2, pos[3].y, pos[3].z);
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  
+    // right
+    glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x - doorPad/2, pos[1].y - doorTopPad, pos[1].z);
+
+    glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+
+    glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
+    glVertex3d(pos[1].x - doorPad/2, pos[1].y - doorTopPad, pos[1].z);
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+
+    glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f);
+    glVertex3d(pos[2].x - doorPad/2, pos[2].y, pos[2].z);
+  }
+  
+  glEnd();
+  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
+
+  glDisable(GL_TEXTURE_2D);
+
+  free(pos);
+}
+
+void renderWall(vec3* pos, Texture tx){
+  glEnable(GL_TEXTURE_2D);
+
+  glColor3f(1.0f, 1.0f, 1.0f);
+  
+  glBindTexture(GL_TEXTURE_2D, tx+1);
+  glTexImage2D(GL_TEXTURE_2D, 0, 3, textures[tx]->w,
+	       textures[tx]->h, 0, GL_RGB,
+	       GL_UNSIGNED_BYTE, textures[tx]->pixels);
+  
+  glBegin(GL_TRIANGLES);
+
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+  glTexCoord2f(0.0f, 1.0f); glVertex3d(pos[0].x, pos[0].y, pos[0].z);
+  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+
+  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+  glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);  
+  
+  glEnd();
+  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
+
+  glDisable(GL_TEXTURE_2D);
+
+  free(pos);
+}
+
+void renderWallBorder(vec3* pos, Side side, float borderT, float r, float g, float b){
+  glColor3f(r,g,b);
+  
+  glBegin(GL_TRIANGLES);
+
+  switch(side){
+  case(bot):{
+    pos[0].z -= selBorderD;
+    pos[1].z -= selBorderD;
+    pos[2].z -= selBorderD;
+    pos[3].z -= selBorderD;
     break;
   }
-  case(bot):{
-    glVertex3d(pos.x, pos.y, pos.z + blockD - wallD);
-    glVertex3d(pos.x, pos.y + wallH, pos.z + blockD - wallD);
-
-    glVertex3d(pos.x + blockW,pos.y, pos.z + blockD - wallD);
-    glVertex3d(pos.x + blockW,pos.y + wallH, pos.z + blockD - wallD);
-
-    glVertex3d(pos.x + blockW,pos.y, pos.z  + blockD);
-    glVertex3d(pos.x ,pos.y + wallH, pos.z + blockD - wallD);
-
-    glVertex3d(pos.x ,pos.y + wallH, pos.z + blockD - wallD);
-    glVertex3d(pos.x + blockW,pos.y + wallH, pos.z + blockD - wallD);
-
+  case(top):{
+    pos[0].z += selBorderD;
+    pos[1].z += selBorderD;
+    pos[2].z += selBorderD;
+    pos[3].z += selBorderD;
     break;
   }
   case(left):{
-    glVertex3d(pos.x + wallD, pos.y + wallH, pos.z + blockD);
-    glVertex3d(pos.x + wallD,pos.y + wallH, pos.z);
-    
-    glVertex3d(pos.x + wallD, pos.y, pos.z);
-    glVertex3d(pos.x + wallD,pos.y + wallH, pos.z);
+    pos[0].x += selBorderD;
+    pos[1].x += selBorderD;
+    pos[2].x += selBorderD;
+    pos[3].x += selBorderD;
 
-
-    //    glVertex3d(pos.x + wallD,pos.y, pos.z);
-    glVertex3d(pos.x + wallD ,pos.y + wallH, pos.z+ blockD);
-    glVertex3d(pos.x + wallD,pos.y, pos.z + blockD);
-
-    glVertex3d(pos.x + wallD,pos.y + wallH, pos.z + blockD);
-    glVertex3d(pos.x + wallD ,pos.y, pos.z);
-  
     break;
   }
   case(right):{
-    glVertex3d(pos.x + blockW - wallD, pos.y, pos.z);
-    glVertex3d(pos.x + blockW - wallD, pos.y + wallH, pos.z);
-
-    glVertex3d(pos.x + blockW - wallD,pos.y, pos.z + blockD);
-    glVertex3d(pos.x + blockW - wallD,pos.y + wallH, pos.z + blockD);
-
-    glVertex3d(pos.x + blockW - wallD,pos.y + wallH, pos.z);
-    glVertex3d(pos.x + blockW - wallD,pos.y + wallH, pos.z + blockD);
-
-    glVertex3d(pos.x + blockW - wallD,pos.y + wallH, pos.z);
-    glVertex3d(pos.x + blockW - wallD,pos.y, pos.z + blockD);
-
+    pos[0].x -= selBorderD;
+    pos[1].x -= selBorderD;
+    pos[2].x -= selBorderD;
+    pos[3].x -= selBorderD;
     break;
   }
   default: break;
   }
   
+  // top
+  glVertex3d(pos[0].x, pos[0].y, pos[0].z);
+  glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z);
+
+  glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z);
+  glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
+  
+  //bot
+  glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
+  glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z);
+  glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+
+  glVertex3d(pos[2].x, pos[3].y + borderT, pos[2].z);
+  glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+  glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  
+  if(side == top || side == bot){
+    // left
+    glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z);
+    glVertex3d(pos[0].x + borderT, pos[0].y - borderT, pos[0].z);
+    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
+
+    glVertex3d(pos[0].x + borderT, pos[0].y - borderT, pos[0].z);
+    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
+    glVertex3d(pos[3].x + borderT, pos[3].y + borderT, pos[3].z);
+
+    // right
+    glVertex3d(pos[1].x - borderT, pos[1].y - borderT, pos[1].z);
+    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
+    glVertex3d(pos[2].x - borderT, pos[2].y + borderT, pos[2].z);
+
+    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
+    glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z);
+    glVertex3d(pos[2].x - borderT, pos[2].y + borderT, pos[2].z);
+  }else if(side == left || side == right){
+    // left
+    glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z);
+    glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z - borderT);
+    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
+
+    glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z - borderT);
+    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
+    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z - borderT);
+
+    // right
+    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z + borderT);
+    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
+    glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z + borderT);
+
+    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
+    glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z);
+    glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z + borderT);
+  }
+  
   glEnd();
 
-  //  glPopMatrix();
+  free(pos);
+}
+
+
+vec3* wallPosBySide(vec3 basePos, Side side, float wallH, float wallD, float tileD, float tileW){
+  // should be free() after wall rendered
+  vec3* wallPos = malloc(sizeof(vec3) * 4);
+  
+  switch(side){
+  case(top):{
+    wallPos[0] =(vec3){basePos.x, basePos.y + wallH, basePos.z + wallD};
+    wallPos[1] =(vec3){basePos.x + tileW,basePos.y + wallH, basePos.z + wallD};
+    wallPos[2] =(vec3){basePos.x + tileW,basePos.y, basePos.z + wallD};
+    wallPos[3] =(vec3){basePos.x, basePos.y, basePos.z + wallD};
+
+    break;
+  }
+  case(bot):{
+    wallPos[0] =(vec3){basePos.x, basePos.y + wallH, basePos.z + tileD - wallD};
+    wallPos[1] =(vec3){basePos.x + tileW,basePos.y + wallH, basePos.z + tileD - wallD};
+    wallPos[2] =(vec3){basePos.x + tileW,basePos.y, basePos.z + tileD - wallD};
+    wallPos[3] =(vec3){basePos.x, basePos.y, basePos.z + tileD - wallD};
+    
+    break;
+  }
+  case(left):{
+    wallPos[0] =(vec3){basePos.x + wallD, basePos.y + wallH, basePos.z + tileD};
+    wallPos[1] =(vec3){basePos.x + wallD, basePos.y + wallH, basePos.z};
+    wallPos[2] =(vec3){basePos.x + wallD, basePos.y, basePos.z};
+    wallPos[3] =(vec3){basePos.x + wallD,basePos.y, basePos.z + tileD};
+  
+    break;
+  }
+  case(right):{
+    wallPos[0] =(vec3){basePos.x + tileW - wallD,basePos.y + wallH, basePos.z + tileD};
+    wallPos[1] =(vec3){basePos.x + tileW - wallD, basePos.y + wallH, basePos.z};
+    wallPos[2] =(vec3){basePos.x + tileW - wallD, basePos.y, basePos.z};
+    wallPos[3] =(vec3){basePos.x + tileW - wallD,basePos.y, basePos.z + tileD};
+  
+    break;
+  }
+  default: break;
+  }
+
+  return wallPos;
 }
 
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b){
@@ -1347,7 +1703,7 @@ bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, cons
   }
 
   if (dist) {
-	*dist = t;
+    *dist = t;
   }
   if(res){
     if(posOfIntersection){
@@ -1593,7 +1949,7 @@ Object* doorConstructor(vec3 pos, bool opened){
   return newDoor;
 }
 
-bool oppositeTileTo(vec2 XZ, Side side, vec2* opTile, Side* opSide){
+bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSide){
   Side oppositeSide = 0;
 	      
   switch(side){
@@ -1635,6 +1991,37 @@ bool oppositeTileTo(vec2 XZ, Side side, vec2* opTile, Side* opSide){
   return false;
 }
 
+
+bool deleteIn(int* num, int index, uint8_t newValue){
+  if(index >= 0 && index < 4){
+    *num &= ~(0xFF << (index * 8));
+    
+    return true;
+  }
+
+  return false;
+}
+
+bool setIn(int* num, int index, uint8_t newValue){
+  if(index >= 0 && index < 4){
+    *num &= ~(0xFF << (index * 8));
+    *num |= (newValue << index * 8);
+
+    return true;
+  }
+
+  return false;
+}
+
+uint8_t valueIn(int num, int index){
+  if(index >= 0 && index < 4){
+    return (num >> (index*8)) & 0xFF; 
+  }
+
+  return 0;
+}
+
+
 /*
 
 // render door frame
@@ -1644,33 +2031,34 @@ glBegin(GL_LINE_LOOP);
 glColor3d(redColor);
 
 // first plank of frame(left)
-glVertex3d(tile.x, tile.y, tile.z + blockD);
-glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + doorPad/2, tile.y, tile.z + blockD);
+glVertex3d(tile.x, tile.y, tile.z + bBlockD);
+glVertex3d(tile.x, tile.y + doorH, tile.z + bBlockD);
+glVertex3d(tile.x + doorPad/2, tile.y, tile.z + bBlockD);
 
-glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + doorPad/2, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + doorPad/2, tile.y, tile.z + blockD);
+glVertex3d(tile.x, tile.y + doorH, tile.z + bBlockD);
+glVertex3d(tile.x + doorPad/2, tile.y + doorH, tile.z + bBlockD);
+glVertex3d(tile.x + doorPad/2, tile.y, tile.z + bBlockD);
 
 // top plank of frame
-glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + blockW + doorPad/2, tile.y + doorFrameH, tile.z + blockD);
-glVertex3d(tile.x, tile.y + doorFrameH, tile.z + blockD);
+glVertex3d(tile.x, tile.y + doorH, tile.z + bBlockD);
+glVertex3d(tile.x + bBlockW + doorPad/2, tile.y + doorFrameH, tile.z + bBlockD);
+glVertex3d(tile.x, tile.y + doorFrameH, tile.z + bBlockD);
 
-glVertex3d(tile.x, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + blockW, tile.y + doorFrameH, tile.z + blockD);
-glVertex3d(tile.x + blockW, tile.y + doorH, tile.z + blockD);
+glVertex3d(tile.x, tile.y + doorH, tile.z + bBlockD);
+glVertex3d(tile.x + bBlockW, tile.y + doorFrameH, tile.z + bBlockD);
+glVertex3d(tile.x + bBlockW, tile.y + doorH, tile.z + bBlockD);
 
 // second plank of frame (right)
-glVertex3d(tile.x + doorW + doorPad, tile.y + doorH, tile.z + blockD);
-glVertex3d(tile.x + doorW + doorPad/2, tile.y, tile.z + blockD);
-glVertex3d(tile.x + doorW + doorPad /2, tile.y + doorH, tile.z + blockD);
+glVertex3d(tile.x + doorW + doorPad, tile.y + doorH, tile.z + bBlockD);
+glVertex3d(tile.x + doorW + doorPad/2, tile.y, tile.z + bBlockD);
+glVertex3d(tile.x + doorW + doorPad /2, tile.y + doorH, tile.z + bBlockD);
 
-glVertex3d(tile.x + doorW + doorPad/2, tile.y, tile.z + blockD);
-glVertex3d(tile.x + doorW + doorPad, tile.y, tile.z + blockD);
-glVertex3d(tile.x + doorW + doorPad, tile.y + doorH, tile.z + blockD);
+glVertex3d(tile.x + doorW + doorPad/2, tile.y, tile.z + bBlockD);
+glVertex3d(tile.x + doorW + doorPad, tile.y, tile.z + bBlockD);
+glVertex3d(tile.x + doorW + doorPad, tile.y + doorH, tile.z + bBlockD);
 	      
 glEnd();
 }
 */
+
 
