@@ -240,6 +240,7 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
 	case(SDL_SCANCODE_DOWN):{
+		// TODO: if intersected tile + wall will work only tile changer 
 	  if(mouse.wallType != -1){
 	    Texture prevTx = 0;
 	      

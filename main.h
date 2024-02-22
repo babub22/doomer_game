@@ -116,6 +116,7 @@ typedef enum{
   woodPlanks,
   metal,
   ground,
+  redClo,
   texturesCounter
 } Texture;
 
