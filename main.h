@@ -96,6 +96,11 @@ typedef float mat4[16];
 typedef float mat3[9];
 
 typedef struct{
+  vec3 normal;
+  float distance; 
+} Plane;
+
+typedef struct{
   vec3 pos;
   vec3 target;
   vec3 dir;
@@ -106,7 +111,14 @@ typedef struct{
 
   float yaw;
   float pitch;
+
+  Plane* planes;
 } Camera;
+
+typedef enum{
+  botP, topP, leftP, 
+  nearP, farP, rightP
+} Planes;
 
 // to add new texture to game
 // add to this enum and to
@@ -204,6 +216,14 @@ typedef struct{
   float w, h, d;
 } Sizes;
 
+
+#define editorFOV 50.0f
+
+#define distToCamera(point) sqrtf(powf(point.x - camera.pos.x, 2) + powf(point.y - camera.pos.y, 2) + powf(point.z - camera.pos.z, 2))
+      
+
+#define argVec3(vec) vec.x, vec.y, vec.z 
+
 #define rad(deg) deg * M_PI / 180
 
 #define vec3dToVec3(vec3d) (vec3){vec3d.x,vec3d.y,vec3d.z}
@@ -245,6 +265,8 @@ bool deleteIn(int* num, int index, uint8_t newValue);
 bool setIn(int* num, int index, uint8_t newValue);
 
 uint8_t valueIn(int num, int index);
+
+float dotf(const vec3 v1, const vec3 v2);
 
 #define FPS 60
 

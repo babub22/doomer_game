@@ -11,7 +11,10 @@ int gridZ = 30;
 GLuint* mappedTextures;
 SDL_Surface** textures;
 
-Camera camera = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
+Camera camera1 = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
+Camera camera2 = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
+
+Camera* curCamera = &camera1;
 
 const float wallD = 0.0012f;
 
@@ -21,6 +24,8 @@ const float doorH = bBlockH * 0.85f;
 const float doorPad =  bBlockW / 4;
 
 const float doorTopPad = bBlockH - bBlockH * 0.85f;
+
+float fieldOfView = .4f;
 
 int main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
@@ -37,7 +42,7 @@ int main(int argc, char* argv[]) {
 					SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 
   SDL_SetRelativeMouseMode(SDL_TRUE);
-  
+  //  SDL_SetRelativeMouseMode(SDL_TRUE);
   SDL_GLContext context = SDL_GL_CreateContext(window);
   
   SDL_ShowCursor(SDL_DISABLE);
@@ -95,12 +100,19 @@ int main(int argc, char* argv[]) {
 
   // set up camera
   {
-    camera.dir = normalize((vec3){camera.pos.x - camera.target.x, camera.pos.y - camera.target.y , camera.pos.z - camera.target.z});
+    camera2.dir = normalize((vec3){curCamera->pos.x - curCamera->target.x, curCamera->pos.y - curCamera->target.y , curCamera->pos.z - curCamera->target.z});
+    camera1.dir = normalize((vec3){curCamera->pos.x - curCamera->target.x, curCamera->pos.y - curCamera->target.y , curCamera->pos.z - curCamera->target.z});
 
-    camera.up = (vec3){ 0.0f, 1.0f, 0.0f };
-    camera.front = (vec3){ -camera.pos.x, -camera.pos.y, -camera.pos.z };
+    camera1.planes = malloc(sizeof(Plane) * 6);
+    
+    camera1.up = (vec3){ 0.0f, 1.0f, 0.0f };
+    camera1.front = (vec3){ -camera1.pos.x, -camera1.pos.y, -camera1.pos.z };
+
+    camera2.up = (vec3){ 0.0f, 1.0f, 0.0f };
+    camera2.front = (vec3){ -camera2.pos.x, -camera2.pos.y, -camera2.pos.z };
   }
 
+  float testFOV = editorFOV;
   
   Tile*** grid = NULL;
 
@@ -181,6 +193,7 @@ int main(int argc, char* argv[]) {
     cameraSpeed = 0.5f * deltaTime;
     
     SDL_Event event;
+
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
 	quit = true;
@@ -297,13 +310,9 @@ int main(int argc, char* argv[]) {
 	  
 	case(SDL_SCANCODE_SPACE):{
 	  cameraMode = !cameraMode;
+	  //	  curCamera->
+	  curCamera = cameraMode ? &camera1 : &camera2;
       
-	  if(cameraMode){
-	    SDL_SetRelativeMouseMode(SDL_TRUE);
-	  }else{
-	    SDL_SetRelativeMouseMode(SDL_FALSE);
-	  }
-
 	  break;
 	}
 	case(SDL_SCANCODE_EQUALS):{
@@ -321,6 +330,22 @@ int main(int argc, char* argv[]) {
 	  }
 	  
 	  break;
+	}
+	case( SDL_SCANCODE_L):{
+	  testFOV -= 1.1f;
+	  break;
+	}
+	case( SDL_SCANCODE_O):{
+	  testFOV += 1.1f;
+	  break;
+	}
+	case(SDL_SCANCODE_M):{
+	  fieldOfView += 0.05f;
+	    break;
+	}
+	case(SDL_SCANCODE_N):{
+	  fieldOfView -= 0.05f;
+	    break;
 	}
 	case(SDL_SCANCODE_F5):{
 	  FILE *map = fopen("map.doomer", "w");
@@ -402,7 +427,7 @@ int main(int argc, char* argv[]) {
 	mouse.screenPos.x = event.motion.x;
 	mouse.screenPos.z = event.motion.y;
 
-	if(cameraMode){
+	if(curCamera){//cameraMode){
 	  mouse.screenPos.x = windowW / 2;
 	  mouse.screenPos.z = windowH / 2;
 	  
@@ -415,24 +440,29 @@ int main(int argc, char* argv[]) {
 
 	  // calculate yaw, pitch
 	  {
-	    camera.yaw += xoffset;
-	    camera.pitch += yoffset;
+	    curCamera->yaw += xoffset;
+	    curCamera->pitch += yoffset;
 
-	    if(camera.pitch > 89.0f)
-	      camera.pitch =  89.0f;
-	    if(camera.pitch < -89.0f)
-	      camera.pitch = -89.0f;
+	    if(curCamera->pitch > 89.0f)
+	      curCamera->pitch =  89.0f;
+	    if(curCamera->pitch < -89.0f)
+	      curCamera->pitch = -89.0f;
 
-	    if(camera.yaw > 180.0f)
-	      camera.yaw =  -180.0f;
-	    if(camera.yaw < -180.0f)
-	      camera.yaw = 180.0f;
+	    if(curCamera->yaw > 180.0f)
+	      curCamera->yaw =  -180.0f;
+	    if(curCamera->yaw < -180.0f)
+	      curCamera->yaw = 180.0f;
 
-	    camera.dir.x = cos(rad(camera.yaw)) * cos(rad(camera.pitch));
-	    camera.dir.y = sin(rad(camera.pitch));
-	    camera.dir.z = sin(rad(camera.yaw)) * cos(rad(camera.pitch));
+	    curCamera->dir.x = cos(rad(curCamera->yaw)) * cos(rad(curCamera->pitch));
+	    curCamera->dir.y = sin(rad(curCamera->pitch));
+	    curCamera->dir.z = sin(rad(curCamera->yaw)) * cos(rad(curCamera->pitch));
 
-	    camera.front = normalize(camera.dir);
+	    curCamera->front = normalize(curCamera->dir);
+
+	    //	     vec3 newRight = normalize(cross(curCamera->dir, curCamera->up));
+	     //	     curCamera->up = normalize(cross(newRight, curCamera->dir));
+	    
+	    //  curCamera->up = cross(normalize(cross(curCamera->front, (vec3){0, -1, 0})), curCamera->front);
 	  }
 	}
       }
@@ -443,10 +473,10 @@ int main(int argc, char* argv[]) {
 
     if( currentKeyStates[ SDL_SCANCODE_W ] )
       {
-	if(cameraMode){
-	  camera.pos.x += cameraSpeed * camera.front.x;
-	  camera.pos.y += cameraSpeed * camera.front.y;
-	  camera.pos.z += cameraSpeed * camera.front.z;
+	if(curCamera){//cameraMode){
+	  curCamera->pos.x += cameraSpeed * curCamera->front.x;
+	  curCamera->pos.y += cameraSpeed * curCamera->front.y;
+	  curCamera->pos.z += cameraSpeed * curCamera->front.z;
 	}else{
 	  float dx = speed * sin(rad(player.angle));  
 	  float dz = speed * cos(rad(player.angle)); 
@@ -515,10 +545,10 @@ int main(int argc, char* argv[]) {
       }
     else if( currentKeyStates[ SDL_SCANCODE_S ] )
       {
-	if(cameraMode){
-	  camera.pos.x -= cameraSpeed * camera.front.x;
-	  camera.pos.y -= cameraSpeed * camera.front.y;
-	  camera.pos.z -= cameraSpeed * camera.front.z;
+	if(curCamera){//cameraMode){
+	  curCamera->pos.x -= cameraSpeed * curCamera->front.x;
+	  curCamera->pos.y -= cameraSpeed * curCamera->front.y;
+	  curCamera->pos.z -= cameraSpeed * curCamera->front.z;
 	}else{
 	  player.pos.x -= speed * sin(rad(player.angle));  
 	  player.pos.z -= speed * cos(rad(player.angle)); 
@@ -526,12 +556,12 @@ int main(int argc, char* argv[]) {
       }
     else if(currentKeyStates[ SDL_SCANCODE_D ] )
       {
-	if(cameraMode){
-	  vec3 normFront = normalize(cross(camera.front, camera.up));
+	if(curCamera){//cameraMode){
+	  vec3 normFront = normalize(cross(curCamera->front, curCamera->up));
 	  
-	  camera.pos.x += cameraSpeed * normFront.x;
-	  camera.pos.y += cameraSpeed * normFront.y;
-	  camera.pos.z += cameraSpeed * normFront.z;
+	  curCamera->pos.x += cameraSpeed * normFront.x;
+	  curCamera->pos.y += cameraSpeed * normFront.y;
+	  curCamera->pos.z += cameraSpeed * normFront.z;
 	}
 	
 	
@@ -546,12 +576,12 @@ int main(int argc, char* argv[]) {
       }
     else if( currentKeyStates[ SDL_SCANCODE_A ] )
       {
-	if(cameraMode){
-	  vec3 normFront = normalize(cross(camera.front, camera.up));
+	if(curCamera){//cameraMode){
+	  vec3 normFront = normalize(cross(curCamera->front, curCamera->up));
 	  
-	  camera.pos.x -= cameraSpeed * normFront.x;
-	  camera.pos.y -= cameraSpeed * normFront.y;
-	  camera.pos.z -= cameraSpeed * normFront.z;
+	  curCamera->pos.x -= cameraSpeed * normFront.x;
+	  curCamera->pos.y -= cameraSpeed * normFront.y;
+	  curCamera->pos.z -= cameraSpeed * normFront.z;
 	}
 	
 	/*	float strafeAngle = player.angle;
@@ -611,20 +641,29 @@ int main(int argc, char* argv[]) {
     glLoadIdentity();
     glMatrixMode(GL_PROJECTION);
     
-    float fov = cameraMode ? 50.0f : 30.0f;
+    float fov = cameraMode ? testFOV : editorFOV;//30.0f;
     float dist = 5.5f;
     
     gluPerspective(fov, windowW/windowH, 0.1f, 100.0f);
 
     if(!cameraMode){
-      gluLookAt(3, 3, 3,  /* position of camera */
-		0.0f, 0.0f , 0.0f,   /* where camera is pointing at */
-		0.0f,  1.0f,  0.0f);  /* which direction is up */
-	    
+      //           gluLookAt(3, 3, 3,  /* position of camera */
+      //	0.0f, 0.0f , 0.0f,   /* where camera is pointing at */
+      //	0.0f,  1.0f,  0.0f);  /* which direction is up */
+  
+      //      		gluLookAt(3,5, 3,  /* position of camera */
+			  //      		(gridX / 2) * bBlockW, 0.0f, (gridZ / 2) * bBlockD,   /* where camera is pointing at */
+      //      	0.0f,  1.0f,  0.0f);  /* which direction is up */
+
+		      gluLookAt(curCamera->pos.x, curCamera->pos.y, curCamera->pos.z,
+		curCamera->pos.x + curCamera->front.x, curCamera->pos.y + curCamera->front.y, curCamera->pos.z + curCamera->front.z,
+		curCamera->up.x, curCamera->up.y, curCamera->up.z);
+
+      
     }else{
-      gluLookAt(camera.pos.x, camera.pos.y, camera.pos.z,
-		camera.pos.x + camera.front.x, camera.pos.y + camera.front.y, camera.pos.z + camera.front.z,
-		camera.up.x, camera.up.y, camera.up.z);
+      gluLookAt(curCamera->pos.x, curCamera->pos.y, curCamera->pos.z,
+		curCamera->pos.x + curCamera->front.x, curCamera->pos.y + curCamera->front.y, curCamera->pos.z + curCamera->front.z,
+		curCamera->up.x, curCamera->up.y, curCamera->up.z);
     }
     
     glMatrixMode(GL_MODELVIEW);
@@ -649,13 +688,426 @@ int main(int argc, char* argv[]) {
 	glEnd();
       }
 
-    float minIntersectionDist = 1000.0f;
+    // camera frustum
+    {
+      const float zFar = fieldOfView;
+      const float zNear = 0.075f;
+      
+      const float halfWFar = zFar * tanf(editorFOV * .5f);
+      const float halfHFar = halfWFar * (windowW/windowH);
+
+      #define ANG2RAD 3.14159265358979323846/180.0
+      const float tangg = tanf(ANG2RAD * editorFOV * 0.5f);
+
+      const float WFar = halfWFar * 2;
+      const float HFar = halfHFar * 2;
+      
+      const float halfWNear = (WFar * zNear) / zFar;
+      const float halfHNear = (HFar * zNear) / zFar;
+
+      const float WNear = halfWNear * 2;
+      const float HNear = halfHNear * 2;
+
+      vec3 fc = {
+	camera1.pos.x + zFar * camera1.dir.x,
+	camera1.pos.y + zFar * camera1.dir.y,
+	camera1.pos.z + zFar * camera1.dir.z 
+	  };
+
+      vec3 right = normalize(cross(camera1.up, camera1.dir));
+
+      vec3 ftl = {
+	fc.x + (camera1.up.x * halfWFar) - (right.x * halfHFar),
+	fc.y + (camera1.up.y * halfWFar) - (right.y * halfHFar),
+	fc.z + (camera1.up.z * halfWFar) - (right.z * halfHFar)
+      };
+      
+      vec3 ftr = {
+	fc.x + (camera1.up.x * halfWFar) + (right.x * halfHFar),
+	fc.y + (camera1.up.y * halfWFar) + (right.y * halfHFar),
+	fc.z + (camera1.up.z * halfWFar) + (right.z * halfHFar)
+      };
+
+      vec3 fbl = {
+	fc.x - (camera1.up.x * halfWFar) - (right.x * halfHFar),
+	fc.y - (camera1.up.y * halfWFar) - (right.y * halfHFar),
+	fc.z - (camera1.up.z * halfWFar) - (right.z * halfHFar)
+      };
+
+      vec3 fbr = {
+	fc.x - (camera1.up.x * halfWFar) + (right.x * halfHFar),
+	fc.y - (camera1.up.y * halfWFar) + (right.y * halfHFar),
+	fc.z - (camera1.up.z * halfWFar) + (right.z * halfHFar)
+      };
+
+      vec3 nc = {
+	camera1.pos.x + zNear * camera1.dir.x,
+	camera1.pos.y + zNear * camera1.dir.y,
+	camera1.pos.z + zNear * camera1.dir.z };
+	
+      vec3 ntl = {
+	nc.x + (camera1.up.x *halfWNear) - (right.x *halfHNear),
+	nc.y + (camera1.up.y *halfWNear) - (right.y *halfHNear),
+	nc.z + (camera1.up.z *halfWNear) - (right.z *halfHNear)
+      };
+      
+      vec3 ntr = {
+	nc.x + (camera1.up.x *halfWNear) + (right.x *halfHNear),
+	nc.y + (camera1.up.y *halfWNear) + (right.y *halfHNear),
+	nc.z + (camera1.up.z *halfWNear) + (right.z *halfHNear)
+      };
+
+      vec3 nbl = {
+	nc.x - (camera1.up.x *halfWNear) - (right.x *halfHNear),
+	nc.y - (camera1.up.y *halfWNear) - (right.y *halfHNear),
+	nc.z - (camera1.up.z *halfWNear) - (right.z *halfHNear)
+      };
+
+      vec3 nbr = {
+	nc.x - (camera1.up.x *halfWNear) + (right.x *halfHNear),
+	nc.y - (camera1.up.y *halfWNear) + (right.y *halfHNear),
+	nc.z - (camera1.up.z *halfWNear) + (right.z *halfHNear)
+      };
+
+     //vec3 right = normalize(cross(camera1.up, camera1.dir));
+
+      // Calculate the left point on the near plane (lc)
+      vec3 lc = {
+	(nbl.x + ntl.x + ftl.x + fbl.x) / 4.0f,
+	(nbl.y + ntl.y + ftl.y + fbl.y) / 4.0f,
+	(nbl.z + ntl.z + ftl.z + fbl.z) / 4.0f
+      };
+
+      // Calculate the right point on the near plane (rc)
+      vec3 rc = {
+	(nbr.x + ntr.x + ftr.x + fbr.x) / 4.0f,
+	(nbr.y + ntr.y + ftr.y + fbr.y) / 4.0f,
+	(nbr.z + ntr.z + ftr.z + fbr.z) / 4.0f
+      };
+
+      // Calculate the bottom point on the near plane (bc)
+      vec3 bc = {
+	(nbl.x + nbr.x + fbr.x + fbl.x) / 4.0f,
+	(nbl.y + nbr.y + fbr.y + fbl.y) / 4.0f,
+	(nbl.z + nbr.z + fbr.z + fbl.z) / 4.0f
+      };
+
+      // Calculate the top point on the near plane (tc)
+      vec3 tc = {
+	(ntl.x + ntr.x + ftr.x + ftl.x) / 4.0f,
+	(ntl.y + ntr.y + ftr.y + ftl.y) / 4.0f,
+	(ntl.z + ntr.z + ftr.z + ftl.z) / 4.0f
+      };
+      
+      // near - works
+      vec3 vec1_near = { ntr.x - ntl.x, ntr.y - ntl.y, ntr.z - ntl.z };
+      vec3 vec2_near = { nbl.x - ntl.x, nbl.y - ntl.y, nbl.z - ntl.z };
+
+      vec3 normal_near = normalize(cross(vec2_near, vec1_near));
+      float distance_near = -dotf(normal_near, ntl);
+      camera1.planes[nearP] = (Plane){normal_near, distance_near};
+      // Far Plane - works
+      
+      vec3 vec1_far = { ftr.x - ftl.x, ftr.y - ftl.y, ftr.z - ftl.z };
+      vec3 vec2_far = { fbl.x - ftl.x, fbl.y - ftl.y, fbl.z - ftl.z };
+      
+      vec3 normal_far = normalize(cross(vec1_far, vec2_far));
+      
+      float distance_far = -dotf(normal_far, ftl);
+      camera1.planes[farP] = (Plane){normal_far, distance_far};
+
+      // Right Plane
+     // vec3 rc = {};
+      
+      vec3 vec1_right = { fbr.x - ftr.x, fbr.y - ftr.y, fbr.z - ftr.z }; 
+      vec3 vec2_right = { ntr.x - ftr.x, ntr.y - ftr.y, ntr.z - ftr.z }; 
+
+      vec3 normal_right = normalize(cross(camera1.front, camera1.up));
+
+      float distance_right = -dotf(normal_right, ftr);
+      camera1.planes[rightP] = (Plane){normal_right, distance_right};
+
+      // Left Plane
+
+      vec3 vec1_left = { fbl.x - ftl.x, fbl.y - ftl.y, fbl.z - ftl.z };
+      vec3 vec2_left = { ntl.x - ftl.x, ntl.y - ftl.y, ntl.z - ftl.z };
+
+      vec3 normal_left = normalize(cross(vec1_left, vec2_left));
+
+      float distance_left = -dotf(normal_left, ftl);
+      camera1.planes[leftP] = (Plane){normal_left, distance_left};
+
+      // Top Plane
+      vec3 vec1_top = { ftr.x - ftl.x, ftr.y - ftl.y, ftr.z - ftl.z }; 
+      vec3 vec2_top = { ntl.x - ftl.x, ntl.y - ftl.y, ntl.z - ftl.z };
+      
+      vec3 normal_top = normalize(cross(vec1_top, vec2_top));
+      
+      float distance_top = -dotf(normal_top, ftl);
+      camera1.planes[topP] = (Plane){normal_top, distance_top};
+
+      // Bottom Plane
+      vec3 vec1_bottom = { fbr.x - nbr.x, fbr.y - nbr.y, fbr.z - nbr.z }; 
+      vec3 vec2_bottom = { nbl.x - nbr.x, nbl.y - nbr.y, nbl.z - nbr.z };
+      
+      vec3 normal_bottom = normalize(cross(vec1_bottom, vec2_bottom));
+      
+      float distance_bottom = dotf(normal_bottom, nbr);
+
+      camera1.planes[botP] = (Plane){ normal_bottom, distance_bottom };
+      
+      glBegin(GL_LINES);
+      
+      glColor3d(1.0f, 1.0f, 1.0f);
+
+      
+      glVertex3d(argVec3(fc));
+      glVertex3d(fc.x + normal_far.x, fc.y + normal_far.y, fc.z + normal_far.z);
+
+      glColor3d(cyan);
+      glVertex3d(argVec3(bc));
+      glVertex3d(bc.x + normal_bottom.x, bc.y + normal_bottom.y, bc.z + normal_bottom.z);
+
+
+      
+      //      glVertex3d(argVec3(tc));
+      // glVertex3d(argVec3(normal_bottom));
+      
+      //      glVertex3d(argVec3(bc));
+      //      glVertex3d(argVec3(normal_bottom));
+      
+      
+      //      glVertex3d(argVec3(bc));
+      //      glVertex3d(argVec3(tc));
+      
+      glColor3d(redColor);
+      glVertex3d(argVec3(nbr));
+      glVertex3d(argVec3(fbr));
+
+      glVertex3d(argVec3(nbl));
+      glVertex3d(argVec3(fbl));
+
+      //      glVertex3d(argfbl(ntl));
+      //      glVertex3d(argVec3(ftr));
+
+      glVertex3d(argVec3(ntl));
+      glVertex3d(argVec3(ftl));
+
+      glVertex3d(argVec3(ntl));
+      glVertex3d(argVec3(ntr));
+
+      glVertex3d(argVec3(nbl));
+      glVertex3d(argVec3(nbr));
+      
+      glVertex3d(argVec3(ftl));
+      glVertex3d(argVec3(ftr));
+
+      glVertex3d(argVec3(fbl));
+      glVertex3d(argVec3(fbr));
+
+      glVertex3d(argVec3(nbr));
+      glVertex3d(argVec3(fbr));
+
+      glVertex3d(argVec3(nbl));
+      glVertex3d(argVec3(ntl));
+      
+      glVertex3d(argVec3(ftl));
+      glVertex3d(argVec3(fbl));
+      
+      glVertex3d(argVec3(ftr));
+      glVertex3d(argVec3(fbr));
+
+      glVertex3d(argVec3(ntr));
+      glVertex3d(argVec3(nbr));
+
+      glVertex3d(argVec3(ntr));
+      glVertex3d(argVec3(nbr));
+      
+      glEnd();
+
+
+      vec3 test = { .8f, .8f, .8f };
+      bool outside = false;
+
+      
+      float dFar = dotf(camera1.planes[farP].normal, test) + camera1.planes[farP].distance;
+      float dNear = dotf(camera1.planes[nearP].normal, test) + camera1.planes[nearP].distance;
+
+      float dBot = dotf(camera1.planes[botP].normal, test) + camera1.planes[botP].distance;
+      float dTop = dotf(camera1.planes[topP].normal, test) + camera1.planes[topP].distance;
+
+      
+      printf("Bot dot: %f, dist: %f \n", dotf(camera1.planes[botP].normal, test), camera1.planes[botP].distance);
+      
+      if(dFar > 0 && dNear > 0 && dBot > 0){
+	glColor3d(greenColor);
+	printf("Horit!!\n");
+	renderCube(test, .01f, .01f, .01f, greenColor);
+      }else{
+	renderCube(test, .01f, .01f, .01f, redColor);
+      }
+
+      /*
+      */
+
+      /*
+      printf("\[ ");
+      
+      for(int i=0;i<6;i++){
+	if(curCamera->planes[i].distance + dot(curCamera->planes[i].normal, test) > 0){
+	  outside = true;
+	  printf("%d ",i);
+	  //	  break;
+	};
+      };
+
+      if(outside)
+	printf("\ ]:fails, I cant see\n");
+
+      
+      if(!outside)
+	printf("I can see\n");
+
+      curCamera->planes[nearP].normal = (vec3){-.x,};
+      
+      curCamera->planes[farP].setNormalAndPoint(Z,fc);
+      
+      Vec3 aux,normal;
+
+      aux = (nc + Y*nh) - p;
+      aux.normalize();
+      normal = aux * X;
+      curCamera->planes[topP].setNormalAndPoint(normal,nc+Y*nh);
+
+      aux = (nc - Y*nh) - p;
+      aux.normalize();
+      normal = X * aux;
+      curCamera->planes[botP].setNormalAndPoint(normal,nc-Y*nh);
+	
+      aux = (nc - X*nw) - p;
+      aux.normalize();
+      normal = aux * Y;
+      curCamera->planes[leftP].setNormalAndPoint(normal,nc-X*nw);
+
+      aux = (nc + X*nw) - p;
+      aux.normalize();
+      normal = Y * aux;
+      curCamera->planes[rightP].setNormalAndPoint(normal,nc+X*nw);
+      */
+      // radar:
+      /*
+      vec3 Z = {curCamera->pos.x + curCamera->front.x, curCamera->pos.y + curCamera->front.y, curCamera->pos.z + curCamera->front.z};
+      Z = normalize(Z);
+
+      vec3 X = cross(Z, curCamera->up);
+      X = normalize(X);
+
+      vec3 Y = cross(X, Z);
+
+      // test point 
+      {
+	vec3 test = { .2f, .2f, .2f };
+
+	renderCube(test, 0.01f, 0.01f, 0.01f, blueColor);
+
+	vec3 v = { test.x - curCamera->pos.x, test.y - curCamera->pos.y, test.z - curCamera->pos.z };
+	
+	float pcz = dot(v, (vec3){ -Z.x, -Z.y, -Z.z });
+
+	bool testZ = pcz > zFar || pcz < zNear;
+
+	if(testZ){
+	  printf("Outside Z %f\n", pcz);
+	}
+
+	float pcy = dot(v,Y);
+	float aux = pcz * tanf(editorFOV * .5f);
+
+	bool testY = pcy > aux || pcy < -aux;
+
+	if(testY){
+	  printf("Outside Y %f\n",pcy);
+	}
+
+	float pcx = dot(v,X);
+	aux = pcz * (windowW/windowH);
+
+	bool testX = pcx > aux || pcx < -aux;
+
+	if(testX){
+	  printf("Outside X &f\n",pcx);
+	}
+
+	if(!testX && !testY && !testZ){
+	  printf("Inside \n");
+	}
+
+	printf(" \n");
+
+      }
+
+      */
+    }
+
+    size_t tileSize = 0;
     
     for (int x = 0; x < gridX; x++) {
       for (int y = 0; y < gridY; y++) {
 	for (int z = 0; z < gridZ; z++) {
 	  vec3 tile = { (float)x / 10, (float) y * bBlockH, (float)z / 10 };
-	    
+
+	  bool renderIt = true;
+
+	  //	  vec3 centerPoint = { tile.x + bBlockW/2, y, tile.z + bBlockD/2};
+
+	  //	  float distance = distToCamera(centerPoint);
+
+	  //	  if (distance >= 0 && distance < fieldOfView + 0.1f) {
+	    tileSize++;
+	    ///	  }
+	}
+      }
+    }
+    
+    vec3* tilesToRender = malloc(sizeof(vec3) * tileSize);
+    int counter = 0;
+    
+    for (int x = 0; x < gridX; x++) {
+      if(counter == tileSize) break;
+      for (int y = 0; y < gridY; y++) {
+	if(counter == tileSize) break;
+	for (int z = 0; z < gridZ; z++) {
+	  if(counter == tileSize) break;
+	  
+	  vec3 tile = { (float)x / 10, (float) y * bBlockH, (float)z / 10 };
+
+	  //	  vec3 centerPoint = { tile.x + bBlockW/2, y, tile.z + bBlockD/2};
+
+	  //	  float distance = distToCamera(centerPoint);
+
+	  //	  if (distance >= 0 && distance < fieldOfView + 0.1f) {
+	    tilesToRender[counter] = (vec3){x,y,z};
+	    counter++;
+	    //	  }
+	}
+      }
+    }
+
+      
+
+    
+    float minIntersectionDist = 1000.0f;
+
+    //    for (int x = 0; x < gridX; x++) {
+    //for (int y = 0; y < gridY; y++) {
+    //	for (int z = 0; z < gridZ; z++) {
+    for(int i=0;i<tileSize;i++){
+      int x = tilesToRender[i].x;
+      int y = tilesToRender[i].y;
+      int z = tilesToRender[i].z;
+      
+      vec3 tile = { (float)x / 10, (float) y * bBlockH, (float)z / 10 };
+	  
 	  // walls rendering
 	  if(grid[y][z][x].walls !=0){
 	    for(int side=0;side<basicSideCounter;side++){
@@ -724,7 +1176,7 @@ int main(int argc, char* argv[]) {
 	      mouse.selectedTile = &grid[floor][z][x];
 	      mouse.gridIntersect = (vec2i){x,z};
 	      mouse.intersection = intersection;
-	      mouse.groundInter = intersection.y <= camera.pos.y ? fromOver : fromUnder;
+	      mouse.groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 	    }
 
 	    GroundType type = valueIn(grid[floor][z][x].ground, 0);
@@ -788,9 +1240,14 @@ int main(int argc, char* argv[]) {
 	      }
 	    }
 	  }
-	}
-      }
     }
+
+    free(tilesToRender);
+
+	  
+	  //	}
+	  //      }
+	  //    }
     
     // render mouse.brush
     if(mouse.selectedTile)
@@ -1770,6 +2227,16 @@ vec3 cross(const vec3 v1, const vec3 v2){
   crossproduct.z = v1.x * v2.y - v1.y * v2.x;
 
   return crossproduct;
+}
+
+float dotf(const vec3 v1, const vec3 v2) {
+	float dproduct = 0;
+
+	dproduct += v1.x * v2.x;
+	dproduct += v1.y * v2.y;
+	dproduct += v1.z * v2.z;
+
+	return dproduct;
 }
 
 int dot(const vec3 v1, const vec3 v2){
