@@ -32,6 +32,7 @@ float fieldOfView = 1.4f;
 const float windowW = 1280.0f;
 const float windowH = 720.0f;
 
+  float INCREASER = .0f;
 int main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
 
@@ -117,7 +118,6 @@ int main(int argc, char* argv[]) {
   
   Tile*** grid = NULL;
 
-  float INCREASER = .0f;
 
   // load or init grid
   {
@@ -266,12 +266,12 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
 	case(SDL_SCANCODE_Z):{
-		INCREASER += .01f;
+		INCREASER += .001f;
 	  
 	  break;
 	}
 	case(SDL_SCANCODE_X):{
-		INCREASER -= .01f;
+		INCREASER -= .001f;
 	  
 	  break;
 	}
@@ -353,11 +353,11 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
 	case(SDL_SCANCODE_M):{
-	  fieldOfView += 0.05f;
+		INCREASER += 0.05f;
 	    break;
 	}
 	case(SDL_SCANCODE_N):{
-	  fieldOfView -= 0.05f;
+		INCREASER -= 0.05f;
 	  break;
 	}
 	case(SDL_SCANCODE_F5):{
@@ -787,6 +787,7 @@ int main(int argc, char* argv[]) {
 	camera1.Z = normalize((vec3){camera1.front.x * -1.0f, camera1.front.y * -1.0f, camera1.front.z * -1.0f});
 	camera1.X = normalize(cross(camera1.Z, camera1.up));
 	camera1.Y = (vec3){0,dotf(camera1.X, camera1.Z),0};
+	
 	//      }
 
       /*
@@ -998,12 +999,12 @@ cameraRight fbl = {
       
       vec3 normal_bottom = normalize(cross(vec2_bottom, vec1_bottom));
       
-      float distance_bottom = dotf(fbl, normal_bottom);
-	//
-      camera1.planes[botP] = (Plane){ normal_bottom,  distance_bottom };
       glBegin(GL_LINES);
       
       glColor3d(1.0f, 1.0f, 1.0f);
+      float distance_bottom = dotf(fbl, normal_bottom);
+	//
+      camera1.planes[botP] = (Plane){ normal_bottom,  distance_bottom };
 
       glVertex3d(argVec3(lc));
       glVertex3d(lc.x + normal_left.x, lc.y + normal_left.y, lc.z + normal_left.z);
@@ -1106,7 +1107,24 @@ cameraRight fbl = {
 
       float dTop = dotf(camera1.planes[topP].normal, cubeTile) + camera1.planes[topP].distance;
       float dBot = dotf(camera1.planes[botP].normal, cubeTile) + camera1.planes[botP].distance;
-*/      
+*/
+
+	glBegin(GL_LINES);
+      
+	glColor3d(redColor);
+	glVertex3d(argVec3(camera1.pos));
+	glVertex3d(camera1.pos.x + camera1.X.x, camera1.pos.y + camera1.X.y, camera1.pos.z + camera1.X.z);
+
+	glColor3d(greenColor);
+	glVertex3d(argVec3(camera1.pos));
+	glVertex3d(camera1.pos.x + camera1.Y.x, camera1.pos.y + camera1.Y.y, camera1.pos.z + camera1.Y.z);
+
+	glColor3d(blueColor);
+	glVertex3d(argVec3(camera1.pos));
+	glVertex3d(camera1.pos.x + camera1.Z.x, camera1.pos.y + camera1.Z.y, camera1.pos.z + camera1.Z.z);
+	
+	glEnd();
+	
 #define ANG2RAD 3.14159265358979323846/180.0
 
 
@@ -2525,7 +2543,7 @@ inline bool radarCheck(vec3 point){
   
   float tang = tanf(ANG2RAD * editorFOV * 0.5) ;
       
-  float pcz = dotf(v,(vec3){ -camera1.Z.x, -camera1.Z.y, -camera1.Z.z });
+  float pcz = dotf(v, (vec3){ -camera1.Z.x, -camera1.Z.y, -camera1.Z.z });
 
   if(pcz > fieldOfView || pcz < zNear){
     return false;
@@ -2541,7 +2559,7 @@ inline bool radarCheck(vec3 point){
   const float halfHNear = halfWNear * (windowW/windowH);
 
   if(pcy > aux || pcy < -aux){
-   return false;
+    return false;
   }
 
   float pcx = dotf(v, camera1.X);
