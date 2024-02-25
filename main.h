@@ -115,6 +115,10 @@ typedef struct{
   Plane* planes;
 } Camera;
 
+typedef struct {
+    float m[4][4];
+} Matrix4;
+
 typedef enum{
   botP, topP, leftP, 
   nearP, farP, rightP
@@ -220,7 +224,10 @@ typedef struct{
 #define editorFOV 50.0f
 
 #define distToCamera(point) sqrtf(powf(point.x - camera.pos.x, 2) + powf(point.y - camera.pos.y, 2) + powf(point.z - camera.pos.z, 2))
-      
+
+Matrix4 Matrix4Multiply(Matrix4 a, Matrix4 b);
+
+vec3 Matrix4MultiplyVector(Matrix4 matrix, vec3 vector);
 
 #define argVec3(vec) vec.x, vec.y, vec.z 
 

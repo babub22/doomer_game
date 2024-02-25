@@ -1023,7 +1023,7 @@ cameraRight fbl = {
 
       
       glVertex3d(argVec3(fc));
-      glVertex3d(fc.x + normal_far.x, fc.y + normal_far.y, fc.z + normal_far.z);
+      glVertex3d(argVec3(fc));
       //      glVertex3d(argVec3(bc));
       //      glVertex3d(bc.x + normal_bottom.x, bc.y + normal_bottom.y, bc.z + normal_bottom.z);
 
