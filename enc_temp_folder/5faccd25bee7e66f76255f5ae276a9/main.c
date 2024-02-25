@@ -25,16 +25,17 @@ const float doorPad =  bBlockW / 4;
 
 const float doorTopPad = bBlockH - bBlockH * 0.85f;
 
+float zNear = 0.075f;
+
 float fieldOfView = 1.4f;
+
+const float windowW = 1280.0f;
+const float windowH = 720.0f;
 
 int main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
 
   char windowTitle[] = game;
-
-  const float windowW = 1280.0f;
-  const float windowH = 720.0f;
-  
   SDL_Window* window = SDL_CreateWindow(windowTitle,
 					SDL_WINDOWPOS_CENTERED,
 					SDL_WINDOWPOS_CENTERED,
@@ -471,6 +472,8 @@ int main(int argc, char* argv[]) {
 
 	    curCamera->front = normalize(curCamera->dir);
 
+	    camera1.wasMoved = true;
+
 	   // vec3 right = normalize(cross(camera1.up, camera1.dir));
 
 	    // Calculate up vector using cross product
@@ -767,6 +770,7 @@ int main(int argc, char* argv[]) {
 
     // camera frustum
     {
+      /*
       const float zFar = fieldOfView;
       const float zNear = 0.075f;
       
@@ -777,7 +781,15 @@ int main(int argc, char* argv[]) {
       
       const float halfWNear = tanf((ANG2RAD * (editorFOV - 5.0f)) * .5f) * zNear;
       const float halfHNear = halfWNear * (windowW/windowH);
+      */
 
+      //      if(camera1.wasMoved){
+	camera1.Z = normalize((vec3){camera1.front.x * -1.0f, camera1.front.y * -1.0f, camera1.front.z * -1.0f});
+	camera1.X = normalize(cross(camera1.Z, camera1.up));
+	camera1.Y = (vec3){0,dotf(camera1.X, camera1.Z),0};
+	//      }
+
+      /*
       vec3 cameraZ = {camera1.front.x * -1.0f, camera1.front.y * -1.0f, camera1.front.z * -1.0f};
       vec3 cameraRight = normalize(cross((vec3) { 0.0f, 1.0f, 0.0f }, cameraZ));
       vec3 cameraUp = normalize(cross(cameraZ, cameraRight));
@@ -843,7 +855,6 @@ int main(int argc, char* argv[]) {
 	nc.z - (cameraUp.z * halfWNear) + (cameraRight.z * halfHNear)
       };
       
-      /*
       vec3 fc = {
 	camera1.pos.x + zFar * camera1.dir.x,
 	camera1.pos.y + zFar * camera1.dir.y,
@@ -908,6 +919,7 @@ cameraRight fbl = {
 */
      //vec3 right = normalize(cross(camera1.up, camera1.dir));
 
+      /*
       // Calculate the left point on the near plane (lc)
       vec3 lc = {
 	(nbl.x + ntl.x + ftl.x + fbl.x) / 4.0f,
@@ -989,7 +1001,6 @@ cameraRight fbl = {
       float distance_bottom = dotf(fbl, normal_bottom);
 	//
       camera1.planes[botP] = (Plane){ normal_bottom,  distance_bottom };
-
       glBegin(GL_LINES);
       
       glColor3d(1.0f, 1.0f, 1.0f);
@@ -1023,7 +1034,7 @@ cameraRight fbl = {
 
       
       glVertex3d(argVec3(fc));
-      glVertex3d(argVec3(fc));
+      glVertex3d(fc.x + normal_far.x, fc.y + normal_far.y, fc.z + normal_far.z);
       //      glVertex3d(argVec3(bc));
       //      glVertex3d(bc.x + normal_bottom.x, bc.y + normal_bottom.y, bc.z + normal_bottom.z);
 
@@ -1087,8 +1098,6 @@ cameraRight fbl = {
 
       glEnd();
       
-      vec3 cubeTile = { .5f ,.5f, .5f };
-      
       float dFar = dotf(camera1.planes[farP].normal, cubeTile) + camera1.planes[farP].distance;
       float dNear = dotf(camera1.planes[nearP].normal, cubeTile) + camera1.planes[nearP].distance;
 
@@ -1097,37 +1106,42 @@ cameraRight fbl = {
 
       float dTop = dotf(camera1.planes[topP].normal, cubeTile) + camera1.planes[topP].distance;
       float dBot = dotf(camera1.planes[botP].normal, cubeTile) + camera1.planes[botP].distance;
+*/      
+#define ANG2RAD 3.14159265358979323846/180.0
 
-      printf("[ ");
+
+      vec3 cubeTile = { .5f ,.5f, .5f };
+
+      vec3 Z = normalize((vec3){camera1.front.x * -1.0f, camera1.front.y * -1.0f, camera1.front.z * -1.0f});
+
+      vec3 cameraRight = normalize(cross((vec3) { 0.0f, 1.0f, 0.0f }, Z));
+      vec3 cameraUp = normalize(cross(Z, cameraRight));
       
-      if(dFar < 0){
-	printf("far, ");
-      }
-
-      if(dNear < 0){
-	printf("near ");
-      }
-
-      if(dRight < 0){
-	printf("right, ");
-      }
-
-      if(dLeft < 0){
-	printf("left ");
-      }
+      vec3 X = normalize(cross(Z, camera1.up));
+      vec3 Y = (cross(X, Z));
       
-      printf("]\n");
+      float pcz,pcx,pcy,aux;
+
+      vec3 v = { cubeTile.x - camera1.pos.x, cubeTile.y - camera1.pos.y, cubeTile.z - camera1.pos.z };
+
+      float tang = tanf(ANG2RAD * (editorFOV) * 0.5) ;
       
-      if(dFar > 0 && dNear > 0
-	 // && dRight > 0 && dLeft > 0
-	 //	 && dTop < 0 && dBot < 0
-	 ){
+      pcz = dotf(v,(vec3){ -Z.x, -Z.y, -Z.z });
+
+      pcy = dotf(v,Y);
+      aux = pcz * tang;
+
+      	printf("Inter\n");
+      
+      pcx = dotf(v, X);
+      aux = aux * (windowW/windowH);
+
+      if ((pcx > aux || pcx < -aux) || (pcy > aux || pcy < -aux) || (pcz > fieldOfView || pcz < zNear)){
+	renderCube(cubeTile, .01f, .01f, .01f, redColor);
+      }else{
 	glColor3d(greenColor);
 	printf("Horit!!\n");
 	renderCube(cubeTile, .01f, .01f, .01f, greenColor);
-      }else{
-	//	printf("No fucking way!!\n");
-	renderCube(cubeTile, .01f, .01f, .01f, redColor);
       }
     }
 
@@ -1141,8 +1155,6 @@ cameraRight fbl = {
 	  // walls
 	  if(grid[y][z][x].walls !=0){
 	    for(int side=0;side<basicSideCounter;side++){
-	      bool renderIt = true;
-	      
 	      WallType type = (grid[y][z][x].walls >> (side*8)) & 0xFF;
 
 	      if(type == 0){
@@ -1151,27 +1163,17 @@ cameraRight fbl = {
 	      
 	      vec3* wallPos = wallPosBySide(tile, side, wallsSizes[type].h, wallD, bBlockD, bBlockW);
 
-	      for(int i=0;i<6;i++){
-		// wall in/out camera
-		int out=0;
-		int in=0;
+	      // wall in/out camera
+	      int out=0;
+	      int in=0;
 
-		if(i == botP || i == topP || i == rightP || i == leftP) continue;
-
-		for (int k = 0; k < 4 && (in==0 || out==0); k++) {
-		  if (dotf(camera1.planes[i].normal, wallPos[k]) + camera1.planes[i].distance > 0)
-		    in++;
-		}
-	    
-		if(!in){
-		  renderIt = false;
-		  break;
-		}
+	      for (int k = 0; k < 4 && in==0; k++) {
+		if (radarCheck(wallPos[k]))
+		  in++;
 	      }
-
-	      if(!renderIt){
+	    
+	      if(!in){
 		free(wallPos);
-		// next wall side
 		continue;
 	      }
 
@@ -1222,42 +1224,39 @@ cameraRight fbl = {
 
 	  // tile inter
 	  {
+	    GroundType type = valueIn(grid[y][z][x].ground, 0);
+	    //	    GroundType type = valueIn(grid[floor][z][x].ground, 0);
+	    
+	    if(type == netTile && y != floor){
+	      continue;
+	    }
+	    
 	    const vec3 tile = { (float)x / 10, (float) y * bBlockH, (float)z / 10 };
 
-	    const vec3 rt = { tile.x + bBlockW, floor * bBlockH, tile.z + bBlockD };
-	    const vec3 lb = { tile.x, floor * bBlockH, tile.z };
+	    const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
+	    const vec3 lb = { tile.x, tile.y, tile.z };
 
 	    const vec3 tileCornesrs[4] = { rt, lb, { lb.x, lb.y, lb.z + bBlockD }, { lb.x + bBlockW, lb.y, lb.z } };
 
-	    bool renderIt = true;
-	    
-	    for(int i=0;i<6;i++){
+	    // wall in/out camera
+	    int in=0;
 
-	      if(i == botP || i == topP || i == rightP || i == leftP) continue;
-	      
-	      int out=0;
-	      int in=0;
-
-	      for (int k = 0; k < 4 && (in==0 || out==0); k++) {
-		if (dotf(camera1.planes[i].normal, tileCornesrs[k]) + camera1.planes[i].distance > 0)
-		  in++;
-	      }
-	    
-	      if(!in){
-		renderIt = false;
-		break;
-	      }
+	    for (int k = 0; k < 4 && in==0; k++) {
+	      if (radarCheck(tileCornesrs[k]))
+		in++;
 	    }
-
-	    if(!renderIt){
-	      // next iter of grid
+	    
+	    if(!in){
 	      continue;
 	    }
-
+	    
 	    float intersectionDistance = 0.0f;
 	    vec3 intersection = {0};
 
-	    bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, &intersection, &intersectionDistance);
+	    const vec3 intrt = { tile.x + bBlockW, (float) y * bBlockH, tile.z + bBlockD };
+	    const vec3 intlb = { tile.x, (float) y * bBlockH, tile.z };
+	    
+	    bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,intlb,intrt, &intersection, &intersectionDistance);
 	
 	    if(isIntersect && minIntersectionDist > intersectionDistance){
 	      mouse.selectedTile = &grid[floor][z][x];
@@ -1265,18 +1264,15 @@ cameraRight fbl = {
 	      mouse.intersection = intersection;
 	      mouse.groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 	    }
-	    
-	    GroundType type = valueIn(grid[floor][z][x].ground, 0);
-
-	    if(y == floor && type == netTile){
-	      renderTile((vec3){ tile.x, floor * bBlockH, tile.z }, GL_LINES, bBlockW, 0.1f, darkPurple);
-	    }
 	
 	    // tile rendering
 	    {
-	      GroundType type = valueIn(grid[y][z][x].ground, 0);
-	      
-	      if(type == texturedTile){
+	      switch(type){
+	      case(netTile):{
+		renderTile(tile, GL_LINES, bBlockW, 0.1f, darkPurple);
+		break;
+	      }
+	      case(texturedTile):{
 		Texture underTx = valueIn(grid[y][z][x].ground, 1);
 		Texture overTx = valueIn(grid[y][z][x].ground, 2);
 
@@ -1324,7 +1320,12 @@ cameraRight fbl = {
 		glDisable(GL_TEXTURE_2D);
 		
 		glEnd();
+		
+		break;
 	      }
+	      default: break;
+	      }
+
 	    }
 	  }
     }
@@ -1393,7 +1394,6 @@ cameraRight fbl = {
 	  vec2i oppositeTile = {0};
 
 	  vec3* wallPos = wallPosBySide(tile, mouse.tileSide, wallsSizes[mouse.brush].h, wallD, bBlockD, bBlockW);
-
 
 	  switch(mouse.brush){
 	  case(windowT):{
@@ -2292,19 +2292,7 @@ void addObjToStore(Object* obj){
   objsStore[objsStoreSize-1] = obj;
 }
 
-vec3 matrixMultPoint(const float matrix[16], vec3 point){
-  GLfloat p[4] = {point.x, point.y, point.z, 1.0f};
-  GLfloat res[4] = {0};
-  
-  res[0] = matrix[0]*p[0]+matrix[4]*p[1]+matrix[8]*p[2]+matrix[12]*p[3];
-  res[1] = matrix[1]*p[0]+matrix[5]*p[1]+matrix[9]*p[2]+matrix[13]*p[3];
-  res[2] = matrix[2]*p[0]+matrix[6]*p[1]+matrix[10]*p[2]+matrix[14]*p[3];
-  res[3] = matrix[3]*p[0]+matrix[7]*p[1]+matrix[11]*p[2]+matrix[15]*p[3];
-
-  return (vec3){ res[0], res[1], res[2] };
-}
-
-vec3 cross(const vec3 v1, const vec3 v2){
+inline vec3 cross(const vec3 v1, const vec3 v2){
   vec3 crossproduct = {0, 0, 0};
 
   crossproduct.x = v1.y * v2.z - v1.z * v2.y;
@@ -2314,24 +2302,8 @@ vec3 cross(const vec3 v1, const vec3 v2){
   return crossproduct;
 }
 
-float dotf(const vec3 v1, const vec3 v2) {
-	float dproduct = 0;
-
-	dproduct += v1.x * v2.x;
-	dproduct += v1.y * v2.y;
-	dproduct += v1.z * v2.z;
-
-	return dproduct;
-}
-
-int dot(const vec3 v1, const vec3 v2){
-  int dproduct = 0;
-
-  dproduct += v1.x * v2.x;
-  dproduct += v1.y * v2.y;
-  dproduct += v1.z * v2.z;
-
-  return dproduct;
+inline float dotf(const vec3 v1, const vec3 v2) {
+  return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
 
 bool gluInvertMatrix(const double m[16], double invOut[16])
@@ -2520,7 +2492,7 @@ bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSide){
 }
 
 
-bool deleteIn(int* num, int index, uint8_t newValue){
+inline bool deleteIn(int* num, int index, uint8_t newValue){
   if(index >= 0 && index < 4){
     *num &= ~(0xFF << (index * 8));
     
@@ -2530,7 +2502,7 @@ bool deleteIn(int* num, int index, uint8_t newValue){
   return false;
 }
 
-bool setIn(int* num, int index, uint8_t newValue){
+inline bool setIn(int* num, int index, uint8_t newValue){
   if(index >= 0 && index < 4){
     *num &= ~(0xFF << (index * 8));
     *num |= (newValue << index * 8);
@@ -2541,7 +2513,7 @@ bool setIn(int* num, int index, uint8_t newValue){
   return false;
 }
 
-uint8_t valueIn(int num, int index){
+inline uint8_t valueIn(int num, int index){
   if(index >= 0 && index < 4){
     return (num >> (index*8)) & 0xFF; 
   }
@@ -2549,30 +2521,54 @@ uint8_t valueIn(int num, int index){
   return 0;
 }
 
-Matrix4 Matrix4Multiply(Matrix4 a, Matrix4 b) {
-    Matrix4 result;
-    int i, j, k;
+inline bool radarCheck(vec3 point){
+  vec3 v = { point.x - camera1.pos.x, point.y - camera1.pos.y, point.z - camera1.pos.z };
 
-    for (i = 0; i < 4; ++i) {
-        for (j = 0; j < 4; ++j) {
-            result.m[i][j] = 0;
-            for (k = 0; k < 4; ++k) {
-                result.m[i][j] += a.m[i][k] * b.m[k][j];
-            }
-        }
-    }
+#define ANG2RAD 3.14159265358979323846/180.0
+  
+  float tang = tanf(ANG2RAD * editorFOV * 0.5) ;
+      
+  float pcz = dotf(v,(vec3){ -camera1.Z.x, -camera1.Z.y, -camera1.Z.z });
 
-    return result;
+  if(pcz > fieldOfView || pcz < zNear){
+    return false;
+  }
+
+  float pcy = dotf(v, camera1.Y);
+  float aux = pcz * tang;
+
+  const float halfWFar = tanf((ANG2RAD * (editorFOV + 5.0f)) * .5f) * fieldOfView;
+  const float halfHFar = halfWFar * (windowW/windowH);
+      
+  const float halfWNear = tanf((ANG2RAD * (editorFOV - 5.0f)) * .5f) * zNear;
+  const float halfHNear = halfWNear * (windowW/windowH);
+
+  if(pcy > aux || pcy < -aux){
+   return false;
+  }
+
+  float pcx = dotf(v, camera1.X);
+  aux = aux * (windowW/windowH);
+
+  if (pcx > aux || pcx < -aux){
+    return false;
+  }
+
+  return true;
+  // false - out camera
+  // true - in camera
 }
 
-vec3 Matrix4MultiplyVector(Matrix4 matrix, vec3 vector) {
-    vec3 result = {0};
+vec3 matrixMultPoint(const float matrix[16], vec3 point){
+  GLfloat p[4] = {point.x, point.y, point.z, 1.0f};
+  GLfloat res[4] = {0};
+  
+  res[0] = matrix[0]*p[0]+matrix[4]*p[1]+matrix[8]*p[2]+matrix[12]*p[3];
+  res[1] = matrix[1]*p[0]+matrix[5]*p[1]+matrix[9]*p[2]+matrix[13]*p[3];
+  res[2] = matrix[2]*p[0]+matrix[6]*p[1]+matrix[10]*p[2]+matrix[14]*p[3];
+  res[3] = matrix[3]*p[0]+matrix[7]*p[1]+matrix[11]*p[2]+matrix[15]*p[3];
 
-    result.x = matrix.m[0][0] * vector.x + matrix.m[0][1] * vector.y + matrix.m[0][2] * vector.z + matrix.m[0][3];
-    result.y = matrix.m[1][0] * vector.x + matrix.m[1][1] * vector.y + matrix.m[1][2] * vector.z + matrix.m[1][3];
-    result.z = matrix.m[2][0] * vector.x + matrix.m[2][1] * vector.y + matrix.m[2][2] * vector.z + matrix.m[2][3];
-
-    return result;
+  return (vec3){ res[0], res[1], res[2] };
 }
 
 /*

@@ -113,6 +113,12 @@ typedef struct{
   float pitch;
 
   Plane* planes;
+
+  vec3 X;
+  vec3 Y;
+  vec3 Z;
+
+  bool wasMoved;
 } Camera;
 
 typedef struct {
@@ -243,9 +249,7 @@ void renderTile(vec3 pos, GLenum mode, float w, float d, float r, float g, float
 
 vec3 normalize(const vec3 vec);
 
-int dot(const vec3 v1, const vec3 v2);
-
-vec3 cross(const vec3 v1, const vec3 v2);
+inline vec3 cross(const vec3 v1, const vec3 v2);
 
 bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, const vec3 rt, vec3* posOfIntersection, float* dist);
 
@@ -267,13 +271,17 @@ void renderWindow(vec3* pos, Texture tx);
 
 void renderDoorFrame(vec3* pos, Texture tx);
 
-bool deleteIn(int* num, int index, uint8_t newValue);
+inline bool deleteIn(int* num, int index, uint8_t newValue);
 
-bool setIn(int* num, int index, uint8_t newValue);
+inline bool setIn(int* num, int index, uint8_t newValue);
 
-uint8_t valueIn(int num, int index);
+inline uint8_t valueIn(int num, int index);
 
-float dotf(const vec3 v1, const vec3 v2);
+inline float dotf(const vec3 v1, const vec3 v2);
+
+bool radarCheck(vec3 point);
+
+vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 #define FPS 60
 
@@ -299,6 +307,7 @@ float dotf(const vec3 v1, const vec3 v2);
 
 #define selBorderD 0.01f
 #define selBorderT 0.01f
+
 
   /*
     GL_QUADS order
