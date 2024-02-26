@@ -27,7 +27,7 @@ const float doorTopPad = bBlockH - bBlockH * 0.85f;
 
 float zNear = 0.075f;
 
-float fieldOfView = 1.4f;
+float fieldOfView = 40.0f;
 
 const float windowW = 1280.0f;
 const float windowH = 720.0f;
@@ -125,17 +125,15 @@ int main(int argc, char* argv[]) {
 
     if(map == NULL){
       grid = malloc(sizeof(Tile**) * (gridY));
-  
-      {
-	for(int y=0;y<gridY;y++){
-	  grid[y] = malloc(sizeof(Tile*) * (gridZ));
-    
-	  for(int z=0;z<gridZ;z++){
-	    grid[y][z] = calloc(gridX,sizeof(Tile));
       
-	    for(int x=0;x<gridX;x++){
-	      setIn(&grid[y][z][x].ground, 0, netTile);
-	    }
+      for(int y=0;y<gridY;y++){
+	grid[y] = malloc(sizeof(Tile*) * (gridZ));
+    
+	for(int z=0;z<gridZ;z++){
+	  grid[y][z] = calloc(gridX,sizeof(Tile));
+      
+	  for(int x=0;x<gridX;x++){
+	    setIn(&grid[y][z][x].ground, 0, netTile);
 	  }
 	}
       }
@@ -166,9 +164,9 @@ int main(int argc, char* argv[]) {
       }
 
       printf("Map loaded! \n");
+		fclose(map);
     }
 
-    fclose(map);
   }
   
   const float entityH = 0.17f;
