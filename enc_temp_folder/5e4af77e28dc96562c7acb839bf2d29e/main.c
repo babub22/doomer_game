@@ -102,15 +102,16 @@ int main(int argc, char* argv[]) {
   {
     // maybe problem because index of particles override indexes of
     // already loaded textures
+    //  glGenTextures(1, &mappedTextures[texturesCounter + snow]);
     
     assets[particles] = malloc(particlesCounter * sizeof(SDL_Surface*));
 
     assets[particles][snow] = SDL_LoadBMP(particlesFolder"snow.bmp");
     
-    glBindTexture(GL_TEXTURE_2D, mappedTextures[snow]);
-    
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    glBindTexture(GL_TEXTURE_2D, mappedTextures[texturesCounter + snow]);
   }
   
   Mouse mouse = { .h = 0.005f, .w = 0.005f, .brush = 0, .end = {-1,-1}, .start = {-1,-1}, .interDist = 1000.0f  };
