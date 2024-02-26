@@ -112,23 +112,10 @@ typedef struct{
   float yaw;
   float pitch;
 
-  Plane* planes;
-
   vec3 X;
   vec3 Y;
   vec3 Z;
-
-  bool wasMoved;
 } Camera;
-
-typedef struct {
-    float m[4][4];
-} Matrix4;
-
-typedef enum{
-  botP, topP, leftP, 
-  nearP, farP, rightP
-} Planes;
 
 // to add new texture to game
 // add to this enum and to
@@ -141,6 +128,17 @@ typedef enum{
   redClo,
   texturesCounter
 } Texture;
+
+typedef enum{
+  snow,
+  particlesCounter
+} Particles;
+
+typedef enum{
+  particles,
+  textures,
+  assetsTypes,
+} AssetType;
 
 typedef struct{
   int id;
@@ -231,10 +229,6 @@ typedef struct{
 
 #define distToCamera(point) sqrtf(powf(point.x - camera.pos.x, 2) + powf(point.y - camera.pos.y, 2) + powf(point.z - camera.pos.z, 2))
 
-Matrix4 Matrix4Multiply(Matrix4 a, Matrix4 b);
-
-vec3 Matrix4MultiplyVector(Matrix4 matrix, vec3 vector);
-
 #define argVec3(vec) vec.x, vec.y, vec.z 
 
 #define rad(deg) deg * M_PI / 180
@@ -297,7 +291,9 @@ vec3 matrixMultPoint(const float matrix[16], vec3 point);
 #define white 1.0f, 1.0f, 1.0f 
 
 #define game "Doomer game"
-#define texturesFolder "./textures/"
+#define texturesFolder "./assets/textures/"
+
+#define particlesFolder "./assets/particles/"
 
 #define speed 0.001f/2
 

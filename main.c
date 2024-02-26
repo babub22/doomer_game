@@ -9,7 +9,7 @@ int gridY = 15;
 int gridZ = 30;
 
 GLuint* mappedTextures;
-SDL_Surface** textures;
+SDL_Surface*** assets;
 
 Camera camera1 = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
 Camera camera2 = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
@@ -32,7 +32,8 @@ float fieldOfView = 40.0f;
 const float windowW = 1280.0f;
 const float windowH = 720.0f;
 
-  float INCREASER = .0f;
+float INCREASER = .0f;
+
 int main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
 
@@ -70,9 +71,11 @@ int main(int argc, char* argv[]) {
     glDepthFunc(GL_LEQUAL);
   }
   
+  assets = malloc(assetsTypes * sizeof(SDL_Surface**));
+  
   // load textures
   {
-    textures = malloc(texturesCounter * sizeof(SDL_Surface*));
+    assets[textures] = malloc(texturesCounter * sizeof(SDL_Surface*));
 
     GLuint mappedTextures[texturesCounter];
     glGenTextures(texturesCounter, mappedTextures);
@@ -81,9 +84,9 @@ int main(int argc, char* argv[]) {
       char path[60];
       sprintf(path, texturesFolder"%d.bmp",i);
     
-      textures[i] = SDL_LoadBMP(path);
+      assets[textures][i] = SDL_LoadBMP(path);
 
-      if (!textures[i]) {
+      if (!assets[textures][i]) {
 	printf("Loading of texture \"%d.bmp\" failed", i);
 	exit(0);
       }
@@ -93,6 +96,23 @@ int main(int argc, char* argv[]) {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
+  }
+
+  // load particles
+  {
+    // maybe problem because index of particles override indexes of
+    // already loaded textures
+    GLuint mappedParticles[particlesCounter];
+    glGenTextures(texturesCounter, mappedParticles);
+    
+    assets[particles] = malloc(particlesCounter * sizeof(SDL_Surface*));
+
+    assets[particles][snow] = SDL_LoadBMP(particlesFolder"snow.bmp");
+    
+    glBindTexture(GL_TEXTURE_2D, mappedParticles[0]);
+      
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   }
   
   Mouse mouse = { .h = 0.005f, .w = 0.005f, .brush = 0, .end = {-1,-1}, .start = {-1,-1}, .interDist = 1000.0f  };
@@ -104,8 +124,6 @@ int main(int argc, char* argv[]) {
   {
     camera2.dir = normalize((vec3){curCamera->pos.x - curCamera->target.x, curCamera->pos.y - curCamera->target.y , curCamera->pos.z - curCamera->target.z});
     camera1.dir = normalize((vec3){curCamera->pos.x - curCamera->target.x, curCamera->pos.y - curCamera->target.y , curCamera->pos.z - curCamera->target.z});
-
-    camera1.planes = malloc(sizeof(Plane) * 6);
     
     camera1.up = (vec3){ 0.0f, 1.0f, 0.0f };
     camera1.front = (vec3){ -camera1.pos.x, -camera1.pos.y, -camera1.pos.z };
@@ -117,7 +135,6 @@ int main(int argc, char* argv[]) {
   float testFOV = editorFOV;
   
   Tile*** grid = NULL;
-
 
   // load or init grid
   {
@@ -321,7 +338,6 @@ int main(int argc, char* argv[]) {
 	  
 	case(SDL_SCANCODE_SPACE):{
 	  cameraMode = !cameraMode;
-	  //	  curCamera->
 	  curCamera = cameraMode ? &camera1 : &camera2;
       
 	  break;
@@ -470,77 +486,9 @@ int main(int argc, char* argv[]) {
 
 	    curCamera->front = normalize(curCamera->dir);
 
-	    camera1.wasMoved = true;
-
-	   // vec3 right = normalize(cross(camera1.up, camera1.dir));
-
-	    // Calculate up vector using cross product
-	    //camera1.up = normalize(cross(right, camera1.dir));
-
-	    //	    float rx = //(float)Math.sin(rad(getYaw()) * -1 * (1-Math.abs((float)Math.cos((double)getPitch() * (double)(Math.PI / 180) - 90 * (Math.PI / 180)) * -1));
-
-	    /*	    float ry = cosf(rad(camera1.pitch) - rad(90.0));
-	    camera1.up.y = camera1.up.y * camera1.front.y;
-	    printf("UP: %f  Dir: %f \n", camera1.up.y, camera1.dir.y);
-
-		vec3 right = normalize(cross(camera1.front, (vec3) { 0.0f, 1.0f, 0.0f }));
-		vec3 up = normalize(cross(right, camera1.front));
-		camera1.up = up;
-
-		camera1.up.x = 0.0f;//-sin(rad(camera1.pitch));
-		camera1.up.y = cos(rad(camera1.pitch));
-		camera1.up.z = 0.0f;
-*/	    
-			    //	    float rz = (float)Math.cos((double)getYaw() * (double)(Math.PI / 180)) * -1 * (1- Math.abs((float)Math.cos((double)getPitch() * (double)(Math.PI / 180) - 90 * (Math.PI / 180)) * -1));
-			    //	    return new Vector3f(rx, ry, rz);
-
-			   // printf("UP Y: %f \n", ry);
-			    /*
-			      Matrix4 pitch = {
-			      {
-		{1.0f, 0.0f, 0.0f, 0.0f},
-		{0.0f, cosf(rad(curCamera->pitch)), -sinf(rad(curCamera->pitch)), 0.0f},
-		{0.0f, sinf(rad(curCamera->pitch)), cosf(rad(curCamera->pitch)), 0.0f},
-		{0.0f, 0.0f, 0.0f, 1.0f}
-	      }
-	    };
-
-	    Matrix4 yaw = {
-	      {
-		{cosf(rad(curCamera->pitch)), 0.0f, sinf(rad(curCamera->pitch)), 0.0f},
-		{0.0f, 1.0f, 0.0f, 0.0f},
-		{-sinf(rad(curCamera->pitch)), 0.0f, cosf(rad(curCamera->pitch)), 0.0f},
-		{0.0f, 0.0f, 0.0f, 1.0f}
-	      }
-	    };
-
-	    Matrix4 orientation = Matrix4Multiply(pitch, yaw);
-
-	    vec3 right = Matrix4MultiplyVector(orientation, (vec3){.1f, .0f, .0f});
-	    vec3 forward = Matrix4MultiplyVector(orientation, (vec3){.0f, .0f, .1f});
-
-	    Matrix4 position  = {
-	      {
-		{1, 0, 0, camera1.pos.x},
-		{0, 1, 0, camera1.pos.y},
-		{0, 0, 1, camera1.pos.z},
-		{0, 0, 0, 1}
-	      }
-	    };
-	    
-	    Matrix4 cameraWorldPosition = Matrix4Multiply(position, orientation);
-	    Matrix4 cameraViewMatrix = {0};*/
-	   // gluInvertMatrix(cameraWorldPosition, cameraViewMatrix);
-
-	    //GLfloat newY = camera1.pos.y * cos(rad(camera1.pitch)) - camera1.pos.z * sin(rad(camera1.pitch));
-	    //	    GLfloat newZ = camera1.pos.y * sin(rad(camera1.pitch)) + camera1.pos.z * cos(rad(camera1.pitch));
-	    //	    camera1.pos.y = newY;
-	    //	    camera1.pos.z = newZ;
-
-	    //	     vec3 newRight = normalize(cross(curCamera->dir, curCamera->up));
-	     //	     curCamera->up = normalize(cross(newRight, curCamera->dir));
-	    
-	    //  curCamera->up = cross(normalize(cross(curCamera->front, (vec3){0, -1, 0})), curCamera->front);
+	    curCamera->Z = normalize((vec3){curCamera->front.x * -1.0f, curCamera->front.y * -1.0f, curCamera->front.z * -1.0f});
+	    curCamera->X = normalize(cross(curCamera->Z, curCamera->up));
+	    curCamera->Y = (vec3){0,dotf(curCamera->X, curCamera->Z),0};
 	  }
 	}
       }
@@ -766,401 +714,6 @@ int main(int argc, char* argv[]) {
 	glEnd();
       }
 
-    // camera frustum
-    {
-      /*
-      const float zFar = fieldOfView;
-      const float zNear = 0.075f;
-      
-      #define ANG2RAD 3.14159265358979323846/180.0
-      
-      const float halfWFar = tanf((ANG2RAD * (editorFOV + 5.0f)) * .5f) * zFar;
-      const float halfHFar = halfWFar * (windowW/windowH);
-      
-      const float halfWNear = tanf((ANG2RAD * (editorFOV - 5.0f)) * .5f) * zNear;
-      const float halfHNear = halfWNear * (windowW/windowH);
-      */
-
-      //      if(camera1.wasMoved){
-	camera1.Z = normalize((vec3){camera1.front.x * -1.0f, camera1.front.y * -1.0f, camera1.front.z * -1.0f});
-	camera1.X = normalize(cross(camera1.Z, camera1.up));
-	camera1.Y = (vec3){0,dotf(camera1.X, camera1.Z),0};
-	
-	//      }
-
-      /*
-      vec3 cameraZ = {camera1.front.x * -1.0f, camera1.front.y * -1.0f, camera1.front.z * -1.0f};
-      vec3 cameraRight = normalize(cross((vec3) { 0.0f, 1.0f, 0.0f }, cameraZ));
-      vec3 cameraUp = normalize(cross(cameraZ, cameraRight));
-
-      vec3 fc = {
-	camera1.pos.x - zFar * cameraZ.x,
-	camera1.pos.y - zFar * cameraZ.y,
-	camera1.pos.z - zFar * cameraZ.z 
-      };
-
-      vec3 nc = {
-	camera1.pos.x - zNear * cameraZ.x,
-	camera1.pos.y - zNear * cameraZ.y,
-	camera1.pos.z - zNear * cameraZ.z };
-
-      // vec3 right = normalize(cross(camera1.up, camera1.dir));
-
-      vec3 ftl = {
-	fc.x + (cameraUp.x * halfWFar) - (cameraRight.x * halfHFar),
-	fc.y + (cameraUp.y * halfWFar) - (cameraRight.y * halfHFar),
-	fc.z + (cameraUp.z * halfWFar) - (cameraRight.z * halfHFar)
-      };
-      
-      vec3 ftr = {
-	fc.x + (cameraUp.x * halfWFar) + (cameraRight.x * halfHFar),
-	fc.y + (cameraUp.y * halfWFar) + (cameraRight.y * halfHFar),
-	fc.z + (cameraUp.z * halfWFar) + (cameraRight.z * halfHFar)
-      };
-
-      vec3 fbl = {
-	fc.x - (cameraUp.x * halfWFar) - (cameraRight.x * halfHFar),
-	fc.y - (cameraUp.y * halfWFar) - (cameraRight.y * halfHFar),
-	fc.z - (cameraUp.z * halfWFar) - (cameraRight.z * halfHFar)
-      };
-
-      vec3 fbr = {
-	fc.x - (cameraUp.x * halfWFar) + (cameraRight.x * halfHFar),
-	fc.y - (cameraUp.y * halfWFar) + (cameraRight.y * halfHFar),
-	fc.z - (cameraUp.z * halfWFar) + (cameraRight.z * halfHFar)
-      };
-      // near
-      vec3 ntl = {
-	nc.x + (cameraUp.x * halfWNear) - (cameraRight.x * halfHNear),
-	nc.y + (cameraUp.y * halfWNear) - (cameraRight.y * halfHNear),
-	nc.z + (cameraUp.z * halfWNear) - (cameraRight.z * halfHNear)
-      };
-      
-      vec3 ntr = {
-	nc.x + (cameraUp.x * halfWNear) + (cameraRight.x * halfHNear),
-	nc.y + (cameraUp.y * halfWNear) + (cameraRight.y * halfHNear),
-	nc.z + (cameraUp.z * halfWNear) + (cameraRight.z * halfHNear)
-      };
-
-      vec3 nbl = {
-	nc.x - (cameraUp.x * halfWNear) - (cameraRight.x * halfHNear),
-	nc.y - (cameraUp.y * halfWNear) - (cameraRight.y * halfHNear),
-	nc.z - (cameraUp.z * halfWNear) - (cameraRight.z * halfHNear)
-      };
-
-      vec3 nbr = {
-	nc.x - (cameraUp.x * halfWNear) + (cameraRight.x * halfHNear),
-	nc.y - (cameraUp.y * halfWNear) + (cameraRight.y * halfHNear),
-	nc.z - (cameraUp.z * halfWNear) + (cameraRight.z * halfHNear)
-      };
-      
-      vec3 fc = {
-	camera1.pos.x + zFar * camera1.dir.x,
-	camera1.pos.y + zFar * camera1.dir.y,
-	camera1.pos.z + zFar * camera1.dir.z 
-      };
-
-      vec3 nc = {
-	camera1.pos.x + zNear * camera1.dir.x,
-	camera1.pos.y + zNear * camera1.dir.y,
-	camera1.pos.z + zNear * camera1.dir.z };
-
-      vec3 right = normalize(cross(cameraUp, camera1.dir));
-
-cameraRight fbl = {
-	fc.x + (cameraUp.x * halfWFar) - (cameraRight.x * halfHFar),
-	fc.y + (cameraUp.y * halfWFar) - (cameraRight.y * halfHFar),
-	fc.z + (cameraUp.z * halfWFar) - (cameraRight.z * halfHFar)
-      };
-      
-      vec3 fbr = {
-	fc.x + (cameraUp.x * halfWFar) + (cameraRight.x * halfHFar),
-	fc.y + (cameraUp.y * halfWFar) + (cameraRight.y * halfHFar),
-	fc.z + (camera1.up.z * halfWFar) + (right.z * halfHFar)
-      };
-
-      vec3 ftl = {
-	fc.x - (camera1.up.x * halfWFar) - (right.x * halfHFar),
-	fc.y - (camera1.up.y * halfWFar) - (right.y * halfHFar),
-	fc.z - (camera1.up.z * halfWFar) - (right.z * halfHFar)
-      };
-
-      vec3 ftr = {
-	fc.x - (camera1.up.x * halfWFar) + (right.x * halfHFar),
-	fc.y - (camera1.up.y * halfWFar) + (right.y * halfHFar),
-	fc.z - (camera1.up.z * halfWFar) + (right.z * halfHFar)
-      };
-      // near
-      vec3 nbl = {
-	nc.x + (camera1.up.x * halfWNear) - (right.x * halfHNear),
-	nc.y + (camera1.up.y * halfWNear) - (right.y * halfHNear),
-	nc.z + (camera1.up.z * halfWNear) - (right.z * halfHNear)
-      };
-      
-      vec3 nbr = {
-	nc.x + (camera1.up.x * halfWNear) + (right.x * halfHNear),
-	nc.y + (camera1.up.y * halfWNear) + (right.y * halfHNear),
-	nc.z + (camera1.up.z * halfWNear) + (right.z * halfHNear)
-      };
-
-      vec3 ntl = {
-	nc.x - (camera1.up.x * halfWNear) - (right.x * halfHNear),
-	nc.y - (camera1.up.y * halfWNear) - (right.y * halfHNear),
-	nc.z - (camera1.up.z * halfWNear) - (right.z * halfHNear)
-      };
-
-      vec3 ntr = {
-	nc.x - (camera1.up.x * halfWNear) + (right.x * halfHNear),
-	nc.y - (camera1.up.y * halfWNear) + (right.y * halfHNear),
-	nc.z - (camera1.up.z * halfWNear) + (right.z * halfHNear)
-      };
-
-*/
-     //vec3 right = normalize(cross(camera1.up, camera1.dir));
-
-      /*
-      // Calculate the left point on the near plane (lc)
-      vec3 lc = {
-	(nbl.x + ntl.x + ftl.x + fbl.x) / 4.0f,
-	(nbl.y + ntl.y + ftl.y + fbl.y) / 4.0f,
-	(nbl.z + ntl.z + ftl.z + fbl.z) / 4.0f
-      };
-
-      // Calculate the right point on the near plane (rc)
-      vec3 rc = {
-	(nbr.x + ntr.x + ftr.x + fbr.x) / 4.0f,
-	(nbr.y + ntr.y + ftr.y + fbr.y) / 4.0f,
-	(nbr.z + ntr.z + ftr.z + fbr.z) / 4.0f
-      };
-
-      // Calculate the bottom point on the near plane (bc)
-      vec3 bc = {
-	(nbl.x + nbr.x + fbr.x + fbl.x) / 4.0f,
-	(nbl.y + nbr.y + fbr.y + fbl.y) / 4.0f,
-	(nbl.z + nbr.z + fbr.z + fbl.z) / 4.0f
-      };
-
-      // Calculate the top point on the near plane (tc)
-      vec3 tc = {
-	(ntl.x + ntr.x + ftr.x + ftl.x) / 4.0f,
-	(ntl.y + ntr.y + ftr.y + ftl.y) / 4.0f,
-	(ntl.z + ntr.z + ftr.z + ftl.z) / 4.0f
-      };
-      
-      // near - works
-      vec3 vec1_near = { ntr.x - ntl.x, ntr.y - ntl.y, ntr.z - ntl.z };
-      vec3 vec2_near = { nbl.x - ntl.x, nbl.y - ntl.y, nbl.z - ntl.z };
-
-      vec3 normal_near = normalize(cross(vec2_near, vec1_near));
-      float distance_near = -dotf(ntl, normal_near);
-	      camera1.planes[nearP] = (Plane){normal_near, distance_near};
-
-      // Far Plane - works
-      vec3 vec1_far = { ftr.x - ftl.x, ftr.y - ftl.y, ftr.z - ftl.z };
-      vec3 vec2_far = { fbl.x - ftl.x, fbl.y - ftl.y, fbl.z - ftl.z };
-      
-      vec3 normal_far = normalize(cross(vec1_far, vec2_far));
-      
-      float distance_far = -dotf(ftl, normal_far);
-	      camera1.planes[farP] = (Plane){normal_far, distance_far};
-
-      // Right Plane
-      vec3 vec1_right = { fbr.x - ftr.x, fbr.y - ftr.y, fbr.z - ftr.z }; 
-      vec3 vec2_right = { ntr.x - ftr.x, ntr.y - ftr.y, ntr.z - ftr.z }; 
-
-      vec3 normal_right = normalize(cross(vec1_right, vec2_right));
-
-      float distance_right = -dotf(ftr, normal_right);
-      camera1.planes[rightP] = (Plane){normal_right, distance_right};
-
-      // Left Plane
-      vec3 vec1_left = { fbl.x - ftl.x, fbl.y - ftl.y, fbl.z - ftl.z };
-      vec3 vec2_left = { ntl.x - ftl.x, ntl.y - ftl.y, ntl.z - ftl.z };
-
-      vec3 normal_left = normalize(cross(vec2_left, vec1_left));
-
-      float distance_left = -dotf(ftl, normal_left);
-      camera1.planes[leftP] = (Plane){normal_left, distance_left};
-
-      // Top Plane
-      vec3 vec1_top = { ftr.x - ftl.x, ftr.y - ftl.y, ftr.z - ftl.z }; 
-      vec3 vec2_top = { ntl.x - ftl.x, ntl.y - ftl.y, ntl.z - ftl.z };
-      
-      vec3 normal_top = normalize(cross(vec1_top, vec2_top));
-      
-      float distance_top = dotf(ftl, normal_top);
-      camera1.planes[topP] = (Plane){normal_top, distance_top};
-
-      // Bottom Plane
-      vec3 vec1_bottom = { nbr.x - fbl.x, nbr.y - fbl.y, nbr.z - fbl.z }; 
-      vec3 vec2_bottom = { nbl.x - fbl.x, nbl.y - fbl.y, nbl.z - fbl.z };
-      
-      vec3 normal_bottom = normalize(cross(vec2_bottom, vec1_bottom));
-      
-      glBegin(GL_LINES);
-      
-      glColor3d(1.0f, 1.0f, 1.0f);
-      float distance_bottom = dotf(fbl, normal_bottom);
-	//
-      camera1.planes[botP] = (Plane){ normal_bottom,  distance_bottom };
-
-      glVertex3d(argVec3(lc));
-      glVertex3d(lc.x + normal_left.x, lc.y + normal_left.y, lc.z + normal_left.z);
-
-      glVertex3d(argVec3(rc));
-      glVertex3d(rc.x + normal_right.x, rc.y + normal_right.y, rc.z + normal_right.z);
-      
-      glColor3d(cyan);
-      
-      glVertex3d(argVec3(camera1.pos));
-      glVertex3d(argVec3(ntl));
-
-      glVertex3d(argVec3(camera1.pos));
-      glVertex3d(argVec3(ntr));
-      
-      glVertex3d(argVec3(camera1.pos));
-      glVertex3d(argVec3(nbl));
-
-      glVertex3d(argVec3(camera1.pos));
-      glVertex3d(argVec3(nbr));
-
-      //glVertex3d(argVec3(fc));
-      //    glVertex3d(fc.x + normal_far.x, fc.y + normal_far.y, fc.z + normal_far.z);
-
-      //    glVertex3d(argVec3(nc));
-      //glVertex3d(nc.x + normal_near.x, nc.y + normal_near.y, nc.z + normal_near.z);
-
-
-      
-      glVertex3d(argVec3(fc));
-      glVertex3d(fc.x + normal_far.x, fc.y + normal_far.y, fc.z + normal_far.z);
-      //      glVertex3d(argVec3(bc));
-      //      glVertex3d(bc.x + normal_bottom.x, bc.y + normal_bottom.y, bc.z + normal_bottom.z);
-
-      //      glVertex3d(argVec3(tc));
-      //      glVertex3d(tc.x + normal_top.x, tc.y + normal_top.y, tc.z + normal_top.z);
-
-
-      
-      //      glVertex3d(argVec3(tc));
-      // glVertex3d(argVec3(normal_bottom));
-      
-      //      glVertex3d(argVec3(bc));
-      //      glVertex3d(argVec3(normal_bottom));
-      
-      
-      //      glVertex3d(argVec3(bc));
-      //      glVertex3d(argVec3(tc));
-      
-      glColor3d(redColor);
-      glVertex3d(argVec3(nbr));
-      glVertex3d(argVec3(fbr));
-
-      glVertex3d(argVec3(nbl));
-      glVertex3d(argVec3(fbl));
-
-      glVertex3d(argVec3(ntr));
-      glVertex3d(argVec3(ftr));
-
-      glVertex3d(argVec3(ntl));
-      glVertex3d(argVec3(ftl));
-
-      glVertex3d(argVec3(ntl));
-      glVertex3d(argVec3(ntr));
-
-      glVertex3d(argVec3(nbl));
-      glVertex3d(argVec3(nbr));
-      
-      glVertex3d(argVec3(ftl));
-      glVertex3d(argVec3(ftr));
-
-      glVertex3d(argVec3(fbl));
-      glVertex3d(argVec3(fbr));
-
-      glVertex3d(argVec3(nbr));
-      glVertex3d(argVec3(fbr));
-
-      glVertex3d(argVec3(nbl));
-      glVertex3d(argVec3(ntl));
-      
-      glVertex3d(argVec3(ftl));
-      glVertex3d(argVec3(fbl));
-      
-      glVertex3d(argVec3(ftr));
-      glVertex3d(argVec3(fbr));
-
-      glVertex3d(argVec3(ntr));
-      glVertex3d(argVec3(nbr));
-
-      glVertex3d(argVec3(ntr));
-      glVertex3d(argVec3(nbr));
-
-      glEnd();
-      
-      float dFar = dotf(camera1.planes[farP].normal, cubeTile) + camera1.planes[farP].distance;
-      float dNear = dotf(camera1.planes[nearP].normal, cubeTile) + camera1.planes[nearP].distance;
-
-      float dRight = dotf(camera1.planes[rightP].normal, cubeTile) + camera1.planes[rightP].distance;
-      float dLeft = dotf(camera1.planes[leftP].normal, cubeTile) + camera1.planes[leftP].distance;
-
-      float dTop = dotf(camera1.planes[topP].normal, cubeTile) + camera1.planes[topP].distance;
-      float dBot = dotf(camera1.planes[botP].normal, cubeTile) + camera1.planes[botP].distance;
-*/
-
-	glBegin(GL_LINES);
-      
-	glColor3d(redColor);
-	glVertex3d(argVec3(camera1.pos));
-	glVertex3d(camera1.pos.x + camera1.X.x, camera1.pos.y + camera1.X.y, camera1.pos.z + camera1.X.z);
-
-	glColor3d(greenColor);
-	glVertex3d(argVec3(camera1.pos));
-	glVertex3d(camera1.pos.x + camera1.Y.x, camera1.pos.y + camera1.Y.y, camera1.pos.z + camera1.Y.z);
-
-	glColor3d(blueColor);
-	glVertex3d(argVec3(camera1.pos));
-	glVertex3d(camera1.pos.x + camera1.Z.x, camera1.pos.y + camera1.Z.y, camera1.pos.z + camera1.Z.z);
-	
-	glEnd();
-	
-#define ANG2RAD 3.14159265358979323846/180.0
-
-
-      vec3 cubeTile = { .5f ,.5f, .5f };
-
-      vec3 Z = normalize((vec3){camera1.front.x * -1.0f, camera1.front.y * -1.0f, camera1.front.z * -1.0f});
-
-      vec3 cameraRight = normalize(cross((vec3) { 0.0f, 1.0f, 0.0f }, Z));
-      vec3 cameraUp = normalize(cross(Z, cameraRight));
-      
-      vec3 X = normalize(cross(Z, camera1.up));
-      vec3 Y = (cross(X, Z));
-      
-      float pcz,pcx,pcy,aux;
-
-      vec3 v = { cubeTile.x - camera1.pos.x, cubeTile.y - camera1.pos.y, cubeTile.z - camera1.pos.z };
-
-      float tang = tanf(ANG2RAD * (editorFOV) * 0.5) ;
-      
-      pcz = dotf(v,(vec3){ -Z.x, -Z.y, -Z.z });
-
-      pcy = dotf(v,Y);
-      aux = pcz * tang;
-
-      	printf("Inter\n");
-      
-      pcx = dotf(v, X);
-      aux = aux * (windowW/windowH);
-
-      if ((pcx > aux || pcx < -aux) || (pcy > aux || pcy < -aux) || (pcz > fieldOfView || pcz < zNear)){
-	renderCube(cubeTile, .01f, .01f, .01f, redColor);
-      }else{
-	glColor3d(greenColor);
-	printf("Horit!!\n");
-	renderCube(cubeTile, .01f, .01f, .01f, greenColor);
-      }
-    }
-
     float minIntersectionDist = 1000.0f;
 
     for (int x = 0; x < gridX; x++) {
@@ -1306,9 +859,9 @@ cameraRight fbl = {
 		  }
 		  
 		  glBindTexture(GL_TEXTURE_2D, tx+1);
-		  glTexImage2D(GL_TEXTURE_2D, 0, 3, textures[tx]->w,
-			       textures[tx]->h, 0, GL_RGB,
-			       GL_UNSIGNED_BYTE, textures[tx]->pixels);
+		  glTexImage2D(GL_TEXTURE_2D, 0, 3, assets[textures][tx]->w,
+			       assets[textures][tx]->h, 0, GL_RGB,
+			       GL_UNSIGNED_BYTE, assets[textures][tx]->pixels);
   
 		  glBegin(GL_TRIANGLES);
 
@@ -1733,9 +1286,9 @@ void renderWindow(vec3* pos, Texture tx){
   glColor3f(1.0f, 1.0f, 1.0f);
   
   glBindTexture(GL_TEXTURE_2D, tx+1);
-  glTexImage2D(GL_TEXTURE_2D, 0, 3, textures[tx]->w,
-	       textures[tx]->h, 0, GL_RGB,
-	       GL_UNSIGNED_BYTE, textures[tx]->pixels);
+  glTexImage2D(GL_TEXTURE_2D, 0, 3, assets[textures][tx]->w,
+	       assets[textures][tx]->h, 0, GL_RGB,
+	       GL_UNSIGNED_BYTE, assets[textures][tx]->pixels);
   
   glBegin(GL_TRIANGLES);
 
@@ -1870,9 +1423,9 @@ void renderDoorFrame(vec3* pos, Texture tx){
   glColor3f(1.0f, 1.0f, 1.0f);
   
   glBindTexture(GL_TEXTURE_2D, tx+1);
-  glTexImage2D(GL_TEXTURE_2D, 0, 3, textures[tx]->w,
-	       textures[tx]->h, 0, GL_RGB,
-	       GL_UNSIGNED_BYTE, textures[tx]->pixels);
+  glTexImage2D(GL_TEXTURE_2D, 0, 3, assets[textures][tx]->w,
+	       assets[textures][tx]->h, 0, GL_RGB,
+	       GL_UNSIGNED_BYTE, assets[textures][tx]->pixels);
   
   glBegin(GL_TRIANGLES);
 
@@ -1969,9 +1522,9 @@ void renderWall(vec3* pos, Texture tx){
   glColor3f(1.0f, 1.0f, 1.0f);
   
   glBindTexture(GL_TEXTURE_2D, tx+1);
-  glTexImage2D(GL_TEXTURE_2D, 0, 3, textures[tx]->w,
-	       textures[tx]->h, 0, GL_RGB,
-	       GL_UNSIGNED_BYTE, textures[tx]->pixels);
+  glTexImage2D(GL_TEXTURE_2D, 0, 3, assets[textures][tx]->w,
+	       assets[textures][tx]->h, 0, GL_RGB,
+	       GL_UNSIGNED_BYTE, assets[textures][tx]->pixels);
   
   glBegin(GL_TRIANGLES);
 
