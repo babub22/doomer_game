@@ -224,30 +224,19 @@ typedef struct{
   float w, h, d;
 } Sizes;
 
-typedef struct
-{
+typedef struct{
   bool    active;
+
   float   life;
   float   fade;
 
-  float   r;
-  
-  float   g;                  
-  float   b;                  
-
   float   x;                
   float   y;                  
-  float   z;                  
+  float   z;                   
+} Particle;
 
-  float   xi;               
-  float   yi;                 
-  float   zi;                 
-
-  float   xg;               
-  float   yg;                 
-  float   zg;                 
-} Particle;  
-
+#define snowGravity -0.8f
+#define snowParticles 4000
 
 #define editorFOV 50.0f
 
@@ -255,7 +244,7 @@ typedef struct
 
 #define argVec3(vec) vec.x, vec.y, vec.z 
 
-#define rad(deg) deg * M_PI / 180
+#define rad(deg) deg * 3.14159265358979323846/180.0
 
 #define vec3dToVec3(vec3d) (vec3){vec3d.x,vec3d.y,vec3d.z}
 
@@ -289,13 +278,16 @@ void renderWindow(vec3* pos, Texture tx);
 
 void renderDoorFrame(vec3* pos, Texture tx);
 
-inline bool deleteIn(int* num, int index, uint8_t newValue);
+// Macro-Functions
+// ~~~~~
+#define valueIn(num, index) (num >> (index*8)) & 0xFF
 
-inline bool setIn(int* num, int index, uint8_t newValue);
+#define setIn(num, index, newValue) num &=~(0xFF << (index * 8)); num |= (newValue << index * 8);
 
-inline uint8_t valueIn(int num, int index);
+#define deleteIn(num, index) num &= ~(0xFF << (index * 8));
 
-inline float dotf(const vec3 v1, const vec3 v2);
+#define dotf(v1,v2) v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
+// ~~~~~~
 
 bool radarCheck(vec3 point);
 
@@ -327,6 +319,7 @@ vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 #define selBorderD 0.01f
 #define selBorderT 0.01f
+
 
 
   /*

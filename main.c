@@ -11,7 +11,7 @@ int gridZ = 30;
 GLuint mappedTextures[texturesCounter + particlesCounter];
 SDL_Surface*** assets;
 
-Particle particle[1000]; 
+Particle particle[snowParticles];
 
 Camera camera1 = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
 Camera camera2 = { .pos = { 1.0f, 1.0f, 1.0f }, .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
@@ -35,6 +35,8 @@ const float windowW = 1280.0f;
 const float windowH = 720.0f;
 
 float INCREASER = .0f;
+
+float tangFOV = 0.0f;
 
 int main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
@@ -98,6 +100,9 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  // tang of fov calculations
+  tangFOV = tanf(rad(editorFOV) * 0.5);
+
   // load particles
   {
     // maybe problem because index of particles override indexes of
@@ -130,21 +135,21 @@ int main(int argc, char* argv[]) {
     camera2.front = (vec3){ -camera2.pos.x, -camera2.pos.y, -camera2.pos.z };
   }
 
-  // init particles
+  // init snow particles
   {
-    for (int loop=0;loop<1000;loop++)   
+    for (int loop=0;loop<snowParticles;loop++)   
       {
-	particle[loop].active=true;                
+	particle[loop].active=true;
+	
 	particle[loop].life=1.0f;
 	particle[loop].fade=(float)(rand()%100)/1000.0f+0.003f;
 
-	particle[loop].xi=(float)((rand()%50)-26.0f)*10.0f;       
-	particle[loop].yi=(float)((rand()%50)-25.0f)*10.0f;      
-	particle[loop].zi=(float)((rand()%50)-25.0f)*10.0f;
+	particle[loop].x = (float)(rand()%gridX / 10.0f) + (float)(rand()%100 / 1000.0f);
+	// TODO: Render exactly gridY + 1  
+	// beacuse of 1 Y its 0.2 it causes if gridY = 15 in real it 30 levels 
+	particle[loop].y = (float)(rand()%gridY / 10.0f) + rand()%(gridY-1);
+	particle[loop].z = (float)(rand()%gridZ / 10.0f) + (float)(rand()%100 / 1000.0f);
 
-	particle[loop].xg=0.0f;  
-        particle[loop].yg=-0.8f; 
-        particle[loop].zg=0.0f;  
       }
   }
 
@@ -166,7 +171,7 @@ int main(int argc, char* argv[]) {
 	  grid[y][z] = calloc(gridX,sizeof(Tile));
       
 	  for(int x=0;x<gridX;x++){
-	    setIn(&grid[y][z][x].ground, 0, netTile);
+	    setIn(grid[y][z][x].ground, 0, netTile);
 	  }
 	}
       }
@@ -187,7 +192,7 @@ int main(int argc, char* argv[]) {
 	    fscanf(map,"[Wls: %d, WlsTx %d, Grd: %d]",&grid[y][z][x].walls, &grid[y][z][x].wallsTx, &grid[y][z][x].ground);
 
 	    if(grid[y][z][x].ground == 0 || valueIn(grid[y][z][x].ground, 0) == 0){
-	      setIn(&grid[y][z][x].ground,0,netTile);
+	      setIn(grid[y][z][x].ground,0,netTile);
 	    }
 
 	    fgetc(map); // read ,
@@ -245,20 +250,20 @@ int main(int argc, char* argv[]) {
 	      nextTx = 0;
 	    }
 
-	    setIn(&grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);
+	    setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);
 	  }else if(mouse.groundInter != -1){
 	    GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
 
 	    if(type != texturedTile){
-	      setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
-	      setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, 0);
+	      setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
+	      setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, 0);
 	    }else{
 	      Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
 	      
 	      if(curTx == texturesCounter-1){
-		setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
+		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
 	      }else{
-		setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx+1);
+		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx+1);
 	      }
 	    }
 	  }
@@ -276,20 +281,20 @@ int main(int argc, char* argv[]) {
 	      prevTx = texturesCounter - 1;
 	    }
 	    
-	    setIn(&grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, prevTx);
+	    setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, prevTx);
 	  }else if(mouse.groundInter != -1){
 	    GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
 
 	    if(type != texturedTile){
-	      setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
-	      setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, texturesCounter - 1);
+	      setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
+	      setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, texturesCounter - 1);
 	    }else{
 	      Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
 	      
 	      if(curTx == 0){
-		setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
+		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
 	      }else{
-		setIn(&grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx-1);
+		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx-1);
 	      }
 	    }
 	  }
@@ -319,10 +324,10 @@ int main(int argc, char* argv[]) {
 	    Side oppositeSide = 0;
 	    vec2i oppositeTile = {0};
 
-	    setIn(&grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, prevType);
+	    setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, prevType);
 	    
 	    if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, &oppositeSide)) {
-	      setIn(&grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, prevType);
+	      setIn(grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, prevType);
 	    }
 	  }
 	  
@@ -341,10 +346,10 @@ int main(int argc, char* argv[]) {
 	    Side oppositeSide = 0;
 	    vec2i oppositeTile = {0};
 
-	    setIn(&grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, nextType);
+	    setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, nextType);
 	    
 	    if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, &oppositeSide)) {
-	      setIn(&grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, nextType);
+	      setIn(grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, nextType);
 	    }
 	  }
 
@@ -580,7 +585,7 @@ int main(int argc, char* argv[]) {
 	
 	  if(!isIntersect){
 	    player.pos.x += dx;  
-	    player.pos.z += dz;
+	    player.pos.z += dz;
 	  }
     
 	}
@@ -741,53 +746,47 @@ int main(int argc, char* argv[]) {
       
       glColor3f(1.0f, 1.0f, 1.0f);
       
-      for (int loop=0;loop<1000;loop++)   
+      for (int loop=0;loop<snowParticles;loop++)   
 	{
 	  if (particle[loop].active){
 	    float x=particle[loop].x;
 	    float y=particle[loop].y;
-	    float z=particle[loop].z;//+zoom;
-  
-	    glBegin(GL_TRIANGLES);
+	    float z=particle[loop].z;
 
-	    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-
-	    glTexCoord2f(0.0f, 1.0f); glVertex3d(x, y, z);
-	    glTexCoord2f(1.0f, 1.0f); glVertex3d(x - 0.05f, y, z);
-	    glTexCoord2f(0.0f, 0.0f); glVertex3d(x, y - 0.05f, z);
-
-	    glTexCoord2f(1.0f, 1.0f); glVertex3d(x - 0.05f, y, z);
-	    glTexCoord2f(1.0f, 0.0f); glVertex3d(x, y - 0.05f, z);
-	    glTexCoord2f(0.0f, 0.0f); glVertex3d(x - 0.05f, y - 0.05f, z);  
-  
-	    glEnd();
-
-	    particle[loop].x+=particle[loop].xi/(0.01*1000);    // Move On The X Axis By X Speed
-	    particle[loop].y+=particle[loop].yi/(0.01*1000);    // Move On The Y Axis By Y Speed
-	    particle[loop].z+=particle[loop].zi/(0.01*1000);    // Move On The Z Axis By Z Speed
-
-	    particle[loop].xi+=particle[loop].xg;           // Take Pull On X Axis Into Account
-	    particle[loop].yi+=particle[loop].yg;           // Take Pull On Y Axis Into Account
-	    particle[loop].zi+=particle[loop].zg;  
-
-	    	
-	    particle[loop].life-=particle[loop].fade;
-
-	    if (particle[loop].life<0.0f) {
-	      particle[loop].life=1.0f;              
-	      particle[loop].fade=(float)(rand()%100)/1000.0f+0.003f;
-
-	      particle[loop].x=0.0f;                  // Center On X Axis
-	      particle[loop].y=0.0f;                  // Center On Y Axis
-	      particle[loop].z=0.0f;
-
-	      particle[loop].xi= (float)((rand()%60)-32.0f);  // X Axis Speed And Direction
-	      particle[loop].yi= 0.001f +(float)((rand()%60)-30.0f);  // Y Axis Speed And Direction
-	      particle[loop].zi=(float)((rand()%60)-30.0f); 
-	    }
+	    if(radarCheck((vec3){x,y,z})){
+	      glColor3f(1.0, 1.0, 1.0);
+	      glBegin(GL_LINES);
+	      glVertex3f(x, y, z);
+	      glVertex3f(x, y+ 0.025f / 4.0f, z);
 	    
+	      glEnd();
+	    }
+
+	    vec3i gridIndexes = { (int)(x * 10), (int)(y / bBlockH), (int)(z *10) };
+
+	    GroundType type = -1;
+
+	    if (gridIndexes.y < gridY - 1) {
+	      type = valueIn(grid[gridIndexes.y + 1][gridIndexes.z][gridIndexes.x].ground,0);
+	    }
+	  
+	    if (particle[loop].y < 0.0f || type == texturedTile) {
+	      particle[loop].life-=particle[loop].fade/10.0f;
+
+	      if(particle[loop].life < 0.0f){
+		particle[loop].active=true;                
+		particle[loop].life=1.0f;
+		particle[loop].fade=(float)(rand()%100)/1000.0f+0.003f;
+		
+		particle[loop].x = (float)(rand()%gridX / 10.0f) + (float)(rand()%100 / 1000.0f);
+		// TODO: Render exactly gridY + 1
+		// beacuse of 1 Y its 0.2 it causes if gridY = 15 in real it 30 levels 
+		particle[loop].y = gridY;
+		particle[loop].z = (float)(rand()%gridZ / 10.0f) + (float)(rand()%100 / 1000.0f);
+	      }
+	    }else{
+	      particle[loop].y += snowGravity / (1000 / 2.0f);      
+	    }
 	  }
 	}
       
@@ -888,7 +887,6 @@ int main(int argc, char* argv[]) {
 
 	    const vec3 tileCornesrs[4] = { rt, lb, { lb.x, lb.y, lb.z + bBlockD }, { lb.x + bBlockW, lb.y, lb.z } };
 
-	    // wall in/out camera
 	    int in=0;
 
 	    for (int k = 0; k < 4 && in==0; k++) {
@@ -902,14 +900,19 @@ int main(int argc, char* argv[]) {
 	    
 	    float intersectionDistance = 0.0f;
 	    vec3 intersection = {0};
-	    
+
 	    bool isIntersect = rayIntersectsTriangle(mouse.start,mouse.end,lb,rt, &intersection, &intersectionDistance);
 	
 	    if(isIntersect && minIntersectionDist > intersectionDistance){
-	      mouse.selectedTile = &grid[floor][z][x];
-	      mouse.gridIntersect = (vec2i){x,z};
-	      mouse.intersection = intersection;
-	      mouse.groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
+	      minIntersectionDist = intersectionDistance;
+
+	      if (y == floor) {
+		mouse.selectedTile = &grid[y][z][x];
+		mouse.gridIntersect = (vec2i){x,z};
+		mouse.intersection = intersection;
+		mouse.groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
+	      }
+
 	    }
 	
 	    // tile rendering
@@ -1089,8 +1092,8 @@ int main(int argc, char* argv[]) {
 	    Side oppositeSide = 0;
 	    vec2i oppositeTile = {0};
 
-	    setIn(&grid[floor][z][x].walls, mouse.tileSide, mouse.brush);
-	    setIn(&grid[floor][z][x].wallsTx, mouse.tileSide, 0); // first texture
+	    setIn(grid[floor][z][x].walls, mouse.tileSide, mouse.brush);
+	    setIn(grid[floor][z][x].wallsTx, mouse.tileSide, 0); // first texture
 		  
 	    if(oppositeTileTo((vec2i){x, z}, mouse.tileSide,&oppositeTile,&oppositeSide)){
 	      grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].walls |= (mouse.brush << oppositeSide*8);
@@ -1949,9 +1952,6 @@ inline vec3 cross(const vec3 v1, const vec3 v2){
   return crossproduct;
 }
 
-inline float dotf(const vec3 v1, const vec3 v2) {
-  return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-}
 
 bool gluInvertMatrix(const double m[16], double invOut[16])
 {
@@ -2138,56 +2138,24 @@ bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSide){
   return false;
 }
 
-
-inline bool deleteIn(int* num, int index, uint8_t newValue){
-  if(index >= 0 && index < 4){
-    *num &= ~(0xFF << (index * 8));
-    
-    return true;
-  }
-
-  return false;
-}
-
-inline bool setIn(int* num, int index, uint8_t newValue){
-  if(index >= 0 && index < 4){
-    *num &= ~(0xFF << (index * 8));
-    *num |= (newValue << index * 8);
-
-    return true;
-  }
-
-  return false;
-}
-
-inline uint8_t valueIn(int num, int index){
-  if(index >= 0 && index < 4){
-    return (num >> (index*8)) & 0xFF; 
-  }
-
-  return 0;
-}
-
 inline bool radarCheck(vec3 point){
   vec3 v = { point.x - camera1.pos.x, point.y - camera1.pos.y, point.z - camera1.pos.z };
 
-#define ANG2RAD 3.14159265358979323846/180.0
-  
-  float tang = tanf(ANG2RAD * editorFOV * 0.5) ;
+  vec3 minusZ = { -camera1.Z.x, -camera1.Z.y, -camera1.Z.z };
       
-  float pcz = dotf(v, (vec3){ -camera1.Z.x, -camera1.Z.y, -camera1.Z.z });
+  float pcz = dotf(v, minusZ);
 
   if(pcz > fieldOfView || pcz < zNear){
     return false;
   }
 
   float pcy = dotf(v, camera1.Y);
-  float aux = pcz * tang;
+  float aux = pcz * tangFOV;
 
-  const float halfWFar = tanf((ANG2RAD * (editorFOV + 5.0f)) * .5f) * fieldOfView;
+  const float halfWFar = tanf((rad(editorFOV + 5.0f)) * .5f) * fieldOfView;
   const float halfHFar = halfWFar * (windowW/windowH);
       
-  const float halfWNear = tanf((ANG2RAD * (editorFOV - 5.0f)) * .5f) * zNear;
+  const float halfWNear = tanf((rad(editorFOV - 5.0f)) * .5f) * zNear;
   const float halfHNear = halfWNear * (windowW/windowH);
 
   if(pcy > aux || pcy < -aux){
