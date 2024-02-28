@@ -4,9 +4,9 @@
 Object** objsStore;
 size_t objsStoreSize;
   
-int gridX = 30;
+int gridX = 60;
 int gridY = 15;
-int gridZ = 30;
+int gridZ = 60;
 
 GLuint mappedTextures[texturesCounter + particlesCounter];
 SDL_Surface*** assets;
@@ -34,9 +34,47 @@ float fieldOfView = 40.0f;
 const float windowW = 1280.0f;
 const float windowH = 720.0f;
 
-float INCREASER = .0f;
+float INCREASER = 1.0f;
 
 float tangFOV = 0.0f;
+
+GLuint loadShader(GLenum shaderType, const char* filename) {
+  FILE* file = fopen(filename, "rb");
+  if (!file) {
+    fprintf(stderr, "Failed to open file: %s\n", filename);
+    return 0;
+  }
+
+  fseek(file, 0, SEEK_END);
+  long length = ftell(file);
+  fseek(file, 0, SEEK_SET);
+
+  char* source = (char*)malloc(length + 1);
+  fread(source, 1, length, file);
+  fclose(file);
+  source[length] = '\0';
+
+  GLuint shader = glCreateShader(shaderType);
+  glShaderSource(shader, 1, (const GLchar**)&source, NULL);
+  glCompileShader(shader);
+
+  free(source);
+
+  GLint compileStatus;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &compileStatus);
+  if (compileStatus != GL_TRUE) {
+    GLint logLength;
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+    char* log = (char*)malloc(logLength);
+    glGetShaderInfoLog(shader, logLength, NULL, log);
+    fprintf(stderr, "Failed to compile shader: %s\n", log);
+    free(log);
+    glDeleteShader(shader);
+    return 0;
+  }
+
+  return shader;
+}
 
 int main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
@@ -54,7 +92,39 @@ int main(int argc, char* argv[]) {
   
   SDL_ShowCursor(SDL_DISABLE);
 
-  glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
+
+  glewInit();
+
+  GLuint vertexShader = loadShader(GL_VERTEX_SHADER, "fog.vert");
+  GLuint fragmentShader = loadShader(GL_FRAGMENT_SHADER, "fog.frag");
+
+  GLuint prog = glCreateProgram();
+  glAttachShader(prog, vertexShader);
+  glAttachShader(prog, fragmentShader);
+
+  // Link the shader program
+   glLinkProgram(prog);
+
+  // Check for linking errors
+  GLint linkStatus;
+  glGetProgramiv(prog, GL_LINK_STATUS, &linkStatus);
+  if (linkStatus != GL_TRUE) {
+    GLint logLength;
+    glGetProgramiv(prog, GL_INFO_LOG_LENGTH, &logLength);
+    char* log = (char*)malloc(logLength);
+    glGetProgramInfoLog(prog, logLength, NULL, log);
+    fprintf(stderr, "Failed to link program: %s\n", log);
+    free(log);
+    return 1;
+  }
+
+  glUseProgram(prog);
+
+  GLint radius = glGetUniformLocation(prog, "radius");
+  glUniform1f(radius, INCREASER);
+
+  vec3 fogColor = {0.5f, 0.5f, 0.5f};
+  glClearColor(argVec3(fogColor), 1.0f);
 
     
   const float doorW =  bBlockW - doorPad;
@@ -102,21 +172,6 @@ int main(int argc, char* argv[]) {
 
   // tang of fov calculations
   tangFOV = tanf(rad(editorFOV) * 0.5);
-
-  // load particles
-  {
-    // maybe problem because index of particles override indexes of
-    // already loaded textures
-    
-    assets[particles] = malloc(particlesCounter * sizeof(SDL_Surface*));
-
-    assets[particles][snow] = SDL_LoadBMP(particlesFolder"snow.bmp");
-    
-    glBindTexture(GL_TEXTURE_2D, mappedTextures[snow]);
-    
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  }
   
   Mouse mouse = { .h = 0.005f, .w = 0.005f, .brush = 0, .end = {-1,-1}, .start = {-1,-1}, .interDist = 1000.0f  };
 
@@ -302,12 +357,18 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
 	case(SDL_SCANCODE_Z):{
-	  INCREASER += .001f;
+	  INCREASER += .01f;
+
+	  GLint radius = glGetUniformLocation(prog, "radius");
+	  glUniform1f(radius, INCREASER);
 	  
 	  break;
 	}
 	case(SDL_SCANCODE_X):{
-	  INCREASER -= .001f;
+	  INCREASER -= .01f;
+	  
+	  GLint radius = glGetUniformLocation(prog, "radius");
+	  glUniform1f(radius, INCREASER);
 	  
 	  break;
 	}
@@ -524,6 +585,9 @@ int main(int argc, char* argv[]) {
 	  curCamera->pos.x += cameraSpeed * curCamera->front.x;
 	  curCamera->pos.y += cameraSpeed * curCamera->front.y;
 	  curCamera->pos.z += cameraSpeed * curCamera->front.z;
+
+	  GLint cameraPos = glGetUniformLocation(prog, "cameraPos");
+	  glUniform3f(cameraPos, camera1.pos.x, camera1.pos.y, camera1.pos.z);
 	}else{
 	  float dx = speed * sin(rad(player.angle));  
 	  float dz = speed * cos(rad(player.angle)); 
@@ -596,6 +660,9 @@ int main(int argc, char* argv[]) {
 	  curCamera->pos.x -= cameraSpeed * curCamera->front.x;
 	  curCamera->pos.y -= cameraSpeed * curCamera->front.y;
 	  curCamera->pos.z -= cameraSpeed * curCamera->front.z;
+
+	  GLint cameraPos = glGetUniformLocation(prog, "cameraPos");
+	  glUniform3f(cameraPos, camera1.pos.x, camera1.pos.y, camera1.pos.z);
 	}else{
 	  player.pos.x -= speed * sin(rad(player.angle));  
 	  player.pos.z -= speed * cos(rad(player.angle)); 
@@ -609,6 +676,9 @@ int main(int argc, char* argv[]) {
 	  curCamera->pos.x += cameraSpeed * normFront.x;
 	  curCamera->pos.y += cameraSpeed * normFront.y;
 	  curCamera->pos.z += cameraSpeed * normFront.z;
+
+	  GLint cameraPos = glGetUniformLocation(prog, "cameraPos");
+	  glUniform3f(cameraPos, camera1.pos.x, camera1.pos.y, camera1.pos.z);
 	}
 	
 	
@@ -629,6 +699,9 @@ int main(int argc, char* argv[]) {
 	  curCamera->pos.x -= cameraSpeed * normFront.x;
 	  curCamera->pos.y -= cameraSpeed * normFront.y;
 	  curCamera->pos.z -= cameraSpeed * normFront.z;
+
+	  GLint cameraPos = glGetUniformLocation(prog, "cameraPos");
+	  glUniform3f(cameraPos, camera1.pos.x, camera1.pos.y, camera1.pos.z);
 	}
 	
 	/*	float strafeAngle = player.angle;
@@ -685,6 +758,10 @@ int main(int argc, char* argv[]) {
     mouse.groundInter = -1;
 	    
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    //    glClearColor(argVec3(fogColor), 1.0f);
+
+
     glLoadIdentity();
     glMatrixMode(GL_PROJECTION);
     
@@ -714,6 +791,8 @@ int main(int argc, char* argv[]) {
     }
     
     glMatrixMode(GL_MODELVIEW);
+
+    //    glUseProgram(0);
     
     // axises    
     if(true)
@@ -736,14 +815,9 @@ int main(int argc, char* argv[]) {
       }
 
 
+
     // particles rendering
     {
-      glEnable(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, snow);
-      glTexImage2D(GL_TEXTURE_2D, 0, 3, assets[particles][snow]->w,
-			 assets[particles][snow]->h, 0, GL_RGB,
-			 GL_UNSIGNED_BYTE, assets[particles][snow]->pixels);
-      
       glColor3f(1.0f, 1.0f, 1.0f);
       
       for (int loop=0;loop<snowParticles;loop++)   
@@ -789,10 +863,9 @@ int main(int argc, char* argv[]) {
 	    }
 	  }
 	}
-      
-      glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
-      glDisable(GL_TEXTURE_2D);
     }
+
+
 
     float minIntersectionDist = 1000.0f;
 
@@ -1284,6 +1357,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    
     // cursor world projection
     {
       vec3d start = {0};
