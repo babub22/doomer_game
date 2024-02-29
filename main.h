@@ -236,6 +236,11 @@ typedef struct{
   bool snow;
 } EnviromentalConfig;
 
+typedef enum{
+  WallEl,
+  TileEl
+} ElementType;
+
 #define snowGravity -0.8f
 #define snowDefAmount 20000
 

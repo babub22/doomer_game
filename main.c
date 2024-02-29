@@ -872,8 +872,6 @@ int main(int argc, char* argv[]) {
       glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-    float minIntersectionDist = 1000.0f;
-
     // render cur floor net tiles
     {
       glActiveTexture(solidColorTx);
@@ -933,7 +931,8 @@ int main(int argc, char* argv[]) {
 
     // main loop of rendering wall/tiles and intersection detecting
 
-    // glBegin(GL_TRIANGLES);
+    ElementType minDistType = -1;
+    float minIntersectionDist = 1000.0f;
     
     for (int x = 0; x < gridX; x++) {
       for (int y = 0; y < gridY; y++) {
@@ -987,8 +986,8 @@ int main(int argc, char* argv[]) {
 		  mouse.wallTile = (vec3i){x,y,z};
 		  mouse.wallType = type;
 		  mouse.wallTx = tx;
-		  
-		  minIntersectionDist = intersectionDistance;
+
+		  minDistType = WallEl;
 		}
 	      }
 		  
@@ -1049,8 +1048,9 @@ int main(int argc, char* argv[]) {
 		mouse.gridIntersect = (vec2i){x,z};
 		mouse.intersection = intersection;
 		mouse.groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
-	      }
 
+		minDistType = TileEl;
+	      }
 	    }
 	
 	    // tile rendering
@@ -1063,6 +1063,18 @@ int main(int argc, char* argv[]) {
 	  }
 	}
       }
+    }
+
+    if(minDistType == WallEl){
+      mouse.selectedTile = NULL;
+      mouse.gridIntersect = (vec2i){ -1,-1 };
+      mouse.intersection = (vec3){ -1,-1 };
+      mouse.groundInter = -1;
+    }else if(minDistType == TileEl){
+      mouse.wallSide = -1;
+      mouse.wallTile = (vec3i){ -1,-1,-1 };
+      mouse.wallType = -1;
+      mouse.wallTx = mouse.wallTx = -1;
     }
 
    // render mouse.brush
