@@ -17,7 +17,7 @@ typedef struct {
 
 typedef struct {
   int x, y, z;
-} vec3i;
+} vec3i; // mostly to srote indexes of grid cell
 
 typedef struct {
   float x, y, z, i;
@@ -126,6 +126,8 @@ typedef enum{
   metal,
   ground,
   redClo,
+  frozenGround,
+  solidColorTx,
   texturesCounter
 } Texture;
 
@@ -215,12 +217,6 @@ typedef struct{
 } Mouse;
 
 typedef struct{
-  const int sizeX;
-  const int sizeY;
-  char *data;
-} Image;
-
-typedef struct{
   float w, h, d;
 } Sizes;
 
@@ -235,8 +231,13 @@ typedef struct{
   float   z;                   
 } Particle;
 
+typedef struct{
+  bool fog;
+  bool snow;
+} EnviromentalConfig;
+
 #define snowGravity -0.8f
-#define snowParticles 4000
+#define snowDefAmount 20000
 
 #define editorFOV 50.0f
 
@@ -251,8 +252,6 @@ typedef struct{
 bool gluInvertMatrix(const double m[16], double invOut[16]);
 
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
-
-void renderTile(vec3 pos, GLenum mode, float w, float d, float r, float g, float b);
 
 vec3 normalize(const vec3 vec);
 
@@ -278,6 +277,10 @@ void renderWindow(vec3* pos, Texture tx);
 
 void renderDoorFrame(vec3* pos, Texture tx);
 
+void renderTexturedTile(vec3 tile, Texture underTx, Texture overTx);
+
+void renderTileBorder(vec3 tile, float r, float g, float b);
+
 // Macro-Functions
 // ~~~~~
 #define valueIn(num, index) (num >> (index*8)) & 0xFF
@@ -287,11 +290,27 @@ void renderDoorFrame(vec3* pos, Texture tx);
 #define deleteIn(num, index) num &= ~(0xFF << (index * 8));
 
 #define dotf(v1,v2) v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
+
+#define xyz_coordsToIndexes(x,y,z) {x / bBlockW, y / bBlockH, z / bBlockD}
+
+#define xyz_indexesToCoords(x,y,z) {(float)x * bBlockW, (float)y * bBlockH, (float)z * bBlockD}
+
+#define vec3_coordsToIndexes(vecCoords) {vecCoords.x / bBlockW, vecCoords.y / bBlockH, vecCoords.z / bBlockD}
+
+#define vec3_indexesToCoords(vecIndexes) {(float)vecIndexes.x * bBlockW, (float)vecIndexes.y * bBlockH, (float)vecIndexes.z * bBlockD}
+
+#define setSolidColorTx(color, a) do {					\
+    float rgbaColor[] = {color, a};					\
+    uint8_t colorBytes[4] = {(uint8_t)(rgbaColor[0] * 255), (uint8_t)(rgbaColor[1] * 255), (uint8_t)(rgbaColor[2] * 255), (uint8_t)(rgbaColor[3] * 255)};\
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, colorBytes);\
+} while(false)
 // ~~~~~~
 
 bool radarCheck(vec3 point);
 
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
+
+GLuint loadShader(GLenum shaderType, const char* filename);
 
 #define FPS 60
 
@@ -301,15 +320,14 @@ vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 #define blueColor 0.0f, 0.0f, 1.0f
 
+#define whiteColor 1.0f, 1.0f, 1.0f, 1.0f
+
 #define darkPurple 0.1f, 0.0f, 0.1f
 
 #define cyan 0.0f, 1.0f, 1.0f
-#define white 1.0f, 1.0f, 1.0f 
 
 #define game "Doomer game"
 #define texturesFolder "./assets/textures/"
-
-#define particlesFolder "./assets/particles/"
 
 #define speed 0.001f/2
 
@@ -319,6 +337,8 @@ vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 #define selBorderD 0.01f
 #define selBorderT 0.01f
+
+#define selTileBorderH 0.001f
 
 
 
