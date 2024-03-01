@@ -44,6 +44,75 @@ float tangFOV = 0.0f;
 
 GLuint prog;
 
+ModelOBJ* loadOBJ(char* path, float scale){
+  fastObjMesh* mesh = fast_obj_read(path);
+
+  ModelOBJ* object = malloc(sizeof(ModelOBJ));
+  object->size = mesh->index_count;
+
+  // vertecies
+  vec3* verts = malloc(mesh->position_count * sizeof(vec3));
+
+  object->vertex = malloc(mesh->index_count * sizeof(vec3));
+  
+  int counter = 0;
+  for( unsigned int i=0; i<mesh->position_count * 3;i+=3){
+    if(i==0) continue;
+
+    verts[counter] = (vec3){mesh->positions[i] * scale, mesh->positions[i+1] * scale, mesh->positions[i+2] * scale};
+    counter++;
+  }
+  
+  for(int i=0; i< mesh->index_count; i++){
+    object->vertex[i] = verts[mesh->indices[i].p - 1];
+  }
+  
+  free(verts);
+
+  // UVs
+  uv2* uvs = malloc(mesh->texcoord_count * sizeof(uv2));
+
+  object->uvs = malloc(mesh->index_count * sizeof(uv2));
+  
+  counter = 0;
+  for( unsigned int i=0; i<mesh->texcoord_count * 2;i+=2){
+    if(i==0) continue;
+
+    uvs[counter] = (uv2){mesh->texcoords[i] * scale, mesh->texcoords[i+1] * scale};
+    counter++;
+  }
+  
+  for(int i=0; i< mesh->index_count; i++){
+    object->uvs[i] = uvs[mesh->indices[i].t - 1];
+  }
+  
+  free(uvs);
+
+  // normals
+
+  vec3* normals = malloc(mesh->normal_count * sizeof(vec3));
+
+  object->normals = malloc(mesh->index_count * sizeof(vec3));
+  
+  counter = 0;
+  for( unsigned int i=0; i<mesh->normal_count * 3;i+=3){
+    if(i==0) continue;
+
+    normals[counter] = (vec3){mesh->normals[i] * scale, mesh->normals[i+1] * scale, mesh->normals[i+2] * scale};
+    counter++;
+  }
+  
+  for(int i=0; i< mesh->index_count; i++){
+    object->normals[i] = normals[mesh->indices[i].n - 1];
+  }
+  
+  free(normals);
+  
+  fast_obj_destroy(mesh);
+  
+  return object;
+}
+
 int main(int argc, char* argv[]) {
   camera1.pos = (vec3)xyz_indexesToCoords(gridX / 2, 3, gridZ / 2);
   camera2.pos = (vec3)xyz_indexesToCoords(gridX / 2, 3, gridZ / 2);
@@ -57,6 +126,8 @@ int main(int argc, char* argv[]) {
 					windowW, windowH,
 					SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 
+  ModelOBJ* tree = loadOBJ("./assets/objs/Snowy_PineTree.obj", 1.0f);
+  
   SDL_SetRelativeMouseMode(SDL_TRUE);
   SDL_GLContext context = SDL_GL_CreateContext(window);
   
@@ -448,7 +519,7 @@ int main(int argc, char* argv[]) {
 
 
 			  case(SDL_SCANCODE_SPACE): {
-				  cameraMode = !cameraMode;
+				  cameraMode = !cameraMode;
 				  curCamera = cameraMode ? &camera1 : &camera2;
 
 				  break;
@@ -468,7 +539,7 @@ int main(int argc, char* argv[]) {
 				  break;
 			  }
 			  case(SDL_SCANCODE_V): {
-			          enviromental.snow = !enviromental.snow;
+			          enviromental.snow = !enviromental.snow;
 				  break;
 			  }
 			  case(SDL_SCANCODE_N): {
@@ -512,7 +583,7 @@ int main(int argc, char* argv[]) {
 					  WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
 
 					  Side oppositeSide = 0;
-					  vec2i oppositeTile = { 0 };
+					  vec2i oppositeTile = { 0 };
 
 					  grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls &= ~(0xFF << (mouse.wallSide * 8));
 
@@ -806,16 +877,43 @@ int main(int argc, char* argv[]) {
 	  {
 		  glBegin(GL_LINES);
 
-		  glVertex3d(0.0, 0.0, 0.0);
-		  glVertex3d(1.0, 0.0, 0.0);
+		  glVertex3f(0.0, 0.0, 0.0);
+		  glVertex3f(1.0, 0.0, 0.0);
 
-		  glVertex3d(0.0, 0.0, 0.0);
-		  glVertex3d(0.0, 1.0, 0.0);
+		  glVertex3f(0.0, 0.0, 0.0);
+		  glVertex3f(0.0, 1.0, 0.0);
 
-		  glVertex3d(0.0, 0.0, 0.0);
-		  glVertex3d(0.0, 0.0, 1.0);
+		  glVertex3f(0.0, 0.0, 0.0);
+		  glVertex3f(0.0, 0.0, 1.0);
 
 		  glEnd();
+	  }
+
+	  // test render of loaded tree
+	  {
+	    vec3 center = (vec3)xyz_indexesToCoords(gridX / 2, 3, gridZ / 2);
+	    
+	    glActiveTexture(pinTree);
+	    glBindTexture(GL_TEXTURE_2D, pinTree);
+
+	    glBufferData(GL_ARRAY_BUFFER, tree->size * sizeof(vec3), &tree->vertex[0], GL_STATIC_DRAW);
+	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	    /*
+	    glBegin(GL_TRIANGLES);
+	    
+	    for(int i=0; i< tree->size; i++){
+	      vec3 mappedTile = {tree->vertex[i].x + center.x, tree->vertex[i].y + center.y, tree->vertex[i].z + center.z};
+	      vec3 mappedNorm = {tree->normals[i].x + center.x, tree->normals[i].y + center.y, tree->normals[i].z + center.z};
+
+	      glTexCoord2f(tree->uvs[i].x, tree->uvs[i].y); 
+	      glVertex3f(argVec3(mappedTile));
+	      glNormal3f(argVec3(mappedNorm));
+	    }
+
+	    glEnd();*/
+
+	    glBindTexture(GL_TEXTURE_2D, 0);
+	    
 	  }
 
 	  // snowParticles rendering
@@ -909,17 +1007,17 @@ int main(int argc, char* argv[]) {
 	  }
 	  
 	  {
-	    glVertex3d(argVec3(c0));
-	    glVertex3d(argVec3(c1));
+	    glVertex3f(argVec3(c0));
+	    glVertex3f(argVec3(c1));
 
-	    glVertex3d(argVec3(c1));
-	    glVertex3d(argVec3(c3));
+	    glVertex3f(argVec3(c1));
+	    glVertex3f(argVec3(c3));
 
-	    glVertex3d(argVec3(c3));
-	    glVertex3d(argVec3(c2));
+	    glVertex3f(argVec3(c3));
+	    glVertex3f(argVec3(c2));
 
-	    glVertex3d(argVec3(c2));
-	    glVertex3d(argVec3(c0));
+	    glVertex3f(argVec3(c2));
+	    glVertex3f(argVec3(c0));
 	  }
 	}
       }
@@ -1115,13 +1213,13 @@ int main(int argc, char* argv[]) {
 	if(mouse.tileSide == center){
 	  vec3 pos = { tile.x + bBlockD / 2 - borderArea, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2 - borderArea };
 
-	  glVertex3d(pos.x, pos.y, pos.z);
-	  glVertex3d(pos.x + borderArea * 2, pos.y, pos.z);
-	  glVertex3d(pos.x + borderArea * 2,pos.y, pos.z + borderArea * 2);
+	  glVertex3f(pos.x, pos.y, pos.z);
+	  glVertex3f(pos.x + borderArea * 2, pos.y, pos.z);
+	  glVertex3f(pos.x + borderArea * 2,pos.y, pos.z + borderArea * 2);
 
-	  glVertex3d(pos.x ,pos.y, pos.z);
-	  glVertex3d(pos.x,pos.y, pos.z + borderArea * 2);
-	  glVertex3d(pos.x + borderArea * 2,pos.y, pos.z + borderArea * 2);
+	  glVertex3f(pos.x ,pos.y, pos.z);
+	  glVertex3f(pos.x,pos.y, pos.z + borderArea * 2);
+	  glVertex3f(pos.x + borderArea * 2,pos.y, pos.z + borderArea * 2);
 	}else if(mouse.tileSide == top || mouse.tileSide == bot){
 	  float zPos = tile.z;
 	      
@@ -1133,13 +1231,13 @@ int main(int argc, char* argv[]) {
 
 	  vec3 pos = { tile.x + borderArea + selectionW / 2, tile.y + selBorderD/2.0f, zPos };
 
-	  glVertex3d(pos.x, pos.y, pos.z);
-	  glVertex3d(pos.x + borderArea * 3, pos.y, pos.z);
-	  glVertex3d(pos.x + borderArea * 3,pos.y, pos.z + borderArea);
+	  glVertex3f(pos.x, pos.y, pos.z);
+	  glVertex3f(pos.x + borderArea * 3, pos.y, pos.z);
+	  glVertex3f(pos.x + borderArea * 3,pos.y, pos.z + borderArea);
 
-	  glVertex3d(pos.x ,pos.y, pos.z);
-	  glVertex3d(pos.x,pos.y, pos.z + borderArea);
-	  glVertex3d(pos.x + borderArea * 3,pos.y, pos.z + borderArea);
+	  glVertex3f(pos.x ,pos.y, pos.z);
+	  glVertex3f(pos.x,pos.y, pos.z + borderArea);
+	  glVertex3f(pos.x + borderArea * 3,pos.y, pos.z + borderArea);
 	}else if(mouse.tileSide == left || mouse.tileSide == right){
 	  float xPos = tile.x;
 	      
@@ -1151,13 +1249,13 @@ int main(int argc, char* argv[]) {
 
 	  vec3 pos = {xPos, tile.y + selBorderD/2.0f, tile.z + bBlockW/2 - selectionW / 2};
 
-	  glVertex3d(pos.x, pos.y, pos.z);
-	  glVertex3d(pos.x + borderArea, pos.y, pos.z);
-	  glVertex3d(pos.x + borderArea,pos.y, pos.z + borderArea * 3);
+	  glVertex3f(pos.x, pos.y, pos.z);
+	  glVertex3f(pos.x + borderArea, pos.y, pos.z);
+	  glVertex3f(pos.x + borderArea,pos.y, pos.z + borderArea * 3);
 
-	  glVertex3d(pos.x ,pos.y, pos.z);
-	  glVertex3d(pos.x,pos.y, pos.z + borderArea * 3);
-	  glVertex3d(pos.x + borderArea,pos.y, pos.z + borderArea * 3);
+	  glVertex3f(pos.x ,pos.y, pos.z);
+	  glVertex3f(pos.x,pos.y, pos.z + borderArea * 3);
+	  glVertex3f(pos.x + borderArea,pos.y, pos.z + borderArea * 3);
 	}
 
 	glEnd();
@@ -1335,25 +1433,25 @@ int main(int argc, char* argv[]) {
 	
 	glBegin(GL_LINES);
 
-	glVertex3d(vert[0].x,vert[0].y,vert[0].z);
-	glVertex3d(vert[1].x,vert[1].y, vert[1].z);
+	glVertex3f(vert[0].x,vert[0].y,vert[0].z);
+	glVertex3f(vert[1].x,vert[1].y, vert[1].z);
 
-	glVertex3d(vert[1].x,vert[1].y,vert[1].z);
-	glVertex3d(vert[2].x,vert[2].y,vert[2].z);
+	glVertex3f(vert[1].x,vert[1].y,vert[1].z);
+	glVertex3f(vert[2].x,vert[2].y,vert[2].z);
 
-	glVertex3d(vert[0].x,vert[0].y,vert[0].z);
-	glVertex3d(vert[2].x,vert[2].y,vert[2].z);
+	glVertex3f(vert[0].x,vert[0].y,vert[0].z);
+	glVertex3f(vert[2].x,vert[2].y,vert[2].z);
 	
-	glVertex3d(vert[2].x,vert[2].y,vert[2].z);
-	glVertex3d(vert[3].x,vert[3].y,vert[3].z);
+	glVertex3f(vert[2].x,vert[2].y,vert[2].z);
+	glVertex3f(vert[3].x,vert[3].y,vert[3].z);
 
 	glColor3d(blueColor);
-	glVertex3d(player.min.x,player.min.y,player.min.z );
-	glVertex3d(player.min.x,player.max.y,player.min.z );
+	glVertex3f(player.min.x,player.min.y,player.min.z );
+	glVertex3f(player.min.x,player.max.y,player.min.z );
 
 	glColor3d(greenColor);
-	glVertex3d(player.max.x,player.min.y,player.max.z );
-	glVertex3d(player.max.x,player.max.y,player.max.z );
+	glVertex3f(player.max.x,player.min.y,player.max.z );
+	glVertex3f(player.max.x,player.max.y,player.max.z );
 
 	glEnd();
 
@@ -1446,113 +1544,113 @@ void renderWindow(vec3* pos, Texture tx){
   const float windowBotH = bBlockH * 0.35f;
   
   // top
-  glTexCoord2f(0.0f, 1.0f); glVertex3d(pos[0].x, pos[0].y, pos[0].z);
-  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
-  glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+  glTexCoord2f(0.0f, 1.0f); glVertex3f(pos[0].x, pos[0].y, pos[0].z);
+  glTexCoord2f(1.0f, 1.0f); glVertex3f(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
 
   glTexCoord2f(1.0f, 1.0f);
-  glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glVertex3f(pos[1].x, pos[1].y, pos[1].z);
   glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-  glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+  glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
   glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-  glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+  glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
 
   if(rightOrLeftWall){
     // left
     glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+    glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
     
-    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
 
     glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+    glVertex3f(pos[3].x, pos[3].y + windowBotH, pos[3].z);
 
     //
-    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
 
     glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z - doorPad/2);
+    glVertex3f(pos[3].x, pos[3].y + windowBotH, pos[3].z - doorPad/2);
 
     glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+    glVertex3f(pos[3].x, pos[3].y + windowBotH, pos[3].z);
 
     // right
     glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z + doorPad/2);
+    glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[1].z + doorPad/2);
 
     glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+    glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
       
     glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w) , 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z + doorPad/2);
+    glVertex3f(pos[2].x, pos[2].y + windowBotH, pos[2].z + doorPad/2);
 
     //
     glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+    glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
       
     glTexCoord2f(1.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z);
+    glVertex3f(pos[2].x, pos[2].y + windowBotH, pos[2].z);
     
     glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w) , 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z + doorPad/2);
+    glVertex3f(pos[2].x, pos[2].y + windowBotH, pos[2].z + doorPad/2);
   }else{
     // left
     glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+    glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
     
-    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x +  doorPad/2, pos[0].y - doorTopPad, pos[0].z);
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x +  doorPad/2, pos[0].y - doorTopPad, pos[0].z);
 
     glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+    glVertex3f(pos[3].x, pos[3].y + windowBotH, pos[3].z);
 
     //
-    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x + doorPad/2, pos[0].y - doorTopPad, pos[0].z);
+    glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x + doorPad/2, pos[0].y - doorTopPad, pos[0].z);
 
     glTexCoord2f(0.0f + (doorPad/2 / wallsSizes[doorFrameT].w), 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[3].x + doorPad/2, pos[3].y + windowBotH, pos[3].z);
+    glVertex3f(pos[3].x + doorPad/2, pos[3].y + windowBotH, pos[3].z);
 
     glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+    glVertex3f(pos[3].x, pos[3].y + windowBotH, pos[3].z);
 
     // right
     glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x - doorPad/2, pos[1].y - doorTopPad, pos[0].z);
+    glVertex3f(pos[1].x - doorPad/2, pos[1].y - doorTopPad, pos[0].z);
 
     glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[0].z);
+    glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[0].z);
       
     glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w) , 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[2].x - doorPad/2, pos[2].y + windowBotH, pos[2].z);
+    glVertex3f(pos[2].x - doorPad/2, pos[2].y + windowBotH, pos[2].z);
 
     //
     glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[0].z);
+    glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[0].z);
       
     glTexCoord2f(1.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z);
+    glVertex3f(pos[2].x, pos[2].y + windowBotH, pos[2].z);
     
     glTexCoord2f(1.0f - (doorPad/2 / wallsSizes[doorFrameT].w) , 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[2].x - doorPad/2, pos[2].y + windowBotH, pos[2].z);
+    glVertex3f(pos[2].x - doorPad/2, pos[2].y + windowBotH, pos[2].z);
   }
 
   // bot
   glTexCoord2f(0.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-  glVertex3d(pos[3].x, pos[3].y + windowBotH, pos[3].z);
+  glVertex3f(pos[3].x, pos[3].y + windowBotH, pos[3].z);
 
   glTexCoord2f(1.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-  glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z);
+  glVertex3f(pos[2].x, pos[2].y + windowBotH, pos[2].z);
 
   glTexCoord2f(0.0f, 0.0f);
-  glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  glVertex3f(pos[3].x, pos[3].y, pos[3].z);
   
   glTexCoord2f(1.0f, 0.0f + (windowBotH / wallsSizes[doorFrameT].h));
-  glVertex3d(pos[2].x, pos[2].y + windowBotH, pos[2].z);
+  glVertex3f(pos[2].x, pos[2].y + windowBotH, pos[2].z);
   
   glTexCoord2f(1.0f, 0.0f);
-  glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+  glVertex3f(pos[2].x, pos[2].y, pos[2].z);
   
   glTexCoord2f(0.0f, 0.0f);
-  glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  glVertex3f(pos[3].x, pos[3].y, pos[3].z);
   
   glEnd();
 
@@ -1570,75 +1668,75 @@ void renderDoorFrame(vec3* pos, Texture tx){
   bool rightOrLeftWall = !(pos[0].x != pos[1].x);
   
   // top
-  glTexCoord2f(0.0f, 1.0f); glVertex3d(pos[0].x, pos[0].y, pos[0].z);
-  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
-  glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+  glTexCoord2f(0.0f, 1.0f); glVertex3f(pos[0].x, pos[0].y, pos[0].z);
+  glTexCoord2f(1.0f, 1.0f); glVertex3f(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
 
   glTexCoord2f(1.0f, 1.0f);
-  glVertex3d(pos[1].x, pos[1].y, pos[1].z);
+  glVertex3f(pos[1].x, pos[1].y, pos[1].z);
   glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-  glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+  glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
   glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-  glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+  glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
 
   if(rightOrLeftWall){
     // left
-    glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+    glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
 
     glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
+    glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
 
-    glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(pos[3].x, pos[3].y, pos[3].z);
 
     glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w) , 1.0f - (doorTopPad / wallsSizes[doorFrameT].h) );
-    glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
+    glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z - doorPad/2);
     
     glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w) , 0.0f );
-    glVertex3d(pos[3].x, pos[3].y, pos[3].z - doorPad/2);
+    glVertex3f(pos[3].x, pos[3].y, pos[3].z - doorPad/2);
     
-    glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(pos[3].x, pos[3].y, pos[3].z);
   
     // right
     glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z + doorPad/2);
+    glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[1].z + doorPad/2);
 
     glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+    glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
     
-    glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f(pos[2].x, pos[2].y, pos[2].z);
 
     glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z + doorPad/2);
+    glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[1].z + doorPad/2);
     
-    glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f(pos[2].x, pos[2].y, pos[2].z);
 
     glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f);
-    glVertex3d(pos[2].x, pos[2].y, pos[2].z + doorPad/2);
+    glVertex3f(pos[2].x, pos[2].y, pos[2].z + doorPad/2);
   }else{
-    glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
-    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x + doorPad/2, pos[0].y - doorTopPad, pos[0].z);
-    glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+    glTexCoord2f(0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x, pos[0].y - doorTopPad, pos[0].z);
+    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x + doorPad/2, pos[0].y - doorTopPad, pos[0].z);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(pos[3].x, pos[3].y, pos[3].z);
 
-    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[0].x + doorPad/2, pos[0].y - doorTopPad, pos[0].z);
+    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[0].x + doorPad/2, pos[0].y - doorTopPad, pos[0].z);
 
-    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3d(pos[3].x + doorPad/2, pos[3].y, pos[3].z);
-    glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+    glTexCoord2f(0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f - (doorTopPad / wallsSizes[doorFrameT].h)); glVertex3f(pos[3].x + doorPad/2, pos[3].y, pos[3].z);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(pos[3].x, pos[3].y, pos[3].z);
   
     // right
     glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x - doorPad/2, pos[1].y - doorTopPad, pos[1].z);
+    glVertex3f(pos[1].x - doorPad/2, pos[1].y - doorTopPad, pos[1].z);
 
     glTexCoord2f(1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
+    glVertex3f(pos[1].x, pos[1].y - doorTopPad, pos[1].z);
 
-    glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f(pos[2].x, pos[2].y, pos[2].z);
 
     glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h));
-    glVertex3d(pos[1].x - doorPad/2, pos[1].y - doorTopPad, pos[1].z);
-    glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+    glVertex3f(pos[1].x - doorPad/2, pos[1].y - doorTopPad, pos[1].z);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f(pos[2].x, pos[2].y, pos[2].z);
 
     glTexCoord2f(1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f);
-    glVertex3d(pos[2].x - doorPad/2, pos[2].y, pos[2].z);
+    glVertex3f(pos[2].x - doorPad/2, pos[2].y, pos[2].z);
   }
   
   glEnd();
@@ -1673,13 +1771,13 @@ void renderTexturedTile(vec3 tile, Texture underTx, Texture overTx){
   
     glBegin(GL_TRIANGLES);
 		  
-    glTexCoord2f(0.0f, 1.0f); glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d);
-    glTexCoord2f(1.0f, 1.0f); glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d);
-    glTexCoord2f(0.0f, 0.0f); glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z);
+    glTexCoord2f(0.0f, 1.0f); glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d);
+    glTexCoord2f(1.0f, 1.0f); glVertex3f(tile.x, yPos, tile.z + wallsSizes[wallT].d);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z);
   
-    glTexCoord2f(1.0f, 1.0f); glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d);
-    glTexCoord2f(0.0f, 0.0f); glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z);
-    glTexCoord2f(1.0f, 0.0f); glVertex3d(tile.x, yPos, tile.z);
+    glTexCoord2f(1.0f, 1.0f); glVertex3f(tile.x, yPos, tile.z + wallsSizes[wallT].d);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f(tile.x, yPos, tile.z);
     
     glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -1693,13 +1791,13 @@ void renderWall(vec3* pos, Texture tx){
   
   glBegin(GL_TRIANGLES);
 
-  glTexCoord2f(0.0f, 1.0f); glVertex3d(pos[0].x, pos[0].y, pos[0].z);
-  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
-  glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  glTexCoord2f(0.0f, 1.0f); glVertex3f(pos[0].x, pos[0].y, pos[0].z);
+  glTexCoord2f(1.0f, 1.0f); glVertex3f(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(0.0f, 0.0f); glVertex3f(pos[3].x, pos[3].y, pos[3].z);
 
-  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
-  glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
-  glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);  
+  glTexCoord2f(1.0f, 1.0f); glVertex3f(pos[1].x, pos[1].y, pos[1].z);
+  glTexCoord2f(1.0f, 0.0f); glVertex3f(pos[2].x, pos[2].y, pos[2].z);
+  glTexCoord2f(0.0f, 0.0f); glVertex3f(pos[3].x, pos[3].y, pos[3].z);  
   
   glEnd();
 
@@ -1726,40 +1824,40 @@ void renderTileBorder(vec3 tile, float r, float g, float b){
   glBegin(GL_TRIANGLES);
 
   // right
-  glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
-  glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + selBorderT);
-  glVertex3d(tile.x + wallsSizes[wallT].w - selBorderT, yPos, tile.z + selBorderT);
+  glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+  glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z + selBorderT);
+  glVertex3f(tile.x + wallsSizes[wallT].w - selBorderT, yPos, tile.z + selBorderT);
 
-  glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
-  glVertex3d(tile.x + wallsSizes[wallT].w - selBorderT, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
-  glVertex3d(tile.x + wallsSizes[wallT].w - selBorderT, yPos, tile.z + selBorderT);
+  glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+  glVertex3f(tile.x + wallsSizes[wallT].w - selBorderT, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+  glVertex3f(tile.x + wallsSizes[wallT].w - selBorderT, yPos, tile.z + selBorderT);
 
   // left
-  glVertex3d(tile.x + selBorderT, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
-  glVertex3d(tile.x + selBorderT, yPos, tile.z + selBorderT);
-  glVertex3d(tile.x, yPos, tile.z + selBorderT);
+  glVertex3f(tile.x + selBorderT, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+  glVertex3f(tile.x + selBorderT, yPos, tile.z + selBorderT);
+  glVertex3f(tile.x, yPos, tile.z + selBorderT);
 
-  glVertex3d(tile.x + selBorderT, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
-  glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
-  glVertex3d(tile.x, yPos, tile.z + selBorderT);
+  glVertex3f(tile.x + selBorderT, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+  glVertex3f(tile.x, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+  glVertex3f(tile.x, yPos, tile.z + selBorderT);
 	
   // bot
-  glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d);
-  glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d);
-  glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+  glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d);
+  glVertex3f(tile.x, yPos, tile.z + wallsSizes[wallT].d);
+  glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
 
-  glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d);
-  glVertex3d(tile.x, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
-  glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+  glVertex3f(tile.x, yPos, tile.z + wallsSizes[wallT].d);
+  glVertex3f(tile.x, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
+  glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z + wallsSizes[wallT].d - selBorderT);
 	
   // top
-  glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + selBorderT);
-  glVertex3d(tile.x, yPos, tile.z + selBorderT);
-  glVertex3d(tile.x, yPos, tile.z);
+  glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z + selBorderT);
+  glVertex3f(tile.x, yPos, tile.z + selBorderT);
+  glVertex3f(tile.x, yPos, tile.z);
 
-  glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z + selBorderT);
-  glVertex3d(tile.x, yPos, tile.z);
-  glVertex3d(tile.x + wallsSizes[wallT].w, yPos, tile.z);
+  glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z + selBorderT);
+  glVertex3f(tile.x, yPos, tile.z);
+  glVertex3f(tile.x + wallsSizes[wallT].w, yPos, tile.z);
 	
   glEnd();
 
@@ -1807,59 +1905,59 @@ void renderWallBorder(vec3* pos, Side side, float borderT, float r, float g, flo
   }
   
   // top
-  glVertex3d(pos[0].x, pos[0].y, pos[0].z);
-  glVertex3d(pos[1].x, pos[1].y, pos[1].z);
-  glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z);
+  glVertex3f(pos[0].x, pos[0].y, pos[0].z);
+  glVertex3f(pos[1].x, pos[1].y, pos[1].z);
+  glVertex3f(pos[0].x, pos[0].y - borderT, pos[0].z);
 
-  glVertex3d(pos[1].x, pos[1].y, pos[1].z);
-  glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z);
-  glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
+  glVertex3f(pos[1].x, pos[1].y, pos[1].z);
+  glVertex3f(pos[0].x, pos[0].y - borderT, pos[0].z);
+  glVertex3f(pos[1].x, pos[1].y - borderT, pos[1].z);
   
   //bot
-  glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
-  glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z);
-  glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  glVertex3f(pos[3].x, pos[3].y + borderT, pos[3].z);
+  glVertex3f(pos[2].x, pos[2].y + borderT, pos[2].z);
+  glVertex3f(pos[3].x, pos[3].y, pos[3].z);
 
-  glVertex3d(pos[2].x, pos[3].y + borderT, pos[2].z);
-  glVertex3d(pos[2].x, pos[2].y, pos[2].z);
-  glVertex3d(pos[3].x, pos[3].y, pos[3].z);
+  glVertex3f(pos[2].x, pos[3].y + borderT, pos[2].z);
+  glVertex3f(pos[2].x, pos[2].y, pos[2].z);
+  glVertex3f(pos[3].x, pos[3].y, pos[3].z);
   
   if(side == top || side == bot){
     // left
-    glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z);
-    glVertex3d(pos[0].x + borderT, pos[0].y - borderT, pos[0].z);
-    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
+    glVertex3f(pos[0].x, pos[0].y - borderT, pos[0].z);
+    glVertex3f(pos[0].x + borderT, pos[0].y - borderT, pos[0].z);
+    glVertex3f(pos[3].x, pos[3].y + borderT, pos[3].z);
 
-    glVertex3d(pos[0].x + borderT, pos[0].y - borderT, pos[0].z);
-    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
-    glVertex3d(pos[3].x + borderT, pos[3].y + borderT, pos[3].z);
+    glVertex3f(pos[0].x + borderT, pos[0].y - borderT, pos[0].z);
+    glVertex3f(pos[3].x, pos[3].y + borderT, pos[3].z);
+    glVertex3f(pos[3].x + borderT, pos[3].y + borderT, pos[3].z);
 
     // right
-    glVertex3d(pos[1].x - borderT, pos[1].y - borderT, pos[1].z);
-    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
-    glVertex3d(pos[2].x - borderT, pos[2].y + borderT, pos[2].z);
+    glVertex3f(pos[1].x - borderT, pos[1].y - borderT, pos[1].z);
+    glVertex3f(pos[1].x, pos[1].y - borderT, pos[1].z);
+    glVertex3f(pos[2].x - borderT, pos[2].y + borderT, pos[2].z);
 
-    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
-    glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z);
-    glVertex3d(pos[2].x - borderT, pos[2].y + borderT, pos[2].z);
+    glVertex3f(pos[1].x, pos[1].y - borderT, pos[1].z);
+    glVertex3f(pos[2].x, pos[2].y + borderT, pos[2].z);
+    glVertex3f(pos[2].x - borderT, pos[2].y + borderT, pos[2].z);
   }else if(side == left || side == right){
     // left
-    glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z);
-    glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z - borderT);
-    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
+    glVertex3f(pos[0].x, pos[0].y - borderT, pos[0].z);
+    glVertex3f(pos[0].x, pos[0].y - borderT, pos[0].z - borderT);
+    glVertex3f(pos[3].x, pos[3].y + borderT, pos[3].z);
 
-    glVertex3d(pos[0].x, pos[0].y - borderT, pos[0].z - borderT);
-    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z);
-    glVertex3d(pos[3].x, pos[3].y + borderT, pos[3].z - borderT);
+    glVertex3f(pos[0].x, pos[0].y - borderT, pos[0].z - borderT);
+    glVertex3f(pos[3].x, pos[3].y + borderT, pos[3].z);
+    glVertex3f(pos[3].x, pos[3].y + borderT, pos[3].z - borderT);
 
     // right
-    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z + borderT);
-    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
-    glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z + borderT);
+    glVertex3f(pos[1].x, pos[1].y - borderT, pos[1].z + borderT);
+    glVertex3f(pos[1].x, pos[1].y - borderT, pos[1].z);
+    glVertex3f(pos[2].x, pos[2].y + borderT, pos[2].z + borderT);
 
-    glVertex3d(pos[1].x, pos[1].y - borderT, pos[1].z);
-    glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z);
-    glVertex3d(pos[2].x, pos[2].y + borderT, pos[2].z + borderT);
+    glVertex3f(pos[1].x, pos[1].y - borderT, pos[1].z);
+    glVertex3f(pos[2].x, pos[2].y + borderT, pos[2].z);
+    glVertex3f(pos[2].x, pos[2].y + borderT, pos[2].z + borderT);
   }
   
   glEnd();
@@ -1919,44 +2017,44 @@ void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b){
   
   glBegin(GL_LINES);
 
-  glVertex3d(pos.x, pos.y, pos.z);
-  glVertex3d(pos.x, pos.y + h, pos.z);
+  glVertex3f(pos.x, pos.y, pos.z);
+  glVertex3f(pos.x, pos.y + h, pos.z);
 
-  glVertex3d(pos.x ,pos.y, pos.z);
-  glVertex3d(pos.x + w,pos.y, pos.z);
+  glVertex3f(pos.x ,pos.y, pos.z);
+  glVertex3f(pos.x + w,pos.y, pos.z);
 
-  glVertex3d(pos.x ,pos.y, pos.z);
-  glVertex3d(pos.x ,pos.y, pos.z+d);
+  glVertex3f(pos.x ,pos.y, pos.z);
+  glVertex3f(pos.x ,pos.y, pos.z+d);
 
-  glVertex3d(pos.x ,pos.y+ h, pos.z);
-  glVertex3d(pos.x + w,pos.y+ h, pos.z);
+  glVertex3f(pos.x ,pos.y+ h, pos.z);
+  glVertex3f(pos.x + w,pos.y+ h, pos.z);
 
-  glVertex3d(pos.x ,pos.y+h, pos.z);
-  glVertex3d(pos.x ,pos.y+h, pos.z+d);
+  glVertex3f(pos.x ,pos.y+h, pos.z);
+  glVertex3f(pos.x ,pos.y+h, pos.z+d);
 
-  glVertex3d(pos.x + w,pos.y+h, pos.z);
-  glVertex3d(pos.x + w,pos.y, pos.z);
+  glVertex3f(pos.x + w,pos.y+h, pos.z);
+  glVertex3f(pos.x + w,pos.y, pos.z);
 
-  glVertex3d(pos.x ,pos.y+h, pos.z+d);
-  glVertex3d(pos.x ,pos.y, pos.z+d);
+  glVertex3f(pos.x ,pos.y+h, pos.z+d);
+  glVertex3f(pos.x ,pos.y, pos.z+d);
 
-  glVertex3d(pos.x ,pos.y+h, pos.z+d);
-  glVertex3d(pos.x + w,pos.y+h, pos.z+d);
+  glVertex3f(pos.x ,pos.y+h, pos.z+d);
+  glVertex3f(pos.x + w,pos.y+h, pos.z+d);
 
-  glVertex3d(pos.x + w,pos.y+h, pos.z);
-  glVertex3d(pos.x + w,pos.y+h, pos.z+d);
+  glVertex3f(pos.x + w,pos.y+h, pos.z);
+  glVertex3f(pos.x + w,pos.y+h, pos.z+d);
 
-  glVertex3d(pos.x + w,pos.y+h, pos.z+d);
-  glVertex3d(pos.x + w,pos.y, pos.z+d);
+  glVertex3f(pos.x + w,pos.y+h, pos.z+d);
+  glVertex3f(pos.x + w,pos.y, pos.z+d);
   
-  glVertex3d(pos.x + w,pos.y+h, pos.z);
-  glVertex3d(pos.x + w,pos.y+h, pos.z+d);
+  glVertex3f(pos.x + w,pos.y+h, pos.z);
+  glVertex3f(pos.x + w,pos.y+h, pos.z+d);
 
-  glVertex3d(pos.x ,pos.y, pos.z+d);
-  glVertex3d(pos.x + w,pos.y, pos.z+d);
+  glVertex3f(pos.x ,pos.y, pos.z+d);
+  glVertex3f(pos.x + w,pos.y, pos.z+d);
   
-  glVertex3d(pos.x + w,pos.y, pos.z);
-  glVertex3d(pos.x + w,pos.y, pos.z+d);  
+  glVertex3f(pos.x + w,pos.y, pos.z);
+  glVertex3f(pos.x + w,pos.y, pos.z+d);  
 
   glBindTexture(GL_TEXTURE_2D, 0);
   
@@ -2335,31 +2433,31 @@ glBegin(GL_LINE_LOOP);
 glColor3d(redColor);
 
 // first plank of frame(left)
-glVertex3d(tile.x, tile.y, tile.z + bBlockD);
-glVertex3d(tile.x, tile.y + doorH, tile.z + bBlockD);
-glVertex3d(tile.x + doorPad/2, tile.y, tile.z + bBlockD);
+glVertex3f(tile.x, tile.y, tile.z + bBlockD);
+glVertex3f(tile.x, tile.y + doorH, tile.z + bBlockD);
+glVertex3f(tile.x + doorPad/2, tile.y, tile.z + bBlockD);
 
-glVertex3d(tile.x, tile.y + doorH, tile.z + bBlockD);
-glVertex3d(tile.x + doorPad/2, tile.y + doorH, tile.z + bBlockD);
-glVertex3d(tile.x + doorPad/2, tile.y, tile.z + bBlockD);
+glVertex3f(tile.x, tile.y + doorH, tile.z + bBlockD);
+glVertex3f(tile.x + doorPad/2, tile.y + doorH, tile.z + bBlockD);
+glVertex3f(tile.x + doorPad/2, tile.y, tile.z + bBlockD);
 
 // top plank of frame
-glVertex3d(tile.x, tile.y + doorH, tile.z + bBlockD);
-glVertex3d(tile.x + bBlockW + doorPad/2, tile.y + doorFrameH, tile.z + bBlockD);
-glVertex3d(tile.x, tile.y + doorFrameH, tile.z + bBlockD);
+glVertex3f(tile.x, tile.y + doorH, tile.z + bBlockD);
+glVertex3f(tile.x + bBlockW + doorPad/2, tile.y + doorFrameH, tile.z + bBlockD);
+glVertex3f(tile.x, tile.y + doorFrameH, tile.z + bBlockD);
 
-glVertex3d(tile.x, tile.y + doorH, tile.z + bBlockD);
-glVertex3d(tile.x + bBlockW, tile.y + doorFrameH, tile.z + bBlockD);
-glVertex3d(tile.x + bBlockW, tile.y + doorH, tile.z + bBlockD);
+glVertex3f(tile.x, tile.y + doorH, tile.z + bBlockD);
+glVertex3f(tile.x + bBlockW, tile.y + doorFrameH, tile.z + bBlockD);
+glVertex3f(tile.x + bBlockW, tile.y + doorH, tile.z + bBlockD);
 
 // second plank of frame (right)
-glVertex3d(tile.x + doorW + doorPad, tile.y + doorH, tile.z + bBlockD);
-glVertex3d(tile.x + doorW + doorPad/2, tile.y, tile.z + bBlockD);
-glVertex3d(tile.x + doorW + doorPad /2, tile.y + doorH, tile.z + bBlockD);
+glVertex3f(tile.x + doorW + doorPad, tile.y + doorH, tile.z + bBlockD);
+glVertex3f(tile.x + doorW + doorPad/2, tile.y, tile.z + bBlockD);
+glVertex3f(tile.x + doorW + doorPad /2, tile.y + doorH, tile.z + bBlockD);
 
-glVertex3d(tile.x + doorW + doorPad/2, tile.y, tile.z + bBlockD);
-glVertex3d(tile.x + doorW + doorPad, tile.y, tile.z + bBlockD);
-glVertex3d(tile.x + doorW + doorPad, tile.y + doorH, tile.z + bBlockD);
+glVertex3f(tile.x + doorW + doorPad/2, tile.y, tile.z + bBlockD);
+glVertex3f(tile.x + doorW + doorPad, tile.y, tile.z + bBlockD);
+glVertex3f(tile.x + doorW + doorPad, tile.y + doorH, tile.z + bBlockD);
 	      
 glEnd();
 }

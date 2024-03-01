@@ -8,6 +8,10 @@ typedef struct {
 } vec2;
 
 typedef struct {
+  float x, y;
+} uv2;
+
+typedef struct {
   int x, z;
 } vec2i;
 
@@ -127,6 +131,8 @@ typedef enum{
   ground,
   redClo,
   frozenGround,
+  pinTree,
+  treeCore,
   solidColorTx,
   texturesCounter
 } Texture;
@@ -240,6 +246,14 @@ typedef enum{
   WallEl,
   TileEl
 } ElementType;
+
+typedef struct{
+  vec3* vertex;
+  uv2* uvs;
+  vec3* normals;
+
+  int size;
+} ModelOBJ;
 
 #define snowGravity -0.8f
 #define snowDefAmount 20000

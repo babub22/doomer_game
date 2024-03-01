@@ -26,5 +26,12 @@
     <ClInclude Include="deps.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="tinyobj_loader_c.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="fog.frag" />
+    <None Include="fog.vert" />
   </ItemGroup>
 </Project>
