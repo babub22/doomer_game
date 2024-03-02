@@ -1,44 +1,5 @@
 #pragma once
 
-typedef struct {
-  // x z because i use vec2
-  // only when i work with grid
-  // without height
-  float x, z;
-} vec2;
-
-typedef struct {
-  float x, y;
-} uv2;
-
-typedef struct {
-  int x, z;
-} vec2i;
-
-typedef struct {
-  float x, y, z;
-} vec3;
-
-typedef struct {
-  int x, y, z;
-} vec3i; // mostly to srote indexes of grid cell
-
-typedef struct {
-  float x, y, z, i;
-} vec4;
-
-typedef struct {
-  double x, y, z;
-} vec3d;
-
-typedef struct{
-  float x,y,w,h;
-} rect2;
-
-typedef struct{
-  float x,y,z,w,h,d;
-} box;
-
 typedef enum{
   top,
   bot,
@@ -115,7 +76,7 @@ typedef struct{
 
   float yaw;
   float pitch;
-
+  
   vec3 X;
   vec3 Y;
   vec3 Z;
@@ -268,13 +229,7 @@ typedef struct{
 
 #define vec3dToVec3(vec3d) (vec3){vec3d.x,vec3d.y,vec3d.z}
 
-bool gluInvertMatrix(const double m[16], double invOut[16]);
-
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
-
-vec3 normalize(const vec3 vec);
-
-inline vec3 cross(const vec3 v1, const vec3 v2);
 
 bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, const vec3 rt, vec3* posOfIntersection, float* dist);
 
@@ -308,8 +263,6 @@ void renderTileBorder(vec3 tile, float r, float g, float b);
 
 #define deleteIn(num, index) num &= ~(0xFF << (index * 8));
 
-#define dotf(v1,v2) v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
-
 #define xyz_coordsToIndexes(x,y,z) {x / bBlockW, y / bBlockH, z / bBlockD}
 
 #define xyz_indexesToCoords(x,y,z) {(float)x * bBlockW, (float)y * bBlockH, (float)z * bBlockD}
@@ -327,7 +280,6 @@ void renderTileBorder(vec3 tile, float r, float g, float b);
 
 bool radarCheck(vec3 point);
 
-vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 GLuint loadShader(GLenum shaderType, const char* filename);
 
