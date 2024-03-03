@@ -161,6 +161,7 @@
   <ItemGroup>
     <ClInclude Include="deps.h" />
     <ClInclude Include="linearAlg.h" />
+    <ClInclude Include="linmath.h" />
     <ClInclude Include="main.h" />
   </ItemGroup>
   <ItemGroup>

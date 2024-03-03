@@ -75,10 +75,10 @@ void rotateZ(const Matrix* m, float angle);
 void scale(const Matrix* m, float x, float y, float z);
 void translate(const Matrix* m, float x, float y, float z);
 
+void inverse(float M[], float T[]);
+
 Matrix perspective(float fovy, float aspect_ratio, float near_plane, float far_plane);
 Matrix orthogonal(float left, float right, float bottom, float top);
-
-bool gluInvertMatrix(const float m[16], float invOut[16]);
 
 Matrix lookAt(vec3 eye, vec3 center, vec3 up);
 

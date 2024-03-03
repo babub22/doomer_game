@@ -66,6 +66,14 @@ typedef struct{
 } Plane;
 
 typedef struct{
+  GLuint VBO;
+  GLuint VAO;
+
+  // TODO: unhardcode VBOsize in VBO generator
+  int VBOsize;
+} MeshBuffer;
+
+typedef struct{
   vec3 pos;
   vec3 target;
   vec3 dir;
@@ -209,12 +217,12 @@ typedef enum{
 } ElementType;
 
 typedef struct{
-  vec3* vertex;
-  uv2* uvs;
-  vec3* normals;
-
+  GLuint VBO;
+  GLuint VAO;
+  
   int size;
-} ModelOBJ;
+  int triSize;
+} Model;
 
 #define snowGravity -0.8f
 #define snowDefAmount 20000
@@ -241,19 +249,19 @@ Object* doorConstructor(vec3 pos, bool opened);
 
 bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSid);
 
-vec3* wallPosBySide(vec3 basePos, Side side, float wallH, float wallD, float tileD, float tileW);
+vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tileW);
 
 void renderWall(vec3* pos, Texture tx);
 
 void renderWallBorder(vec3* pos, Side side, float borderT, float r, float g, float b);
 
-void renderWindow(vec3* pos, Texture tx);
-
-void renderDoorFrame(vec3* pos, Texture tx);
-
 void renderTexturedTile(vec3 tile, Texture underTx, Texture overTx);
 
 void renderTileBorder(vec3 tile, float r, float g, float b);
+
+void wallsLoadVAOandVBO();
+
+Model* loadOBJ(char* path, float scale);
 
 // Macro-Functions
 // ~~~~~
@@ -279,6 +287,8 @@ void renderTileBorder(vec3 tile, float r, float g, float b);
 // ~~~~~~
 
 bool radarCheck(vec3 point);
+
+#define increaseVAOnVBO() boundVBO++; boundVAO++
 
 
 GLuint loadShader(GLenum shaderType, const char* filename);
