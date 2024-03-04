@@ -434,9 +434,6 @@ Tile*** grid = NULL;
 	  int name = -1;
 	  fscanf(map, "%d ", &name);
 
-	  printf("%d", name >= modelsCounter);
-	  printf("%d", name < 0);
-
 	  if(name >= modelsCounter || name < 0){
 	    printf("Models parsing error, model name (%d) doesnt exist \n", name);
 	    exit(0);
@@ -1057,7 +1054,28 @@ while (!quit) {
 
     // cursor things
     {
+      float x = (2.0f * mouse.screenPos.x) / windowW - 1.0f;
+      float y = 1.0f - (2.0f * mouse.screenPos.z) / windowH;
+      float z = 1.0f;
+      vec4 rayClip = { x, y, -1.0, 1.0};
 
+      Matrix inversedProj = IDENTITY_MATRIX;
+      
+      inverse(projMat.m, inversedProj.m);
+      vec4 ray_eye = mulmatvec4(&inversedProj.m, &rayClip);
+
+      ray_eye.m[2] = -1.0f;
+      ray_eye.m[3] = 0.0f;
+
+      Matrix inversedView = IDENTITY_MATRIX;
+
+      inverse(view.m, inversedView.m);
+      vec4 ray_wor = mulmatvec4(&inversedView.m, &ray_eye);
+      normalize4(&ray_wor);
+
+      vec3i inx = xyz_coordsToIndexes(curCamera->pos.x + ray_wor.m[0], curCamera->pos.y + ray_wor.m[1], curCamera->pos.z + ray_wor.m[2]);
+
+      printf("%f %f %f \n", ray_wor.m[0], ray_wor.m[1], ray_wor.m[2]);
     }
   }
 
@@ -1745,11 +1763,8 @@ while (!quit) {
 		
   // renderCursor
   {
-    //	glMatrixMode(GL_PROJECTION);
-    //	glLoadIdentity();
-    //glOrtho(0, windowW, windowH, 0, -1, 1); // orthographic projection
-
-
+    Matrix orthProj = orthogonal(0.0f, windowW, 0.0f, windowH);
+    
     glBegin(GL_LINES);
 
     float relWindowX = mouse.w * windowW;
@@ -2588,6 +2603,11 @@ void wallsLoadVAOandVBO(){
 
 Model* loadOBJ(char* path, ModelName name){
   fastObjMesh* mesh = fast_obj_read(path);
+
+  if (!mesh) {
+	  printf("Failed to load \"%s\" \n", path);
+	  exit(0);
+  }
 
   Model* object = malloc(sizeof(Model));
   object->size = mesh->index_count;
