@@ -47,6 +47,7 @@ vec4 cross4(vec4 v1, vec4 v2) {
 	out.m[2] = v1.m[0] * v2.m[1] - v1.m[1] * v2.m[0];
 	return out;
 }
+
 void rotateX(const Matrix* m, float angle) {
 	Matrix rotation = IDENTITY_MATRIX;
 	float sine = (float)sin(angle);
@@ -61,8 +62,8 @@ void rotateX(const Matrix* m, float angle) {
 }
 void rotateY(const Matrix* m, float angle) {
 	Matrix rotation = IDENTITY_MATRIX;
-	float sine = (float)sin(angle);
-	float cosine = (float)cos(angle);
+	float sine = sinf(angle);
+	float cosine = cosf(angle);
 
 	rotation.m[0] = cosine;
 	rotation.m[8] = sine;
@@ -73,8 +74,8 @@ void rotateY(const Matrix* m, float angle) {
 }
 void rotateZ(const Matrix* m, float angle) {
 	Matrix rotation = IDENTITY_MATRIX;
-	float sine = (float)sin(angle);
-	float cosine = (float)cos(angle);
+	float sine = sinf(angle);
+	float cosine = cosf(angle);
 
 	rotation.m[0] = cosine;
 	rotation.m[1] = -sine;

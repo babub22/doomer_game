@@ -216,9 +216,17 @@ typedef enum{
   TileEl
 } ElementType;
 
+typedef enum{
+  yalinka,
+  modelsCounter
+} ModelName;
+
 typedef struct{
   GLuint VBO;
   GLuint VAO;
+
+  ModelName name;
+  Matrix mat;
   
   int size;
   int triSize;
@@ -288,8 +296,9 @@ Model* loadOBJ(char* path, float scale);
 
 bool radarCheck(vec3 point);
 
-#define increaseVAOnVBO() boundVBO++; boundVAO++
+Model* loadOBJ(char* path, ModelName name);
 
+#define increaseVAOnVBO() boundVBO++; boundVAO++
 
 GLuint loadShader(GLenum shaderType, const char* filename);
 

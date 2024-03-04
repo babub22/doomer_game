@@ -4,7 +4,15 @@
 
 Object** objsStore;
 size_t objsStoreSize;
-  
+
+// avaible/loaded models
+Model** models;
+size_t modelsSize;
+
+// placed/created models
+Model** curModels;
+size_t curModelsSize;
+
 int gridX = 120;
 int gridY = 15;
 int gridZ = 120;
@@ -89,7 +97,12 @@ int main(int argc, char* argv[]) {
 
   glewInit();
 
-  Model* tree = loadOBJ("./assets/objs/Snowy_PineTree.obj", 1.0f);
+  // load 3d models
+  {
+    models = malloc(sizeof(Model));
+    modelsSize++;
+    models[yalinka] = loadOBJ("./assets/objs/Snowy_PineTree.obj", yalinka);
+  }
   
   printf("VBO %d VAO %d \n", boundVBO, boundVAO);
   
@@ -407,11 +420,44 @@ Tile*** grid = NULL;
       }
       fgetc(map); // read \n
     }
+    
+    fscanf(map, "\nUsed models: %d\n", &curModelsSize);
 
-    printf("Map loaded! \n");
-    fclose(map);
+    if(curModelsSize != 0){
+      curModels = malloc(curModelsSize * sizeof(Model*));
+    
+	for(int i=0; i<curModelsSize; i++){
+	  /*	  if(curModels[i]->name == yalinka){
+	  // TODO: Make here some enum to string function
+	  fprintf(map, "Yalinka[%d] ", yalinka);
+	  }*/
+	  int name = -1;
+	  fscanf(map, "%d ", &name);
+
+	  printf("%d", name >= modelsCounter);
+	  printf("%d", name < 0);
+
+	  if(name >= modelsCounter || name < 0){
+	    printf("Models parsing error, model name (%d) doesnt exist \n", name);
+	    exit(0);
+	  }
+	  
+	  curModels[i] = malloc(sizeof(Model));
+	  memcpy(curModels[i], models[name], sizeof(Model));
+
+	  fgetc(map); // read [
+
+	  for(int mat=0;mat<16;mat++){
+		 fscanf(map, "%f ", &curModels[i]->mat.m[mat]);
+	  }
+
+	  fgetc(map); // read ]\n
+	}
+
+      printf("Map loaded! \n");
+      fclose(map);
+    }
   }
-
 }
 
 // set up camera
@@ -636,8 +682,23 @@ while (!quit) {
 
 
       case(SDL_SCANCODE_SPACE): {
-	cameraMode = !cameraMode;
+	cameraMode = !cameraMode;
+
 	curCamera = cameraMode ? &camera1 : &camera2;
+
+	break;
+      }
+      case(SDL_SCANCODE_O): {
+	curModelsSize++;
+
+	if(curModels){
+	  curModels = realloc(curModels, curModelsSize * sizeof(Model*));
+	}else{
+	  curModels = malloc(sizeof(Model*));
+	}
+
+	curModels[curModelsSize-1] = malloc(sizeof(Model));
+	memcpy(curModels[curModelsSize-1], models[yalinka], sizeof(Model));
 
 	break;
       }
@@ -656,7 +717,8 @@ while (!quit) {
 	break;
       }
       case(SDL_SCANCODE_V): {
-	enviromental.snow = !enviromental.snow;
+	enviromental.snow = !enviromental.snow;
+
 	break;
       }
       case(SDL_SCANCODE_N): {
@@ -686,6 +748,24 @@ while (!quit) {
 	  fprintf(map, "\n");
 	}
 
+	fprintf(map, "\nUsed models: %d\n",curModelsSize);
+	
+	for(int i=0; i<curModelsSize; i++){
+	  /*	  if(curModels[i]->name == yalinka){
+	    // TODO: Make here some enum to string function
+	    fprintf(map, "Yalinka[%d] ", yalinka);
+	  }*/
+	  fprintf(map, "%d ", yalinka);
+
+	  fprintf(map, "[");
+
+	  for(int mat=0;mat<16;mat++){
+	    fprintf(map, "%f ", curModels[i]->mat.m[mat]);
+	  }
+	  
+	  fprintf(map, "]\n");
+	}
+
 	printf("Map saved!\n");
 
 	fclose(map);
@@ -695,13 +775,25 @@ while (!quit) {
 	highlighting = !highlighting;
 	break;
       }
+      // ~~~~~~~~~~~~~~~~~~~~~~
+      case(SDL_SCANCODE_PAGEDOWN): {
+	scale(curModels[curModelsSize-1]->mat.m, 0.5f, 0.5f, 0.5f);
+	break;
+      }
+      case(SDL_SCANCODE_PAGEUP): {
+	scale(curModels[curModelsSize-1]->mat.m, 2.0f, 2.0f, 2.0f);
+	break;
+      }
+      // ~~~~~~~~~~~~~~~~~~~~~~
       case(SDL_SCANCODE_DELETE): {
 	if (mouse.wallSide != -1) {
 	  WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
 
 	  Side oppositeSide = 0;
-	  vec2i oppositeTile = { 0 };
-	  
+	  vec2i oppositeTile = { 0 };
+
+	  
+
 	  grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls &= ~(0xFF << (mouse.wallSide * 8));
 
 	  if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
@@ -848,7 +940,8 @@ while (!quit) {
 
 	if (!isIntersect) {
 	  player.pos.x += dx;
-	  player.pos.z += dz;
+	  player.pos.z += dz;
+
 	}
 
       }
@@ -911,10 +1004,21 @@ while (!quit) {
     if (currentKeyStates[SDL_SCANCODE_4]) {
       mouse.brush = windowT;
     }
+
+    if (currentKeyStates[SDL_SCANCODE_R]){
+      if (currentKeyStates[SDL_SCANCODE_X]){
+	rotateX(curModels[curModelsSize-1]->mat.m, rad(1.0f));
+      }else if (currentKeyStates[SDL_SCANCODE_Y]){
+	rotateY(curModels[curModelsSize-1]->mat.m, rad(1.0f));
+      }else if (currentKeyStates[SDL_SCANCODE_Z]){
+	rotateZ(curModels[curModelsSize-1]->mat.m, rad(1.0f));
+      }
+    }
   }
 
   mouse.selectedTile = NULL;
-  mouse.gridIntersect = (vec2i){ -1,-1 };
+  mouse.gridIntersect = (vec2i){ -1,-1 };
+
   mouse.wallSide = -1;
   mouse.wallTile = (vec3i){ -1,-1,-1 };
   mouse.wallType = -1;
@@ -1049,20 +1153,16 @@ while (!quit) {
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
     setSolidColorTx(darkPurple, 1.0f);
 
-    glBindVertexArray(tree->VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, tree->VBO);
-		
-    vec3 center = (vec3)xyz_indexesToCoords(gridX / 2, 3, gridZ / 2);
-    Matrix out = IDENTITY_MATRIX;
+    // TODO: maybe sort models in curModels by type/mesh
+    // and call bindBuffer/bindAttr outside of loop 
+    for(int i=0;i<curModelsSize;i++){
+      glBindVertexArray(curModels[i]->VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, curModels[i]->VBO);
 
-    // translate without mult
-    out.m[12] = 0.0f;
-    out.m[13] = 0.0f;
-    out.m[14] = 0.0f;
-		
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, curModels[i]->mat.m);
 
-    glDrawArrays(GL_TRIANGLES, 0, tree->size);
+      glDrawArrays(GL_TRIANGLES, 0, curModels[i]->size);
+    }
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -1311,7 +1411,8 @@ while (!quit) {
 
   if(minDistType == WallEl){
     mouse.selectedTile = NULL;
-    mouse.gridIntersect = (vec2i){ -1,-1 };
+    mouse.gridIntersect = (vec2i){ -1,-1 };
+
     mouse.intersection = (vec3){ -1,-1 };
     mouse.groundInter = -1;
   }else if(minDistType == TileEl){
@@ -2485,7 +2586,7 @@ void wallsLoadVAOandVBO(){
   }
 //}
 
-Model* loadOBJ(char* path, float scale){
+Model* loadOBJ(char* path, ModelName name){
   fastObjMesh* mesh = fast_obj_read(path);
 
   Model* object = malloc(sizeof(Model));
@@ -2499,7 +2600,7 @@ Model* loadOBJ(char* path, float scale){
   for (unsigned int i = 0; i < mesh->position_count * 3;i+=3){
     if(i==0) continue;
 
-    verts[counter] = (vec3){mesh->positions[i] * scale, mesh->positions[i+1] * scale, mesh->positions[i+2] * scale};
+    verts[counter] = (vec3){mesh->positions[i], mesh->positions[i+1], mesh->positions[i+2]};
     counter++;
   }
   
@@ -2518,7 +2619,7 @@ Model* loadOBJ(char* path, float scale){
   for( unsigned int i=0; i<mesh->texcoord_count * 2;i+=2){
     if(i==0) continue;
 
-    uvs[counter] = (uv2){mesh->texcoords[i] * scale, mesh->texcoords[i+1] * scale};
+    uvs[counter] = (uv2){mesh->texcoords[i], mesh->texcoords[i+1]};
     counter++;
   }
   
@@ -2536,7 +2637,7 @@ Model* loadOBJ(char* path, float scale){
   for( unsigned int i=0; i<mesh->normal_count * 3;i+=3){
     if(i==0) continue;
 
-    normals[counter] = (vec3){mesh->normals[i] * scale, mesh->normals[i+1] * scale, mesh->normals[i+2] * scale};
+    normals[counter] = (vec3){mesh->normals[i], mesh->normals[i+1], mesh->normals[i+2]};
     counter++;
   }
   
@@ -2594,6 +2695,14 @@ Model* loadOBJ(char* path, float scale){
   glBindVertexArray(0);
 
   free(modelVerts);
+
+  // set mat of object to IDENTITY_MATRIX
+  object->mat.m[0] = 1;
+  object->mat.m[5] = 1;
+  object->mat.m[10] = 1;
+  object->mat.m[15] = 1;
+
+  object->name = name;
   
   return object;
 }
