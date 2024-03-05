@@ -150,6 +150,25 @@ typedef enum{
 } GroundType;
 
 typedef enum{
+  yalinka,
+  modelsCounter
+} ModelName;
+
+typedef struct{
+  GLuint VBO;
+  GLuint VAO;
+
+  ModelName name;
+  Matrix mat;
+  
+  int size;
+  int triSize;
+
+  vec3 lb;
+  vec3 rt;
+} Model;
+
+typedef enum{
   // 1,2 to access .ground
   // with bitwise
   fromUnder = 1,
@@ -158,9 +177,6 @@ typedef enum{
 
 typedef struct{
   // ray of cursor
-  vec3 start;
-  vec3 end;
-
   vec2 screenPos;
 
   bool clickR;
@@ -178,6 +194,8 @@ typedef struct{
   
   int wheel;
 
+  vec3 rayDir;
+
   float interDist;
   //  bool is 
   
@@ -189,6 +207,12 @@ typedef struct{
   WallType brush;
   
   float w, h; // of cursor
+
+  // resets to NULL every start of frame
+  Model* selectedModel;
+  // player focused to manipulate
+  // on key
+  Model* focusedModel;
 } Mouse;
 
 typedef struct{
@@ -216,21 +240,6 @@ typedef enum{
   TileEl
 } ElementType;
 
-typedef enum{
-  yalinka,
-  modelsCounter
-} ModelName;
-
-typedef struct{
-  GLuint VBO;
-  GLuint VAO;
-
-  ModelName name;
-  Matrix mat;
-  
-  int size;
-  int triSize;
-} Model;
 
 #define snowGravity -0.8f
 #define snowDefAmount 20000
@@ -243,11 +252,9 @@ typedef struct{
 
 #define rad(deg) deg * 3.14159265358979323846/180.0
 
-#define vec3dToVec3(vec3d) (vec3){vec3d.x,vec3d.y,vec3d.z}
-
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
 
-bool rayIntersectsTriangle(const vec3 start, const vec3 end, const vec3 lb, const vec3 rt, vec3* posOfIntersection, float* dist);
+bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist);
 
 void addObjToStore(Object* obj);
 
