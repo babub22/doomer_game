@@ -2,50 +2,67 @@
 
 static const double PI = 3.14159265358979323846;
 
-Matrix multiplymat4(const Matrix* m1, const Matrix* m2) {
+Matrix multiplymat4(Matrix m1, Matrix m2) {
 	Matrix out = IDENTITY_MATRIX;
 	unsigned int row, column, row_offset;
 
 	for (row = 0, row_offset = row * 4; row < 4; ++row, row_offset = row * 4)
 		for (column = 0; column < 4; ++column)
 			out.m[row_offset + column] =
-				(m1->m[row_offset + 0] * m2->m[column + 0]) +
-				(m1->m[row_offset + 1] * m2->m[column + 4]) +
-				(m1->m[row_offset + 2] * m2->m[column + 8]) +
-				(m1->m[row_offset + 3] * m2->m[column + 12]);
+				(m1.m[row_offset + 0] * m2.m[column + 0]) +
+				(m1.m[row_offset + 1] * m2.m[column + 4]) +
+				(m1.m[row_offset + 2] * m2.m[column + 8]) +
+				(m1.m[row_offset + 3] * m2.m[column + 12]);
 
 	return out;
 }
 
-vec4 mulmatvec4(const Matrix* m, const vec4* v) {
-	vec4 out;
-	for(int i = 0; i < 4; ++i) {
-		out.m[i] =
-			(v->m[0] * m->m[i + 0]) +
-			(v->m[1] * m->m[i + 4]) +
-			(v->m[2] * m->m[i + 8]) +
-			(v->m[3] * m->m[i + 12]);
+vec4 mulmatvec4(Matrix m, vec4 v) {
+  vec4 out;
+
+  int i=0;
+  
+  out.x =
+    (v.x * m.m[i + 0]) +
+    (v.y * m.m[i + 4]) +
+    (v.z * m.m[i + 8]) +
+    (v.w * m.m[i + 12]);
+
+  i++;
+  
+  out.y =
+    (v.x * m.m[i + 0]) +
+    (v.y * m.m[i + 4]) +
+    (v.z * m.m[i + 8]) +
+    (v.w * m.m[i + 12]);
+
+  i++;
+  
+  out.z =
+    (v.x * m.m[i + 0]) +
+    (v.y * m.m[i + 4]) +
+    (v.z * m.m[i + 8]) +
+    (v.w * m.m[i + 12]);
+
+  i++;
+  
+  out.w =
+    (v.x * m.m[i + 0]) +
+    (v.y * m.m[i + 4]) +
+    (v.z * m.m[i + 8]) +
+    (v.w * m.m[i + 12]);
+
+
+  return out;
+  /*	
+  for(int i = 0; i < 4; ++i) {
+    out.m[i] =
+      (v.x * m.m[i + 0]) +
+			(v.y * m.m[i + 4]) +
+			(v.z * m.m[i + 8]) +
+			(v.w * m.m[i + 12]);
 	}
-
-	return out;
-}
-
-void normalize4(vec4* v) {
-	float sqr = v->m[0] * v->m[0] + v->m[1] * v->m[1] + v->m[2] * v->m[2];
-	if (sqr == 1 || sqr == 0)
-		return;
-	float invrt = 1.f / sqrt(sqr);
-	v->m[0] *= invrt;
-	v->m[1] *= invrt;
-	v->m[2] *= invrt;
-}
-
-vec4 cross4(vec4 v1, vec4 v2) {
-	vec4 out = { {0} };
-	out.m[0] = v1.m[1] * v2.m[2] - v1.m[2] * v2.m[1];
-	out.m[1] = v1.m[2] * v2.m[0] - v1.m[0] * v2.m[2];
-	out.m[2] = v1.m[0] * v2.m[1] - v1.m[1] * v2.m[0];
-	return out;
+  */
 }
 
 void rotateX(const Matrix* m, float angle) {
@@ -58,7 +75,7 @@ void rotateX(const Matrix* m, float angle) {
 	rotation.m[9] = sine;
 	rotation.m[10] = cosine;
 
-	memcpy(m->m, multiplymat4(m, &rotation).m, sizeof(m->m));
+	memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
 }
 void rotateY(const Matrix* m, float angle) {
 	Matrix rotation = IDENTITY_MATRIX;
@@ -70,7 +87,7 @@ void rotateY(const Matrix* m, float angle) {
 	rotation.m[2] = -sine;
 	rotation.m[10] = cosine;
 
-	memcpy(m->m, multiplymat4(m, &rotation).m, sizeof(m->m));
+	memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
 }
 void rotateZ(const Matrix* m, float angle) {
 	Matrix rotation = IDENTITY_MATRIX;
@@ -82,7 +99,7 @@ void rotateZ(const Matrix* m, float angle) {
 	rotation.m[4] = sine;
 	rotation.m[5] = cosine;
 
-	memcpy(m->m, multiplymat4(m, &rotation).m, sizeof(m->m));
+	memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
 }
 void scale(const Matrix* m, float x, float y, float z) {
 	Matrix scale = IDENTITY_MATRIX;
@@ -91,7 +108,7 @@ void scale(const Matrix* m, float x, float y, float z) {
 	scale.m[5] = y;
 	scale.m[10] = z;
 
-	memcpy(m->m, multiplymat4(m, &scale).m, sizeof(m->m));
+	memcpy(m->m, multiplymat4(*m, scale).m, sizeof(m->m));
 }
 void translate(const Matrix* m, float x, float y, float z) {
 	Matrix translation = IDENTITY_MATRIX;
@@ -100,7 +117,7 @@ void translate(const Matrix* m, float x, float y, float z) {
 	translation.m[13] = y;
 	translation.m[14] = z;
 
-	memcpy(m->m, multiplymat4(m, &translation).m, sizeof(m->m));
+	memcpy(m->m, multiplymat4(*m, translation).m, sizeof(m->m));
 }
 
 Matrix perspective(float fovy, float aspect_ratio, float near_plane, float far_plane) {

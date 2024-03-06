@@ -128,7 +128,7 @@ int main(int argc, char* argv[]) {
   {
     models = malloc(sizeof(Model));
     modelsSize++;
-    models[yalinka] = loadOBJ("./assets/objs/Snowy_PineTree.obj", yalinka);
+    models[yalinka] = loadOBJ("./assets/objs/Car.obj", yalinka);
   }
     
   // setup nettile buffer
@@ -479,6 +479,37 @@ int main(int argc, char* argv[]) {
     glBindTexture(GL_TEXTURE_2D, 0);
   }
 
+  GLuint carTx;
+  glGenTextures(1, &carTx);
+
+  // -1 because of solidColorTx
+  SDL_Surface* texture = IMG_Load("./assets/objs/car_snow_red.png");
+
+  if (!texture) {
+    printf("Loading of texture .png\" failed");
+    exit(0);
+  }
+
+  glBindTexture(GL_TEXTURE_2D, carTx);
+      
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->w,
+	       texture->h, 0, GL_RGBA,
+	       GL_UNSIGNED_BYTE, texture->pixels);
+
+  GLenum err = glGetError();
+  if (err != GL_NO_ERROR) {
+    printf("OpenGL error: %d\n", err);
+    // Handle OpenGL error
+    // Optionally return or perform other error handling
+  }
+  
+  SDL_FreeSurface(texture);
+      
+  glBindTexture(GL_TEXTURE_2D, 0);
+
   // tang of fov calculations
   fov = editorFOV;
   tangFOV = tanf(rad(fov) * 0.5);
@@ -603,6 +634,8 @@ int main(int argc, char* argv[]) {
   drawDistance = gridX/2 * 0.2;
   glUniform1f(radius, drawDistance);
 
+  ManipulationMode manipulationMode = -1;
+
   // init snow particles
   {
     FILE *snowConf = fopen("snow.txt","r");
@@ -664,7 +697,28 @@ int main(int argc, char* argv[]) {
       if (event.type == SDL_KEYDOWN) {
 	switch (event.key.keysym.scancode) {
 	case(SDL_SCANCODE_UP): {
-	  if (mouse.wallType != -1) {
+	  if(manipulationMode != -1){
+	    switch(manipulationMode){
+	    case(TRANSFORM_Z):{
+	      curModels[curModelsSize-1]->mat.m[13] = curModels[curModelsSize-1]->mat.m[13] + 0.05f;
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(TRANSFORM_XY):{
+	      curModels[curModelsSize-1]->mat.m[12] = curModels[curModelsSize-1]->mat.m[12] - 0.05f;
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(SCALE):{
+	      scale(curModels[curModelsSize-1]->mat.m, 1.05f, 1.05f, 1.05f);
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+
+	    default: break;
+	    }
+	  }
+	  else if (mouse.wallType != -1) {
 	    Texture nextTx = 0;
 
 	    if (mouse.wallTx != texturesCounter - 1) {
@@ -698,8 +752,28 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
 	case(SDL_SCANCODE_DOWN): {
-	  // TODO: if intersected tile + wall will work only tile changer 
-	  if (mouse.wallType != -1) {
+	  // TODO: if intersected tile + wall will work only tile changer
+	  if(manipulationMode != -1){
+	    switch(manipulationMode){
+	    case(TRANSFORM_Z):{
+	      curModels[curModelsSize-1]->mat.m[13] = curModels[curModelsSize-1]->mat.m[13] - 0.05f;
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(TRANSFORM_XY):{
+	      curModels[curModelsSize-1]->mat.m[12] = curModels[curModelsSize-1]->mat.m[12] + 0.05f;
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(SCALE):{
+	      scale(curModels[curModelsSize-1]->mat.m, 1.0f/1.05f, 1.0f/1.05f, 1.0f/1.05f);
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+
+	    default: break;
+	    }
+	  }else if (mouse.wallType != -1) {
 	    Texture prevTx = 0;
 
 	    if (mouse.wallTx != 0) {
@@ -761,7 +835,32 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
 	case(SDL_SCANCODE_LEFT): {
-	  if (mouse.wallType != -1) {
+	  if(manipulationMode != -1){
+	    switch(manipulationMode){
+	    case(ROTATE_Y):{
+	      rotateY(curModels[curModelsSize-1]->mat.m, -rad(1.0f));
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(ROTATE_Z):{
+	      rotateZ(curModels[curModelsSize-1]->mat.m, -rad(1.0f));
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(ROTATE_X):{
+	      rotateX(curModels[curModelsSize-1]->mat.m, -rad(1.0f));
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(TRANSFORM_XY):{
+	      curModels[curModelsSize-1]->mat.m[14] = curModels[curModelsSize-1]->mat.m[14] + 0.05f;
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+		      
+	    default: break;
+	    }
+	  }else if (mouse.wallType != -1) {
 	    WallType prevType = 0;
 
 	    if (mouse.wallType != 1) {
@@ -784,7 +883,32 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
 	case(SDL_SCANCODE_RIGHT): {
-	  if (mouse.wallType != -1) {
+	  if(manipulationMode != -1){
+	    switch(manipulationMode){
+	    case(ROTATE_Y):{
+	      rotateY(curModels[curModelsSize-1]->mat.m, rad(1.0f));
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(ROTATE_Z):{
+	      rotateZ(curModels[curModelsSize-1]->mat.m, rad(1.0f));
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(ROTATE_X):{
+	      rotateX(curModels[curModelsSize-1]->mat.m, rad(1.0f));
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+	    case(TRANSFORM_XY):{
+	      curModels[curModelsSize-1]->mat.m[14] = curModels[curModelsSize-1]->mat.m[14] - 0.05f;
+	      calculateModelAABB(curModels[curModelsSize-1]);
+	      break;
+	    }
+
+	    default: break;
+	    }
+	  }else if (mouse.wallType != -1) {
 	    WallType nextType = 0;
 
 	    if (mouse.wallType != wallTypeCounter - 1) {
@@ -902,31 +1026,17 @@ int main(int argc, char* argv[]) {
 	  highlighting = !highlighting;
 	  break;
 	}
-	  // ~~~~~~~~~~~~~~~~~~~~~~
-	case(SDL_SCANCODE_PAGEDOWN): {
-	  scale(curModels[curModelsSize-1]->mat.m, 0.5f, 0.5f, 0.5f);
-	  break;
-	}
-	case(SDL_SCANCODE_PAGEUP): {
-	  scale(curModels[curModelsSize-1]->mat.m, 2.0f, 2.0f, 2.0f);
-	  break;
-	}
-	  // ~~~~~~~~~~~~~~~~~~~~~~
 	case(SDL_SCANCODE_DELETE): {
 	  if (mouse.wallSide != -1) {
 	    WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
 
 	    Side oppositeSide = 0;
 	    vec2i oppositeTile = { 0 };
-
-	  
-
 	    grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls &= ~(0xFF << (mouse.wallSide * 8));
 
 	    if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
 	      grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls &= ~(0xFF << (oppositeSide * 8));
 	    }
-	    //}
 	  }
 
 	  break;
@@ -951,7 +1061,7 @@ int main(int argc, char* argv[]) {
 	mouse.screenPos.x = event.motion.x;
 	mouse.screenPos.z = event.motion.y;
 
-	if (curCamera) {//cameraMode){
+	if (curCamera) {
 	  mouse.screenPos.x = windowW / 2;
 	  mouse.screenPos.z = windowH / 2;
 
@@ -1002,9 +1112,6 @@ int main(int argc, char* argv[]) {
 	  curCamera->pos.x -= cameraSpeed * normFront.x;
 	  curCamera->pos.y -= cameraSpeed * normFront.y;
 	  curCamera->pos.z -= cameraSpeed * normFront.z;
-
-	  //	  curCamera->pos.y += cameraSpeed * curCamera->front.y;
-	  //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
 	}
 	else {
 	  float dx = speed * sin(rad(player.angle));
@@ -1132,16 +1239,38 @@ int main(int argc, char* argv[]) {
 	mouse.brush = windowT;
       }
 
-      if (currentKeyStates[SDL_SCANCODE_R]){
-	if (currentKeyStates[SDL_SCANCODE_X]){
-	  rotateX(curModels[curModelsSize-1]->mat.m, rad(1.0f));
-	}else if (currentKeyStates[SDL_SCANCODE_Y]){
-	  rotateY(curModels[curModelsSize-1]->mat.m, rad(1.0f));
-	}else if (currentKeyStates[SDL_SCANCODE_Z]){
-	  rotateZ(curModels[curModelsSize-1]->mat.m, rad(1.0f));
+      // ~~~~~~~~~~~~~~~~~~
+      // Manipulate of focused model
+      if(!mouse.selectedModel){
+	manipulationMode = -1;
+      }
+      
+      if (mouse.selectedModel && currentKeyStates[SDL_SCANCODE_LCTRL]){
+	if (currentKeyStates[SDL_SCANCODE_R]){
+	  // Rotate
+	  if (currentKeyStates[SDL_SCANCODE_X]){
+	    manipulationMode = ROTATE_X;
+	  }else if (currentKeyStates[SDL_SCANCODE_Y]){
+	    manipulationMode = ROTATE_Y;
+	  }else if (currentKeyStates[SDL_SCANCODE_Z]){
+	    manipulationMode = ROTATE_Z;
+	  } 
+	}else if(currentKeyStates[SDL_SCANCODE_T]){
+	  // Transform
+	  if(currentKeyStates[SDL_SCANCODE_Z]){
+	    manipulationMode = TRANSFORM_Z;
+	  }else{
+	    manipulationMode = TRANSFORM_XY;
+	  }
+	}
+	else if(currentKeyStates[SDL_SCANCODE_G]){
+	  // Scale
+	  manipulationMode = SCALE;
 	}
       }
     }
+
+    printf("Mode: %d \n", manipulationMode);
 
     mouse.selectedTile = NULL;
     mouse.gridIntersect = (vec2i){ -1,-1 };
@@ -1191,25 +1320,25 @@ int main(int argc, char* argv[]) {
 	float x = (2.0f * mouse.screenPos.x) / windowW - 1.0f;
 	float y = 1.0f - (2.0f * mouse.screenPos.z) / windowH;
 	float z = 1.0f;
-	vec4 rayClip = { .m = {x, y, -1.0, 1.0} };
+	vec4 rayClip = { x, y, -1.0, 1.0 };
 
 	Matrix inversedProj = IDENTITY_MATRIX;
       
 	inverse(projMat.m, inversedProj.m);
-	vec4 ray_eye = mulmatvec4(&inversedProj.m, &rayClip);
+	vec4 ray_eye = mulmatvec4(inversedProj, rayClip);
 
-	ray_eye.m[2] = -1.0f;
-	ray_eye.m[3] = 0.0f;
+	ray_eye.z = -1.0f;
+	ray_eye.w = 0.0f;
 
 	Matrix inversedView = IDENTITY_MATRIX;
 
 	inverse(view.m, inversedView.m);
 
-	vec4 ray_wor = mulmatvec4(&inversedView.m, &ray_eye);
+	vec4 ray_wor = mulmatvec4(inversedView, ray_eye);
+	mouse.rayDir = normalize3((vec3) { argVec3(ray_wor) });
 
-	normalize4(&ray_wor);
+	//normalize4(&ray_wor);
 
-	mouse.rayDir = (vec3){ ray_wor.m[0], ray_wor.m[1], ray_wor.m[2]};
       }
     }
 
@@ -1300,18 +1429,21 @@ int main(int argc, char* argv[]) {
 	  
     // test 3d model rendering
     {
-      glActiveTexture(solidColorTx);
-      glBindTexture(GL_TEXTURE_2D, solidColorTx);
-      setSolidColorTx(darkPurple, 1.0f);
+
+      //   setSolidColorTx(darkPurple, 1.0f);
 
       // TODO: maybe sort models in curModels by type/mesh
+      
       // and call bindBuffer/bindAttr outside of loop 
       for(int i=0;i<curModelsSize;i++){
 	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i]->lb, curModels[i]->rt, NULL, NULL);
 
+	glActiveTexture(carTx);
+	glBindTexture(GL_TEXTURE_2D, carTx);
+
 	if(isIntersect){
 	  mouse.selectedModel = curModels[i];
-	  setSolidColorTx(redColor, 1.0f);
+	  //	  setSolidColorTx(redColor, 1.0f);
 	}
 
 	glBindVertexArray(curModels[i]->VAO);
@@ -1321,9 +1453,13 @@ int main(int argc, char* argv[]) {
 
 	glDrawArrays(GL_TRIANGLES, 0, curModels[i]->size);
 
-	 glBindBuffer(GL_ARRAY_BUFFER, 0);
-	 glBindVertexArray(0);
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+	//	 vec3* minMax = minMaxPair(curModels[i]->vertices, curModels[i]->size);
+
+	 
+	// draw AABB
 	glActiveTexture(solidColorTx);
 	glBindTexture(GL_TEXTURE_2D, solidColorTx);
 	setSolidColorTx(greenColor, 1.0f);
@@ -1331,9 +1467,13 @@ int main(int argc, char* argv[]) {
 	Matrix out = IDENTITY_MATRIX;
 
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
-	
+
+	//	printf("max %f %f %f\n", argVec3(minMax[0]));
+	//	printf("min %f %f %f\n", argVec3(minMax[1]));
+
 	glBegin(GL_LINES);
 
+	
 	glVertex3f(argVec3(curModels[i]->lb));
 	glVertex3f(argVec3(curModels[i]->rt));
 	
@@ -1348,7 +1488,6 @@ int main(int argc, char* argv[]) {
 
 	glVertex3f(curModels[i]->lb.x,curModels[i]->rt.y,curModels[i]->rt.z);
 	glVertex3f(curModels[i]->lb.x,curModels[i]->lb.y,curModels[i]->rt.z);
-	
 	
 	glEnd();
 
@@ -2758,22 +2897,30 @@ Model* loadOBJ(char* path, ModelName name){
 
   // vertecies
   vec3* verts = malloc(mesh->position_count * sizeof(vec3));
-  vec3* sortedVertex = malloc(mesh->index_count * sizeof(vec3));
+  object->vertices = malloc(mesh->index_count * sizeof(vec3));
 
+  //  vec3 lb = { 1000, 1000, 1000 };
+  //  vec3 rt = { 0,0,0 };
+  
   int counter = 0;
   for (unsigned int i = 0; i < mesh->position_count * 3;i+=3){
     if(i==0) continue;
 
     verts[counter] = (vec3){mesh->positions[i], mesh->positions[i+1], mesh->positions[i+2]};
+
+    /*
+      lb.x = min(lb.x, verts[counter].x);
+      lb.y = min(lb.y, verts[counter].y);
+      lb.z = min(lb.z, verts[counter].z);
+    
+      rt.x = max(rt.x, verts[counter].x);
+      rt.y = max(rt.y, verts[counter].y);
+      rt.z = max(rt.z, verts[counter].z);
+    */
+    
     counter++;
   }
   
-  for(int i=0; i< mesh->index_count; i++){
-    sortedVertex[i] = verts[mesh->indices[i].p - 1];
-  }
-
-  
-  free(verts);
 
   // UVs
   uv2* uvs = malloc(mesh->texcoord_count * sizeof(uv2));
@@ -2784,14 +2931,9 @@ Model* loadOBJ(char* path, ModelName name){
     if(i==0) continue;
 
     uvs[counter] = (uv2){mesh->texcoords[i], mesh->texcoords[i+1]};
+    printf("%f %f \n", uvs[counter].x, uvs[counter].y);
     counter++;
   }
-  
-  for(int i=0; i< mesh->index_count; i++){
-    sortedUvs[i] = uvs[mesh->indices[i].t - 1];
-  }
-  
-  free(uvs);
 
   // normals
   vec3* normals = malloc(mesh->normal_count * sizeof(vec3));
@@ -2804,30 +2946,18 @@ Model* loadOBJ(char* path, ModelName name){
     normals[counter] = (vec3){mesh->normals[i], mesh->normals[i+1], mesh->normals[i+2]};
     counter++;
   }
-
-  vec3 lb = { 1000, 1000, 1000 };
-  vec3 rt = { 0,0,0 };
   
+  // TODO: Make these 3 index_count loops in one
   for(int i=0; i< mesh->index_count; i++){
-    lb.x = fminf(lb.x, normals[mesh->indices[i].n - 1].x);
-    lb.y = fminf(lb.y, normals[mesh->indices[i].n - 1].y);
-    lb.z = fminf(lb.z, normals[mesh->indices[i].n - 1].z);
-    
-    rt.x = fmaxf(rt.x, normals[mesh->indices[i].n - 1].x);
-    rt.y = fmaxf(rt.y, normals[mesh->indices[i].n - 1].y);
-    rt.z = fmaxf(rt.z, normals[mesh->indices[i].n - 1].z);
-    
     sortedNormals[i] = normals[mesh->indices[i].n - 1];
+    object->vertices[i] = verts[mesh->indices[i].p - 1];
+    sortedUvs[i] = uvs[mesh->indices[i].t - 1];
   }
-
-  object->lb = lb;
-  object->rt = rt;
-
-  printf("Lb: %f %f %f \n", argVec3(lb));
-  printf("Rt: %f %f %f \n", argVec3(rt));
   
+  free(uvs);
+  free(verts);
   free(normals); 
-  
+
   fast_obj_destroy(mesh);
   
   float* modelVerts = malloc(sizeof(float) * 8 * object->size);
@@ -2841,9 +2971,9 @@ Model* loadOBJ(char* path, ModelName name){
   int index = 0;
   
   for(int i=0;i<object->size * 8;i+=8){
-    modelVerts[i] = sortedVertex[index].x;
-    modelVerts[i + 1] = sortedVertex[index].y;
-    modelVerts[i + 2] = sortedVertex[index].z;
+    modelVerts[i] = object->vertices[index].x;
+    modelVerts[i + 1] = object->vertices[index].y;
+    modelVerts[i + 2] = object->vertices[index].z;
 
     modelVerts[i + 3] = sortedUvs[index].x;
     modelVerts[i + 4] = sortedUvs[index].y;
@@ -2855,9 +2985,12 @@ Model* loadOBJ(char* path, ModelName name){
     index++;
   }
 
+  for(int i=0;i<object->size * 8;i+=8){
+    printf("%d vec %f %f %f uv %f %f norm %f %f %f \n",     i,modelVerts[i],     modelVerts[i+1],    modelVerts[i+2],     modelVerts[i+3],     modelVerts[i+4],     modelVerts[i+5],     modelVerts[i+6],     modelVerts[i+7]);
+  }
+
   free(sortedNormals);
   free(sortedUvs);
-  free(sortedVertex);
 
   glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8 * object->size, modelVerts, GL_STATIC_DRAW);
 
@@ -2883,7 +3016,29 @@ Model* loadOBJ(char* path, ModelName name){
 
   scale(&object->mat.m, 0.25f, 0.25f, 0.25f);
 
+  // To get some speed up i can getrid off one O(n) loop
+  // simply finding min/max inside of parsing positions above
+  calculateModelAABB(object);
+  
   object->name = name;
   
   return object;
+}
+
+// it also assigns lb, rt to model
+void calculateModelAABB(Model* model){
+  model->lb = (vec3){1000,1000,1000};
+  model->rt = (vec3){0,0,0};
+  
+  for (int i = 0; i < model->size; i++) {
+    vec4 trasformedVert4 = mulmatvec4(model->mat, (vec4) { argVec3(model->vertices[i]), 1.0f });
+    
+    model->lb.x = min(model->lb.x, trasformedVert4.x);
+    model->lb.y = min(model->lb.y, trasformedVert4.y);
+    model->lb.z = min(model->lb.z, trasformedVert4.z);
+    
+    model->rt.x = max(model->rt.x, trasformedVert4.x);
+    model->rt.y = max(model->rt.y, trasformedVert4.y);
+    model->rt.z = max(model->rt.z, trasformedVert4.z);
+  }
 }

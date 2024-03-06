@@ -158,11 +158,13 @@ typedef struct{
   GLuint VBO;
   GLuint VAO;
 
+  // for AABB recalculating
+  vec3* vertices;
+
   ModelName name;
   Matrix mat;
-  
+
   int size;
-  int triSize;
 
   vec3 lb;
   vec3 rt;
@@ -240,6 +242,14 @@ typedef enum{
   TileEl
 } ElementType;
 
+typedef enum{
+  ROTATE_X,
+  ROTATE_Y,
+  ROTATE_Z,
+  TRANSFORM_XY,
+  TRANSFORM_Z,
+  SCALE
+} ManipulationMode;
 
 #define snowGravity -0.8f
 #define snowDefAmount 20000
@@ -247,10 +257,6 @@ typedef enum{
 #define editorFOV 50.0f
 
 #define distToCamera(point) sqrtf(powf(point.x - camera.pos.x, 2) + powf(point.y - camera.pos.y, 2) + powf(point.z - camera.pos.z, 2))
-
-#define argVec3(vec) vec.x, vec.y, vec.z 
-
-#define rad(deg) deg * 3.14159265358979323846/180.0
 
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
 
@@ -265,14 +271,6 @@ Object* doorConstructor(vec3 pos, bool opened);
 bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSid);
 
 vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tileW);
-
-void renderWall(vec3* pos, Texture tx);
-
-void renderWallBorder(vec3* pos, Side side, float borderT, float r, float g, float b);
-
-void renderTexturedTile(vec3 tile, Texture underTx, Texture overTx);
-
-void renderTileBorder(vec3 tile, float r, float g, float b);
 
 void wallsLoadVAOandVBO();
 
@@ -300,6 +298,9 @@ Model* loadOBJ(char* path, float scale);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, colorBytes);\
 } while(false)
 // ~~~~~~
+
+// it also assigns lb, rt to model
+void calculateModelAABB(Model* model);
 
 bool radarCheck(vec3 point);
 
