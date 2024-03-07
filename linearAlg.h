@@ -1,12 +1,13 @@
+//#include "deps.h"
 #include <math.h>
-
+/*
 typedef struct {
 	// x z because i use vec2
 	// only when i work with grid
 	// without height
 	float x, z;
 } vec2;
-
+*/
 typedef struct {
 	float x, y;
 } uv2;
@@ -14,11 +15,11 @@ typedef struct {
 typedef struct {
 	int x, z;
 } vec2i;
-
+/*
 typedef struct {
 	float x, y, z;
 } vec3;
-
+*/
 typedef struct {
 	int x, y, z;
 } vec3i; // mostly to srote indexes of grid cell
@@ -37,11 +38,11 @@ typedef struct Matrix {
 8 9 A B
 C D E F
 */
-
+/*
 typedef struct{
   float x, y, z, w;
 } vec4;
-
+*/
 #define argVec4(vec) vec.x, vec.y, vec.z, vec.w 
 #define argVec3(vec) vec.x, vec.y, vec.z 
 

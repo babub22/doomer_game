@@ -32,6 +32,8 @@ float fov;
 
 float borderArea;
 
+Menu objectsMenu;
+
 EnviromentalConfig enviromental = { true, true };
 
 const float wallD = 0.0012f;
@@ -64,39 +66,8 @@ MeshBuffer* halfWallHighlight;
 MeshBuffer* tileMeshes;
 MeshBuffer* tileHighlight;
 
-GLuint prog;
-
-bool sphereInter(vec3 centroid){
-  float t0, t1;
-
-  float tca = dotf3(centroid, mouse.rayDir);
-  // if (tca < 0) return false;
-  vec3 centroid2 = { centroid.x - tca * tca, centroid.y - tca * tca, centroid.z - tca * tca};
-
-  float d2 = dotf3(centroid, centroid) - tca* tca;
-
-  if (d2 > 0.1f) return false;
-
-  float thc = sqrt(0.1f - d2);
-  t0 = tca - thc;
-  t1 = tca + thc;
-
-  if (t0 > t1){
-    float temp = t0;
-    t0 = t1;
-    t1 = temp;
-  };
-
-  if (t0 < 0) {
-    t0 = t1; // if t0 is negative, let's use t1 instead
-    if (t0 < 0) return false; // both t0 and t1 are negative
-  }
-
-
-  // t = t0;
-
-  return true;
-};
+GLuint mainShader;
+GLuint hudShader;
 
 int main(int argc, char* argv[]) {
   borderArea = (float)bBlockW/8;
@@ -161,16 +132,43 @@ int main(int argc, char* argv[]) {
     
     // left/right mouse
 
+
     
+    // objects menu
+    // TODO: Make it in function and generate it by
+    // rectengle points
+    {
+
+    glGenVertexArrays(1, &objectsMenu.VAO);
+    glBindVertexArray(objectsMenu.VAO);
+
+    glGenBuffers(1, &objectsMenu.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
+
+    float menuPoints[] = {
+      -1.0f, 1.0f,
+      -1.0f + 1.0f / 4.0f, 1.0f,
+      -1.0f, -1.0f,
+
+      -1.0f + 1.0f / 4.0f, 1.0f,
+      -1.0f, -1.0f,
+      -1.0f + 1.0f / 4.0f, -1.0f, };
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(menuPoints), menuPoints, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    }
+
     // top/bot mouse
-    
-    
     glGenVertexArrays(1, &netTileVAO);
     glBindVertexArray(netTileVAO);
 
     glGenBuffers(1, &netTileVBO);
     glBindBuffer(GL_ARRAY_BUFFER, netTileVBO);
-
 
     const vec3 c0 = { 0.0f, 0.0f, 0.0f };
     const vec3 c1 = { bBlockW, 0.0f, 0.0f };
@@ -385,28 +383,58 @@ int main(int argc, char* argv[]) {
     GLuint vertexShader = loadShader(GL_VERTEX_SHADER, "fog.vert");
     GLuint fragmentShader = loadShader(GL_FRAGMENT_SHADER, "fog.frag");
 
-    prog = glCreateProgram();
-    glAttachShader(prog, vertexShader);
-    glAttachShader(prog, fragmentShader);
+    mainShader = glCreateProgram();
+    glAttachShader(mainShader, vertexShader);
+    glAttachShader(mainShader, fragmentShader);
 
-    // Link the shader program
-    glLinkProgram(prog);
+    // Link the shader mainShaderram
+    glLinkProgram(mainShader);
 
     // Check for linking errors
     GLint linkStatus;
-    glGetProgramiv(prog, GL_LINK_STATUS, &linkStatus);
+    glGetProgramiv(mainShader, GL_LINK_STATUS, &linkStatus);
     if (linkStatus != GL_TRUE) {
       GLint logLength;
-      glGetProgramiv(prog, GL_INFO_LOG_LENGTH, &logLength);
+      glGetProgramiv(mainShader, GL_INFO_LOG_LENGTH, &logLength);
       char* log = (char*)malloc(logLength);
-      glGetProgramInfoLog(prog, logLength, NULL, log);
-      fprintf(stderr, "Failed to link program: %s\n", log);
+      glGetProgramInfoLog(mainShader, logLength, NULL, log);
+      fprintf(stderr, "Failed to link mainShaderram: %s\n", log);
       free(log);
       return 1;
     }
 
-    glUseProgram(prog);
+    glUseProgram(mainShader);
   }
+
+  int modelLoc = glGetUniformLocation(mainShader, "model");
+  int projUni = glGetUniformLocation(mainShader, "proj");
+  int viewLoc = glGetUniformLocation(mainShader, "view");
+
+  // load shaders and apply it
+  {
+    GLuint fragmentShader = loadShader(GL_FRAGMENT_SHADER, "hud.frag");
+
+    hudShader = glCreateProgram();
+    glAttachShader(hudShader, fragmentShader);
+
+    // Link the shader hudShaderram
+    glLinkProgram(hudShader);
+
+    // Check for linking errors
+    GLint linkStatus;
+    glGetProgramiv(hudShader, GL_LINK_STATUS, &linkStatus);
+    if (linkStatus != GL_TRUE) {
+      GLint logLength;
+      glGetProgramiv(hudShader, GL_INFO_LOG_LENGTH, &logLength);
+      char* log = (char*)malloc(logLength);
+      glGetProgramInfoLog(hudShader, logLength, NULL, log);
+      fprintf(stderr, "Failed to link hudShaderram: %s\n", log);
+      free(log);
+      return 1;
+    }
+  }
+
+  int hudColorLoc = glGetUniformLocation(hudShader, "u_Color");
   
   vec3 fogColor = {0.5f, 0.5f, 0.5f};
   glClearColor(argVec3(fogColor), 1.0f);
@@ -609,6 +637,8 @@ int main(int argc, char* argv[]) {
 	    fscanf(map, "%f ", &curModels[i]->mat.m[mat]);
 	  }
 
+	  calculateModelAABB(curModels[i]);
+	  
 	  fgetc(map); // read ]\n
 	}
 
@@ -619,7 +649,7 @@ int main(int argc, char* argv[]) {
   }
 
   // set up camera
-  GLint cameraPos = glGetUniformLocation(prog, "cameraPos");
+  GLint cameraPos = glGetUniformLocation(mainShader, "cameraPos");
   {
     camera1.pos = (vec3)xyz_indexesToCoords(gridX/2, 2, gridZ/2);
     camera2.pos = (vec3)xyz_indexesToCoords(gridX/2, 2, gridZ/2);
@@ -630,7 +660,7 @@ int main(int argc, char* argv[]) {
   }
   
   // set draw distance to gridX/2
-  GLint radius = glGetUniformLocation(prog, "radius");
+  GLint radius = glGetUniformLocation(mainShader, "radius");
   drawDistance = gridX/2 * 0.2;
   glUniform1f(radius, drawDistance);
 
@@ -940,7 +970,8 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
 	case(SDL_SCANCODE_O): {
-	  curModelsSize++;
+	  objectsMenu.open = !objectsMenu.open;
+	  /*	  curModelsSize++;
 
 	  if(curModels){
 	    curModels = realloc(curModels, curModelsSize * sizeof(Model*));
@@ -949,7 +980,7 @@ int main(int argc, char* argv[]) {
 	  }
 
 	  curModels[curModelsSize-1] = malloc(sizeof(Model));
-	  memcpy(curModels[curModelsSize-1], models[yalinka], sizeof(Model));
+	  memcpy(curModels[curModelsSize-1], models[yalinka], sizeof(Model));*/
 
 	  break;
 	}
@@ -1059,11 +1090,11 @@ int main(int argc, char* argv[]) {
 
       if (event.type == SDL_MOUSEMOTION) {
 	mouse.screenPos.x = event.motion.x;
-	mouse.screenPos.z = event.motion.y;
+	mouse.screenPos.y = event.motion.y;
 
 	if (curCamera) {
 	  mouse.screenPos.x = windowW / 2;
-	  mouse.screenPos.z = windowH / 2;
+	  mouse.screenPos.y = windowH / 2;
 
 	  float xoffset = event.motion.xrel;
 	  float yoffset = -event.motion.yrel;
@@ -1121,10 +1152,10 @@ int main(int argc, char* argv[]) {
 
 	  bool isIntersect = false;
 
-	  if (grid[floor][(int)tile.z][(int)tile.x].walls != 0) {
+	  if (grid[floor][(int)tile.y][(int)tile.x].walls != 0) {
 	    for (int side = 0; side < basicSideCounter; side++) {
-	      WallType type = (grid[floor][(int)tile.z][(int)tile.x].walls >> (side * 8)) & 0xFF;
-	      vec3 pos = { (float)(int)tile.x * bBlockW, 0.0f,  (float)(int)tile.z * bBlockD };
+	      WallType type = (grid[floor][(int)tile.y][(int)tile.x].walls >> (side * 8)) & 0xFF;
+	      vec3 pos = { (float)(int)tile.x * bBlockW, 0.0f,  (float)(int)tile.y * bBlockD };
 
 	      if (type == wallT) {
 		vec3 rt = { 0 };
@@ -1287,14 +1318,10 @@ int main(int argc, char* argv[]) {
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    int modelLoc = glGetUniformLocation(prog, "model");
-
     // send proj and view mat to shader
     {
-      Matrix projMat = perspective(rad(fov), windowW / windowH, 0.1f, 100.0f);
-
-      int proj = glGetUniformLocation(prog, "proj");
-      glUniformMatrix4fv(proj, 1, GL_FALSE, projMat.m);
+      Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 10.0f);
+      glUniformMatrix4fv(projUni, 1, GL_FALSE, proj.m);
 
       Matrix view =  IDENTITY_MATRIX;
       vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
@@ -1302,7 +1329,6 @@ int main(int argc, char* argv[]) {
       translate(&view, argVec3(negPos));
       rotateY(&view, rad(curCamera->yaw));
       rotateX(&view, rad(curCamera->pitch));
-      int viewLoc = glGetUniformLocation(prog, "view");
       glUniformMatrix4fv(viewLoc, 1, GL_FALSE, view.m);
 
       // modif camera pos to shader
@@ -1318,13 +1344,13 @@ int main(int argc, char* argv[]) {
       // cursor things
       {
 	float x = (2.0f * mouse.screenPos.x) / windowW - 1.0f;
-	float y = 1.0f - (2.0f * mouse.screenPos.z) / windowH;
+	float y = 1.0f - (2.0f * mouse.screenPos.y) / windowH;
 	float z = 1.0f;
 	vec4 rayClip = { x, y, -1.0, 1.0 };
 
 	Matrix inversedProj = IDENTITY_MATRIX;
       
-	inverse(projMat.m, inversedProj.m);
+	inverse(proj.m, inversedProj.m);
 	vec4 ray_eye = mulmatvec4(inversedProj, rayClip);
 
 	ray_eye.z = -1.0f;
@@ -2090,77 +2116,45 @@ int main(int argc, char* argv[]) {
     }
     }
     */
-    
-    // cursor world projection
-    //      {
-    /*
-      vec3d start = {0};
-      vec3d end = {0};
-
-      double matModelView[16], matProjection[16];
-      
-      glGetIntegerv( GL_VIEWPORT, viewport );
-      int viewport[4]; 
-      glGetDoublev( GL_MODELVIEW_MATRIX, matModelView ); 
-      glGetDoublev( GL_PROJECTION_MATRIX, matProjection ); 
-
-      double winX = (double)mouse.screenPos.x; 
-      double winY = viewport[3] - (double)mouse.screenPos.z; 
-
-      gluUnProject(winX, winY, 0, matModelView, matProjection, 
-      viewport, &start.x, &start.y, &start.z);
-
-      gluUnProject(winX, winY,  1, matModelView, matProjection, 
-      viewport, &end.x, &end.y, &end.z);
-
-
-      mouse.start = vec3dToVec3(start);
-      mouse.end = vec3dToVec3(end);*/
-    //      }
 		
-    // renderCursor
-    {
-      Matrix orthProj = orthogonal(0.0f, windowW, 0.0f, windowH);
+    // render objects menu
+    if(objectsMenu.open){
+      glUseProgram(hudShader);
+      
+      glUniform3f(hudColorLoc, blackColor);
+      
+      glBindVertexArray(objectsMenu.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
+
+      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
     
-      glBegin(GL_LINES);
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
 
-      float relWindowX = mouse.w * windowW;
-      float relWindowY = mouse.h * windowH;
-
-      glVertex2f(mouse.screenPos.x - relWindowX, mouse.screenPos.z + relWindowY);
-      glVertex2f(mouse.screenPos.x + relWindowX, mouse.screenPos.z - relWindowY);
-
-      glVertex2f(mouse.screenPos.x + relWindowX, mouse.screenPos.z + relWindowY);
-      glVertex2f(mouse.screenPos.x - relWindowX, mouse.screenPos.z - relWindowY);
-
-      glEnd();
+      glUseProgram(mainShader);
     }
-    /*
-    
-      glFlush();
-    */
 
-    mouse.clickL = false;
-    mouse.clickR = false;
+mouse.clickL = false;
+mouse.clickR = false;
   
-    SDL_GL_SwapWindow(window);
+SDL_GL_SwapWindow(window);
 
-    uint32_t endtime = GetTickCount();
-    uint32_t deltatime = endtime - starttime;
+uint32_t endtime = GetTickCount();
+uint32_t deltatime = endtime - starttime;
 
-    if (!(deltatime > (1000 / FPS))) {
-      Sleep((1000 / FPS) - deltatime);
-    }
+if (!(deltatime > (1000 / FPS))) {
+  Sleep((1000 / FPS) - deltatime);
+ }
     
-    if (deltatime != 0) {
-      sprintf(windowTitle, game" FPS: %d", 1000 / deltatime);
-      SDL_SetWindowTitle(window, windowTitle);
-    }
-  }
+if (deltatime != 0) {
+  sprintf(windowTitle, game" FPS: %d", 1000 / deltatime);
+  SDL_SetWindowTitle(window, windowTitle);
+ }
+}
 
-  SDL_GL_DeleteContext(context);
-  SDL_DestroyWindow(window);
-  SDL_Quit();
+SDL_GL_DeleteContext(context);
+SDL_DestroyWindow(window);
+SDL_Quit();
 
   return 0;
 }
@@ -2931,7 +2925,6 @@ Model* loadOBJ(char* path, ModelName name){
     if(i==0) continue;
 
     uvs[counter] = (uv2){mesh->texcoords[i], mesh->texcoords[i+1]};
-    printf("%f %f \n", uvs[counter].x, uvs[counter].y);
     counter++;
   }
 
@@ -2985,10 +2978,6 @@ Model* loadOBJ(char* path, ModelName name){
     index++;
   }
 
-  for(int i=0;i<object->size * 8;i+=8){
-    printf("%d vec %f %f %f uv %f %f norm %f %f %f \n",     i,modelVerts[i],     modelVerts[i+1],    modelVerts[i+2],     modelVerts[i+3],     modelVerts[i+4],     modelVerts[i+5],     modelVerts[i+6],     modelVerts[i+7]);
-  }
-
   free(sortedNormals);
   free(sortedUvs);
 
@@ -3027,8 +3016,8 @@ Model* loadOBJ(char* path, ModelName name){
 
 // it also assigns lb, rt to model
 void calculateModelAABB(Model* model){
-  model->lb = (vec3){1000,1000,1000};
-  model->rt = (vec3){0,0,0};
+  model->lb = (vec3){FLT_MAX,FLT_MAX,FLT_MAX};
+  model->rt = (vec3){-FLT_MAX,-FLT_MAX,-FLT_MAX};
   
   for (int i = 0; i < model->size; i++) {
     vec4 trasformedVert4 = mulmatvec4(model->mat, (vec4) { argVec3(model->vertices[i]), 1.0f });

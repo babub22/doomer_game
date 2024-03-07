@@ -1,5 +1,8 @@
 #pragma once
 
+#define FAST_OBJ_IMPLEMENTATION
+#include "fast_obj.h"
+
 typedef enum{
   top,
   bot,
@@ -116,6 +119,13 @@ typedef enum{
   textures,
   assetsTypes,
 } AssetType;
+
+
+typedef struct{
+  GLuint VBO;
+  GLuint VAO;
+  bool open;
+} Menu;
 
 typedef struct{
   int id;
@@ -313,6 +323,8 @@ GLuint loadShader(GLenum shaderType, const char* filename);
 #define FPS 60
 
 #define greenColor 0.0f, 1.0f, 0.0f
+
+#define blackColor 0.0f, 0.0f, 0.0f
 
 #define redColor 1.0f, 0.0f, 0.0f
 

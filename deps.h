@@ -12,9 +12,9 @@
 #include <time.h>
 #include <float.h>
 #include <assert.h>
+#include <float.h>
 
 #include <gl\glew.h>
 #include <gl\glu.h>
 
-#define FAST_OBJ_IMPLEMENTATION
-#include "fast_obj.h"
+#include <freetype-gl/freetype-gl.h>
