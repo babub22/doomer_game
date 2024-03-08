@@ -82,7 +82,8 @@ void translate(const Matrix* m, float x, float y, float z);
 void inverse(float M[], float T[]);
 
 Matrix perspective(float fovy, float aspect_ratio, float near_plane, float far_plane);
-Matrix orthogonal(float left, float right, float bottom, float top);
+
+Matrix orthogonal(float l, float r, float b, float t, float n, float f);
 
 Matrix lookAt(vec3 eye, vec3 center, vec3 up);
 

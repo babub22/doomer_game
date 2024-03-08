@@ -95,6 +95,9 @@ int main(int argc, char* argv[]) {
 
   glewInit();
 
+  TTF_Init();
+  TTF_Font *font = TTF_OpenFont("iosevka-bold.ttf", 24);
+
   // load 3d models
   {
     models = malloc(sizeof(Model));
@@ -139,25 +142,28 @@ int main(int argc, char* argv[]) {
     // rectengle points
     {
 
-    glGenVertexArrays(1, &objectsMenu.VAO);
+      glGenVertexArrays(1, &objectsMenu.VAO);
     glBindVertexArray(objectsMenu.VAO);
 
     glGenBuffers(1, &objectsMenu.VBO);
     glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
 
     float menuPoints[] = {
-      -1.0f, 1.0f,
-      -1.0f + 1.0f / 4.0f, 1.0f,
-      -1.0f, -1.0f,
+      -1.0f, 1.0f, 1.0f, 0.0f,
+      -1.0f + 1.0f / 4.0f, 1.0f, 1.0f, 1.0f,
+      -1.0f, -1.0f, 0.0f, 0.0f,
 
-      -1.0f + 1.0f / 4.0f, 1.0f,
-      -1.0f, -1.0f,
-      -1.0f + 1.0f / 4.0f, -1.0f, };
+      -1.0f + 1.0f / 4.0f, 1.0f, 1.0f, 1.0f,
+      -1.0f, -1.0f, 0.0f, 0.0f,
+      -1.0f + 1.0f / 4.0f, -1.0f, 0.0f, 1.0f };
 
     glBufferData(GL_ARRAY_BUFFER, sizeof(menuPoints), menuPoints, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+      glEnableVertexAttribArray(1);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -403,7 +409,6 @@ int main(int argc, char* argv[]) {
       return 1;
     }
 
-    glUseProgram(mainShader);
   }
 
   int modelLoc = glGetUniformLocation(mainShader, "model");
@@ -412,10 +417,12 @@ int main(int argc, char* argv[]) {
 
   // load shaders and apply it
   {
+      GLuint vertexShader = loadShader(GL_VERTEX_SHADER, "hud.vert");
     GLuint fragmentShader = loadShader(GL_FRAGMENT_SHADER, "hud.frag");
 
     hudShader = glCreateProgram();
     glAttachShader(hudShader, fragmentShader);
+    glAttachShader(hudShader, vertexShader);
 
     // Link the shader hudShaderram
     glLinkProgram(hudShader);
@@ -434,7 +441,13 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  int orthoLoc = glGetUniformLocation(hudShader, "ortho");
   int hudColorLoc = glGetUniformLocation(hudShader, "u_Color");
+  
+  int viewportLoc = glGetUniformLocation(hudShader, "viewport");
+
+    glUseProgram(mainShader);
+  glUniform2f(viewportLoc, windowW, windowH);
   
   vec3 fogColor = {0.5f, 0.5f, 0.5f};
   glClearColor(argVec3(fogColor), 1.0f);
@@ -488,7 +501,7 @@ int main(int argc, char* argv[]) {
       glBindTexture(GL_TEXTURE_2D, 0);
     }
   }
-
+  
   // load 1x1 texture to rende ricolors
   {
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
@@ -511,7 +524,7 @@ int main(int argc, char* argv[]) {
   glGenTextures(1, &carTx);
 
   // -1 because of solidColorTx
-  SDL_Surface* texture = IMG_Load("./assets/objs/car_snow_red.png");
+  SDL_Surface* texture = IMG_Load("./assets/objs/car.png");
 
   if (!texture) {
     printf("Loading of texture .png\" failed");
@@ -2119,9 +2132,15 @@ int main(int argc, char* argv[]) {
 		
     // render objects menu
     if(objectsMenu.open){
+      glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
       glUseProgram(hudShader);
       
-      glUniform3f(hudColorLoc, blackColor);
+            glUniform3f(hudColorLoc, blackColor);
+	    //   glUniform2f(viewportLoc, windowW, windowH);
+	     Matrix orthoMatrix = orthogonal(0.0f, windowW, 0.0f, windowH, -1.0f, 1.0f);
+
+	     glUniformMatrix4fv(orthoLoc, 1, GL_FALSE, orthoMatrix.m);
       
       glBindVertexArray(objectsMenu.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
@@ -2132,6 +2151,17 @@ int main(int argc, char* argv[]) {
       glBindVertexArray(0);
 
       glUseProgram(mainShader);
+      glDepthMask(GL_TRUE);
+      glEnable(GL_DEPTH_TEST);
+      
+      //      int texture = textTexture("Hello!",font, greenColor, 1.0f);
+      //      printf("%d \n", texture);
+
+      //      glActiveTexture(textTx);
+      //      glBindTexture(GL_TEXTURE_2D, textTx);
+
+
+      //      glBindTexture(GL_TEXTURE_2D, 0);
     }
 
 mouse.clickL = false;
@@ -3030,4 +3060,41 @@ void calculateModelAABB(Model* model){
     model->rt.y = max(model->rt.y, trasformedVert4.y);
     model->rt.z = max(model->rt.z, trasformedVert4.z);
   }
+}
+
+int textTexture(char *text, TTF_Font *font, float r, float g, float b, float a) {
+  SDL_Surface* data = TTF_RenderUTF8_Blended(font, text, (SDL_Color){r,g,b,a});
+  
+  GLint  nbOfColors = data->format->BytesPerPixel;
+  GLenum textureFormat = 0;
+
+  switch (nbOfColors) {
+  case 1:
+    textureFormat = GL_ALPHA;
+    break;
+  case 3:     // no alpha channel
+    if (data->format->Rmask == 0x000000ff)
+      textureFormat = GL_RGB;
+    else
+      textureFormat = GL_BGR;
+    break;
+  case 4:     // contains an alpha channel
+    if (data->format->Rmask == 0x000000ff)
+      textureFormat = GL_RGBA;
+    else
+      textureFormat = GL_BGRA;
+    break;
+  default:
+    break;
+  }
+
+  //glBindTexture(GL_TEXTURE_2D, textTx);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, nbOfColors, data->w, data->h, 0,
+	       textureFormat, GL_UNSIGNED_BYTE, data->pixels );
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+  return 0;
 }

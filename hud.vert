@@ -1,12 +1,15 @@
 #version 330
 
-layout(location = 0) in vec3 aPos;
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aTex;	
 
-uniform mat4 ortho;  
+out vec2 TexCoord;
+
+uniform mat4 ortho;
+uniform vec2 viewport;	
 
 void main(void)
 {
-//vec2 screenPos = aPos * //vec2(2.0/1280.0f,2.0/720.0f) - //vec2(1,1);
-
- gl_Position = ortho * vec4(aPos, 1);
+ TexCoord=aTex;	
+ gl_Position = vec4(aPos,0.0f,1.0f);
 }

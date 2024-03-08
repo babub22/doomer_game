@@ -261,6 +261,8 @@ typedef enum{
   SCALE
 } ManipulationMode;
 
+
+
 #define snowGravity -0.8f
 #define snowDefAmount 20000
 
@@ -273,6 +275,8 @@ void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist);
 
 void addObjToStore(Object* obj);
+
+int textTexture(char *text, TTF_Font *font, float r, float g, float b, float a);
 
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
 

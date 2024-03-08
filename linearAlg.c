@@ -148,15 +148,31 @@ Matrix perspective(float fovy, float aspect_ratio, float near_plane, float far_p
     return mat;
 }
 
-Matrix orthogonal(float left, float right, float bottom, float top) {
-	Matrix out = IDENTITY_MATRIX;
-	out.m[0] = 2 / (right - left);
-	out.m[5] = 2 / (top - bottom);
-	out.m[10] = -1;
-	out.m[12] = -(right + left) / (right - left);
-	out.m[13] = -(top + bottom) / (top - bottom);
+Matrix orthogonal(float l, float r, float b, float t, float n, float f)
+{
+  Matrix M = IDENTITY_MATRIX;
+  
+    M.m[0] = 2.f / (r - l);
+    M.m[1] = 0.f;
+    M.m[2] = 0.f;
+    M.m[3] = 0.f;
 
-	return out;
+    M.m[4] = 0.f;
+    M.m[5] = 2.f / (t - b);
+    M.m[6] = 0.f;
+    M.m[7] = 0.f;
+
+    M.m[8] = 0.f;
+    M.m[9] = 0.f;
+    M.m[10] = -2.f / (f - n);
+    M.m[11] = 0.f;
+
+    M.m[12] = -(r + l) / (r - l);
+    M.m[13] = -(t + b) / (t - b);
+    M.m[14] = -(f + n) / (f - n);
+    M.m[15] = 1.f;
+
+    return M;
 }
 
 vec3 cross3(const vec3 v1, const vec3 v2) {
