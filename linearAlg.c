@@ -75,7 +75,7 @@ void rotateX(const Matrix* m, float angle) {
 	rotation.m[6] = -sine;
 	rotation.m[9] = sine;
 	rotation.m[10] = cosine;
-
+     
 	memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
 }
 void rotateY(const Matrix* m, float angle) {

@@ -2,15 +2,23 @@
 #include "linearAlg.h"
 #include "main.h"
 
+GLuint textVBO;
+GLuint textVAO;
+
+GLuint selectionRectVBO;
+GLuint selectionRectVAO;
+
 Object** objsStore;
 size_t objsStoreSize;
 
+GLuint fontAtlas;
+
 // avaible/loaded models
-Model** models;
-size_t modelsSize;
+ModelInfo* loadedModels;
+size_t loadedModelsSize;
 
 // placed/created models
-Model** curModels;
+Model* curModels;
 size_t curModelsSize;
 
 int gridX = 120;
@@ -68,6 +76,9 @@ MeshBuffer* tileHighlight;
 
 GLuint mainShader;
 GLuint hudShader;
+  
+GLuint cursorVBO;
+GLuint cursorVAO;
 
 int main(int argc, char* argv[]) {
   borderArea = (float)bBlockW/8;
@@ -82,7 +93,7 @@ int main(int argc, char* argv[]) {
 					windowW, windowH,
 					SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 
-  
+  SDL_WarpMouseInWindow(window, windowW/2.0f, windowH/2.0f);
   SDL_SetRelativeMouseMode(SDL_TRUE);
   SDL_GLContext context = SDL_GL_CreateContext(window);
   
@@ -95,16 +106,33 @@ int main(int argc, char* argv[]) {
 
   glewInit();
 
-  TTF_Init();
-  TTF_Font *font = TTF_OpenFont("iosevka-bold.ttf", 24);
-
-  // load 3d models
+  // cursor buffers
   {
-    models = malloc(sizeof(Model));
-    modelsSize++;
-    models[yalinka] = loadOBJ("./assets/objs/Car.obj", yalinka);
-  }
+    glGenBuffers(1, &cursorVBO);
+    glGenVertexArrays(1, &cursorVAO);
     
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // cursor buffers
+  {
+    glGenBuffers(1, &selectionRectVBO);
+    glGenVertexArrays(1, &selectionRectVAO);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  } 
+
+  // init VBO and VAO for text
+  {
+    glGenBuffers(1, &textVBO);
+    glGenVertexArrays(1, &textVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
   // setup nettile buffer
   {
     // center mouse selection
@@ -135,7 +163,6 @@ int main(int argc, char* argv[]) {
     
     // left/right mouse
 
-
     
     // objects menu
     // TODO: Make it in function and generate it by
@@ -143,19 +170,22 @@ int main(int argc, char* argv[]) {
     {
 
       glGenVertexArrays(1, &objectsMenu.VAO);
-    glBindVertexArray(objectsMenu.VAO);
+      glBindVertexArray(objectsMenu.VAO);
 
-    glGenBuffers(1, &objectsMenu.VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
+      glGenBuffers(1, &objectsMenu.VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
 
+      float xRight =       -1.0f + 1.0f / 4.0f;
+	//float xRight = 1.0f;
+    
     float menuPoints[] = {
       -1.0f, 1.0f, 1.0f, 0.0f,
-      -1.0f + 1.0f / 4.0f, 1.0f, 1.0f, 1.0f,
+      xRight, 1.0f, 1.0f, 1.0f,
       -1.0f, -1.0f, 0.0f, 0.0f,
 
-      -1.0f + 1.0f / 4.0f, 1.0f, 1.0f, 1.0f,
+      xRight, 1.0f, 1.0f, 1.0f,
       -1.0f, -1.0f, 0.0f, 0.0f,
-      -1.0f + 1.0f / 4.0f, -1.0f, 0.0f, 1.0f };
+      xRight, -1.0f, 0.0f, 1.0f };
 
     glBufferData(GL_ARRAY_BUFFER, sizeof(menuPoints), menuPoints, GL_STATIC_DRAW);
 
@@ -383,6 +413,7 @@ int main(int argc, char* argv[]) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
   }
+    
 
   // load shaders and apply it
   {
@@ -463,8 +494,10 @@ int main(int argc, char* argv[]) {
   
   // init opengl
   {
-    glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    glEnable(GL_TEXTURE_2D);
     glShadeModel(GL_SMOOTH);
     glClearDepth(1.0f);
     glEnable(GL_DEPTH_TEST);  
@@ -501,7 +534,7 @@ int main(int argc, char* argv[]) {
       glBindTexture(GL_TEXTURE_2D, 0);
     }
   }
-  
+
   // load 1x1 texture to rende ricolors
   {
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
@@ -519,43 +552,141 @@ int main(int argc, char* argv[]) {
       
     glBindTexture(GL_TEXTURE_2D, 0);
   }
-
+  /*
   GLuint carTx;
-  glGenTextures(1, &carTx);
 
-  // -1 because of solidColorTx
-  SDL_Surface* texture = IMG_Load("./assets/objs/car.png");
+  {
+    glGenTextures(1, &carTx);
 
-  if (!texture) {
-    printf("Loading of texture .png\" failed");
-    exit(0);
-  }
+    // -1 because of solidColorTx
+    SDL_Surface* texture = IMG_Load("./assets/objs/car.png");
 
-  glBindTexture(GL_TEXTURE_2D, carTx);
+    if (!texture) {
+      printf("Loading of texture .png\" failed");
+      exit(0);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, carTx);
       
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->w,
-	       texture->h, 0, GL_RGBA,
-	       GL_UNSIGNED_BYTE, texture->pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->w,
+		 texture->h, 0, GL_RGBA,
+		 GL_UNSIGNED_BYTE, texture->pixels);
 
-  GLenum err = glGetError();
-  if (err != GL_NO_ERROR) {
-    printf("OpenGL error: %d\n", err);
-    // Handle OpenGL error
-    // Optionally return or perform other error handling
-  }
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+      printf("OpenGL error: %d\n", err);
+      // Handle OpenGL error
+      // Optionally return or perform other error handling
+    }
   
-  SDL_FreeSurface(texture);
+    SDL_FreeSurface(texture);
       
-  glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
+ */ 
+    {
+    glGenTextures(1, &fontAtlas);
 
+    // -1 because of solidColorTx
+    SDL_Surface* texture = IMG_Load("./iosevka-bold.png");
+
+    if (!texture) {
+      printf("Loading of texture font.png\" failed");
+      exit(0);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, fontAtlas);
+      
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->w,
+		 texture->h, 0, GL_RGBA,
+		 GL_UNSIGNED_BYTE, texture->pixels);
+
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+      printf("OpenGL error: %d\n", err);
+      // Handle OpenGL error
+      // Optionally return or perform other error handling
+    }
+  
+    SDL_FreeSurface(texture);
+      
+    glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    // load 3d models
+    {
+      FILE* objsSpecs = fopen("./assets/objs/ObjsSpecs.txt", "r");
+      
+      if(!objsSpecs){
+	printf("ObjsSpecs.txt was not found! \n");
+      }else{
+	int objsCounter = 0;
+	
+	char ch;
+
+	while(ch = fgetc(objsSpecs)){
+	  if(ch == EOF) break;
+	  if(ch == '\n') objsCounter++;
+	};
+
+	objsCounter++;
+	loadedModels = malloc(sizeof(ModelInfo) * objsCounter);
+
+	rewind(objsSpecs);
+
+	for(int i=0; i <objsCounter;i ++){
+	  char textureName[50];
+	  char objName[50];
+
+	  fscanf(objsSpecs, "%s %s\n", objName, textureName);
+
+	  char *fullObjPath = malloc(strlen(objName) + strlen(objsFolder) + 1);
+	  
+	  strcpy(fullObjPath, objsFolder);
+	  strcat(fullObjPath, objName);
+
+	  char *fullTxPath = malloc(strlen(textureName) + strlen(objsFolder) + 1);
+	  
+	  strcpy(fullTxPath, objsFolder);
+	  strcat(fullTxPath, textureName);
+	  
+	  loadOBJ(fullObjPath, fullTxPath, i);
+	
+	  free(fullObjPath);
+	  free(fullTxPath);
+	  
+	  loadedModels[i].name = malloc(sizeof(char) * (strlen(objName) + 1));
+	  strcpy(loadedModels[i].name, objName);
+	  strcut(loadedModels[i].name, strlen(objName) - 4, strlen(objName));
+	  
+	  printf("Loaded %s\n", objName);
+	  
+	  loadedModelsSize++;
+	}
+
+	fclose(objsSpecs);
+	
+      }
+      
+      //       fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
+      //       fgetc(map); // read ,
+      
+      
+    //  loadedModels = malloc(sizeof(Model));
+     // loadedModelsSize++;
+    }
+  
   // tang of fov calculations
   fov = editorFOV;
   tangFOV = tanf(rad(fov) * 0.5);
   
-  mouse = (Mouse){ .h = 0.005f, .w = 0.005f, .brush = 0, .interDist = 1000.0f  };
+  mouse = (Mouse){  .h = 0.005f, .w = 0.005f, .brush = 0, .interDist = 1000.0f  };
 
   float dist = sqrt(1 / 3.0);
   bool cameraMode = true;
@@ -629,7 +760,7 @@ int main(int argc, char* argv[]) {
 	curModels = malloc(curModelsSize * sizeof(Model*));
     
 	for(int i=0; i<curModelsSize; i++){
-	  /*	  if(curModels[i]->name == yalinka){
+	  /*	  if(curModels[i].name == yalinka){
 	  // TODO: Make here some enum to string function
 	  fprintf(map, "Yalinka[%d] ", yalinka);
 	  }*/
@@ -641,16 +772,18 @@ int main(int argc, char* argv[]) {
 	    exit(0);
 	  }
 	  
-	  curModels[i] = malloc(sizeof(Model));
-	  memcpy(curModels[i], models[name], sizeof(Model));
+	  //curModels[i] = malloc(sizeof(Model));
+	  curModels[i].name = name;
+	  
+	  //	  memcpy(curModels[i], models[name], sizeof(Model));
 
 	  fgetc(map); // read [
 
 	  for(int mat=0;mat<16;mat++){
-	    fscanf(map, "%f ", &curModels[i]->mat.m[mat]);
+	    fscanf(map, "%f ", &curModels[i].mat.m[mat]);
 	  }
 
-	  calculateModelAABB(curModels[i]);
+	  calculateModelAABB(&curModels[i]);
 	  
 	  fgetc(map); // read ]\n
 	}
@@ -743,18 +876,18 @@ int main(int argc, char* argv[]) {
 	  if(manipulationMode != -1){
 	    switch(manipulationMode){
 	    case(TRANSFORM_Z):{
-	      curModels[curModelsSize-1]->mat.m[13] = curModels[curModelsSize-1]->mat.m[13] + 0.05f;
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      curModels[curModelsSize-1].mat.m[13] = curModels[curModelsSize-1].mat.m[13] + 0.05f;
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(TRANSFORM_XY):{
-	      curModels[curModelsSize-1]->mat.m[12] = curModels[curModelsSize-1]->mat.m[12] - 0.05f;
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      curModels[curModelsSize-1].mat.m[12] = curModels[curModelsSize-1].mat.m[12] - 0.05f;
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(SCALE):{
-	      scale(curModels[curModelsSize-1]->mat.m, 1.05f, 1.05f, 1.05f);
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      scale(curModels[curModelsSize-1].mat.m, 1.05f, 1.05f, 1.05f);
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 
@@ -799,18 +932,18 @@ int main(int argc, char* argv[]) {
 	  if(manipulationMode != -1){
 	    switch(manipulationMode){
 	    case(TRANSFORM_Z):{
-	      curModels[curModelsSize-1]->mat.m[13] = curModels[curModelsSize-1]->mat.m[13] - 0.05f;
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      curModels[curModelsSize-1].mat.m[13] = curModels[curModelsSize-1].mat.m[13] - 0.05f;
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(TRANSFORM_XY):{
-	      curModels[curModelsSize-1]->mat.m[12] = curModels[curModelsSize-1]->mat.m[12] + 0.05f;
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      curModels[curModelsSize-1].mat.m[12] = curModels[curModelsSize-1].mat.m[12] + 0.05f;
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(SCALE):{
-	      scale(curModels[curModelsSize-1]->mat.m, 1.0f/1.05f, 1.0f/1.05f, 1.0f/1.05f);
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      scale(curModels[curModelsSize-1].mat.m, 1.0f/1.05f, 1.0f/1.05f, 1.0f/1.05f);
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 
@@ -881,23 +1014,23 @@ int main(int argc, char* argv[]) {
 	  if(manipulationMode != -1){
 	    switch(manipulationMode){
 	    case(ROTATE_Y):{
-	      rotateY(curModels[curModelsSize-1]->mat.m, -rad(1.0f));
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      rotateY(curModels[curModelsSize-1].mat.m, -rad(1.0f));
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(ROTATE_Z):{
-	      rotateZ(curModels[curModelsSize-1]->mat.m, -rad(1.0f));
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      rotateZ(curModels[curModelsSize-1].mat.m, -rad(1.0f));
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(ROTATE_X):{
-	      rotateX(curModels[curModelsSize-1]->mat.m, -rad(1.0f));
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      rotateX(curModels[curModelsSize-1].mat.m, -rad(1.0f));
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(TRANSFORM_XY):{
-	      curModels[curModelsSize-1]->mat.m[14] = curModels[curModelsSize-1]->mat.m[14] + 0.05f;
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      curModels[curModelsSize-1].mat.m[14] = curModels[curModelsSize-1].mat.m[14] + 0.05f;
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 		      
@@ -929,23 +1062,23 @@ int main(int argc, char* argv[]) {
 	  if(manipulationMode != -1){
 	    switch(manipulationMode){
 	    case(ROTATE_Y):{
-	      rotateY(curModels[curModelsSize-1]->mat.m, rad(1.0f));
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      rotateY(curModels[curModelsSize-1].mat.m, rad(1.0f));
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(ROTATE_Z):{
-	      rotateZ(curModels[curModelsSize-1]->mat.m, rad(1.0f));
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      rotateZ(curModels[curModelsSize-1].mat.m, rad(1.0f));
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(ROTATE_X):{
-	      rotateX(curModels[curModelsSize-1]->mat.m, rad(1.0f));
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      rotateX(curModels[curModelsSize-1].mat.m, rad(1.0f));
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 	    case(TRANSFORM_XY):{
-	      curModels[curModelsSize-1]->mat.m[14] = curModels[curModelsSize-1]->mat.m[14] - 0.05f;
-	      calculateModelAABB(curModels[curModelsSize-1]);
+	      curModels[curModelsSize-1].mat.m[14] = curModels[curModelsSize-1].mat.m[14] - 0.05f;
+	      calculateModelAABB(&curModels[curModelsSize-1]);
 	      break;
 	    }
 
@@ -1046,7 +1179,7 @@ int main(int argc, char* argv[]) {
 	  fprintf(map, "\nUsed models: %d\n",curModelsSize);
 	
 	  for(int i=0; i<curModelsSize; i++){
-	    /*	  if(curModels[i]->name == yalinka){
+	    /*	  if(curModels[i].name == yalinka){
 	    // TODO: Make here some enum to string function
 	    fprintf(map, "Yalinka[%d] ", yalinka);
 	    }*/
@@ -1055,7 +1188,7 @@ int main(int argc, char* argv[]) {
 	    fprintf(map, "[");
 
 	    for(int mat=0;mat<16;mat++){
-	      fprintf(map, "%f ", curModels[i]->mat.m[mat]);
+	      fprintf(map, "%f ", curModels[i].mat.m[mat]);
 	    }
 	  
 	    fprintf(map, "]\n");
@@ -1100,14 +1233,19 @@ int main(int argc, char* argv[]) {
       }
 
       mouse.wheel = event.wheel.y;
-
       if (event.type == SDL_MOUSEMOTION) {
-	mouse.screenPos.x = event.motion.x;
-	mouse.screenPos.y = event.motion.y;
 
-	if (curCamera) {
+	if(objectsMenu.open){
+	  float x = -1.0 + 2.0 * (event.motion.x / windowW);
+	  float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
+
+	  mouse.cursor.x = x;
+	  mouse.cursor.z = y;  
+	}
+
+	if (curCamera && !objectsMenu.open) { 
 	  mouse.screenPos.x = windowW / 2;
-	  mouse.screenPos.y = windowH / 2;
+	  mouse.screenPos.z = windowH / 2; 
 
 	  float xoffset = event.motion.xrel;
 	  float yoffset = -event.motion.yrel;
@@ -1165,10 +1303,10 @@ int main(int argc, char* argv[]) {
 
 	  bool isIntersect = false;
 
-	  if (grid[floor][(int)tile.y][(int)tile.x].walls != 0) {
+	  if (grid[floor][(int)tile.z][(int)tile.x].walls != 0) {
 	    for (int side = 0; side < basicSideCounter; side++) {
-	      WallType type = (grid[floor][(int)tile.y][(int)tile.x].walls >> (side * 8)) & 0xFF;
-	      vec3 pos = { (float)(int)tile.x * bBlockW, 0.0f,  (float)(int)tile.y * bBlockD };
+	      WallType type = (grid[floor][(int)tile.z][(int)tile.x].walls >> (side * 8)) & 0xFF;
+	      vec3 pos = { (float)(int)tile.x * bBlockW, 0.0f,  (float)(int)tile.z * bBlockD };
 
 	      if (type == wallT) {
 		vec3 rt = { 0 };
@@ -1314,8 +1452,6 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    printf("Mode: %d \n", manipulationMode);
-
     mouse.selectedTile = NULL;
     mouse.gridIntersect = (vec2i){ -1,-1 };
 
@@ -1329,7 +1465,8 @@ int main(int argc, char* argv[]) {
 
     mouse.selectedModel = NULL;
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT |
+	    GL_DEPTH_BUFFER_BIT);
 
     // send proj and view mat to shader
     {
@@ -1357,7 +1494,7 @@ int main(int argc, char* argv[]) {
       // cursor things
       {
 	float x = (2.0f * mouse.screenPos.x) / windowW - 1.0f;
-	float y = 1.0f - (2.0f * mouse.screenPos.y) / windowH;
+	float y = 1.0f - (2.0f * mouse.screenPos.z) / windowH;
 	float z = 1.0f;
 	vec4 rayClip = { x, y, -1.0, 1.0 };
 
@@ -1475,27 +1612,29 @@ int main(int argc, char* argv[]) {
       
       // and call bindBuffer/bindAttr outside of loop 
       for(int i=0;i<curModelsSize;i++){
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i]->lb, curModels[i]->rt, NULL, NULL);
+	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i].lb, curModels[i].rt, NULL, NULL);
 
-	glActiveTexture(carTx);
-	glBindTexture(GL_TEXTURE_2D, carTx);
+	int name = curModels[i].name;
+
+	glActiveTexture(loadedModels[name].tx);
+	glBindTexture(GL_TEXTURE_2D, loadedModels[name].tx);
 
 	if(isIntersect){
-	  mouse.selectedModel = curModels[i];
+	  mouse.selectedModel = &curModels[i];
 	  //	  setSolidColorTx(redColor, 1.0f);
 	}
 
-	glBindVertexArray(curModels[i]->VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, curModels[i]->VBO);
+	glBindVertexArray(loadedModels[name].VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, loadedModels[name].VBO);
 
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, curModels[i]->mat.m);
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, curModels[i].mat.m);
 
-	glDrawArrays(GL_TRIANGLES, 0, curModels[i]->size);
+	glDrawArrays(GL_TRIANGLES, 0, loadedModels[name].size);
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	//	 vec3* minMax = minMaxPair(curModels[i]->vertices, curModels[i]->size);
+	//	 vec3* minMax = minMaxPair(curModels[i].vertices, curModels[i].size);
 
 	 
 	// draw AABB
@@ -1513,20 +1652,20 @@ int main(int argc, char* argv[]) {
 	glBegin(GL_LINES);
 
 	
-	glVertex3f(argVec3(curModels[i]->lb));
-	glVertex3f(argVec3(curModels[i]->rt));
+	glVertex3f(argVec3(curModels[i].lb));
+	glVertex3f(argVec3(curModels[i].rt));
 	
-	glVertex3f(curModels[i]->rt.x,curModels[i]->rt.y,curModels[i]->rt.z);
-	glVertex3f(curModels[i]->rt.x,curModels[i]->lb.y,curModels[i]->rt.z);
+	glVertex3f(curModels[i].rt.x,curModels[i].rt.y,curModels[i].rt.z);
+	glVertex3f(curModels[i].rt.x,curModels[i].lb.y,curModels[i].rt.z);
 
-	glVertex3f(curModels[i]->lb.x,curModels[i]->lb.y,curModels[i]->lb.z);
-	glVertex3f(curModels[i]->lb.x,curModels[i]->rt.y,curModels[i]->lb.z);
+	glVertex3f(curModels[i].lb.x,curModels[i].lb.y,curModels[i].lb.z);
+	glVertex3f(curModels[i].lb.x,curModels[i].rt.y,curModels[i].lb.z); 
 	
-	glVertex3f(curModels[i]->rt.x,curModels[i]->rt.y,curModels[i]->lb.z);
-	glVertex3f(curModels[i]->rt.x,curModels[i]->lb.y,curModels[i]->lb.z);
-
-	glVertex3f(curModels[i]->lb.x,curModels[i]->rt.y,curModels[i]->rt.z);
-	glVertex3f(curModels[i]->lb.x,curModels[i]->lb.y,curModels[i]->rt.z);
+	glVertex3f(curModels[i].rt.x,curModels[i].rt.y,curModels[i].lb.z);
+	glVertex3f(curModels[i].rt.x,curModels[i].lb.y,curModels[i].lb.z); 
+	 
+	glVertex3f(curModels[i].lb.x,curModels[i].rt.y,curModels[i].rt.z);
+	glVertex3f(curModels[i].lb.x,curModels[i].lb.y,curModels[i].rt.z);
 	
 	glEnd();
 
@@ -2133,14 +2272,12 @@ int main(int argc, char* argv[]) {
     // render objects menu
     if(objectsMenu.open){
       glDisable(GL_DEPTH_TEST);
-            glDepthMask(GL_FALSE);
+      //      glDepthMask(GL_FALSE);
       glUseProgram(hudShader);
-      
-            glUniform3f(hudColorLoc, blackColor);
-	    //   glUniform2f(viewportLoc, windowW, windowH);
-	     Matrix orthoMatrix = orthogonal(0.0f, windowW, 0.0f, windowH, -1.0f, 1.0f);
 
-	     glUniformMatrix4fv(orthoLoc, 1, GL_FALSE, orthoMatrix.m);
+      glActiveTexture(solidColorTx);
+      glBindTexture(GL_TEXTURE_2D, solidColorTx);
+      setSolidColorTx(blackColor, 1.0f);
       
       glBindVertexArray(objectsMenu.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
@@ -2150,22 +2287,118 @@ int main(int argc, char* argv[]) {
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
 
+      
+      int selectedIndex = loadedModelsSize - ( (mouse.cursor.z - 0.06f)  / .1f);
+
+      printf("%d \n", loadedModelsSize);
+      
+      if(selectedIndex <= loadedModelsSize){
+	if(mouse.clickL){
+	  curModelsSize++;
+
+	  if(curModels){
+	    curModels = realloc(curModels, curModelsSize * sizeof(Model));
+	  }else{
+	    curModels = malloc(sizeof(Model)); 
+	  }
+
+	  curModels[curModelsSize-1].name = selectedIndex - 1;
+	  curModels[curModelsSize-1].mat = IDENTITY_MATRIX;
+
+	  scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f);
+	  
+	  calculateModelAABB(&curModels[curModelsSize-1]);
+	  
+	  objectsMenu.open = false;
+	};
+
+	
+	setSolidColorTx(redColor, 1.0f);
+      
+	glBindVertexArray(selectionRectVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, selectionRectVBO);
+	
+	float cursorH = 0.06f;
+	float cursorW = 0.02f;
+	  
+	float xRight = -1.0f + 1.0f / 4.0f;
+    
+	float  selectionRect[] = {
+	  -1.0f, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 0.0f,
+	  xRight, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 1.0f,
+	  -1.0f, 1.0f - (selectedIndex) * 0.1f, 0.0f, 0.0f,
+
+	  xRight, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 1.0f,
+	  -1.0f,  1.0f - selectedIndex * 0.1f, 0.0f, 0.0f,
+	  xRight,  1.0f - selectedIndex * 0.1f, 0.0f, 1.0f };
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(selectionRect), selectionRect, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+      
+
+      for(int i=0;i<loadedModelsSize;i++){
+	renderText(loadedModels[i].name, -1.0f, 1.0f - (i * 0.1f), 1);
+      }
+
+      glActiveTexture(solidColorTx);
+      glBindTexture(GL_TEXTURE_2D, solidColorTx);
+      setSolidColorTx(whiteColor, 1.0f);
+      
+      // render cursor
+      {
+	glBindVertexArray(cursorVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, cursorVBO);
+	
+	float cursorH = 0.06f;
+	float cursorW = 0.02f;
+	
+	float cursorPoint[] = {
+	  mouse.cursor.x + cursorW * 0.05f, mouse.cursor.z + cursorH, 0.0f, 0.0f,
+	  mouse.cursor.x + cursorW, mouse.cursor.z + cursorH/2.0f, 0.0f, 0.0f,
+	  mouse.cursor.x, mouse.cursor.z + cursorH / 4.0f, 0.0f, 0.0f,
+
+	  // TODO: If i try to render TRIANGLE with 3 in glDrawArrays instead of 6 + 0.0... here
+	  // it causes artifacts
+	  0.0f,0.0f,0.0f,0.0f,
+	  0.0f,0.0f,0.0f,0.0f,
+	  0.0f,0.0f,0.0f,0.0f,
+	};
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+      
+
       glUseProgram(mainShader);
       glDepthMask(GL_TRUE);
       glEnable(GL_DEPTH_TEST);
-      
-      //      int texture = textTexture("Hello!",font, greenColor, 1.0f);
-      //      printf("%d \n", texture);
-
-      //      glActiveTexture(textTx);
-      //      glBindTexture(GL_TEXTURE_2D, textTx);
-
-
-      //      glBindTexture(GL_TEXTURE_2D, 0);
     }
 
 mouse.clickL = false;
 mouse.clickR = false;
+
+ glFlush();
   
 SDL_GL_SwapWindow(window);
 
@@ -2908,7 +3141,7 @@ void wallsLoadVAOandVBO(){
 }
 //}
 
-Model* loadOBJ(char* path, ModelName name){
+Model* loadOBJ(char* path, char* texturePath, int name){
   fastObjMesh* mesh = fast_obj_read(path);
 
   if (!mesh) {
@@ -2916,12 +3149,12 @@ Model* loadOBJ(char* path, ModelName name){
     exit(0);
   }
 
-  Model* object = malloc(sizeof(Model));
-  object->size = mesh->index_count;
+ // loadedModels[name] = (ModelInfo*)malloc(sizeof(ModelInfo));
+  loadedModels[name].size = mesh->index_count;
 
   // vertecies
   vec3* verts = malloc(mesh->position_count * sizeof(vec3));
-  object->vertices = malloc(mesh->index_count * sizeof(vec3));
+  loadedModels[name].vertices = malloc(mesh->index_count * sizeof(vec3));
 
   //  vec3 lb = { 1000, 1000, 1000 };
   //  vec3 rt = { 0,0,0 };
@@ -2973,7 +3206,7 @@ Model* loadOBJ(char* path, ModelName name){
   // TODO: Make these 3 index_count loops in one
   for(int i=0; i< mesh->index_count; i++){
     sortedNormals[i] = normals[mesh->indices[i].n - 1];
-    object->vertices[i] = verts[mesh->indices[i].p - 1];
+    loadedModels[name].vertices[i] = verts[mesh->indices[i].p - 1];
     sortedUvs[i] = uvs[mesh->indices[i].t - 1];
   }
   
@@ -2983,20 +3216,20 @@ Model* loadOBJ(char* path, ModelName name){
 
   fast_obj_destroy(mesh);
   
-  float* modelVerts = malloc(sizeof(float) * 8 * object->size);
+  float* modelVerts = malloc(sizeof(float) * 8 * loadedModels[name].size);
 
-  glGenVertexArrays(1, &object->VAO);
-  glBindVertexArray(object->VAO);
+  glGenVertexArrays(1, &loadedModels[name].VAO);
+  glBindVertexArray(loadedModels[name].VAO);
 
-  glGenBuffers(1, &object->VBO);
-  glBindBuffer(GL_ARRAY_BUFFER, object->VBO);
+  glGenBuffers(1, &loadedModels[name].VBO);
+  glBindBuffer(GL_ARRAY_BUFFER, loadedModels[name].VBO);
   
   int index = 0;
   
-  for(int i=0;i<object->size * 8;i+=8){
-    modelVerts[i] = object->vertices[index].x;
-    modelVerts[i + 1] = object->vertices[index].y;
-    modelVerts[i + 2] = object->vertices[index].z;
+  for(int i=0;i<loadedModels[name].size * 8;i+=8){
+    modelVerts[i] = loadedModels[name].vertices[index].x;
+    modelVerts[i + 1] = loadedModels[name].vertices[index].y;
+    modelVerts[i + 2] = loadedModels[name].vertices[index].z;
 
     modelVerts[i + 3] = sortedUvs[index].x;
     modelVerts[i + 4] = sortedUvs[index].y;
@@ -3011,7 +3244,7 @@ Model* loadOBJ(char* path, ModelName name){
   free(sortedNormals);
   free(sortedUvs);
 
-  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8 * object->size, modelVerts, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8 * loadedModels[name].size, modelVerts, GL_STATIC_DRAW);
 
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
   glEnableVertexAttribArray(0);
@@ -3027,21 +3260,53 @@ Model* loadOBJ(char* path, ModelName name){
 
   free(modelVerts);
 
-  // set mat of object to IDENTITY_MATRIX
-  object->mat.m[0] = 1;
-  object->mat.m[5] = 1;
-  object->mat.m[10] = 1;
-  object->mat.m[15] = 1;
+  // set mat of loadedModels[name] to IDENTITY_MATRIX
+  /*  loadedModels[name].mat.m[0] = 1;
+  loadedModels[name].mat.m[5] = 1;
+  loadedModels[name].mat.m[10] = 1;
+  loadedModels[name].mat.m[15] = 1;
 
-  scale(&object->mat.m, 0.25f, 0.25f, 0.25f);
+  scale(&loadedModels[name].mat.m, 0.25f, 0.25f, 0.25f);
 
   // To get some speed up i can getrid off one O(n) loop
   // simply finding min/max inside of parsing positions above
-  calculateModelAABB(object);
+  calculateModelAABB(loadedModels[name]);*/
   
-  object->name = name;
+  // loadedModels[name].name = name;
+
+  // load texture
+   {
+    glGenTextures(1, &loadedModels[name].tx);
+
+    // -1 because of solidColorTx
+    SDL_Surface* texture = IMG_Load(texturePath);
+
+    if (!texture) {
+      printf("Loading of texture \"%s\" failed", texturePath);
+      exit(0);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, loadedModels[name].tx);
+      
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->w,
+		 texture->h, 0, GL_RGBA,
+		 GL_UNSIGNED_BYTE, texture->pixels);
+
+    GLenum err = glGetError();
+    
+    if (err != GL_NO_ERROR) {
+      printf("OpenGL error: %d\n", err);
+    }
   
-  return object;
+    SDL_FreeSurface(texture);
+      
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
+ 
+  return true;
 }
 
 // it also assigns lb, rt to model
@@ -3049,8 +3314,8 @@ void calculateModelAABB(Model* model){
   model->lb = (vec3){FLT_MAX,FLT_MAX,FLT_MAX};
   model->rt = (vec3){-FLT_MAX,-FLT_MAX,-FLT_MAX};
   
-  for (int i = 0; i < model->size; i++) {
-    vec4 trasformedVert4 = mulmatvec4(model->mat, (vec4) { argVec3(model->vertices[i]), 1.0f });
+  for (int i = 0; i < loadedModels[model->name].size; i++) {
+    vec4 trasformedVert4 = mulmatvec4(model->mat, (vec4) { argVec3(loadedModels[model->name].vertices[i]), 1.0f });
     
     model->lb.x = min(model->lb.x, trasformedVert4.x);
     model->lb.y = min(model->lb.y, trasformedVert4.y);
@@ -3062,39 +3327,185 @@ void calculateModelAABB(Model* model){
   }
 }
 
-int textTexture(char *text, TTF_Font *font, float r, float g, float b, float a) {
-  SDL_Surface* data = TTF_RenderUTF8_Blended(font, text, (SDL_Color){r,g,b,a});
+// from '!' to 'z' in ASCII
+vec2i englLettersMap[] = {
+  { 14, 13}, // '!'
+  { 13, 13}, // '"'
+  { 12, 13}, // '#'
+  { 11, 13}, // '$'
+  { 10, 13}, // '%'
+  { 9, 13}, // '&'
+  { 8, 13}, // '''
+  { 7, 13}, // '('
+  { 6, 13}, // ')'
+  { 5, 13}, // '*'
+  { 4, 13}, // '+'
+  { 3, 13}, // ','
+  { 2, 13}, // '-'
+  { 1, 13}, // '.'
+  { 0, 13}, // '/'
+
+  { 15, 12}, // '0'
+  { 14, 12}, // '1'
+  { 13, 12}, // '2'
+  { 12, 12}, // '3'
+  { 11, 12}, // '4'
+  { 10, 12}, // '5'
+  { 9, 12}, // '6'
+  { 8, 12}, // '7'
+  { 7, 12}, // '8'
+  { 6, 12}, // '9'
+  { 5, 12}, // ':'
+  { 4, 12}, // ';'
+  { 3, 12}, // '<'
+  { 2, 12}, // '='
+  { 1, 12}, // '>'
+  { 0, 12}, // '?'
+
+  { 15, 11}, // '@'
+  { 14, 11}, // 'A'
+  { 13, 11}, // 'B'
+  { 12, 11}, // 'C'
+  { 11, 11}, // 'D'
+  { 10, 11}, // 'E'
+  { 9, 11}, // 'F'
+  { 8, 11}, // 'G'
+  { 7, 11}, // 'H'
+  { 6, 11}, // 'I'
+  { 5, 11}, // 'J'
+  { 4, 11}, // 'K'
+  { 3, 11}, // 'L'
+  { 2, 11}, // 'M'
+  { 1, 11}, // 'N'
+  { 0, 11}, // 'O'
+
+  { 15, 10}, // 'P'
+  { 14, 10}, // 'Q'
+  { 13, 10}, // 'R'
+  { 12, 10}, // 'S'
+  { 11, 10}, // 'T'
+  { 10, 10}, // 'U'
+  { 9, 10}, // 'V'
+  { 8, 10}, // 'W'
+  { 7, 10}, // 'X'
+  { 6, 10}, // 'Y'
+  { 5, 10}, // 'Z'
+  { 4, 10}, // '['
+  { 3, 10}, // '\'
+  { 2, 10}, // ']'
+  { 1, 10}, // '^'
+  { 0, 10}, // '_'
+
+  { 15, 9}, // '`'
+  { 14, 9}, // 'a'
+  { 13, 9}, // 'b'
+  { 12, 9}, // 'c'
+  { 11, 9}, // 'd'
+  { 10, 9}, // 'e'
+  { 9, 9}, // 'f'
+  { 8, 9}, // 'g'
+  { 7, 9}, // 'h'
+  { 6, 9}, // 'i'
+  { 5, 9}, // 'j'
+  { 4, 9}, // 'k'
+  { 3, 9}, // 'l'
+  { 2, 9}, // 'm'
+  { 1, 9}, // 'n'
+  { 0, 9}, // 'o'
+
+  { 15, 8}, // 'p'
+  { 14, 8}, // 'q'
+  { 13, 8}, // 'r'
+  { 12, 8}, // 's'
+  { 11, 8}, // 't'
+  { 10, 8}, // 'u'
+  { 9, 8}, // 'v'
+  { 8, 8}, // 'w'
+  { 7, 8}, // 'x'
+  { 6, 8}, // 'y'
+  { 5, 8}, // 'z'
+  { 4, 8}, // '{'
+  { 3, 8}, // '|'
+  { 2, 8}, // '}'
+  { 1, 8}, // '~'
+};
+
+// w and h of one letter cell
+const float atlasStep =  0.0625;
+
+void renderText(char* text, float x, float y, float scale){
+  glBindVertexArray(textVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+  glActiveTexture(fontAtlas);
+  glBindTexture(GL_TEXTURE_2D, fontAtlas);
+
+  float letterW = .04f;
+  float letterH = .07f;
+
+  int iter = 0;
+  int padCounter = 0;
+  char ch = text[iter];
+
+  x += letterW;
+  //x += letterH;
   
-  GLint  nbOfColors = data->format->BytesPerPixel;
-  GLenum textureFormat = 0;
+  while(ch){
+    if(ch == '\n'){
+      y-=letterH;
+      padCounter = 0;
 
-  switch (nbOfColors) {
-  case 1:
-    textureFormat = GL_ALPHA;
-    break;
-  case 3:     // no alpha channel
-    if (data->format->Rmask == 0x000000ff)
-      textureFormat = GL_RGB;
-    else
-      textureFormat = GL_BGR;
-    break;
-  case 4:     // contains an alpha channel
-    if (data->format->Rmask == 0x000000ff)
-      textureFormat = GL_RGBA;
-    else
-      textureFormat = GL_BGRA;
-    break;
-  default:
-    break;
+      iter++;
+      ch = text[iter];
+
+      continue;
+    }
+    
+    float lettersPad = padCounter * (letterW / 1.9);
+    int index = ch - 33;
+    vec2i pos = englLettersMap[index];
+  
+    float baseY = atlasStep * pos.z;
+    float baseX = atlasStep * pos.x;
+
+    float symbol[] = {
+      x + lettersPad, y, baseX, baseY + atlasStep, // left top
+      x - letterW + lettersPad, y, baseX + atlasStep, baseY + atlasStep, // right top
+
+      x + lettersPad, y - letterH, baseX, baseY, // right bot
+
+      x - letterW + lettersPad, y, baseX + atlasStep, baseY + atlasStep, // right top
+
+      x + lettersPad, y - letterH, baseX, baseY, // right bot
+      x - letterW + lettersPad, y - letterH, baseX + atlasStep, baseY
+    };
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(symbol), symbol, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1 , 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+      
+    glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+  
+    iter++;
+    padCounter++;
+    ch = text[iter];
   }
+  
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);     
+}
 
-  //glBindTexture(GL_TEXTURE_2D, textTx);
+int strcut(char *str, int begin, int len)
+{
+    int l = strlen(str);
 
-  glTexImage2D(GL_TEXTURE_2D, 0, nbOfColors, data->w, data->h, 0,
-	       textureFormat, GL_UNSIGNED_BYTE, data->pixels );
+    if (len < 0) len = l - begin;
+    if (begin + len > l) len = l - begin;
+    memmove(str + begin, str + begin + len, l - len + 1);
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-  return 0;
+    return len;
 }

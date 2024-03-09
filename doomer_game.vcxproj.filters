@@ -18,6 +18,9 @@
     <ClCompile Include="main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="linearAlg.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h">
@@ -26,7 +29,10 @@
     <ClInclude Include="deps.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="tinyobj_loader_c.h">
+    <ClInclude Include="linearAlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="linmath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

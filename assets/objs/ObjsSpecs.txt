@@ -1,0 +1,8 @@
+Car.obj car.png
+SnowTree0.obj SnowTree0.png
+SnowTree1.obj SnowTree1.png
+Suhrob0.obj Suhrob0.png
+Suhrob1.obj Suhrob1.png
+Bed.obj bed.png
+Shkaf.obj Wardrobe_01.png
+Radio.obj Radio.png

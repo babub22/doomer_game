@@ -6,7 +6,6 @@
 #include <stdbool.h>
 #include <time.h>
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
 #include <stdint.h>
 #include <SDL2/SDL_image.h>
 #include <time.h>
@@ -16,5 +15,3 @@
 
 #include <gl\glew.h>
 #include <gl\glu.h>
-
-#include <freetype-gl/freetype-gl.h>

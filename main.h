@@ -165,20 +165,25 @@ typedef enum{
 } ModelName;
 
 typedef struct{
-  GLuint VBO;
-  GLuint VAO;
-
-  // for AABB recalculating
-  vec3* vertices;
-
-  ModelName name;
+  int name;
   Matrix mat;
-
-  int size;
 
   vec3 lb;
   vec3 rt;
 } Model;
+
+typedef struct{
+  char* name;
+
+  GLuint VBO;
+  GLuint VAO;
+  GLuint tx;
+
+  int size;
+  vec3* vertices;
+  
+  //  Model* model;
+} ModelInfo;
 
 typedef enum{
   // 1,2 to access .ground
@@ -225,6 +230,8 @@ typedef struct{
   // player focused to manipulate
   // on key
   Model* focusedModel;
+
+  vec2 cursor;
 } Mouse;
 
 typedef struct{
@@ -276,19 +283,18 @@ bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfI
 
 void addObjToStore(Object* obj);
 
-int textTexture(char *text, TTF_Font *font, float r, float g, float b, float a);
+bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSid);
 
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 Object* doorConstructor(vec3 pos, bool opened);
 
-bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSid);
 
 vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tileW);
 
 void wallsLoadVAOandVBO();
 
-Model* loadOBJ(char* path, float scale);
+void renderText(char* text, float x, float y, float scale);
 
 // Macro-Functions
 // ~~~~~
@@ -318,7 +324,9 @@ void calculateModelAABB(Model* model);
 
 bool radarCheck(vec3 point);
 
-Model* loadOBJ(char* path, ModelName name);
+int strcut(char *str, int begin, int len);
+
+Model* loadOBJ(char* path, char* texturePath, int name);
 
 #define increaseVAOnVBO() boundVBO++; boundVAO++
 
@@ -342,6 +350,7 @@ GLuint loadShader(GLenum shaderType, const char* filename);
 
 #define game "Doomer game"
 #define texturesFolder "./assets/textures/"
+#define objsFolder "./assets/objs/"
 
 #define speed 0.001f/2
 
