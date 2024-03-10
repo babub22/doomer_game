@@ -6,7 +6,7 @@ uniform float radius;
 
 varying vec3 vertexToPlayer;
 
-varying vec2 TexCoord;
+in vec2 TexCoord;
 
 void main(void)
 {
@@ -14,6 +14,9 @@ void main(void)
     float attenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
     vec4 diffuseTexel = texture2D(colorMap, TexCoord);
+
+    if(diffuseTexel.a < 0.1)
+        discard;
 
     vec4 diffuseTerm  = diffuseTexel * attenuation + (.5 * (1.0-attenuation));
     diffuseTerm.a = diffuseTexel.a; 

@@ -5,6 +5,8 @@
 GLuint textVBO;
 GLuint textVAO;
 
+char curSaveName[CONSOLE_BUF_CAP];
+
 GLuint selectionRectVBO;
 GLuint selectionRectVAO;
 
@@ -21,9 +23,13 @@ size_t loadedModelsSize;
 Model* curModels;
 size_t curModelsSize;
 
+Tile*** grid;
 int gridX = 120;
 int gridY = 15;
 int gridZ = 120;
+
+const float letterW = .04f;
+const float letterH = .07f;
 
 GLuint mappedTextures[texturesCounter + particlesCounter];
 
@@ -41,6 +47,14 @@ float fov;
 float borderArea;
 
 Menu objectsMenu;
+float objectsMenuWidth = -1.0f + 1.0f / 4.0f;
+
+int consoleBufferCursor;
+char consoleBuffer[CONSOLE_BUF_CAP];
+bool consoleHasResponse;
+char consoleResponse[CONSOLE_BUF_CAP * 5];
+Menu console;
+float consoleH = 1.0f - (1.0f * .05f);
 
 EnviromentalConfig enviromental = { true, true };
 
@@ -83,10 +97,9 @@ GLuint cursorVAO;
 int main(int argc, char* argv[]) {
   borderArea = (float)bBlockW/8;
   
-  
   SDL_Init(SDL_INIT_VIDEO);
 
-  char windowTitle[] = game;
+  char windowTitle[100] = game;
   SDL_Window* window = SDL_CreateWindow(windowTitle,
 					SDL_WINDOWPOS_CENTERED,
 					SDL_WINDOWPOS_CENTERED,
@@ -164,9 +177,36 @@ int main(int argc, char* argv[]) {
     // left/right mouse
 
     
-    // objects menu
-    // TODO: Make it in function and generate it by
-    // rectengle points
+    // console
+    {
+      glGenVertexArrays(1, &console.VAO);
+      glBindVertexArray(console.VAO);
+
+      glGenBuffers(1, &console.VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, console.VBO);
+    
+      float consolePoints[] = {
+	-1.0f, 1.0f, 1.0f, 0.0f,
+	1.0f, 1.0f, 1.0f, 1.0f,
+	-1.0f, consoleH, 0.0f, 0.0f,
+
+	1.0f, 1.0f, 1.0f, 1.0f,
+	-1.0f, consoleH, 0.0f, 0.0f,
+	1.0f, consoleH, 0.0f, 1.0f };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(consolePoints), consolePoints, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // bojectsMenu
     {
 
       glGenVertexArrays(1, &objectsMenu.VAO);
@@ -175,28 +215,26 @@ int main(int argc, char* argv[]) {
       glGenBuffers(1, &objectsMenu.VBO);
       glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
 
-      float xRight =       -1.0f + 1.0f / 4.0f;
-	//float xRight = 1.0f;
     
-    float menuPoints[] = {
-      -1.0f, 1.0f, 1.0f, 0.0f,
-      xRight, 1.0f, 1.0f, 1.0f,
-      -1.0f, -1.0f, 0.0f, 0.0f,
+      float menuPoints[] = {
+	-1.0f, 1.0f, 1.0f, 0.0f,
+	objectsMenuWidth, 1.0f, 1.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f, 0.0f,
 
-      xRight, 1.0f, 1.0f, 1.0f,
-      -1.0f, -1.0f, 0.0f, 0.0f,
-      xRight, -1.0f, 0.0f, 1.0f };
+	objectsMenuWidth, 1.0f, 1.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f, 0.0f,
+	objectsMenuWidth, -1.0f, 0.0f, 1.0f };
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(menuPoints), menuPoints, GL_STATIC_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(menuPoints), menuPoints, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-    glEnableVertexAttribArray(0);
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
 
       glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
       glEnableVertexAttribArray(1);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
     }
 
     // top/bot mouse
@@ -448,7 +486,7 @@ int main(int argc, char* argv[]) {
 
   // load shaders and apply it
   {
-      GLuint vertexShader = loadShader(GL_VERTEX_SHADER, "hud.vert");
+    GLuint vertexShader = loadShader(GL_VERTEX_SHADER, "hud.vert");
     GLuint fragmentShader = loadShader(GL_FRAGMENT_SHADER, "hud.frag");
 
     hudShader = glCreateProgram();
@@ -477,7 +515,7 @@ int main(int argc, char* argv[]) {
   
   int viewportLoc = glGetUniformLocation(hudShader, "viewport");
 
-    glUseProgram(mainShader);
+  glUseProgram(mainShader);
   glUniform2f(viewportLoc, windowW, windowH);
   
   vec3 fogColor = {0.5f, 0.5f, 0.5f};
@@ -493,10 +531,7 @@ int main(int argc, char* argv[]) {
   bool highlighting = 1;
   
   // init opengl
-  {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
+  {  
     glEnable(GL_TEXTURE_2D);
     glShadeModel(GL_SMOOTH);
     glClearDepth(1.0f);
@@ -553,17 +588,17 @@ int main(int argc, char* argv[]) {
     glBindTexture(GL_TEXTURE_2D, 0);
   }
   /*
-  GLuint carTx;
+    GLuint carTx;
 
-  {
+    {
     glGenTextures(1, &carTx);
 
     // -1 because of solidColorTx
     SDL_Surface* texture = IMG_Load("./assets/objs/car.png");
 
     if (!texture) {
-      printf("Loading of texture .png\" failed");
-      exit(0);
+    printf("Loading of texture .png\" failed");
+    exit(0);
     }
 
     glBindTexture(GL_TEXTURE_2D, carTx);
@@ -572,22 +607,22 @@ int main(int argc, char* argv[]) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->w,
-		 texture->h, 0, GL_RGBA,
-		 GL_UNSIGNED_BYTE, texture->pixels);
+    texture->h, 0, GL_RGBA,
+    GL_UNSIGNED_BYTE, texture->pixels);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-      printf("OpenGL error: %d\n", err);
-      // Handle OpenGL error
-      // Optionally return or perform other error handling
+    printf("OpenGL error: %d\n", err);
+    // Handle OpenGL error
+    // Optionally return or perform other error handling
     }
   
     SDL_FreeSurface(texture);
       
     glBindTexture(GL_TEXTURE_2D, 0);
-  }
- */ 
-    {
+    }
+  */ 
+  {
     glGenTextures(1, &fontAtlas);
 
     // -1 because of solidColorTx
@@ -617,70 +652,70 @@ int main(int argc, char* argv[]) {
     SDL_FreeSurface(texture);
       
     glBindTexture(GL_TEXTURE_2D, 0);
-    }
+  }
 
-    // load 3d models
-    {
-      FILE* objsSpecs = fopen("./assets/objs/ObjsSpecs.txt", "r");
+  // load 3d models
+  {
+    FILE* objsSpecs = fopen("./assets/objs/ObjsSpecs.txt", "r");
       
-      if(!objsSpecs){
-	printf("ObjsSpecs.txt was not found! \n");
-      }else{
-	int objsCounter = 0;
+    if(!objsSpecs){
+      printf("ObjsSpecs.txt was not found! \n");
+    }else{
+      int objsCounter = 0;
 	
-	char ch;
+      char ch;
 
-	while(ch = fgetc(objsSpecs)){
-	  if(ch == EOF) break;
-	  if(ch == '\n') objsCounter++;
-	};
+      while(ch = fgetc(objsSpecs)){
+	if(ch == EOF) break;
+	if(ch == '\n') objsCounter++;
+      };
 
-	objsCounter++;
-	loadedModels = malloc(sizeof(ModelInfo) * objsCounter);
+      objsCounter++;
+      loadedModels = malloc(sizeof(ModelInfo) * objsCounter);
 
-	rewind(objsSpecs);
+      rewind(objsSpecs);
 
-	for(int i=0; i <objsCounter;i ++){
-	  char textureName[50];
-	  char objName[50];
+      for(int i=0; i <objsCounter;i ++){
+	char textureName[50];
+	char objName[50];
 
-	  fscanf(objsSpecs, "%s %s\n", objName, textureName);
+	fscanf(objsSpecs, "%s %s\n", objName, textureName);
 
-	  char *fullObjPath = malloc(strlen(objName) + strlen(objsFolder) + 1);
+	char *fullObjPath = malloc(strlen(objName) + strlen(objsFolder) + 1);
 	  
-	  strcpy(fullObjPath, objsFolder);
-	  strcat(fullObjPath, objName);
+	strcpy(fullObjPath, objsFolder);
+	strcat(fullObjPath, objName);
 
-	  char *fullTxPath = malloc(strlen(textureName) + strlen(objsFolder) + 1);
+	char *fullTxPath = malloc(strlen(textureName) + strlen(objsFolder) + 1);
 	  
-	  strcpy(fullTxPath, objsFolder);
-	  strcat(fullTxPath, textureName);
+	strcpy(fullTxPath, objsFolder);
+	strcat(fullTxPath, textureName);
 	  
-	  loadOBJ(fullObjPath, fullTxPath, i);
+	loadOBJ(fullObjPath, fullTxPath, i);
 	
-	  free(fullObjPath);
-	  free(fullTxPath);
+	free(fullObjPath);
+	free(fullTxPath);
 	  
-	  loadedModels[i].name = malloc(sizeof(char) * (strlen(objName) + 1));
-	  strcpy(loadedModels[i].name, objName);
-	  strcut(loadedModels[i].name, strlen(objName) - 4, strlen(objName));
+	loadedModels[i].name = malloc(sizeof(char) * (strlen(objName) + 1));
+	strcpy(loadedModels[i].name, objName);
+	strcut(loadedModels[i].name, strlen(objName) - 4, strlen(objName));
 	  
-	  printf("Loaded %s\n", objName);
+	printf("Loaded %s\n", objName);
 	  
-	  loadedModelsSize++;
-	}
-
-	fclose(objsSpecs);
-	
+	loadedModelsSize++;
       }
+
+      fclose(objsSpecs);
+	
+    }
       
-      //       fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
-      //       fgetc(map); // read ,
+    //       fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
+    //       fgetc(map); // read ,
       
       
     //  loadedModels = malloc(sizeof(Model));
-     // loadedModelsSize++;
-    }
+    // loadedModelsSize++;
+  }
   
   // tang of fov calculations
   fov = editorFOV;
@@ -693,13 +728,8 @@ int main(int argc, char* argv[]) {
 
   float testFOV = editorFOV;
 
-  Tile*** grid = NULL;
-
   // load or init grid
-  {
-    FILE* map = fopen("map.doomer", "r");
-
-    if (map == NULL) {
+  if(!loadSave("map")){
       grid = malloc(sizeof(Tile**) * (gridY));
 
       for (int y = 0; y < gridY; y++) {
@@ -721,77 +751,6 @@ int main(int argc, char* argv[]) {
       }
 
       printf("Map not found!\n");
-    }
-    else {
-      int sizeX, sizeZ, sizeY;
-      fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
-      
-      grid = malloc(sizeof(Tile**) * (gridY));
-
-      for (int y = 0; y < gridY; y++) {
-	grid[y] = malloc(sizeof(Tile*) * (gridZ));
-
-	for (int z = 0; z < gridZ; z++) {
-	  grid[y][z] = malloc(sizeof(Tile) * (gridX));
-
-	  for (int x = 0; x < gridX; x++) {
-	    fscanf(map, "[Wls: %d, WlsTx %d, Grd: %d]", &grid[y][z][x].walls, &grid[y][z][x].wallsTx, &grid[y][z][x].ground);
-
-	    GroundType type = valueIn(grid[y][z][x].ground, 0);
-
-	    if(type == netTile || type == 0){
-	      if(y == 0){
-		setIn(grid[y][z][x].ground, 0, texturedTile);
-		setIn(grid[y][z][x].ground, 2, frozenGround);
-	      }else{
-		setIn(grid[y][z][x].ground, 0, netTile);
-	      }
-	    }
-
-	    fgetc(map); // read ,
-	  }
-	}
-	fgetc(map); // read \n
-      }
-    
-      fscanf(map, "\nUsed models: %d\n", &curModelsSize);
-
-      if(curModelsSize != 0){
-	curModels = malloc(curModelsSize * sizeof(Model*));
-    
-	for(int i=0; i<curModelsSize; i++){
-	  /*	  if(curModels[i].name == yalinka){
-	  // TODO: Make here some enum to string function
-	  fprintf(map, "Yalinka[%d] ", yalinka);
-	  }*/
-	  int name = -1;
-	  fscanf(map, "%d ", &name);
-
-	  if(name >= modelsCounter || name < 0){
-	    printf("Models parsing error, model name (%d) doesnt exist \n", name);
-	    exit(0);
-	  }
-	  
-	  //curModels[i] = malloc(sizeof(Model));
-	  curModels[i].name = name;
-	  
-	  //	  memcpy(curModels[i], models[name], sizeof(Model));
-
-	  fgetc(map); // read [
-
-	  for(int mat=0;mat<16;mat++){
-	    fscanf(map, "%f ", &curModels[i].mat.m[mat]);
-	  }
-
-	  calculateModelAABB(&curModels[i]);
-	  
-	  fgetc(map); // read ]\n
-	}
-
-	printf("Map loaded! \n");
-	fclose(map);
-      }
-    }
   }
 
   // set up camera
@@ -812,32 +771,9 @@ int main(int argc, char* argv[]) {
 
   ManipulationMode manipulationMode = -1;
 
-  // init snow particles
-  {
-    FILE *snowConf = fopen("snow.txt","r");
-    
-    if(snowConf){
-      fscanf(snowConf,"AMOUNT=%d\nSPEED=%f\n", &snowAmount, &snowSpeed);
-      fclose(snowConf);
-    }else{
-      snowAmount = snowDefAmount;
-      snowSpeed = snowGravity;
-    }
+  // show show
 
-    snowParticle = (Particle*)malloc(sizeof(Particle) * snowAmount);
-
-    for (int loop = 0; loop < snowAmount; loop++)
-      {
-	snowParticle[loop].active = true;
-
-	snowParticle[loop].life = 1.0f;
-	snowParticle[loop].fade = (float)(rand() % 100) / 1000.0f + 0.003f;
-
-	snowParticle[loop].x = (float)(rand() % gridX / 10.0f) + (float)(rand() % 100 / 1000.0f);
-	snowParticle[loop].y = (float)(rand() % (int)(gridY * bBlockH)) + (float)(rand() % 1000) / 1000.0f;
-	snowParticle[loop].z = (float)(rand() % gridZ / 10.0f) + (float)(rand() % 100 / 1000.0f);
-      }
-  }
+  initSnowParticles();
   
   const float entityH = 0.17f;
   const float entityW = 0.1f / 2.0f;
@@ -856,7 +792,7 @@ int main(int argc, char* argv[]) {
 
   while (!quit) {
     uint32_t starttime = GetTickCount();
-
+	 
     clock_t currentFrame = clock();
     deltaTime = (double)(currentFrame - lastFrame) / CLOCKS_PER_SEC;
     lastFrame = currentFrame;
@@ -871,354 +807,468 @@ int main(int argc, char* argv[]) {
       }
 
       if (event.type == SDL_KEYDOWN) {
-	switch (event.key.keysym.scancode) {
-	case(SDL_SCANCODE_UP): {
-	  if(manipulationMode != -1){
-	    switch(manipulationMode){
-	    case(TRANSFORM_Z):{
-	      curModels[curModelsSize-1].mat.m[13] = curModels[curModelsSize-1].mat.m[13] + 0.05f;
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-	    case(TRANSFORM_XY):{
-	      curModels[curModelsSize-1].mat.m[12] = curModels[curModelsSize-1].mat.m[12] - 0.05f;
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-	    case(SCALE):{
-	      scale(curModels[curModelsSize-1].mat.m, 1.05f, 1.05f, 1.05f);
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-
-	    default: break;
-	    }
-	  }
-	  else if (mouse.wallType != -1) {
-	    Texture nextTx = 0;
-
-	    if (mouse.wallTx != texturesCounter - 1) {
-	      nextTx = mouse.wallTx + 1;
-	    }
-	    else {
-	      nextTx = 0;
-	    }
-
-	    setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);
-	  }
-	  else if (mouse.groundInter != -1) {
-	    GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
-
-	    if (type != texturedTile) {
-	      setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
-	      setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, 0);
-	    }
-	    else {
-	      Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
-
-	      if (curTx == texturesCounter - 1) {
-		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
-	      }
-	      else {
-		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx + 1);
-	      }
-	    }
-	  }
-
-	  break;
-	}
-	case(SDL_SCANCODE_DOWN): {
-	  // TODO: if intersected tile + wall will work only tile changer
-	  if(manipulationMode != -1){
-	    switch(manipulationMode){
-	    case(TRANSFORM_Z):{
-	      curModels[curModelsSize-1].mat.m[13] = curModels[curModelsSize-1].mat.m[13] - 0.05f;
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-	    case(TRANSFORM_XY):{
-	      curModels[curModelsSize-1].mat.m[12] = curModels[curModelsSize-1].mat.m[12] + 0.05f;
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-	    case(SCALE):{
-	      scale(curModels[curModelsSize-1].mat.m, 1.0f/1.05f, 1.0f/1.05f, 1.0f/1.05f);
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-
-	    default: break;
-	    }
-	  }else if (mouse.wallType != -1) {
-	    Texture prevTx = 0;
-
-	    if (mouse.wallTx != 0) {
-	      prevTx = mouse.wallTx - 1;
-	    }
-	    else {
-	      prevTx = texturesCounter - 1;
-	    }
-
-	    setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, prevTx);
-	  }
-	  else if (mouse.groundInter != -1) {
-	    GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
-
-	    if (type != texturedTile) {
-	      setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
-	      setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, texturesCounter - 1);
-	    }
-	    else {
-	      Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
-
-	      if (curTx == 0) {
-		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
-	      }
-	      else {
-		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx - 1);
-	      }
-	    }
-	  }
-
-	  break;
-	}
-	case(SDL_SCANCODE_Q): {
-	  curCamera->pos.y += .01f ;
+	if(console.open){
+	  consoleHasResponse = false;
 	  
-	  break;
-	}
-	case(SDL_SCANCODE_E): {
-	  curCamera->pos.y -= .01f;
+	  if(event.key.keysym.scancode == SDL_SCANCODE_RETURN){
+	    char copy_consoleBuffer[CONSOLE_BUF_CAP];
+	    strcpy(copy_consoleBuffer, consoleBuffer);
 
-	  break;
-	} 
-	case(SDL_SCANCODE_Z): {
-	  drawDistance += .1f / 2.0f;
+	    char* str_tok = strtok(copy_consoleBuffer, " ");
+	    
+	    if (str_tok) {
+	      if(strcmp(str_tok, "help") == 0){
+		strcpy(consoleResponse, "help - all available commands\nsave <file_name> - save current map in new file\nload <file_name> - load map from file\ncreate <x> <y> <z> <file_name> - to create new world with size x, y, z");
+	      }else if(strcmp(str_tok, "load") == 0){
+		str_tok = strtok(NULL, " ");
 
-	  if(enviromental.fog){
-	    glUniform1f(radius, drawDistance);
+		if(str_tok){
+		  if(loadSave(str_tok)){
+		    sprintf(consoleResponse, "Save \"%s\" was successfully loaded", str_tok);
+		  }else{
+		    sprintf(consoleResponse, "Save \"%s\" doesnt exist", str_tok);
+		  }
+		}else{
+		  strcpy(consoleResponse, "Provide name of save to load \"load <file_name>\"");
+		}
+	      }else if(strcmp(str_tok, "save") == 0){
+		// get save arg
+		str_tok = strtok(NULL, " ");
+
+		if(str_tok){
+		  if(saveMap(str_tok)){
+		    sprintf(consoleResponse, "Save \"%s\" was successfully saved", str_tok);
+		  }else{
+		    // sprintf(consoleResponse, "Save \"%s\" was successfully saved", str_tok);
+		  }
+		}else{
+		  strcpy(consoleResponse, "Provide name for save \"save <file_name>\"");
+		}
+		
+	      }else if(strcmp(str_tok, "create") == 0){
+		// get save arg
+		str_tok = strtok(NULL, " ");
+
+		int x, y, z;
+
+		bool generalMistake = false;
+
+		if(str_tok){
+		  x = atoi(str_tok);
+
+		  if(x<=0){
+		    sprintf(consoleResponse, "Incorrect x(%d) value, x must be > 0", x);
+		  }else{
+		    str_tok = strtok(NULL, " ");
+
+		    if(str_tok){
+		      y = atoi(str_tok);
+
+		      if(y<=9){
+			sprintf(consoleResponse, "Incorrect y(%d) value, y must be >= 10", x);
+		      }else{
+			str_tok = strtok(NULL, " ");
+
+			if(str_tok){
+			  z = atoi(str_tok);
+
+			  if(z <= 0){
+			    sprintf(consoleResponse, "Incorrect z(%d) value, z must be > 0", x);
+			  }else{
+			    str_tok = strtok(NULL, " ");
+			    
+			    if(str_tok){
+			      strcpy(curSaveName, str_tok);
+			      createMap(x, y, z);
+			      sprintf(consoleResponse, "Map was craeted with size x: %d y: %d z:%d", x,y,z);
+			    }else{
+			      generalMistake = true;
+			    }
+			  }
+			}else{
+			  generalMistake = true;
+			}
+		      }
+		    }else{
+		      generalMistake = true;
+		    }
+		  }
+		}else{
+		  generalMistake = true;
+		}
+
+		if(generalMistake){
+		  strcpy(consoleResponse, "From to create new map \"create <x> <y> <z> <file_name>\"");
+		}
+	      }else{
+		sprintf(consoleResponse, "Command \"%s\"  doesnt exist\nWrite \"help\" to get all available commands", str_tok);
+	      }
+
+	      consoleHasResponse = true;
+	    }
+	  }else if(event.key.keysym.scancode == SDL_SCANCODE_F1){
+	    console.open = false;
+	  }else if(consoleBufferCursor > 0 && event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
+	    consoleBufferCursor--;
+	    consoleBuffer[consoleBufferCursor] = 0;
+	  }else if(consoleBufferCursor < CONSOLE_BUF_CAP - 1){
+	    if(event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39){
+	      consoleBuffer[consoleBufferCursor] = sdlScancodesToACII[event.key.keysym.scancode];
+	      consoleBufferCursor++;
+	    }else if(event.key.keysym.scancode == SDL_SCANCODE_SPACE){
+	      bool prevCharIsntSpace = consoleBufferCursor > 0 && consoleBuffer[consoleBufferCursor - 1] != ' ';
+
+	      if(prevCharIsntSpace){
+		consoleBuffer[consoleBufferCursor] = ' ';
+		consoleBufferCursor++;
+	      }
+	    }
 	  }
-
-	  break;
-	}
-	case(SDL_SCANCODE_X): {
-	  drawDistance -= .1f / 2.0f;
-
-	  if(enviromental.fog){
-	    glUniform1f(radius, drawDistance);
+	}else{       
+	  switch (event.key.keysym.scancode) {
+	  case(SDL_SCANCODE_F1):{
+	    console.open = true;
+	  
+	    break;
 	  }
+	  case(SDL_SCANCODE_UP): {
+	    if(manipulationMode != -1){
+	      switch(manipulationMode){
+	      case(TRANSFORM_Z):{
+		mouse.focusedModel->mat.m[13] = mouse.focusedModel->mat.m[13] + 0.001f;
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+	      case(TRANSFORM_XY):{
+		mouse.focusedModel->mat.m[12] = mouse.focusedModel->mat.m[12] - 0.01f;
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+	      case(SCALE):{
+		scale(mouse.focusedModel->mat.m, 1.05f, 1.05f, 1.05f);
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
 
-	  break;
-	}
-	case(SDL_SCANCODE_LEFT): {
-	  if(manipulationMode != -1){
-	    switch(manipulationMode){
-	    case(ROTATE_Y):{
-	      rotateY(curModels[curModelsSize-1].mat.m, -rad(1.0f));
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
+	      default: break;
+	      }
 	    }
-	    case(ROTATE_Z):{
-	      rotateZ(curModels[curModelsSize-1].mat.m, -rad(1.0f));
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
+	    else if (mouse.wallType != -1) {
+	      Texture nextTx = 0;
+
+	      if (mouse.wallTx != texturesCounter - 1) {
+		nextTx = mouse.wallTx + 1;
+	      }
+	      else {
+		nextTx = 0;
+	      }
+
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);
 	    }
-	    case(ROTATE_X):{
-	      rotateX(curModels[curModelsSize-1].mat.m, -rad(1.0f));
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
+	    else if (mouse.groundInter != -1) {
+	      GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
+
+	      if (type != texturedTile) {
+		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
+		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, 0);
+	      }
+	      else {
+		Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
+
+		if (curTx == texturesCounter - 1) {
+		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
+		}
+		else {
+		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx + 1);
+		}
+	      }
 	    }
-	    case(TRANSFORM_XY):{
-	      curModels[curModelsSize-1].mat.m[14] = curModels[curModelsSize-1].mat.m[14] + 0.05f;
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
+
+	    break;
+	  }
+	  case(SDL_SCANCODE_DOWN): {
+	    // TODO: if intersected tile + wall will work only tile changer
+	    if(manipulationMode != -1){
+	      switch(manipulationMode){ 
+	      case(TRANSFORM_Z):{
+		mouse.focusedModel->mat.m[13] = mouse.focusedModel->mat.m[13] - 0.001f;   
+		calculateModelAABB(mouse.focusedModel); 
+		break;
+	      }
+	      case(TRANSFORM_XY):{
+		mouse.focusedModel->mat.m[12] = mouse.focusedModel->mat.m[12] + 0.01f;    
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+	      case(SCALE):{
+		scale(mouse.focusedModel->mat.m, 1.0f/1.05f, 1.0f/1.05f, 1.0f/1.05f);
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+
+	      default: break;
+	      }
+	    }else if (mouse.wallType != -1) {
+	      Texture prevTx = 0;
+
+	      if (mouse.wallTx != 0) {
+		prevTx = mouse.wallTx - 1;
+	      }
+	      else {
+		prevTx = texturesCounter - 1;
+	      }
+
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, prevTx);
 	    }
+	    else if (mouse.groundInter != -1) {
+	      GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
+
+	      if (type != texturedTile) {
+		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
+		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, texturesCounter - 1);
+	      }
+	      else {
+		Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
+
+		if (curTx == 0) {
+		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
+		}
+		else {
+		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx - 1);
+		}
+	      }
+	    }
+
+	    break;
+	  }
+	  case(SDL_SCANCODE_Q): {
+	    curCamera->pos.y += .01f ;
+	  
+	    break;
+	  }
+	  case(SDL_SCANCODE_F): {
+	    if(mouse.selectedModel && !mouse.focusedModel){
+	      mouse.focusedModel = mouse.selectedModel;
+	    }else if(mouse.focusedModel){
+	      mouse.focusedModel = NULL;
+	    };
+	  
+	    break;
+	  }
+	  case(SDL_SCANCODE_E): {
+	    curCamera->pos.y -= .01f;
+
+	    break;
+	  } 
+	  case(SDL_SCANCODE_Z): {
+	    drawDistance += .1f / 2.0f;
+
+	    if(enviromental.fog){
+	      glUniform1f(radius, drawDistance);
+	    }
+
+	    break;
+	  }
+	  case(SDL_SCANCODE_X): {
+	    drawDistance -= .1f / 2.0f;
+
+	    if(enviromental.fog){
+	      glUniform1f(radius, drawDistance);
+	    }
+
+	    break;
+	  }
+	  case(SDL_SCANCODE_LEFT): {
+	    if(manipulationMode != -1){
+	      switch(manipulationMode){
+	      case(ROTATE_Y):{
+		rotateY(mouse.focusedModel->mat.m, -rad(1.0f));
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+	      case(ROTATE_Z):{
+		rotateZ(mouse.focusedModel->mat.m, -rad(1.0f));
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+	      case(ROTATE_X):{
+		rotateX(mouse.focusedModel->mat.m, -rad(1.0f));
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+	      case(TRANSFORM_XY):{
+		mouse.focusedModel->mat.m[14] = mouse.focusedModel->mat.m[14] + 0.01f;
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
 		      
-	    default: break;
-	    }
-	  }else if (mouse.wallType != -1) {
-	    WallType prevType = 0;
+	      default: break;
+	      }
+	    }else if (mouse.wallType != -1) {
+	      WallType prevType = 0;
 
-	    if (mouse.wallType != 1) {
-	      prevType = mouse.wallType - 1;
-	    }
-	    else {
-	      prevType = wallTypeCounter - 1;
-	    }
+	      if (mouse.wallType != 1) {
+		prevType = mouse.wallType - 1;
+	      }
+	      else {
+		prevType = wallTypeCounter - 1;
+	      }
 
-	    Side oppositeSide = 0;
-	    vec2i oppositeTile = { 0 };
+	      Side oppositeSide = 0;
+	      vec2i oppositeTile = { 0 };
 
-	    setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, prevType);
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, prevType);
 
-	    if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
-	      setIn(grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, prevType);
-	    }
-	  }
-
-	  break;
-	}
-	case(SDL_SCANCODE_RIGHT): {
-	  if(manipulationMode != -1){
-	    switch(manipulationMode){
-	    case(ROTATE_Y):{
-	      rotateY(curModels[curModelsSize-1].mat.m, rad(1.0f));
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-	    case(ROTATE_Z):{
-	      rotateZ(curModels[curModelsSize-1].mat.m, rad(1.0f));
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-	    case(ROTATE_X):{
-	      rotateX(curModels[curModelsSize-1].mat.m, rad(1.0f));
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-	    case(TRANSFORM_XY):{
-	      curModels[curModelsSize-1].mat.m[14] = curModels[curModelsSize-1].mat.m[14] - 0.05f;
-	      calculateModelAABB(&curModels[curModelsSize-1]);
-	      break;
-	    }
-
-	    default: break;
-	    }
-	  }else if (mouse.wallType != -1) {
-	    WallType nextType = 0;
-
-	    if (mouse.wallType != wallTypeCounter - 1) {
-	      nextType = mouse.wallType + 1;
-	    }
-	    else {
-	      nextType = 1;
-	    }
-
-	    Side oppositeSide = 0;
-	    vec2i oppositeTile = { 0 };
-
-	    setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, nextType);
-
-	    if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
-	      setIn(grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, nextType);
-	    }
-	  }
-
-	  break;
-	}
-
-
-	case(SDL_SCANCODE_SPACE): {
-	  cameraMode = !cameraMode;
-
-	  curCamera = cameraMode ? &camera1 : &camera2;
-
-	  break;
-	}
-	case(SDL_SCANCODE_O): {
-	  objectsMenu.open = !objectsMenu.open;
-	  /*	  curModelsSize++;
-
-	  if(curModels){
-	    curModels = realloc(curModels, curModelsSize * sizeof(Model*));
-	  }else{
-	    curModels = malloc(sizeof(Model*));
-	  }
-
-	  curModels[curModelsSize-1] = malloc(sizeof(Model));
-	  memcpy(curModels[curModelsSize-1], models[yalinka], sizeof(Model));*/
-
-	  break;
-	}
-	case(SDL_SCANCODE_EQUALS): {
-	  if (floor < gridY - 1) {
-	    floor++;
-	  }
-
-	  break;
-	}
-	case(SDL_SCANCODE_MINUS): {
-	  if (floor != 0) {
-	    floor--;
-	  }
-
-	  break;
-	}
-	case(SDL_SCANCODE_V): {
-	  enviromental.snow = !enviromental.snow;
-
-	  break;
-	}
-	case(SDL_SCANCODE_N): {
-	  // TODO: Come up way to turn on/off fog
-	  enviromental.fog = !enviromental.fog;
-
-	  if(enviromental.fog){
-	    glUniform1f(radius, drawDistance);
-	  }else{
-	    glUniform1f(radius, 200.0f);
-	  }
-				  
-	  break;
-	}
-	case(SDL_SCANCODE_F5): {
-	  FILE* map = fopen("map.doomer", "w");
-
-	  fprintf(map, "%d %d %d \n", gridY, gridZ, gridX);
-
-	  for (int y = 0; y < gridY; y++) {
-	    for (int z = 0; z < gridZ; z++) {
-	      for (int x = 0; x < gridX; x++) {
-		fprintf(map, "[Wls: %d, WlsTx %d, Grd: %d],", grid[y][z][x].walls, grid[y][z][x].wallsTx, grid[y][z][x].ground);
+	      if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
+		setIn(grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, prevType);
 	      }
 	    }
 
-	    fprintf(map, "\n");
+	    break;
 	  }
+	  case(SDL_SCANCODE_RIGHT): {
+	    if(manipulationMode != -1){
+	      switch(manipulationMode){
+	      case(ROTATE_Y):{
+		rotateY(mouse.focusedModel->mat.m, rad(1.0f));
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+	      case(ROTATE_Z):{
+		rotateZ(mouse.focusedModel->mat.m, rad(1.0f));
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+	      case(ROTATE_X):{
+		rotateX(mouse.focusedModel->mat.m, rad(1.0f));
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
+	      case(TRANSFORM_XY):{
+		mouse.focusedModel->mat.m[14] = mouse.focusedModel->mat.m[14] - 0.01f;
+		calculateModelAABB(mouse.focusedModel);
+		break;
+	      }
 
-	  fprintf(map, "\nUsed models: %d\n",curModelsSize);
-	
-	  for(int i=0; i<curModelsSize; i++){
-	    /*	  if(curModels[i].name == yalinka){
-	    // TODO: Make here some enum to string function
-	    fprintf(map, "Yalinka[%d] ", yalinka);
-	    }*/
-	    fprintf(map, "%d ", yalinka);
+	      default: break;
+	      }
+	    }else if (mouse.wallType != -1) {
+	      WallType nextType = 0;
 
-	    fprintf(map, "[");
+	      if (mouse.wallType != wallTypeCounter - 1) {
+		nextType = mouse.wallType + 1;
+	      }
+	      else {
+		nextType = 1;
+	      }
 
-	    for(int mat=0;mat<16;mat++){
-	      fprintf(map, "%f ", curModels[i].mat.m[mat]);
+	      Side oppositeSide = 0;
+	      vec2i oppositeTile = { 0 };
+
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, nextType);
+
+	      if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
+		setIn(grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, nextType);
+	      }
 	    }
-	  
-	    fprintf(map, "]\n");
+
+	    break;
 	  }
 
-	  printf("Map saved!\n");
 
-	  fclose(map);
-	  break;
-	}
-	case(SDL_SCANCODE_H): {
-	  highlighting = !highlighting;
-	  break;
-	}
-	case(SDL_SCANCODE_DELETE): {
-	  if (mouse.wallSide != -1) {
-	    WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
+	  case(SDL_SCANCODE_SPACE): {
+	    cameraMode = !cameraMode;
 
-	    Side oppositeSide = 0;
-	    vec2i oppositeTile = { 0 };
-	    grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls &= ~(0xFF << (mouse.wallSide * 8));
+	    curCamera = cameraMode ? &camera1 : &camera2;
 
-	    if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
-	      grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls &= ~(0xFF << (oppositeSide * 8));
+	    break;
+	  }
+	  case(SDL_SCANCODE_O): {
+	    objectsMenu.open = !objectsMenu.open;
+	    /*	  curModelsSize++;
+
+		  if(curModels){
+		  curModels = realloc(curModels, curModelsSize * sizeof(Model*));
+		  }else{
+		  curModels = malloc(sizeof(Model*));
+		  }
+
+		  mouse.focusedModel->= malloc(sizeof(Model));
+		  memcpy(mouse.focusedModel-> models[yalinka], sizeof(Model));*/
+
+	    break;
+	  }
+	  case(SDL_SCANCODE_EQUALS): {
+	    if (floor < gridY - 1) {
+	      floor++;
 	    }
-	  }
 
-	  break;
-	}
-	default: break;
+	    break;
+	  }
+	  case(SDL_SCANCODE_MINUS): {
+	    if (floor != 0) {
+	      floor--;
+	    }
+
+	    break;
+	  }
+	  case(SDL_SCANCODE_V): {
+	    enviromental.snow = !enviromental.snow;
+
+	    break;
+	  }
+	  case(SDL_SCANCODE_N): {
+	    // TODO: Come up way to turn on/off fog
+	    enviromental.fog = !enviromental.fog;
+
+	    if(enviromental.fog){
+	      glUniform1f(radius, drawDistance);
+	    }else{
+	      glUniform1f(radius, 200.0f);
+	    }
+				  
+	    break;
+	  }
+	  case(SDL_SCANCODE_F5): {
+	    saveMap(curSaveName);
+	    break;
+	  }
+	  case(SDL_SCANCODE_H): {
+	    highlighting = !highlighting;
+	    break;
+	  }
+	  case(SDL_SCANCODE_DELETE): {
+	    if(mouse.selectedModel){
+	      int index = 0;
+
+	      for(int i=0;i<curModelsSize;i++){ 
+		if(curModels[i].id == mouse.selectedModel->id){
+		  continue;
+		}
+
+		curModels[index] = curModels[i];
+		index++;
+	      }
+
+	      curModelsSize--;
+	      curModels = realloc(curModels, curModelsSize * sizeof(Model));
+	    
+	    }else if (mouse.wallSide != -1) {
+	      WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
+
+	      Side oppositeSide = 0;
+	      vec2i oppositeTile = { 0 };
+	      grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls &= ~(0xFF << (mouse.wallSide * 8));
+
+	      if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
+		grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls &= ~(0xFF << (oppositeSide * 8));
+	      }
+	    }
+
+	    break;
+	  }
+	  default: break;
+	  }
 	}
       }
 
@@ -1283,171 +1333,183 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    if(!console.open){
 
-    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+      const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
-    if (currentKeyStates[SDL_SCANCODE_W])
-      {
-	if (curCamera) {//cameraMode){
-	  vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
+      if (currentKeyStates[SDL_SCANCODE_W])
+	{
+	  if (curCamera) {//cameraMode){
+	    vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
 		    
-	  curCamera->pos.x -= cameraSpeed * normFront.x;
-	  curCamera->pos.y -= cameraSpeed * normFront.y;
-	  curCamera->pos.z -= cameraSpeed * normFront.z;
-	}
-	else {
-	  float dx = speed * sin(rad(player.angle));
-	  float dz = speed * cos(rad(player.angle));
+	    curCamera->pos.x -= cameraSpeed * normFront.x;
+	    curCamera->pos.y -= cameraSpeed * normFront.y;
+	    curCamera->pos.z -= cameraSpeed * normFront.z;
+	  }
+	  else {
+	    float dx = speed * sin(rad(player.angle));
+	    float dz = speed * cos(rad(player.angle));
 
-	  vec2 tile = { (player.max.x + dx) / bBlockW, (player.max.z + dz) / bBlockD };
+	    vec2 tile = { (player.max.x + dx) / bBlockW, (player.max.z + dz) / bBlockD };
 
-	  bool isIntersect = false;
+	    bool isIntersect = false;
 
-	  if (grid[floor][(int)tile.z][(int)tile.x].walls != 0) {
-	    for (int side = 0; side < basicSideCounter; side++) {
-	      WallType type = (grid[floor][(int)tile.z][(int)tile.x].walls >> (side * 8)) & 0xFF;
-	      vec3 pos = { (float)(int)tile.x * bBlockW, 0.0f,  (float)(int)tile.z * bBlockD };
+	    if (grid[floor][(int)tile.z][(int)tile.x].walls != 0) {
+	      for (int side = 0; side < basicSideCounter; side++) {
+		WallType type = (grid[floor][(int)tile.z][(int)tile.x].walls >> (side * 8)) & 0xFF;
+		vec3 pos = { (float)(int)tile.x * bBlockW, 0.0f,  (float)(int)tile.z * bBlockD };
 
-	      if (type == wallT) {
-		vec3 rt = { 0 };
-		vec3 lb = { 0 };
+		if (type == wallT) {
+		  vec3 rt = { 0 };
+		  vec3 lb = { 0 };
 
-		switch (side) {
-		case(top): {
-		  lb = (vec3){ pos.x, pos.y, pos.z };
-		  rt = (vec3){ pos.x + bBlockW, pos.y + bBlockH, pos.z + wallD };
+		  switch (side) {
+		  case(top): {
+		    lb = (vec3){ pos.x, pos.y, pos.z };
+		    rt = (vec3){ pos.x + bBlockW, pos.y + bBlockH, pos.z + wallD };
 
-		  break;
+		    break;
+		  }
+		  case(bot): {
+		    lb = (vec3){ pos.x, pos.y, pos.z + bBlockD };
+		    rt = (vec3){ pos.x + bBlockW, pos.y + bBlockH, pos.z + bBlockD + wallD };
+
+		    break;
+		  }
+		  case(left): {
+		    lb = (vec3){ pos.x, pos.y, pos.z };
+		    rt = (vec3){ pos.x + wallD, pos.y + bBlockH, pos.z + bBlockD };
+
+		    break;
+		  }
+		  case(right): {
+		    lb = (vec3){ pos.x + bBlockW, pos.y, pos.z };
+		    rt = (vec3){ pos.x + bBlockW,pos.y + bBlockH, pos.z + bBlockD };
+
+		    break;
+		  }
+		  default: break;
+		  }
+
+		  if (player.min.x + dx <= rt.x &&
+		      player.max.x + dx >= lb.x &&
+		      player.min.y <= rt.y &&
+		      player.max.y >= lb.y &&
+		      player.min.z + dz <= rt.z &&
+		      player.max.z + dz >= lb.z) {
+		    isIntersect = true;
+		    break;
+		  }
+
 		}
-		case(bot): {
-		  lb = (vec3){ pos.x, pos.y, pos.z + bBlockD };
-		  rt = (vec3){ pos.x + bBlockW, pos.y + bBlockH, pos.z + bBlockD + wallD };
-
-		  break;
-		}
-		case(left): {
-		  lb = (vec3){ pos.x, pos.y, pos.z };
-		  rt = (vec3){ pos.x + wallD, pos.y + bBlockH, pos.z + bBlockD };
-
-		  break;
-		}
-		case(right): {
-		  lb = (vec3){ pos.x + bBlockW, pos.y, pos.z };
-		  rt = (vec3){ pos.x + bBlockW,pos.y + bBlockH, pos.z + bBlockD };
-
-		  break;
-		}
-		default: break;
-		}
-
-		if (player.min.x + dx <= rt.x &&
-		    player.max.x + dx >= lb.x &&
-		    player.min.y <= rt.y &&
-		    player.max.y >= lb.y &&
-		    player.min.z + dz <= rt.z &&
-		    player.max.z + dz >= lb.z) {
-		  isIntersect = true;
-		  break;
-		}
-
 	      }
 	    }
+
+	    if (!isIntersect) {
+	      player.pos.x += dx;
+	      player.pos.z += dz;
+	    }
+
 	  }
-
-	  if (!isIntersect) {
-	    player.pos.x += dx;
-	    player.pos.z += dz;
-
-	  }
-
 	}
-      }
-    else if (currentKeyStates[SDL_SCANCODE_S])
-      {
-	if (curCamera) {//cameraMode){
+      else if (currentKeyStates[SDL_SCANCODE_S])
+	{
+	  if (curCamera) {//cameraMode){
 		    
-	  vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
+	    vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
 
-	  curCamera->pos.x += cameraSpeed * normFront.x;
-	  curCamera->pos.y += cameraSpeed * normFront.y;
-	  curCamera->pos.z += cameraSpeed * normFront.z;
+	    curCamera->pos.x += cameraSpeed * normFront.x;
+	    curCamera->pos.y += cameraSpeed * normFront.y;
+	    curCamera->pos.z += cameraSpeed * normFront.z;
 
-	  //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
-	}
-	else {
-	  player.pos.x -= speed * sin(rad(player.angle));
-	  player.pos.z -= speed * cos(rad(player.angle));
-	}
-      }
-    else if (currentKeyStates[SDL_SCANCODE_D])
-      {
-	if (curCamera) {//cameraMode){
-	  curCamera->pos.x += cameraSpeed * curCamera->front.x;
-	  curCamera->pos.z += cameraSpeed * curCamera->front.z;
-
-	  //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
-	}
-      }
-    else if (currentKeyStates[SDL_SCANCODE_A])
-      {
-	if (curCamera) {//cameraMode){
-	  vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
-
-	  curCamera->pos.x -= cameraSpeed * curCamera->front.x;
-	  //			  curCamera->pos.y -= cameraSpeed * curCamera->front.y;
-	  curCamera->pos.z -= cameraSpeed * curCamera->front.z;
-	  //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
-	}
-      }
-
-    {
-      if (currentKeyStates[SDL_SCANCODE_0]) {
-	mouse.brush = 0;
-      }
-
-      if (currentKeyStates[SDL_SCANCODE_1]) {
-	mouse.brush = wallT;
-      }
-
-      if (currentKeyStates[SDL_SCANCODE_2]) {
-	mouse.brush = halfWallT;
-      }
-
-      if (currentKeyStates[SDL_SCANCODE_3]) {
-	mouse.brush = doorFrameT;
-      }
-
-      if (currentKeyStates[SDL_SCANCODE_4]) {
-	mouse.brush = windowT;
-      }
-
-      // ~~~~~~~~~~~~~~~~~~
-      // Manipulate of focused model
-      if(!mouse.selectedModel){
-	manipulationMode = -1;
-      }
-      
-      if (mouse.selectedModel && currentKeyStates[SDL_SCANCODE_LCTRL]){
-	if (currentKeyStates[SDL_SCANCODE_R]){
-	  // Rotate
-	  if (currentKeyStates[SDL_SCANCODE_X]){
-	    manipulationMode = ROTATE_X;
-	  }else if (currentKeyStates[SDL_SCANCODE_Y]){
-	    manipulationMode = ROTATE_Y;
-	  }else if (currentKeyStates[SDL_SCANCODE_Z]){
-	    manipulationMode = ROTATE_Z;
-	  } 
-	}else if(currentKeyStates[SDL_SCANCODE_T]){
-	  // Transform
-	  if(currentKeyStates[SDL_SCANCODE_Z]){
-	    manipulationMode = TRANSFORM_Z;
-	  }else{
-	    manipulationMode = TRANSFORM_XY;
+	    //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
+	  }
+	  else {
+	    player.pos.x -= speed * sin(rad(player.angle));
+	    player.pos.z -= speed * cos(rad(player.angle));
 	  }
 	}
-	else if(currentKeyStates[SDL_SCANCODE_G]){
-	  // Scale
-	  manipulationMode = SCALE;
+      else if (currentKeyStates[SDL_SCANCODE_D])
+	{
+	  if (curCamera) {//cameraMode){
+	    curCamera->pos.x += cameraSpeed * curCamera->front.x;
+	    curCamera->pos.z += cameraSpeed * curCamera->front.z;
+
+	    //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
+	  }
+	}
+      else if (currentKeyStates[SDL_SCANCODE_A])
+	{
+	  if (curCamera) {//cameraMode){
+	    vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
+
+	    curCamera->pos.x -= cameraSpeed * curCamera->front.x;
+	    //			  curCamera->pos.y -= cameraSpeed * curCamera->front.y;
+	    curCamera->pos.z -= cameraSpeed * curCamera->front.z;
+	    //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
+	  }
+	}
+
+      {
+	if (currentKeyStates[SDL_SCANCODE_0]) {
+	  mouse.brush = 0;
+	}
+
+	if (currentKeyStates[SDL_SCANCODE_1]) {
+	  mouse.brush = wallT;
+	}
+
+	if (currentKeyStates[SDL_SCANCODE_2]) {
+	  mouse.brush = halfWallT;
+	}
+
+	if (currentKeyStates[SDL_SCANCODE_3]) {
+	  mouse.brush = doorFrameT;
+	}
+
+	if (currentKeyStates[SDL_SCANCODE_4]) {
+	  mouse.brush = windowT;
+	}
+
+	// ~~~~~~~~~~~~~~~~~~
+	// Manipulate of focused model
+	if(!mouse.focusedModel){
+	  manipulationMode = -1;
+	}
+      
+	if (mouse.focusedModel && currentKeyStates[SDL_SCANCODE_LCTRL]){
+	  if(currentKeyStates[SDL_SCANCODE_P] && mouse.focusedModel){
+	    if(mouse.gridIntersect.x != -1 && mouse.gridIntersect.z != -1){
+	      vec3 tile = xyz_indexesToCoords(mouse.gridIntersect.x, floor, mouse.gridIntersect.z);
+
+	      mouse.focusedModel->mat.m[12] = tile.x;
+	      mouse.focusedModel->mat.m[13] = tile.y;
+	      mouse.focusedModel->mat.m[14] = tile.z;
+	    
+	      calculateModelAABB(mouse.focusedModel);
+	    }
+	  
+	  }else if(currentKeyStates[SDL_SCANCODE_R]){
+	    // Rotate
+	    if (currentKeyStates[SDL_SCANCODE_X]){
+	      manipulationMode = ROTATE_X;
+	    }else if (currentKeyStates[SDL_SCANCODE_Y]){
+	      manipulationMode = ROTATE_Y;
+	    }else if (currentKeyStates[SDL_SCANCODE_Z]){
+	      manipulationMode = ROTATE_Z;
+	    } 
+	  }else if(currentKeyStates[SDL_SCANCODE_T]){
+	    // Transform
+	    if(currentKeyStates[SDL_SCANCODE_Z]){
+	      manipulationMode = TRANSFORM_Z;
+	    }else{
+	      manipulationMode = TRANSFORM_XY;
+	    }
+	  }
+	  else if(currentKeyStates[SDL_SCANCODE_G]){
+	    // Scale
+	    manipulationMode = SCALE;
+	  }
 	}
       }
     }
@@ -1464,6 +1526,7 @@ int main(int argc, char* argv[]) {
     mouse.groundInter = -1;
 
     mouse.selectedModel = NULL;
+
 
     glClear(GL_COLOR_BUFFER_BIT |
 	    GL_DEPTH_BUFFER_BIT);
@@ -1528,7 +1591,7 @@ int main(int argc, char* argv[]) {
     out.m[13] = curCamera->pos.y;
     out.m[14] = curCamera->pos.z;
 		
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m); 
 	  
     {
       glBindBuffer(GL_ARRAY_BUFFER, netTileVBO);
@@ -1616,6 +1679,9 @@ int main(int argc, char* argv[]) {
 
 	int name = curModels[i].name;
 
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	
 	glActiveTexture(loadedModels[name].tx);
 	glBindTexture(GL_TEXTURE_2D, loadedModels[name].tx);
 
@@ -1638,44 +1704,45 @@ int main(int argc, char* argv[]) {
 
 	 
 	// draw AABB
-	glActiveTexture(solidColorTx);
-	glBindTexture(GL_TEXTURE_2D, solidColorTx);
-	setSolidColorTx(greenColor, 1.0f);
+	if(highlighting){
 
-	Matrix out = IDENTITY_MATRIX;
+	  glActiveTexture(solidColorTx);
+	  glBindTexture(GL_TEXTURE_2D, solidColorTx);
+	  setSolidColorTx(greenColor, 1.0f);
 
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+	  Matrix out = IDENTITY_MATRIX;
 
-	//	printf("max %f %f %f\n", argVec3(minMax[0]));
-	//	printf("min %f %f %f\n", argVec3(minMax[1]));
+	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 
-	glBegin(GL_LINES);
+	  glBegin(GL_LINES);
 
 	
-	glVertex3f(argVec3(curModels[i].lb));
-	glVertex3f(argVec3(curModels[i].rt));
+	  glVertex3f(argVec3(curModels[i].lb));
+	  glVertex3f(argVec3(curModels[i].rt));
 	
-	glVertex3f(curModels[i].rt.x,curModels[i].rt.y,curModels[i].rt.z);
-	glVertex3f(curModels[i].rt.x,curModels[i].lb.y,curModels[i].rt.z);
+	  glVertex3f(curModels[i].rt.x,curModels[i].rt.y,curModels[i].rt.z);
+	  glVertex3f(curModels[i].rt.x,curModels[i].lb.y,curModels[i].rt.z);
 
-	glVertex3f(curModels[i].lb.x,curModels[i].lb.y,curModels[i].lb.z);
-	glVertex3f(curModels[i].lb.x,curModels[i].rt.y,curModels[i].lb.z); 
+	  glVertex3f(curModels[i].lb.x,curModels[i].lb.y,curModels[i].lb.z);
+	  glVertex3f(curModels[i].lb.x,curModels[i].rt.y,curModels[i].lb.z); 
 	
-	glVertex3f(curModels[i].rt.x,curModels[i].rt.y,curModels[i].lb.z);
-	glVertex3f(curModels[i].rt.x,curModels[i].lb.y,curModels[i].lb.z); 
+	  glVertex3f(curModels[i].rt.x,curModels[i].rt.y,curModels[i].lb.z);
+	  glVertex3f(curModels[i].rt.x,curModels[i].lb.y,curModels[i].lb.z); 
 	 
-	glVertex3f(curModels[i].lb.x,curModels[i].rt.y,curModels[i].rt.z);
-	glVertex3f(curModels[i].lb.x,curModels[i].lb.y,curModels[i].rt.z);
+	  glVertex3f(curModels[i].lb.x,curModels[i].rt.y,curModels[i].rt.z);
+	  glVertex3f(curModels[i].lb.x,curModels[i].lb.y,curModels[i].rt.z);
 	
-	glEnd();
+	  glEnd();
 
-	setSolidColorTx(darkPurple, 1.0f);
+	  setSolidColorTx(darkPurple, 1.0f);
+	}
       }
 
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
 
       glBindTexture(GL_TEXTURE_2D, 0);
+      glDisable(GL_BLEND);
     }
 
     // snowParticles rendering
@@ -1719,7 +1786,7 @@ int main(int argc, char* argv[]) {
 	      }
 
 	      if (snowParticle[loop].y < 0.0f || type == texturedTile) {
-		snowParticle[loop].life -= snowParticle[loop].fade / 10.0f;
+		snowParticle[loop].life -= snowParticle[loop].fade / 10.0f; 
 
 		if (snowParticle[loop].life < 0.0f) {
 		  snowParticle[loop].active = true;
@@ -2269,12 +2336,12 @@ int main(int argc, char* argv[]) {
     }
     */
 		
+    glDisable(GL_DEPTH_TEST);
+    glUseProgram(hudShader);
+
+
     // render objects menu
     if(objectsMenu.open){
-      glDisable(GL_DEPTH_TEST);
-      //      glDepthMask(GL_FALSE);
-      glUseProgram(hudShader);
-
       glActiveTexture(solidColorTx);
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
       setSolidColorTx(blackColor, 1.0f);
@@ -2286,13 +2353,10 @@ int main(int argc, char* argv[]) {
     
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
-
       
-      int selectedIndex = loadedModelsSize - ( (mouse.cursor.z - 0.06f)  / .1f);
+      int selectedIndex = loadedModelsSize - ( ((mouse.cursor.z + 0.5f) - 0.06f)  / .1f);
 
-      printf("%d \n", loadedModelsSize);
-      
-      if(selectedIndex <= loadedModelsSize){
+      if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= loadedModelsSize){
 	if(mouse.clickL){
 	  curModelsSize++;
 
@@ -2302,17 +2366,26 @@ int main(int argc, char* argv[]) {
 	    curModels = malloc(sizeof(Model)); 
 	  }
 
+	  curModels[curModelsSize-1].id = curModelsSize-1;
+
 	  curModels[curModelsSize-1].name = selectedIndex - 1;
 	  curModels[curModelsSize-1].mat = IDENTITY_MATRIX;
 
-	  scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f);
+	  scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f); 
+	  if(mouse.gridIntersect.x != -1 && mouse.gridIntersect.z != -1){
+	    vec3 tile = xyz_indexesToCoords(mouse.gridIntersect.x, floor, mouse.gridIntersect.z);
+	    
+	    curModels[curModelsSize-1].mat.m[12] = tile.x;
+	    curModels[curModelsSize-1].mat.m[13] = tile.y;
+	    curModels[curModelsSize-1].mat.m[14] = tile.z;
+	  }
+
 	  
 	  calculateModelAABB(&curModels[curModelsSize-1]);
 	  
 	  objectsMenu.open = false;
 	};
 
-	
 	setSolidColorTx(redColor, 1.0f);
       
 	glBindVertexArray(selectionRectVAO);
@@ -2321,16 +2394,14 @@ int main(int argc, char* argv[]) {
 	float cursorH = 0.06f;
 	float cursorW = 0.02f;
 	  
-	float xRight = -1.0f + 1.0f / 4.0f;
-    
 	float  selectionRect[] = {
 	  -1.0f, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 0.0f,
-	  xRight, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 1.0f,
+	  objectsMenuWidth, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 1.0f,
 	  -1.0f, 1.0f - (selectedIndex) * 0.1f, 0.0f, 0.0f,
 
-	  xRight, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 1.0f,
+	  objectsMenuWidth, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 1.0f,
 	  -1.0f,  1.0f - selectedIndex * 0.1f, 0.0f, 0.0f,
-	  xRight,  1.0f - selectedIndex * 0.1f, 0.0f, 1.0f };
+	  objectsMenuWidth,  1.0f - selectedIndex * 0.1f, 0.0f, 1.0f };
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(selectionRect), selectionRect, GL_STATIC_DRAW);
 
@@ -2388,36 +2459,81 @@ int main(int argc, char* argv[]) {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
       }
-      
+    }else{
+      if(mouse.focusedModel){ 
+	char buf[100];
 
-      glUseProgram(mainShader);
-      glDepthMask(GL_TRUE);
-      glEnable(GL_DEPTH_TEST);
+	sprintf(buf, "Focused model [%s-%d] Mode: %s", loadedModels[mouse.focusedModel->name].name, mouse.focusedModel->id, manipulationMode!= -1 ?manipulationModeStr[manipulationMode] : "None");
+
+	renderText(buf, -1.0f, 1.0f, 1.0f);
+      }
     }
 
-mouse.clickL = false;
-mouse.clickR = false;
+    if(console.open){
+      glActiveTexture(solidColorTx);
+      glBindTexture(GL_TEXTURE_2D, solidColorTx);
+      setSolidColorTx(blackColor, 1.0f);
+      
+      glBindVertexArray(console.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, console.VBO);
 
- glFlush();
-  
-SDL_GL_SwapWindow(window);
-
-uint32_t endtime = GetTickCount();
-uint32_t deltatime = endtime - starttime;
-
-if (!(deltatime > (1000 / FPS))) {
-  Sleep((1000 / FPS) - deltatime);
- }
+      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
     
-if (deltatime != 0) {
-  sprintf(windowTitle, game" FPS: %d", 1000 / deltatime);
-  SDL_SetWindowTitle(window, windowTitle);
- }
-}
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
 
-SDL_GL_DeleteContext(context);
-SDL_DestroyWindow(window);
-SDL_Quit();
+      // ">" symbol pinging animation
+      {
+#define cycleDuratation 40
+
+	static int frameCounter = cycleDuratation;
+
+	if(frameCounter >= cycleDuratation / 2.0f){
+	  renderText("> ", -1.0f, 1.0f, 1.0f);
+	  frameCounter--;
+	}else{
+	  if(frameCounter == 0){
+	    frameCounter = cycleDuratation;
+	  }
+
+	  frameCounter--;
+	}
+      }
+
+      renderText(consoleBuffer, -1.0f + letterW / 2.0f, 1.0f, 1.0f);
+
+      if(consoleHasResponse){
+	renderText(consoleResponse, -1.0f + letterW / 2.0f, 1.0f - consoleH, 1.0f);
+
+      }
+    }
+	
+    glUseProgram(mainShader);
+    glEnable(GL_DEPTH_TEST);
+
+    mouse.clickL = false;
+    mouse.clickR = false;
+
+    glFlush();
+  
+    SDL_GL_SwapWindow(window);
+
+    uint32_t endtime = GetTickCount();
+    uint32_t deltatime = endtime - starttime;
+
+    if (!(deltatime > (1000 / FPS))) {
+      Sleep((1000 / FPS) - deltatime);
+    }
+    
+    if (deltatime != 0) {
+		sprintf(windowTitle, game" FPS: %d Save: %s.doomer", 1000 / deltatime, curSaveName);
+      SDL_SetWindowTitle(window, windowTitle);
+    }
+  }
+
+  SDL_GL_DeleteContext(context);
+  SDL_DestroyWindow(window);
+  SDL_Quit();
 
   return 0;
 }
@@ -3149,7 +3265,7 @@ Model* loadOBJ(char* path, char* texturePath, int name){
     exit(0);
   }
 
- // loadedModels[name] = (ModelInfo*)malloc(sizeof(ModelInfo));
+  // loadedModels[name] = (ModelInfo*)malloc(sizeof(ModelInfo));
   loadedModels[name].size = mesh->index_count;
 
   // vertecies
@@ -3262,20 +3378,20 @@ Model* loadOBJ(char* path, char* texturePath, int name){
 
   // set mat of loadedModels[name] to IDENTITY_MATRIX
   /*  loadedModels[name].mat.m[0] = 1;
-  loadedModels[name].mat.m[5] = 1;
-  loadedModels[name].mat.m[10] = 1;
-  loadedModels[name].mat.m[15] = 1;
+      loadedModels[name].mat.m[5] = 1;
+      loadedModels[name].mat.m[10] = 1;
+      loadedModels[name].mat.m[15] = 1;
 
-  scale(&loadedModels[name].mat.m, 0.25f, 0.25f, 0.25f);
+      scale(&loadedModels[name].mat.m, 0.25f, 0.25f, 0.25f);
 
-  // To get some speed up i can getrid off one O(n) loop
-  // simply finding min/max inside of parsing positions above
-  calculateModelAABB(loadedModels[name]);*/
+      // To get some speed up i can getrid off one O(n) loop
+      // simply finding min/max inside of parsing positions above
+      calculateModelAABB(loadedModels[name]);*/
   
   // loadedModels[name].name = name;
 
   // load texture
-   {
+  {
     glGenTextures(1, &loadedModels[name].tx);
 
     // -1 because of solidColorTx
@@ -3327,120 +3443,17 @@ void calculateModelAABB(Model* model){
   }
 }
 
-// from '!' to 'z' in ASCII
-vec2i englLettersMap[] = {
-  { 14, 13}, // '!'
-  { 13, 13}, // '"'
-  { 12, 13}, // '#'
-  { 11, 13}, // '$'
-  { 10, 13}, // '%'
-  { 9, 13}, // '&'
-  { 8, 13}, // '''
-  { 7, 13}, // '('
-  { 6, 13}, // ')'
-  { 5, 13}, // '*'
-  { 4, 13}, // '+'
-  { 3, 13}, // ','
-  { 2, 13}, // '-'
-  { 1, 13}, // '.'
-  { 0, 13}, // '/'
-
-  { 15, 12}, // '0'
-  { 14, 12}, // '1'
-  { 13, 12}, // '2'
-  { 12, 12}, // '3'
-  { 11, 12}, // '4'
-  { 10, 12}, // '5'
-  { 9, 12}, // '6'
-  { 8, 12}, // '7'
-  { 7, 12}, // '8'
-  { 6, 12}, // '9'
-  { 5, 12}, // ':'
-  { 4, 12}, // ';'
-  { 3, 12}, // '<'
-  { 2, 12}, // '='
-  { 1, 12}, // '>'
-  { 0, 12}, // '?'
-
-  { 15, 11}, // '@'
-  { 14, 11}, // 'A'
-  { 13, 11}, // 'B'
-  { 12, 11}, // 'C'
-  { 11, 11}, // 'D'
-  { 10, 11}, // 'E'
-  { 9, 11}, // 'F'
-  { 8, 11}, // 'G'
-  { 7, 11}, // 'H'
-  { 6, 11}, // 'I'
-  { 5, 11}, // 'J'
-  { 4, 11}, // 'K'
-  { 3, 11}, // 'L'
-  { 2, 11}, // 'M'
-  { 1, 11}, // 'N'
-  { 0, 11}, // 'O'
-
-  { 15, 10}, // 'P'
-  { 14, 10}, // 'Q'
-  { 13, 10}, // 'R'
-  { 12, 10}, // 'S'
-  { 11, 10}, // 'T'
-  { 10, 10}, // 'U'
-  { 9, 10}, // 'V'
-  { 8, 10}, // 'W'
-  { 7, 10}, // 'X'
-  { 6, 10}, // 'Y'
-  { 5, 10}, // 'Z'
-  { 4, 10}, // '['
-  { 3, 10}, // '\'
-  { 2, 10}, // ']'
-  { 1, 10}, // '^'
-  { 0, 10}, // '_'
-
-  { 15, 9}, // '`'
-  { 14, 9}, // 'a'
-  { 13, 9}, // 'b'
-  { 12, 9}, // 'c'
-  { 11, 9}, // 'd'
-  { 10, 9}, // 'e'
-  { 9, 9}, // 'f'
-  { 8, 9}, // 'g'
-  { 7, 9}, // 'h'
-  { 6, 9}, // 'i'
-  { 5, 9}, // 'j'
-  { 4, 9}, // 'k'
-  { 3, 9}, // 'l'
-  { 2, 9}, // 'm'
-  { 1, 9}, // 'n'
-  { 0, 9}, // 'o'
-
-  { 15, 8}, // 'p'
-  { 14, 8}, // 'q'
-  { 13, 8}, // 'r'
-  { 12, 8}, // 's'
-  { 11, 8}, // 't'
-  { 10, 8}, // 'u'
-  { 9, 8}, // 'v'
-  { 8, 8}, // 'w'
-  { 7, 8}, // 'x'
-  { 6, 8}, // 'y'
-  { 5, 8}, // 'z'
-  { 4, 8}, // '{'
-  { 3, 8}, // '|'
-  { 2, 8}, // '}'
-  { 1, 8}, // '~'
-};
-
 // w and h of one letter cell
 const float atlasStep =  0.0625;
 
 void renderText(char* text, float x, float y, float scale){
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
   glBindVertexArray(textVAO);
   glBindBuffer(GL_ARRAY_BUFFER, textVBO);
   glActiveTexture(fontAtlas);
   glBindTexture(GL_TEXTURE_2D, fontAtlas);
-
-  float letterW = .04f;
-  float letterH = .07f;
 
   int iter = 0;
   int padCounter = 0;
@@ -3496,16 +3509,275 @@ void renderText(char* text, float x, float y, float scale){
   
   glBindTexture(GL_TEXTURE_2D, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);     
+  glBindVertexArray(0);
+  
+  glDisable(GL_BLEND);
 }
 
 int strcut(char *str, int begin, int len)
 {
-    int l = strlen(str);
+  int l = strlen(str);
 
-    if (len < 0) len = l - begin;
-    if (begin + len > l) len = l - begin;
-    memmove(str + begin, str + begin + len, l - len + 1);
+  if (len < 0) len = l - begin;
+  if (begin + len > l) len = l - begin;
+  memmove(str + begin, str + begin + len, l - len + 1);
 
-    return len;
+  return len;
+}
+
+int strtrim(char *str){
+  char *end;
+
+  while(isspace((unsigned char)*str)) str++;
+
+  if(*str == 0)
+    return str;
+
+  end = str + strlen(str) - 1;
+  while(end > str && isspace((unsigned char)*end)) end--;
+
+  end[1] = '\0';
+
+  return str;
+}
+
+bool loadSave(char* saveName){
+  //  resetMouse();
+  
+  char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char));
+
+  strcat(save, saveName);
+  strcat(save, ".doomer");
+
+  FILE* map = fopen(save, "r"); 
+
+  if (!map) {
+    free(save);
+    return false;
+  }
+
+  // free cur loaded map
+  if(grid){
+    for (int y = 0; y < gridY; y++) {
+      for (int z = 0; z < gridZ; z++) {
+	free(grid[y][z]);
+      }
+      
+      free(grid[y]);
+    }
+    free(grid);
+	grid = NULL;
+
+	if (curModels) {
+    free(curModels);
+	curModels = NULL;
+	curModelsSize = 0;
+	}
+  }
+  
+  int sizeX, sizeZ, sizeY;
+  fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
+      
+  grid = malloc(sizeof(Tile**) * (gridY));
+
+  for (int y = 0; y < gridY; y++) {
+    grid[y] = malloc(sizeof(Tile*) * (gridZ));
+
+    for (int z = 0; z < gridZ; z++) {
+      grid[y][z] = malloc(sizeof(Tile) * (gridX));
+
+      for (int x = 0; x < gridX; x++) {
+	fscanf(map, "[Wls: %d, WlsTx %d, Grd: %d]", &grid[y][z][x].walls, &grid[y][z][x].wallsTx, &grid[y][z][x].ground);
+
+	GroundType type = valueIn(grid[y][z][x].ground, 0);
+
+	if(type == netTile || type == 0){
+	  if(y == 0){
+	    setIn(grid[y][z][x].ground, 0, texturedTile);
+	    setIn(grid[y][z][x].ground, 2, frozenGround);
+	  }else{
+	    setIn(grid[y][z][x].ground, 0, netTile);
+	  }
+	}
+
+	fgetc(map); // read ,
+      }
+    }
+    fgetc(map); // read \n
+  }
+    
+  fscanf(map, "\nUsed models: %d\n", &curModelsSize);
+
+  if(curModelsSize != 0){
+    curModels = malloc(curModelsSize * sizeof(Model));
+    
+    for(int i=0; i<curModelsSize; i++){
+      /*	  if(curModels[i].name == yalinka){
+      // TODO: Make here some enum to string function
+      fprintf(map, "Yalinka[%d] ", yalinka);
+      }*/
+      int name = -1;
+      fscanf(map, "%d ", &name);
+
+      if(name >= loadedModelsSize || name < 0){
+	printf("Models parsing error, model name (%d) doesnt exist \n", name);
+	exit(0); 
+      }   
+	  
+      //curModels[i] = malloc(sizeof(Model));
+      curModels[i].name = name;    
+      curModels[i].id = i;  
+	   
+      //	  memcpy(curModels[i], models[name], sizeof(Model));
+
+      fgetc(map); // read [
+
+      for(int mat=0;mat<16;mat++){
+	fscanf(map, "%f ", &curModels[i].mat.m[mat]);
+      }
+
+      calculateModelAABB(&curModels[i]);
+	  
+      fgetc(map); // read ]\n
+    }
+  }
+ 
+  printf("Save %s loaded! \n", save);
+  fclose(map);
+  
+  strcpy(curSaveName, saveName);
+  free(save);
+  
+  initSnowParticles();
+  
+  return true;
+}
+
+bool saveMap(char *saveName){
+  char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char));
+
+  strcat(save, saveName);
+  strcat(save, ".doomer");
+
+  FILE* map = fopen(save, "w+");
+
+  fprintf(map, "%d %d %d \n", gridY, gridZ, gridX);
+
+  for (int y = 0; y < gridY; y++) {
+    for (int z = 0; z < gridZ; z++) {
+      for (int x = 0; x < gridX; x++) {
+	fprintf(map, "[Wls: %d, WlsTx %d, Grd: %d],", grid[y][z][x].walls, grid[y][z][x].wallsTx, grid[y][z][x].ground);
+      }
+    }
+
+    fprintf(map, "\n");
+  }
+
+  fprintf(map, "\nUsed models: %d\n",curModelsSize);
+	
+  for(int i=0; i<curModelsSize; i++){
+    /*	  if(curModels[i].name == yalinka){
+    // TODO: Make here some enum to string function
+    fprintf(map, "Yalinka[%d] ", yalinka);
+    }*/
+    fprintf(map, "%d ", curModels[i].name);
+
+    fprintf(map, "[");
+
+    for(int mat=0;mat<16;mat++){
+      fprintf(map, "%f ", curModels[i].mat.m[mat]);
+    }
+	  
+    fprintf(map, "]\n");
+  }
+
+  printf("Map saved!\n");
+
+  fclose(map);
+
+  return true;
+}
+
+bool createMap(int newX, int newY, int newZ){
+  //  resetMouse();
+  
+  if(grid){
+    for (int y = 0; y < gridY; y++) {
+      for (int z = 0; z < gridZ; z++) {
+	free(grid[y][z]);
+      }
+       
+      free(grid[y]);
+    }
+    free(grid);
+    grid = NULL;
+
+    if (curModels) {
+      free(curModels);
+      curModels = NULL;
+      curModelsSize = 0;
+    }
+  }
+    
+  grid = malloc(sizeof(Tile**) * (newY));
+
+  for (int y = 0; y < newY; y++) {
+    grid[y] = malloc(sizeof(Tile*) * (newZ));
+
+	for (int z = 0; z < newZ; z++) {
+      grid[y][z] = calloc(newX, sizeof(Tile));
+
+	  for (int x = 0; x < newX; x++) {
+	if (y == 0) {
+	  setIn(grid[y][z][x].ground, 0, texturedTile);
+	  setIn(grid[y][z][x].ground, 2, frozenGround);
+	}
+	else {
+	  setIn(grid[y][z][x].ground, 0, netTile);
+	}
+      }
+    }
+  }
+
+  gridX = newX;
+  gridY = newY;
+  gridZ = newZ;
+  
+  initSnowParticles();
+
+  return true;
+}
+
+void initSnowParticles(){
+  if(snowParticle){
+    free(snowParticle);
+    snowParticle = NULL;
+  }
+  
+  // init snow particles
+  {
+    FILE *snowConf = fopen("snow.txt","r");
+    
+    if(snowConf){
+      fscanf(snowConf,"AMOUNT=%d\nSPEED=%f\n", &snowAmount, &snowSpeed);
+      fclose(snowConf);
+    }else{
+      snowAmount = snowDefAmount;
+      snowSpeed = snowGravity;
+    }
+
+    snowParticle = (Particle*)malloc(sizeof(Particle) * snowAmount);
+
+    for (int loop = 0; loop < snowAmount; loop++)
+      {
+	snowParticle[loop].active = true;
+
+	snowParticle[loop].life = 1.0f;
+	snowParticle[loop].fade = (float)(rand() % 100) / 1000.0f + 0.003f;
+
+	snowParticle[loop].x = (float)(rand() % gridX / 10.0f) + (float)(rand() % 100 / 1000.0f);
+	snowParticle[loop].y = (float)(rand() % (int)(gridY * bBlockH)) + (float)(rand() % 1000) / 1000.0f;
+	snowParticle[loop].z = (float)(rand() % gridZ / 10.0f) + (float)(rand() % 100 / 1000.0f);
+      }
+  }
 }

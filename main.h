@@ -165,6 +165,8 @@ typedef enum{
 } ModelName;
 
 typedef struct{
+  int id;
+  
   int name;
   Matrix mat;
 
@@ -227,9 +229,9 @@ typedef struct{
 
   // resets to NULL every start of frame
   Model* selectedModel;
+  Model* focusedModel;
   // player focused to manipulate
   // on key
-  Model* focusedModel;
 
   vec2 cursor;
 } Mouse;
@@ -267,8 +269,6 @@ typedef enum{
   TRANSFORM_Z,
   SCALE
 } ManipulationMode;
-
-
 
 #define snowGravity -0.8f
 #define snowDefAmount 20000
@@ -322,9 +322,20 @@ void renderText(char* text, float x, float y, float scale);
 // it also assigns lb, rt to model
 void calculateModelAABB(Model* model);
 
+bool loadSave(char* saveName);
+
+bool saveMap(char *saveName);
+
+void resetMouse();
+void initSnowParticles();
+
+bool createMap(int x, int y, int z);
+
 bool radarCheck(vec3 point);
 
 int strcut(char *str, int begin, int len);
+
+int strtrim(char *str);
 
 Model* loadOBJ(char* path, char* texturePath, int name);
 
@@ -333,6 +344,8 @@ Model* loadOBJ(char* path, char* texturePath, int name);
 GLuint loadShader(GLenum shaderType, const char* filename);
 
 #define FPS 60
+
+#define CONSOLE_BUF_CAP 64
 
 #define greenColor 0.0f, 1.0f, 0.0f
 
@@ -362,6 +375,116 @@ GLuint loadShader(GLenum shaderType, const char* filename);
 #define selBorderT 0.01f
 
 #define selTileBorderH 0.001f
+
+const char sdlScancodesToACII[] = {
+  [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
+};
+
+const char* manipulationModeStr[] = { "Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };
+
+// from '!' to 'z' in ASCII
+const vec2i englLettersMap[] = {
+  { 14, 13}, // '!'
+  { 13, 13}, // '"'
+  { 12, 13}, // '#'
+  { 11, 13}, // '$'
+  { 10, 13}, // '%'
+  { 9, 13}, // '&'
+  { 8, 13}, // '''
+  { 7, 13}, // '('
+  { 6, 13}, // ')'
+  { 5, 13}, // '*'
+  { 4, 13}, // '+'
+  { 3, 13}, // ','
+  { 2, 13}, // '-'
+  { 1, 13}, // '.'
+  { 0, 13}, // '/'
+
+  { 15, 12}, // '0'
+  { 14, 12}, // '1'
+  { 13, 12}, // '2'
+  { 12, 12}, // '3'
+  { 11, 12}, // '4'
+  { 10, 12}, // '5'
+  { 9, 12}, // '6'
+  { 8, 12}, // '7'
+  { 7, 12}, // '8'
+  { 6, 12}, // '9'
+  { 5, 12}, // ':'
+  { 4, 12}, // ';'
+  { 3, 12}, // '<'
+  { 2, 12}, // '='
+  { 1, 12}, // '>'
+  { 0, 12}, // '?'
+
+  { 15, 11}, // '@'
+  { 14, 11}, // 'A'
+  { 13, 11}, // 'B'
+  { 12, 11}, // 'C'
+  { 11, 11}, // 'D'
+  { 10, 11}, // 'E'
+  { 9, 11}, // 'F'
+  { 8, 11}, // 'G'
+  { 7, 11}, // 'H'
+  { 6, 11}, // 'I'
+  { 5, 11}, // 'J'
+  { 4, 11}, // 'K'
+  { 3, 11}, // 'L'
+  { 2, 11}, // 'M'
+  { 1, 11}, // 'N'
+  { 0, 11}, // 'O'
+
+  { 15, 10}, // 'P'
+  { 14, 10}, // 'Q'
+  { 13, 10}, // 'R'
+  { 12, 10}, // 'S'
+  { 11, 10}, // 'T'
+  { 10, 10}, // 'U'
+  { 9, 10}, // 'V'
+  { 8, 10}, // 'W'
+  { 7, 10}, // 'X'
+  { 6, 10}, // 'Y'
+  { 5, 10}, // 'Z'
+  { 4, 10}, // '['
+  { 3, 10}, // '\'
+  { 2, 10}, // ']'
+  { 1, 10}, // '^'
+  { 0, 10}, // '_'
+
+  { 15, 9}, // '`'
+  { 14, 9}, // 'a'
+  { 13, 9}, // 'b'
+  { 12, 9}, // 'c'
+  { 11, 9}, // 'd'
+  { 10, 9}, // 'e'
+  { 9, 9}, // 'f'
+  { 8, 9}, // 'g'
+  { 7, 9}, // 'h'
+  { 6, 9}, // 'i'
+  { 5, 9}, // 'j'
+  { 4, 9}, // 'k'
+  { 3, 9}, // 'l'
+  { 2, 9}, // 'm'
+  { 1, 9}, // 'n'
+  { 0, 9}, // 'o'
+
+  { 15, 8}, // 'p'
+  { 14, 8}, // 'q'
+  { 13, 8}, // 'r'
+  { 12, 8}, // 's'
+  { 11, 8}, // 't'
+  { 10, 8}, // 'u'
+  { 9, 8}, // 'v'
+  { 8, 8}, // 'w'
+  { 7, 8}, // 'x'
+  { 6, 8}, // 'y'
+  { 5, 8}, // 'z'
+  { 4, 8}, // '{'
+  { 3, 8}, // '|'
+  { 2, 8}, // '}'
+  { 1, 8}, // '~'
+};
+
 
 
 

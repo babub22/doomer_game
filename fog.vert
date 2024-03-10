@@ -8,7 +8,7 @@ varying vec3 vertexToPlayer;
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec2 aTexCoord;
 
-varying vec2 TexCoord;
+out vec2 TexCoord;
 
 uniform mat4 model;
 uniform mat4 view;
