@@ -32,6 +32,7 @@ typedef struct Matrix {
 	float m[16];
 } Matrix;
 
+
 /*
 0 1 2 3
 4 5 6 7
@@ -43,8 +44,11 @@ typedef struct{
   float x, y, z, w;
 } vec4;
 
+#define f(div) (float) div
+
 #define argVec4(vec) vec.x, vec.y, vec.z, vec.w 
-#define argVec3(vec) vec.x, vec.y, vec.z 
+#define argVec3(vec) vec.x, vec.y, vec.z
+#define argVec2(vec) vec.x, vec.z 
 
 #define rad(deg) deg * 3.14159265358979323846/180.0
 

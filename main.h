@@ -175,6 +175,26 @@ ModelsTypesInfo modelsTypesInfo[] = {
   [characterModelType] = {"Char", 0}
 };
 
+typedef struct Dialog Dialog;
+
+// Definition of the struct
+struct Dialog {
+    char* text;
+    Dialog* answers;
+    int answersSize;
+    bool player;
+};
+
+typedef struct{
+  int id;
+  char* name;
+
+  Dialog* dialogs;
+  
+  int modelId;
+  int modelName;
+} Character;
+
 typedef struct{
   int id;
   
@@ -285,6 +305,13 @@ typedef enum{
   TRANSFORM_Z,
   SCALE
 } ManipulationMode;
+
+typedef struct{
+  int VAO;
+  int VBO;
+  bool active;
+  char* buf;
+} TextInput;
 
 #define snowGravity -0.8f
 #define snowDefAmount 20000

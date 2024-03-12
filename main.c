@@ -10,15 +10,26 @@ char curSaveName[CONSOLE_BUF_CAP];
 GLuint selectionRectVBO;
 GLuint selectionRectVAO;
 
+GLuint selectionRectVBO;
+GLuint selectionRectVAO;
+
+
 Object** objsStore;
 size_t objsStoreSize;
 
 GLuint fontAtlas;
 
+Character* characters;
+size_t charactersSize;
+
+
 // avaible/loaded models
 ModelInfo* loadedModels1D;
 ModelInfo** loadedModels2D;
 size_t loadedModelsSize;
+
+TextInput* selectedTextInput;
+TextInput dialogEditorNameInput;
 
 // placed/created models
 Model* curModels;
@@ -49,6 +60,8 @@ float borderArea;
 
 GLuint objectsMenuTypeRectVBO;
 GLuint objectsMenuTypeRectVAO;
+
+Menu dialogEditor;
 
 Menu objectsMenu;
 ModelType objectsMenuSelectedType = objectModelType;
@@ -98,6 +111,34 @@ GLuint hudShader;
   
 GLuint cursorVBO;
 GLuint cursorVAO;
+
+// accepts percents
+float* uiRect(float x, float y, float w, float h){
+  vec2 lt = { 2 * x - 1, 2 * y - 1 };
+  vec2 rt = { 2 * w - 1, 2 * y - 1 };
+
+  vec2 lb = { 2 * x - 1, 2 * h - 1 };
+  vec2 rb = { 2 * w - 1, 2 * h - 1 };
+
+  float stackRect[] = { 
+    argVec2(lt), 1.0f, 0.0f,
+    argVec2(rt), 1.0f, 1.0f,
+    argVec2(lb), 0.0f, 0.0f,
+
+    argVec2(rt), 1.0f, 1.0f,
+    argVec2(lb), 0.0f, 0.0f,
+    argVec2(rb), 0.0f, 1.0f };
+  
+  float* rect = malloc(sizeof(stackRect));	
+
+  for(int i =0;i<6*4;i++){
+    printf("%f ", stackRect[i]);
+  }
+
+  memcpy(rect, stackRect, sizeof(stackRect));
+	
+  return rect;
+}
 
 int main(int argc, char* argv[]) {
   borderArea = (float)bBlockW/8;
@@ -189,6 +230,52 @@ int main(int argc, char* argv[]) {
 	  glBindVertexArray(0); */
     
     // left/right mouse
+
+    // dialog editor
+    {
+      glGenVertexArrays(1, &dialogEditor.VAO);
+      glBindVertexArray(dialogEditor.VAO);
+
+      glGenBuffers(1, &dialogEditor.VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.VBO);
+    
+      float* dialogEditor = uiRect(f(1/8), f(7/8), f(7/8), f(1/8));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), dialogEditor, GL_STATIC_DRAW);
+      free(dialogEditor);
+      
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+     // dialog nameInput editor
+    { 
+      glGenVertexArrays(1, &dialogEditorNameInput.VAO);
+      glBindVertexArray(dialogEditorNameInput.VAO);
+
+      glGenBuffers(1, &dialogEditorNameInput.VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, dialogEditorNameInput.VBO);
+      
+      float* nameInput = uiRect(f(1/8) * 0.8f, f(7/8) * 0.9f, f(7/8) * 0.2f, f(7/8) * 0.86f);
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), nameInput, GL_STATIC_DRAW);
+      free(nameInput);
+      
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
 
     
     // console
@@ -464,7 +551,7 @@ int main(int argc, char* argv[]) {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-  }
+  } 
     
 
   // load shaders and apply it
@@ -480,7 +567,7 @@ int main(int argc, char* argv[]) {
     glLinkProgram(mainShader);
 
     // Check for linking errors
-    GLint linkStatus;
+    GLint linkStatus; 
     glGetProgramiv(mainShader, GL_LINK_STATUS, &linkStatus);
     if (linkStatus != GL_TRUE) {
       GLint logLength;
@@ -1213,18 +1300,14 @@ int main(int argc, char* argv[]) {
 	    break;
 	  }
 	  case(SDL_SCANCODE_O): {
-	    objectsMenu.open = !objectsMenu.open;
-	    /*	  curModelsSize++;
-
-		  if(curModels){
-		  curModels = realloc(curModels, curModelsSize * sizeof(Model*));
-		  }else{
-		  curModels = malloc(sizeof(Model*));
-		  }
-
-		  mouse.focusedModel->= malloc(sizeof(Model));
-		  memcpy(mouse.focusedModel-> models[yalinka], sizeof(Model));*/
-
+	    objectsMenu.open = !objectsMenu.open; 
+	    break;
+	  }
+	  case(SDL_SCANCODE_B): {
+	    if(mouse.focusedModel && loadedModels1D[mouse.focusedModel->name].type == characterModelType){
+	      dialogEditor.open = !dialogEditor.open; 
+	    }
+	    
 	    break;
 	  }
 	  case(SDL_SCANCODE_EQUALS): {
@@ -1314,7 +1397,7 @@ int main(int argc, char* argv[]) {
       mouse.wheel = event.wheel.y;
       if (event.type == SDL_MOUSEMOTION) {
 
-	if(objectsMenu.open){
+	if(objectsMenu.open || dialogEditor.open){
 	  float x = -1.0 + 2.0 * (event.motion.x / windowW);
 	  float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
 
@@ -1322,7 +1405,7 @@ int main(int argc, char* argv[]) {
 	  mouse.cursor.z = y;  
 	}
 
-	if (curCamera && !objectsMenu.open) { 
+	if (curCamera && !objectsMenu.open && !dialogEditor.open) { 
 	  mouse.screenPos.x = windowW / 2;
 	  mouse.screenPos.z = windowH / 2; 
 
@@ -2330,13 +2413,13 @@ int main(int argc, char* argv[]) {
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
       
-      int selectedIndex = loadedModelsSize - ( ((mouse.cursor.z + 0.5f) - 0.06f)  / .1f);
+      int selectedIndex = modelsTypesInfo[0].counter - ( ((mouse.cursor.z + 0.5f) - 0.06f)  / .1f);  
 
       if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= modelsTypesInfo[objectsMenuSelectedType].counter){
 	if(mouse.clickL){
 	  curModelsSize++;
 
-	  if(curModels){
+	  if(curModels){ 
 	    curModels = realloc(curModels, curModelsSize * sizeof(Model));
 	  }else{
 	    curModels = malloc(sizeof(Model)); 
@@ -2344,7 +2427,27 @@ int main(int argc, char* argv[]) {
 
 	  curModels[curModelsSize-1].id = curModelsSize-1;
 
-	  curModels[curModelsSize-1].name = loadedModels2D[objectsMenuSelectedType][selectedIndex - 1].index1D;
+	  int index1D = loadedModels2D[objectsMenuSelectedType][selectedIndex - 1].index1D;
+
+	  curModels[curModelsSize-1].name = index1D;
+
+	  // if type == char add new character
+	  if(loadedModels1D[index1D].type == characterModelType) {
+	    if(characters == NULL){
+	      characters = malloc(sizeof(Character));
+	    }else{
+	      characters = realloc(characters, (charactersSize+1) * sizeof(Character));
+	    }
+
+	    characters[charactersSize].id = charactersSize;
+	    characters[charactersSize].modelId = curModels[curModelsSize-1].id;
+	    characters[charactersSize].modelName = curModels[curModelsSize-1].name;
+	    characters[charactersSize].dialogs = NULL;
+	    characters[charactersSize].name = NULL;
+	    
+	    charactersSize++;
+	  }
+	  
 	  curModels[curModelsSize-1].mat = IDENTITY_MATRIX;
 
 	  scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f); 
@@ -2409,7 +2512,7 @@ int main(int argc, char* argv[]) {
 	{
 	  if((mouse.cursor.x >= baseX && mouse.cursor.x <= baseX + typeButtonW) && selectedIndex <= modelTypeCounter){
 	    if(mouse.clickL){
-	      objectsMenuSelectedType = selectedIndex - 1;
+	      objectsMenuSelectedType = selectedIndex - 1; 
 	    }
 	  }
 	}
@@ -2455,13 +2558,44 @@ int main(int argc, char* argv[]) {
       for(int i=0;i<modelsTypesInfo[objectsMenuSelectedType].counter;i++){
 	renderText(loadedModels2D[objectsMenuSelectedType][i].name, -1.0f, 1.0f - (i * 0.1f), 1);
       }
-
+    }else if(dialogEditor.open){
       glActiveTexture(solidColorTx);
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
-      setSolidColorTx(whiteColor, 1.0f);
+      setSolidColorTx(blackColor, 1.0f);
       
-      // render cursor
+      glBindVertexArray(dialogEditor.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.VBO);
+
+      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+
+      glBindTexture(GL_TEXTURE_2D, solidColorTx);
+      setSolidColorTx(greenColor, 1.0f);
+      
+      glBindVertexArray(dialogEditorNameInput.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, dialogEditorNameInput.VBO);
+
+      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }else if(mouse.focusedModel){ 
+      char buf[100];
+
+      sprintf(buf, "Focused model [%s-%d] Mode: %s", loadedModels1D[mouse.focusedModel->name].name, mouse.focusedModel->id, manipulationMode!= -1 ?manipulationModeStr[manipulationMode] : "None");
+
+      renderText(buf, -1.0f, 1.0f, 1.0f);
+    }
+
+    // render cursor
+    if(objectsMenu.open || dialogEditor.open)
       {
+	glActiveTexture(solidColorTx);
+	glBindTexture(GL_TEXTURE_2D, solidColorTx);
+	setSolidColorTx(whiteColor, 1.0f);
+      
 	glBindVertexArray(cursorVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, cursorVBO);
 	
@@ -2493,15 +2627,7 @@ int main(int argc, char* argv[]) {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
       }
-    }else{
-      if(mouse.focusedModel){ 
-	char buf[100];
 
-	sprintf(buf, "Focused model [%s-%d] Mode: %s", loadedModels1D[mouse.focusedModel->name].name, mouse.focusedModel->id, manipulationMode!= -1 ?manipulationModeStr[manipulationMode] : "None");
-
-	renderText(buf, -1.0f, 1.0f, 1.0f);
-      }
-    }
 
     if(console.open){
       glActiveTexture(solidColorTx);
@@ -2727,13 +2853,13 @@ GLuint loadShader(GLenum shaderType, const char* filename) {
   fseek(file, 0, SEEK_SET);
 
   char* source = (char*)malloc(length + 1);
-  fread(source, 1, length, file);
+  fread(source, 1, length, file); 
   fclose(file);
   source[length] = '\0';
 
   GLuint shader = glCreateShader(shaderType);
   glShaderSource(shader, 1, (const GLchar**)&source, NULL);
-  glCompileShader(shader);
+  glCompileShader(shader); 
 
   free(source);
 
@@ -3282,7 +3408,7 @@ void wallsLoadVAOandVBO(){
       glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
       glEnableVertexAttribArray(1);
 
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindBuffer(GL_ARRAY_BUFFER, 0); 
       glBindVertexArray(0);
     
       free(wallPos);
@@ -3296,9 +3422,8 @@ ModelInfo* loadOBJ(char* path, char* texturePath){
   if (!mesh) {
     printf("Failed to load \"%s\" \n", path);
     exit(0);
-  }
+  } 
 
-  // loadedModels1D[name] = (ModelInfo*)malloc(sizeof(ModelInfo));
   ModelInfo* loadedModel = malloc(sizeof(ModelInfo));
 
   // vertecies
@@ -3438,7 +3563,7 @@ ModelInfo* loadOBJ(char* path, char* texturePath){
     GLenum err = glGetError();
     
     if (err != GL_NO_ERROR) {
-      printf("OpenGL error: %d\n", err);
+      printf("OpenGL error: %d\n", err); 
     }
   
     SDL_FreeSurface(texture);
@@ -3665,6 +3790,16 @@ bool loadSave(char* saveName){
       fgetc(map); // read ]\n
     }
   }
+
+  fscanf(map, "\nCharacters: %d\n", &charactersSize);
+
+  characters = malloc(sizeof(Character) * charactersSize);
+   
+  for(int i=0; i<charactersSize; i++){ 
+    int name = -1;
+    int dialogs = -1;
+    fscanf(map, "%d %d %d %d\n", &characters[i].modelId, &characters[i].modelName, &name, &dialogs);
+  }
  
   printf("Save %s loaded! \n", save);
   fclose(map);
@@ -3699,11 +3834,7 @@ bool saveMap(char *saveName){
 
   fprintf(map, "\nUsed models: %d\n",curModelsSize);
 	
-  for(int i=0; i<curModelsSize; i++){
-    /*	  if(curModels[i].name == yalinka){
-    // TODO: Make here some enum to string function
-    fprintf(map, "Yalinka[%d] ", yalinka);
-    }*/
+  for(int i=0; i<curModelsSize; i++){    
     fprintf(map, "%d ", curModels[i].name);
 
     fprintf(map, "[");
@@ -3715,6 +3846,13 @@ bool saveMap(char *saveName){
     fprintf(map, "]\n");
   }
 
+  // save characters
+  fprintf(map, "\Characters: %d\n", charactersSize);
+  
+  for(int i=0; i<charactersSize; i++){
+    fprintf(map, "%d %d %d %d\n", characters[i].modelId, characters[i].modelName, 0, 0);
+  }
+  
   printf("Map saved!\n");
 
   fclose(map);

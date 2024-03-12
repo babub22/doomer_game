@@ -3,7 +3,7 @@ SnowTree0.obj SnowTree0.png Obj
 SnowTree1.obj SnowTree1.png Obj
 Suhrob0.obj Suhrob0.png Obj
 Suhrob1.obj Suhrob1.png Obj
-Bed.obj bed.png Char
+Bed.obj bed.png Obj
 Shkaf.obj Wardrobe_01.png Obj
 Radio.obj Radio.png Obj
 Comp.obj Comp.png Obj
@@ -13,3 +13,4 @@ Table.obj Wood.png Obj
 Sigi.obj Sigi.png Obj
 Book.obj Books.png Obj
 Bookshelf.obj Bookshelves.png Obj
+Doomer.obj Doomer.png Char
