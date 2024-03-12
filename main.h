@@ -160,9 +160,20 @@ typedef enum{
 } GroundType;
 
 typedef enum{
-  yalinka,
-  modelsCounter
-} ModelName;
+  objectModelType,
+  characterModelType,
+  modelTypeCounter
+} ModelType;
+
+typedef struct{
+  char* str;
+  int counter;
+} ModelsTypesInfo;
+
+ModelsTypesInfo modelsTypesInfo[] = {
+  [objectModelType] = {"Obj",0},
+  [characterModelType] = {"Char", 0}
+};
 
 typedef struct{
   int id;
@@ -183,6 +194,11 @@ typedef struct{
 
   int size;
   vec3* vertices;
+
+  ModelType type;
+
+  int index1D;
+  int index2D;
   
   //  Model* model;
 } ModelInfo;
@@ -337,7 +353,7 @@ int strcut(char *str, int begin, int len);
 
 int strtrim(char *str);
 
-Model* loadOBJ(char* path, char* texturePath, int name);
+ModelInfo* loadOBJ(char* path, char* texturePath);
 
 #define increaseVAOnVBO() boundVBO++; boundVAO++
 

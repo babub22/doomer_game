@@ -16,7 +16,8 @@ size_t objsStoreSize;
 GLuint fontAtlas;
 
 // avaible/loaded models
-ModelInfo* loadedModels;
+ModelInfo* loadedModels1D;
+ModelInfo** loadedModels2D;
 size_t loadedModelsSize;
 
 // placed/created models
@@ -46,7 +47,11 @@ float fov;
 
 float borderArea;
 
+GLuint objectsMenuTypeRectVBO;
+GLuint objectsMenuTypeRectVAO;
+
 Menu objectsMenu;
+ModelType objectsMenuSelectedType = objectModelType;
 float objectsMenuWidth = -1.0f + 1.0f / 4.0f;
 
 int consoleBufferCursor;
@@ -141,6 +146,15 @@ int main(int argc, char* argv[]) {
   {
     glGenBuffers(1, &textVBO);
     glGenVertexArrays(1, &textVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // init VBO and VAO for type
+  {
+    glGenBuffers(1, &objectsMenuTypeRectVBO);
+    glGenVertexArrays(1, &objectsMenuTypeRectVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -661,26 +675,33 @@ int main(int argc, char* argv[]) {
     if(!objsSpecs){
       printf("ObjsSpecs.txt was not found! \n");
     }else{
-      int objsCounter = 0;
-	
-      char ch;
+      char textureName[50];
+      char objName[50];
+      char typeStr[10];
 
-      while(ch = fgetc(objsSpecs)){
-	if(ch == EOF) break;
-	if(ch == '\n') objsCounter++;
+      int charsCounter = 0;
+      int objsCounter = 0;
+
+      while(fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF){	 
+	if(strcmp(typeStr, "Char")==0){
+	  charsCounter++;
+	}else if(strcmp(typeStr, "Obj")==0){
+	  objsCounter++;
+	}else{
+	  printf("Model %s has wrong type %s \n", objName, typeStr);
+	  exit(0);
+	}
       };
 
-      objsCounter++;
-      loadedModels = malloc(sizeof(ModelInfo) * objsCounter);
+      loadedModels1D = malloc(sizeof(ModelInfo) * (charsCounter + objsCounter));
+
+      loadedModels2D = malloc(sizeof(ModelInfo*) * modelTypeCounter);
+      loadedModels2D[objectModelType] = malloc(sizeof(ModelInfo) * objsCounter);
+      loadedModels2D[characterModelType] = malloc(sizeof(ModelInfo) * objsCounter);
 
       rewind(objsSpecs);
 
-      for(int i=0; i <objsCounter;i ++){
-	char textureName[50];
-	char objName[50];
-
-	fscanf(objsSpecs, "%s %s\n", objName, textureName);
-
+      while(fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF){	
 	char *fullObjPath = malloc(strlen(objName) + strlen(objsFolder) + 1);
 	  
 	strcpy(fullObjPath, objsFolder);
@@ -690,31 +711,39 @@ int main(int argc, char* argv[]) {
 	  
 	strcpy(fullTxPath, objsFolder);
 	strcat(fullTxPath, textureName);
-	  
-	loadOBJ(fullObjPath, fullTxPath, i);
+
+	ModelType type = -1;
+	
+	for(int i2=0;i2<modelTypeCounter;i2++){
+	  if(strcmp(typeStr, modelsTypesInfo[i2].str) == 0){
+	    type = i2;
+	    break;
+	  }
+	}
+
+	ModelInfo* loadedModel = loadOBJ(fullObjPath, fullTxPath);
+
+	loadedModel->type = type;
+	loadedModel->name = malloc(sizeof(char) * (strlen(objName) + 1));
+	strcpy(loadedModel->name, objName);
+	strcut(loadedModel->name, strlen(objName) - 4, strlen(objName));
+	loadedModel->index1D = loadedModelsSize;
+	loadedModel->index2D = modelsTypesInfo[type].counter;
+
+	loadedModels1D[loadedModelsSize] = *loadedModel;
+	loadedModels2D[type][modelsTypesInfo[type].counter] = *loadedModel;
 	
 	free(fullObjPath);
 	free(fullTxPath);
 	  
-	loadedModels[i].name = malloc(sizeof(char) * (strlen(objName) + 1));
-	strcpy(loadedModels[i].name, objName);
-	strcut(loadedModels[i].name, strlen(objName) - 4, strlen(objName));
-	  
 	printf("Loaded %s\n", objName);
-	  
+
+	modelsTypesInfo[type].counter++;
 	loadedModelsSize++;
       }
 
       fclose(objsSpecs);
-	
     }
-      
-    //       fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
-    //       fgetc(map); // read ,
-      
-      
-    //  loadedModels = malloc(sizeof(Model));
-    // loadedModelsSize++;
   }
   
   // tang of fov calculations
@@ -730,27 +759,27 @@ int main(int argc, char* argv[]) {
 
   // load or init grid
   if(!loadSave("map")){
-      grid = malloc(sizeof(Tile**) * (gridY));
+    grid = malloc(sizeof(Tile**) * (gridY));
 
-      for (int y = 0; y < gridY; y++) {
-	grid[y] = malloc(sizeof(Tile*) * (gridZ));
+    for (int y = 0; y < gridY; y++) {
+      grid[y] = malloc(sizeof(Tile*) * (gridZ));
 
-	for (int z = 0; z < gridZ; z++) {
-	  grid[y][z] = calloc(gridX, sizeof(Tile));
+      for (int z = 0; z < gridZ; z++) {
+	grid[y][z] = calloc(gridX, sizeof(Tile));
 
-	  for (int x = 0; x < gridX; x++) {
-	    if (y == 0) {
-	      setIn(grid[y][z][x].ground, 0, texturedTile);
-	      setIn(grid[y][z][x].ground, 2, frozenGround);
-	    }
-	    else {
-	      setIn(grid[y][z][x].ground, 0, netTile);
-	    }
+	for (int x = 0; x < gridX; x++) {
+	  if (y == 0) {
+	    setIn(grid[y][z][x].ground, 0, texturedTile);
+	    setIn(grid[y][z][x].ground, 2, frozenGround);
+	  }
+	  else {
+	    setIn(grid[y][z][x].ground, 0, netTile);
 	  }
 	}
       }
+    }
 
-      printf("Map not found!\n");
+    printf("Map not found!\n");
   }
 
   // set up camera
@@ -1682,20 +1711,20 @@ int main(int argc, char* argv[]) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
-	glActiveTexture(loadedModels[name].tx);
-	glBindTexture(GL_TEXTURE_2D, loadedModels[name].tx);
+	glActiveTexture(loadedModels1D[name].tx);
+	glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
 
 	if(isIntersect){
 	  mouse.selectedModel = &curModels[i];
 	  //	  setSolidColorTx(redColor, 1.0f);
 	}
 
-	glBindVertexArray(loadedModels[name].VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, loadedModels[name].VBO);
+	glBindVertexArray(loadedModels1D[name].VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
 
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, curModels[i].mat.m);
 
-	glDrawArrays(GL_TRIANGLES, 0, loadedModels[name].size);
+	glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2279,63 +2308,10 @@ int main(int argc, char* argv[]) {
 
     glPopMatrix();
     }
-
-    // recalculate AABB
-    {
-    vec3 minPoint = (vec3){player.pos.x - player.w/2, player.pos.y, player.pos.z };
-    vec3 maxPoint = (vec3){player.pos.x - player.w/2 + player.w, player.pos.y + player.h, player.pos.z + player.d };
-
-    vec3 vert[8] = { minPoint, {minPoint.x + player.w, minPoint.y, minPoint.z},
-    {minPoint.x, minPoint.y, minPoint.z + player.d},
-    {minPoint.x + player.w, minPoint.y, minPoint.z + player.d}, maxPoint,
-    {maxPoint.x - player.w, maxPoint.y, maxPoint.z},
-    {maxPoint.x, maxPoint.y, maxPoint.z - player.d},
-    {maxPoint.x - player.w, maxPoint.y, maxPoint.z - player.d}
-    };
-
-    player.min = vert[0];
-    player.max = vert[0];
-	
-    for(int i=0; i<8;i++){
-    vert[i] = matrixMultPoint(modelview, vert[i]);
-	    
-    player.min.x = min(player.min.x, vert[i].x);
-    player.min.y = min(player.min.y, vert[i].y);
-    player.min.z = min(player.min.z, vert[i].z);
-	    
-    player.max.x = max(player.max.x, vert[i].x);
-    player.max.y = max(player.max.y, vert[i].y);
-    player.max.z = max(player.max.z, vert[i].z);
-    }
-	
-    glBegin(GL_LINES);
-
-    glVertex3f(vert[0].x,vert[0].y,vert[0].z);
-    glVertex3f(vert[1].x,vert[1].y, vert[1].z);
-
-    glVertex3f(vert[1].x,vert[1].y,vert[1].z);
-    glVertex3f(vert[2].x,vert[2].y,vert[2].z);
-
-    glVertex3f(vert[0].x,vert[0].y,vert[0].z);
-    glVertex3f(vert[2].x,vert[2].y,vert[2].z);
-	
-    glVertex3f(vert[2].x,vert[2].y,vert[2].z);
-    glVertex3f(vert[3].x,vert[3].y,vert[3].z);
-
-    glColor3d(blueColor);
-    glVertex3f(player.min.x,player.min.y,player.min.z );
-    glVertex3f(player.min.x,player.max.y,player.min.z );
-
-    glColor3d(greenColor);
-    glVertex3f(player.max.x,player.min.y,player.max.z );
-    glVertex3f(player.max.x,player.max.y,player.max.z );
-
-    glEnd();
-
-    }
-    }
     */
-		
+
+
+    // 2d ui drawing
     glDisable(GL_DEPTH_TEST);
     glUseProgram(hudShader);
 
@@ -2356,7 +2332,7 @@ int main(int argc, char* argv[]) {
       
       int selectedIndex = loadedModelsSize - ( ((mouse.cursor.z + 0.5f) - 0.06f)  / .1f);
 
-      if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= loadedModelsSize){
+      if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= modelsTypesInfo[objectsMenuSelectedType].counter){
 	if(mouse.clickL){
 	  curModelsSize++;
 
@@ -2368,7 +2344,7 @@ int main(int argc, char* argv[]) {
 
 	  curModels[curModelsSize-1].id = curModelsSize-1;
 
-	  curModels[curModelsSize-1].name = selectedIndex - 1;
+	  curModels[curModelsSize-1].name = loadedModels2D[objectsMenuSelectedType][selectedIndex - 1].index1D;
 	  curModels[curModelsSize-1].mat = IDENTITY_MATRIX;
 
 	  scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f); 
@@ -2379,7 +2355,6 @@ int main(int argc, char* argv[]) {
 	    curModels[curModelsSize-1].mat.m[13] = tile.y;
 	    curModels[curModelsSize-1].mat.m[14] = tile.z;
 	  }
-
 	  
 	  calculateModelAABB(&curModels[curModelsSize-1]);
 	  
@@ -2416,10 +2391,69 @@ int main(int argc, char* argv[]) {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
       }
-      
 
-      for(int i=0;i<loadedModelsSize;i++){
-	renderText(loadedModels[i].name, -1.0f, 1.0f - (i * 0.1f), 1);
+      // types of models
+      {
+	glActiveTexture(solidColorTx);
+	glBindTexture(GL_TEXTURE_2D, solidColorTx);
+	
+	float cursorH = 0.06f;
+	float cursorW = 0.02f;
+
+	float typeButtonW = (1.0f + objectsMenuWidth) / 2;
+	float typeButtonH = 0.1f;
+
+	float baseX = objectsMenuWidth;
+
+	// change selection
+	{
+	  if((mouse.cursor.x >= baseX && mouse.cursor.x <= baseX + typeButtonW) && selectedIndex <= modelTypeCounter){
+	    if(mouse.clickL){
+	      objectsMenuSelectedType = selectedIndex - 1;
+	    }
+	  }
+	}
+	
+	glBindVertexArray(objectsMenuTypeRectVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, objectsMenuTypeRectVBO);
+	  
+	for(int i=0; i<modelTypeCounter;i++){
+	  if(i == objectsMenuSelectedType){
+	    setSolidColorTx(redColor, 1.0f);
+	  }else{
+	    setSolidColorTx(blackColor, 1.0f);
+	  }
+
+	  float typeRect[] = {
+	    baseX, 1.0f - (i) * typeButtonH, 1.0f, 0.0f,
+	    baseX + typeButtonW, 1.0f - (i) * typeButtonH, 1.0f, 1.0f,
+	    baseX, 1.0f - (i+1) * typeButtonH, 0.0f, 0.0f,
+
+	    baseX + typeButtonW, 1.0f - (i) * typeButtonH, 1.0f, 1.0f,
+	    baseX, 1.0f - (i+1) * typeButtonH, 0.0f, 0.0f,
+	    baseX + typeButtonW, 1.0f - (i+1) * typeButtonH, 0.0f, 1.0f };
+
+	  glBufferData(GL_ARRAY_BUFFER, sizeof(typeRect), typeRect, GL_STATIC_DRAW);
+
+	  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
+
+	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	  glEnableVertexAttribArray(1);
+
+	  glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	  
+	}
+      // TODO: Come up how to merge these two loops
+      // it throws exeption if put it into loop above
+      for (int i = 0; i < modelTypeCounter; i++) {
+	renderText(modelsTypesInfo[i].str, baseX, 1.0f - ((i) * typeButtonH), 1.0f);
+      }
+      }
+
+
+      for(int i=0;i<modelsTypesInfo[objectsMenuSelectedType].counter;i++){
+	renderText(loadedModels2D[objectsMenuSelectedType][i].name, -1.0f, 1.0f - (i * 0.1f), 1);
       }
 
       glActiveTexture(solidColorTx);
@@ -2463,7 +2497,7 @@ int main(int argc, char* argv[]) {
       if(mouse.focusedModel){ 
 	char buf[100];
 
-	sprintf(buf, "Focused model [%s-%d] Mode: %s", loadedModels[mouse.focusedModel->name].name, mouse.focusedModel->id, manipulationMode!= -1 ?manipulationModeStr[manipulationMode] : "None");
+	sprintf(buf, "Focused model [%s-%d] Mode: %s", loadedModels1D[mouse.focusedModel->name].name, mouse.focusedModel->id, manipulationMode!= -1 ?manipulationModeStr[manipulationMode] : "None");
 
 	renderText(buf, -1.0f, 1.0f, 1.0f);
       }
@@ -2526,7 +2560,7 @@ int main(int argc, char* argv[]) {
     }
     
     if (deltatime != 0) {
-		sprintf(windowTitle, game" FPS: %d Save: %s.doomer", 1000 / deltatime, curSaveName);
+      sprintf(windowTitle, game" FPS: %d Save: %s.doomer", 1000 / deltatime, curSaveName);
       SDL_SetWindowTitle(window, windowTitle);
     }
   }
@@ -3255,9 +3289,8 @@ void wallsLoadVAOandVBO(){
     }
   }
 }
-//}
 
-Model* loadOBJ(char* path, char* texturePath, int name){
+ModelInfo* loadOBJ(char* path, char* texturePath){
   fastObjMesh* mesh = fast_obj_read(path);
 
   if (!mesh) {
@@ -3265,32 +3298,21 @@ Model* loadOBJ(char* path, char* texturePath, int name){
     exit(0);
   }
 
-  // loadedModels[name] = (ModelInfo*)malloc(sizeof(ModelInfo));
-  loadedModels[name].size = mesh->index_count;
+  // loadedModels1D[name] = (ModelInfo*)malloc(sizeof(ModelInfo));
+  ModelInfo* loadedModel = malloc(sizeof(ModelInfo));
 
   // vertecies
   vec3* verts = malloc(mesh->position_count * sizeof(vec3));
-  loadedModels[name].vertices = malloc(mesh->index_count * sizeof(vec3));
+  loadedModel->vertices = malloc(mesh->index_count * sizeof(vec3));
 
   //  vec3 lb = { 1000, 1000, 1000 };
   //  vec3 rt = { 0,0,0 };
   
   int counter = 0;
-  for (unsigned int i = 0; i < mesh->position_count * 3;i+=3){
+  for (int i = 0; i < mesh->position_count * 3;i+=3){
     if(i==0) continue;
 
     verts[counter] = (vec3){mesh->positions[i], mesh->positions[i+1], mesh->positions[i+2]};
-
-    /*
-      lb.x = min(lb.x, verts[counter].x);
-      lb.y = min(lb.y, verts[counter].y);
-      lb.z = min(lb.z, verts[counter].z);
-    
-      rt.x = max(rt.x, verts[counter].x);
-      rt.y = max(rt.y, verts[counter].y);
-      rt.z = max(rt.z, verts[counter].z);
-    */
-    
     counter++;
   }
   
@@ -3300,7 +3322,7 @@ Model* loadOBJ(char* path, char* texturePath, int name){
   uv2* sortedUvs = malloc(mesh->index_count * sizeof(uv2));
   
   counter = 0;
-  for( unsigned int i=0; i<mesh->texcoord_count * 2;i+=2){
+  for( int i=0; i<mesh->texcoord_count * 2;i+=2){
     if(i==0) continue;
 
     uvs[counter] = (uv2){mesh->texcoords[i], mesh->texcoords[i+1]};
@@ -3312,7 +3334,7 @@ Model* loadOBJ(char* path, char* texturePath, int name){
   vec3* sortedNormals = malloc(mesh->index_count * sizeof(vec3));
 
   counter = 0;
-  for( unsigned int i=0; i<mesh->normal_count * 3;i+=3){
+  for( int i=0; i<mesh->normal_count * 3;i+=3){
     if(i==0) continue;
 
     normals[counter] = (vec3){mesh->normals[i], mesh->normals[i+1], mesh->normals[i+2]};
@@ -3322,9 +3344,11 @@ Model* loadOBJ(char* path, char* texturePath, int name){
   // TODO: Make these 3 index_count loops in one
   for(int i=0; i< mesh->index_count; i++){
     sortedNormals[i] = normals[mesh->indices[i].n - 1];
-    loadedModels[name].vertices[i] = verts[mesh->indices[i].p - 1];
+    loadedModel->vertices[i] = verts[mesh->indices[i].p - 1];
     sortedUvs[i] = uvs[mesh->indices[i].t - 1];
   }
+
+  loadedModel->size = mesh->index_count;
   
   free(uvs);
   free(verts);
@@ -3332,20 +3356,20 @@ Model* loadOBJ(char* path, char* texturePath, int name){
 
   fast_obj_destroy(mesh);
   
-  float* modelVerts = malloc(sizeof(float) * 8 * loadedModels[name].size);
+  float* modelVerts = malloc(sizeof(float) * 8 * loadedModel->size);
 
-  glGenVertexArrays(1, &loadedModels[name].VAO);
-  glBindVertexArray(loadedModels[name].VAO);
+  glGenVertexArrays(1, &loadedModel->VAO);
+  glBindVertexArray(loadedModel->VAO);
 
-  glGenBuffers(1, &loadedModels[name].VBO);
-  glBindBuffer(GL_ARRAY_BUFFER, loadedModels[name].VBO);
+  glGenBuffers(1, &loadedModel->VBO);
+  glBindBuffer(GL_ARRAY_BUFFER, loadedModel->VBO);
   
   int index = 0;
   
-  for(int i=0;i<loadedModels[name].size * 8;i+=8){
-    modelVerts[i] = loadedModels[name].vertices[index].x;
-    modelVerts[i + 1] = loadedModels[name].vertices[index].y;
-    modelVerts[i + 2] = loadedModels[name].vertices[index].z;
+  for(int i=0;i<loadedModel->size * 8;i+=8){
+    modelVerts[i] = loadedModel->vertices[index].x;
+    modelVerts[i + 1] = loadedModel->vertices[index].y;
+    modelVerts[i + 2] = loadedModel->vertices[index].z;
 
     modelVerts[i + 3] = sortedUvs[index].x;
     modelVerts[i + 4] = sortedUvs[index].y;
@@ -3360,7 +3384,7 @@ Model* loadOBJ(char* path, char* texturePath, int name){
   free(sortedNormals);
   free(sortedUvs);
 
-  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8 * loadedModels[name].size, modelVerts, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8 * loadedModel->size, modelVerts, GL_STATIC_DRAW);
 
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
   glEnableVertexAttribArray(0);
@@ -3376,23 +3400,23 @@ Model* loadOBJ(char* path, char* texturePath, int name){
 
   free(modelVerts);
 
-  // set mat of loadedModels[name] to IDENTITY_MATRIX
-  /*  loadedModels[name].mat.m[0] = 1;
-      loadedModels[name].mat.m[5] = 1;
-      loadedModels[name].mat.m[10] = 1;
-      loadedModels[name].mat.m[15] = 1;
+  // set mat of loadedModels1D[name] to IDENTITY_MATRIX
+  /*  loadedModel->mat.m[0] = 1;
+      loadedModel->mat.m[5] = 1;
+      loadedModel->mat.m[10] = 1;
+      loadedModel->mat.m[15] = 1;
 
-      scale(&loadedModels[name].mat.m, 0.25f, 0.25f, 0.25f);
+      scale(&loadedModel->mat.m, 0.25f, 0.25f, 0.25f);
 
       // To get some speed up i can getrid off one O(n) loop
       // simply finding min/max inside of parsing positions above
-      calculateModelAABB(loadedModels[name]);*/
+      calculateModelAABB(loadedModels1D[name]);*/
   
-  // loadedModels[name].name = name;
+  // loadedModel->name = name;
 
   // load texture
   {
-    glGenTextures(1, &loadedModels[name].tx);
+    glGenTextures(1, &loadedModel->tx);
 
     // -1 because of solidColorTx
     SDL_Surface* texture = IMG_Load(texturePath);
@@ -3402,7 +3426,7 @@ Model* loadOBJ(char* path, char* texturePath, int name){
       exit(0);
     }
 
-    glBindTexture(GL_TEXTURE_2D, loadedModels[name].tx);
+    glBindTexture(GL_TEXTURE_2D, loadedModel->tx);
       
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -3422,7 +3446,7 @@ Model* loadOBJ(char* path, char* texturePath, int name){
     glBindTexture(GL_TEXTURE_2D, 0);
   }
  
-  return true;
+  return loadedModel;
 }
 
 // it also assigns lb, rt to model
@@ -3430,8 +3454,8 @@ void calculateModelAABB(Model* model){
   model->lb = (vec3){FLT_MAX,FLT_MAX,FLT_MAX};
   model->rt = (vec3){-FLT_MAX,-FLT_MAX,-FLT_MAX};
   
-  for (int i = 0; i < loadedModels[model->name].size; i++) {
-    vec4 trasformedVert4 = mulmatvec4(model->mat, (vec4) { argVec3(loadedModels[model->name].vertices[i]), 1.0f });
+  for (int i = 0; i < loadedModels1D[model->name].size; i++) {
+    vec4 trasformedVert4 = mulmatvec4(model->mat, (vec4) { argVec3(loadedModels1D[model->name].vertices[i]), 1.0f });
     
     model->lb.x = min(model->lb.x, trasformedVert4.x);
     model->lb.y = min(model->lb.y, trasformedVert4.y);
@@ -3566,13 +3590,13 @@ bool loadSave(char* saveName){
       free(grid[y]);
     }
     free(grid);
-	grid = NULL;
+    grid = NULL;
 
-	if (curModels) {
-    free(curModels);
-	curModels = NULL;
-	curModelsSize = 0;
-	}
+    if (curModels) {
+      free(curModels);
+      curModels = NULL;
+      curModelsSize = 0;
+    }
   }
   
   int sizeX, sizeZ, sizeY;
@@ -3724,10 +3748,10 @@ bool createMap(int newX, int newY, int newZ){
   for (int y = 0; y < newY; y++) {
     grid[y] = malloc(sizeof(Tile*) * (newZ));
 
-	for (int z = 0; z < newZ; z++) {
+    for (int z = 0; z < newZ; z++) {
       grid[y][z] = calloc(newX, sizeof(Tile));
 
-	  for (int x = 0; x < newX; x++) {
+      for (int x = 0; x < newX; x++) {
 	if (y == 0) {
 	  setIn(grid[y][z][x].ground, 0, texturedTile);
 	  setIn(grid[y][z][x].ground, 2, frozenGround);
