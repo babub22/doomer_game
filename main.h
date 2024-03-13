@@ -120,11 +120,64 @@ typedef enum{
   assetsTypes,
 } AssetType;
 
+typedef struct{
+  float x,y,w,h;
+} UIRect;
+
+typedef enum{
+  charNameInput,
+  replicaInput,
+  answerInput1,
+  answerInput2,
+  answerInput3,
+  answerInput4,
+  answerInput5,
+  answerInput6,  dialogEditorInputsCounter
+} DialogEditorInputs;
+
+typedef enum{
+  testButton,
+  saveButton,
+  addButton1,
+  addButton2,
+  addButton3,
+  addButton4,
+  addButton5,
+  minusButton1,
+  minusButton2,
+  minusButton3,
+  minusButton4,
+  minusButton5,
+  minusButton6,  dialogEditorButtonsCounter
+} DialogEditorButtons;
+
+typedef struct{
+  bool active;
+  UIRect rect;
+  char* buf;
+} TextInput;
 
 typedef struct{
   GLuint VBO;
   GLuint VAO;
+} VPair;
+
+typedef struct{
+  GLuint VBO;
+  GLuint VAO;
+
+  UIRect rect; // of menu background
+  
   bool open;
+
+  // iter with DialogEditorInputs
+  VPair* vpairs;
+  VPair* buttonsPairs;
+
+  // first 2 charNameInput and replicaInput
+  TextInput* textInputs;
+
+  UIRect* buttons;
 } Menu;
 
 typedef struct{
@@ -306,13 +359,6 @@ typedef enum{
   SCALE
 } ManipulationMode;
 
-typedef struct{
-  int VAO;
-  int VBO;
-  bool active;
-  char* buf;
-} TextInput;
-
 #define snowGravity -0.8f
 #define snowDefAmount 20000
 
@@ -418,6 +464,8 @@ GLuint loadShader(GLenum shaderType, const char* filename);
 #define selBorderT 0.01f
 
 #define selTileBorderH 0.001f
+
+#define dialogEditorCharNameTitle "Char name: "
 
 const char sdlScancodesToACII[] = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'

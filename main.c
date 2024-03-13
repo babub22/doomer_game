@@ -13,6 +13,8 @@ GLuint selectionRectVAO;
 GLuint selectionRectVBO;
 GLuint selectionRectVAO;
 
+VPair addButton;
+char addButtonText[] = "+";
 
 Object** objsStore;
 size_t objsStoreSize;
@@ -113,13 +115,13 @@ GLuint cursorVBO;
 GLuint cursorVAO;
 
 // accepts percents
-float* uiRect(float x, float y, float w, float h){
+float* uiRectPercentage(float x, float y, float w, float h){
   vec2 lt = { 2 * x - 1, 2 * y - 1 };
   vec2 rt = { 2 * w - 1, 2 * y - 1 };
 
   vec2 lb = { 2 * x - 1, 2 * h - 1 };
   vec2 rb = { 2 * w - 1, 2 * h - 1 };
-
+  
   float stackRect[] = { 
     argVec2(lt), 1.0f, 0.0f,
     argVec2(rt), 1.0f, 1.0f,
@@ -130,11 +132,28 @@ float* uiRect(float x, float y, float w, float h){
     argVec2(rb), 0.0f, 1.0f };
   
   float* rect = malloc(sizeof(stackRect));	
+  memcpy(rect, stackRect, sizeof(stackRect));
+	
+  return rect;
+}
 
-  for(int i =0;i<6*4;i++){
-    printf("%f ", stackRect[i]);
-  }
+float* uiRectPoints(float x, float y, float w, float h){
+  vec2 lt = { x, y };
+  vec2 rt = { x + w, y };
 
+  vec2 lb = { x, y - h };
+  vec2 rb = { x + w, y - h };
+  
+  float stackRect[] = { 
+    argVec2(lt), 1.0f, 0.0f,
+    argVec2(rt), 1.0f, 1.0f,
+    argVec2(lb), 0.0f, 0.0f,
+
+    argVec2(rt), 1.0f, 1.0f,
+    argVec2(lb), 0.0f, 0.0f,
+    argVec2(rb), 0.0f, 1.0f };
+  
+  float* rect = malloc(sizeof(stackRect));	
   memcpy(rect, stackRect, sizeof(stackRect));
 	
   return rect;
@@ -150,7 +169,9 @@ int main(int argc, char* argv[]) {
 					SDL_WINDOWPOS_CENTERED,
 					SDL_WINDOWPOS_CENTERED,
 					windowW, windowH,
-					SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+					SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
+					);
+					  // | SDL_WINDOW_RESIZABLE
 
   SDL_WarpMouseInWindow(window, windowW/2.0f, windowH/2.0f);
   SDL_SetRelativeMouseMode(SDL_TRUE);
@@ -169,6 +190,15 @@ int main(int argc, char* argv[]) {
   {
     glGenBuffers(1, &cursorVBO);
     glGenVertexArrays(1, &cursorVAO);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+  
+  // addButton element
+  {
+    glGenBuffers(1, &addButton.VBO);
+    glGenVertexArrays(1, &addButton.VAO);
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -238,11 +268,13 @@ int main(int argc, char* argv[]) {
 
       glGenBuffers(1, &dialogEditor.VBO);
       glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.VBO);
-    
-      float* dialogEditor = uiRect(f(1/8), f(7/8), f(7/8), f(1/8));
 
-      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), dialogEditor, GL_STATIC_DRAW);
-      free(dialogEditor);
+      float* editorPoints = uiRectPercentage(f(1/8), f(7/8), f(7/8), f(1/8));
+
+      dialogEditor.rect = (UIRect){ editorPoints[0], editorPoints[1], editorPoints[20] - editorPoints[0], editorPoints[21] - editorPoints[1]};
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), editorPoints, GL_STATIC_DRAW);
+      free(editorPoints);
       
       glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
       glEnableVertexAttribArray(0);
@@ -254,15 +286,23 @@ int main(int argc, char* argv[]) {
       glBindVertexArray(0);
     }
 
-     // dialog nameInput editor
+    dialogEditor.vpairs = malloc(dialogEditorInputsCounter * sizeof(VPair));
+    dialogEditor.textInputs = calloc(dialogEditorInputsCounter, sizeof(TextInput));
+    
+    dialogEditor.buttonsPairs = malloc(dialogEditorButtonsCounter * sizeof(VPair));
+    dialogEditor.buttons = malloc(dialogEditorButtonsCounter *  sizeof(UIRect));
+    
+    // dialog nameInput editor
     { 
-      glGenVertexArrays(1, &dialogEditorNameInput.VAO);
-      glBindVertexArray(dialogEditorNameInput.VAO);
+      glGenVertexArrays(1, &dialogEditor.vpairs[charNameInput].VAO);
+      glBindVertexArray(dialogEditor.vpairs[charNameInput].VAO);
 
-      glGenBuffers(1, &dialogEditorNameInput.VBO);
-      glBindBuffer(GL_ARRAY_BUFFER, dialogEditorNameInput.VBO);
+      glGenBuffers(1, &dialogEditor.vpairs[charNameInput].VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[charNameInput].VBO);
       
-      float* nameInput = uiRect(f(1/8) * 0.8f, f(7/8) * 0.9f, f(7/8) * 0.2f, f(7/8) * 0.86f);
+      float* nameInput = uiRectPoints(dialogEditor.rect.x + letterW * (strlen(dialogEditorCharNameTitle) + 1), dialogEditor.rect.y, 0.4f, 0.1f);
+      
+      dialogEditor.textInputs[charNameInput].rect = (UIRect){ dialogEditor.rect.x, dialogEditor.rect.y, 0.1f, 0.1f}; 
 
       glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), nameInput, GL_STATIC_DRAW);
       free(nameInput);
@@ -277,6 +317,99 @@ int main(int argc, char* argv[]) {
       glBindVertexArray(0);
     }
 
+    // dialog replica input
+    { 
+      glGenVertexArrays(1, &dialogEditor.vpairs[replicaInput].VAO);
+      glBindVertexArray(dialogEditor.vpairs[replicaInput].VAO);
+
+      glGenBuffers(1, &dialogEditor.vpairs[replicaInput].VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[replicaInput].VBO);
+
+      float* replica = uiRectPercentage(f(1/8) + 0.01f, f(5/8), f(6/8), f(6/8));
+
+      float h = max(abs(replica[20]),abs(replica[0])) - min(abs(replica[20]),abs(replica[0]));
+
+      float w = max(abs(replica[20]),abs(replica[0])) - min(abs(replica[20]),abs(replica[0]));
+
+      dialogEditor.textInputs[replicaInput].rect = (UIRect){ replica[0], replica[1], w, h};
+      
+      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), replica, GL_STATIC_DRAW);
+      free(replica);
+      
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // dialog editor answer input
+    {
+      float baseY = dialogEditor.textInputs[replicaInput].rect.y - dialogEditor.textInputs[replicaInput].rect.h;
+      float baseX = dialogEditor.textInputs[replicaInput].rect.x;
+
+      float answerInputH = letterH;
+      float answerInputW = letterW * 16;
+      
+      for(int i=answerInput1;i<dialogEditorInputsCounter;i++){
+	// minus buttons
+	{
+	  int butIndex = (i - 2) + 7;
+	  
+	  glGenVertexArrays(1, &dialogEditor.buttonsPairs[butIndex].VAO);
+	  glBindVertexArray(dialogEditor.buttonsPairs[butIndex].VAO);
+
+	  glGenBuffers(1, &dialogEditor.buttonsPairs[butIndex].VBO);
+	  glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[butIndex].VBO);
+
+	  float* buttonPoints = uiRectPoints(baseX + answerInputW + 0.05f, baseY - ((i-1) * (answerInputH + 0.03f)), letterW, answerInputH);
+
+	  dialogEditor.buttons[butIndex] = (UIRect){baseX + answerInputW + 0.05f, baseY - ((i-1) * (answerInputH + 0.03f)), letterW, answerInputH };
+      
+	  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), buttonPoints, GL_STATIC_DRAW);
+	  free(buttonPoints);
+      
+	  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
+
+	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+	  glEnableVertexAttribArray(1);
+      
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+	}
+
+	// answers inputs
+	{
+	  glGenVertexArrays(1, &dialogEditor.vpairs[i].VAO);
+	  glBindVertexArray(dialogEditor.vpairs[i].VAO);
+
+	  glGenBuffers(1, &dialogEditor.vpairs[i].VBO);
+	  glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[i].VBO);
+
+	  float* answerInpt = uiRectPoints(baseX, baseY - ((i-1) * (answerInputH + 0.03f)), answerInputW, answerInputH);
+
+	  printf("%f %f %f %f\n", answerInpt[0], answerInpt[1], answerInpt[20], answerInpt[21]);
+
+	  dialogEditor.textInputs[answerInput1].rect = (UIRect){baseX, baseY + (answerInputH * (answerInput1 +1)), answerInputW, answerInputH };
+      
+	  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), answerInpt, GL_STATIC_DRAW);
+	  free(answerInpt);
+      
+	  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
+
+	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+	  glEnableVertexAttribArray(1);
+      
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+	}
+      }
+    }
     
     // console
     {
@@ -2561,26 +2694,74 @@ int main(int argc, char* argv[]) {
     }else if(dialogEditor.open){
       glActiveTexture(solidColorTx);
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
-      setSolidColorTx(blackColor, 1.0f);
+
+      // dialog editor background
+      {
+	setSolidColorTx(blackColor, 1.0f);
       
-      glBindVertexArray(dialogEditor.VAO);
-      glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.VBO);
+	glBindVertexArray(dialogEditor.VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.VBO);
 
-      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
     
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
 
-      glBindTexture(GL_TEXTURE_2D, solidColorTx);
-      setSolidColorTx(greenColor, 1.0f);
+      // dialog char input
+      {
+	setSolidColorTx(greenColor, 1.0f);
       
-      glBindVertexArray(dialogEditorNameInput.VAO);
-      glBindBuffer(GL_ARRAY_BUFFER, dialogEditorNameInput.VBO);
+	glBindVertexArray(dialogEditor.vpairs[charNameInput].VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[charNameInput].VBO);
 
-      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
     
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+
+      // dialog replica input
+      {
+	setSolidColorTx(greenColor, 1.0f);
+      
+	glBindVertexArray(dialogEditor.vpairs[replicaInput].VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[replicaInput].VBO);
+
+	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+    
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+
+      // new answer input
+      {
+	// it will known from Dialog struct amount of answers for this replic
+	static int answersNum = 6; // max 
+
+	setSolidColorTx(greenColor, 1.0f);
+	
+	for(int i=answerInput1;i<answersNum + answerInput1;i++){
+	  //	  dialogEditorButtonsCounter
+	  int index = (i-2) + 7;
+	  glBindVertexArray(dialogEditor.buttonsPairs[index].VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[index].VBO);
+
+	  glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+    
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+	  
+	  glBindVertexArray(dialogEditor.vpairs[i].VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[i].VBO);
+
+	  glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+    
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+	}
+	
+      }
     }else if(mouse.focusedModel){ 
       char buf[100];
 
