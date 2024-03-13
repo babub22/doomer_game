@@ -155,6 +155,7 @@ typedef struct{
   bool active;
   UIRect rect;
   char* buf;
+  int bufLen; // cap - 512 chars
 } TextInput;
 
 typedef struct{
