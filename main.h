@@ -143,18 +143,30 @@ typedef enum{
   addButton3,
   addButton4,
   addButton5,
+  nextButton1,
+  nextButton2,
+  nextButton3,
+  nextButton4,
+  nextButton5,
+  nextButton6,
   minusButton1,
   minusButton2,
   minusButton3,
   minusButton4,
   minusButton5,
-  minusButton6,  dialogEditorButtonsCounter
+  minusButton6,
+  prevDialogButton,
+  dialogEditorButtonsCounter
 } DialogEditorButtons;
 
 typedef struct{
   bool active;
+
+  // for DialogEditor it will be DialogEditorInputs type
+  int localType;
+  
   UIRect rect;
-  char* buf;
+  char** buf;
   int bufLen; // cap - 512 chars
 } TextInput;
 
@@ -177,9 +189,27 @@ typedef struct{
 
   // first 2 charNameInput and replicaInput
   TextInput* textInputs;
-
+  
   UIRect* buttons;
 } Menu;
+
+/*
+typedef enum{
+  dialogLog,
+  answersBackground,  dialogViewerPartsCounter
+} DialogViewerParts;
+*/
+
+typedef enum{
+  answerBut1,
+  answerBut2,
+  answerBut3,
+  answerBut4,
+  answerBut5,
+  answerBut6,
+  closeBut,
+  dialogViewerButtonsCounter
+} DialogViewerButtons;
 
 typedef struct{
   int id;
@@ -233,17 +263,27 @@ typedef struct Dialog Dialog;
 
 // Definition of the struct
 struct Dialog {
-    char* text;
-    Dialog* answers;
-    int answersSize;
-    bool player;
+  char* replicaText;
+  // answer text for 1 page it will NULL
+  char* text;
+  Dialog* answers;
+  int answersSize;
+  bool player;
 };
 
 typedef struct{
   int id;
   char* name;
 
-  Dialog* dialogs;
+  Dialog dialogs;
+  int dialogsLen;
+
+  Dialog* curDialog;
+  
+  int* dialogHistory;
+  int historySize;
+  
+  int curDialogIndex;
   
   int modelId;
   int modelName;
@@ -254,6 +294,9 @@ typedef struct{
   
   int name;
   Matrix mat;
+
+  // -1 if not char type
+  int characterId;
 
   vec3 lb;
   vec3 rt;
@@ -322,6 +365,7 @@ typedef struct{
   Model* focusedModel;
   // player focused to manipulate
   // on key
+  Character* selectedCharacter;
 
   vec2 cursor;
 } Mouse;
@@ -405,6 +449,7 @@ void renderText(char* text, float x, float y, float scale);
 #define setSolidColorTx(color, a) do {					\
     float rgbaColor[] = {color, a};					\
     uint8_t colorBytes[4] = {(uint8_t)(rgbaColor[0] * 255), (uint8_t)(rgbaColor[1] * 255), (uint8_t)(rgbaColor[2] * 255), (uint8_t)(rgbaColor[3] * 255)};\
+    glBindTexture(GL_TEXTURE_2D, solidColorTx); \
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, colorBytes);\
 } while(false)
 // ~~~~~~
