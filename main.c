@@ -322,9 +322,9 @@ int main(int argc, char* argv[]) {
       glGenBuffers(1, &dialogEditor.vpairs[replicaInput].VBO);
       glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[replicaInput].VBO);
 
-      float* replica = uiRectPoints(dialogEditor.rect.x + 0.01f, dialogEditor.rect.y - 0.25f, letterW * 32, letterH * 3 + 0.05f);
+      float* replica = uiRectPoints(dialogEditor.rect.x + 0.01f, dialogEditor.rect.y - 0.25f, letterW * 37, letterH * 3 + 0.05f);
       
-      dialogEditor.textInputs[replicaInput].rect = (UIRect){ dialogEditor.rect.x + 0.01f, dialogEditor.rect.y - 0.25f, letterW * 32, letterH * 3 + 0.05f};
+      dialogEditor.textInputs[replicaInput].rect = (UIRect){ dialogEditor.rect.x + 0.01f, dialogEditor.rect.y - 0.25f, letterW * 37, letterH * 3 + 0.05f};
       
       glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), replica, GL_STATIC_DRAW);
       free(replica);
@@ -338,6 +338,7 @@ int main(int argc, char* argv[]) {
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
     }
+
 
     // dialog prev phrase
     { 
@@ -509,7 +510,7 @@ int main(int argc, char* argv[]) {
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
     }
-    
+
     // dialog answers background
     {
       float baseY = -0.1f - (0.05f + 5 * letterH);
@@ -1303,11 +1304,17 @@ int main(int argc, char* argv[]) {
 	  }
 	}else if(dialogViewer.open){
 	  if(event.key.keysym.scancode == SDL_SCANCODE_T){
+	    mouse.selectedCharacter->curDialogIndex = 0;
+	    mouse.selectedCharacter->curDialog = &mouse.selectedCharacter->dialogs;
+	    
 	    dialogViewer.open = false;
 	    dialogEditor.open = true;
 	  }
 	}else if(dialogEditor.open){
-	  if(event.key.keysym.scancode == SDL_SCANCODE_B && !selectedTextInput){ 
+	  if(event.key.keysym.scancode == SDL_SCANCODE_B && !selectedTextInput){
+	    mouse.selectedCharacter->curDialogIndex = 0;
+	    mouse.selectedCharacter->curDialog = &mouse.selectedCharacter->dialogs;
+
 	    dialogEditor.open = false;
 
 	    if(tempTextInputStorageCursor!=0){
@@ -1315,6 +1322,9 @@ int main(int argc, char* argv[]) {
 	      memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
 	    }
 	  }else if(event.key.keysym.scancode == SDL_SCANCODE_T && !selectedTextInput){
+	    mouse.selectedCharacter->curDialogIndex = 0;
+	    mouse.selectedCharacter->curDialog = &mouse.selectedCharacter->dialogs;
+
 	    dialogViewer.open = true;
 	    dialogEditor.open = false;
 
@@ -1325,8 +1335,7 @@ int main(int argc, char* argv[]) {
 	  }else{
 	    if(selectedTextInput){
 	      if(event.key.keysym.scancode == SDL_SCANCODE_RETURN){
-		selectedTextInput->bufLen = strlen(tempTextInputStorage);
-		*selectedTextInput->buf = malloc(sizeof(char) * (selectedTextInput->bufLen+1));
+		*selectedTextInput->buf = malloc(sizeof(char) * (strlen(*selectedTextInput->buf)+1));
 		strcpy(*selectedTextInput->buf, tempTextInputStorage);
 
 		selectedTextInput->active = false;
@@ -1337,8 +1346,15 @@ int main(int argc, char* argv[]) {
 	      }else if(tempTextInputStorageCursor > 0 && event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
 		tempTextInputStorageCursor--;
 		tempTextInputStorage[tempTextInputStorageCursor] = 0;
-	      }else if(tempTextInputStorageCursor < CONSOLE_BUF_CAP - 1){
+	      }else if(tempTextInputStorageCursor < 512 - 1){
 		if(event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39){
+		  int pos = lastNewLineCharPos(tempTextInputStorage);
+		  
+		  if(selectedTextInput->rect.w/(letterW/1.9f)<= tempTextInputStorageCursor - pos){
+		    tempTextInputStorage[tempTextInputStorageCursor] = '\n';
+		    tempTextInputStorageCursor++;  
+		  }
+		  
 		  tempTextInputStorage[tempTextInputStorageCursor] = sdlScancodesToACII[event.key.keysym.scancode];
 		  tempTextInputStorageCursor++;
 		}else if(event.key.keysym.scancode == SDL_SCANCODE_SPACE){
@@ -1632,11 +1648,10 @@ int main(int argc, char* argv[]) {
 		editedCharacter->dialogs.text = NULL;
 		editedCharacter->dialogs.answersSize = 1;
 		editedCharacter->dialogs.answers = calloc(1, sizeof(Dialog));
-		//		editedCharacter->dialogs.answers[0].answersSize = 1;
 
-		editedCharacter->dialogs.player = false;
 		editedCharacter->dialogsLen = 1;
 		editedCharacter->name = NULL;
+
 	      }
 
 	      dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
@@ -1977,7 +1992,6 @@ int main(int argc, char* argv[]) {
     mouse.groundInter = -1;
 
     mouse.selectedModel = NULL;
-
 
     glClear(GL_COLOR_BUFFER_BIT |
 	    GL_DEPTH_BUFFER_BIT);
@@ -2904,7 +2918,8 @@ int main(int argc, char* argv[]) {
       }
     }else if(dialogViewer.open){
       Character* character = mouse.selectedCharacter;
-      
+      Dialog* curDialog = character->curDialog;
+
       // dialog viewer background
       {
 	setSolidColorTx(blackColor, 1.0f);
@@ -2920,12 +2935,22 @@ int main(int argc, char* argv[]) {
       }
 
       renderText(character->name, dialogViewer.rect.x + 0.02f, dialogViewer.rect.y, 1.0f);
+      renderText(curDialog->replicaText, dialogViewer.rect.x, dialogViewer.rect.y - letterH, 1.0f);
 
-      renderText(character->dialogs.replicaText, dialogViewer.rect.x + 0.02f, dialogViewer.rect.y - letterH, 1.0f);
-
+      float mouseY = mouse.cursor.z + 0.06f;
+      bool selectedNewAnswer = false;
+      
       // dialog answers buttons
       for(int i=0;i<character->dialogs.answersSize;i++){
-	setSolidColorTx(greenColor, 1.0f);
+	setSolidColorTx(blackColor, 1.0f);
+	
+	if(dialogViewer.buttons[i].x <= mouse.cursor.x && dialogViewer.buttons[i].x + dialogViewer.buttons[i].w >= mouse.cursor.x && dialogViewer.buttons[i].y >= mouseY && dialogViewer.buttons[i].y - dialogViewer.buttons[i].h <= mouseY){
+	  setSolidColorTx(redColor, 1.0f);
+
+	  if(mouse.clickL){
+	    selectedNewAnswer = true;
+	  }
+	}
       
 	glBindVertexArray(dialogViewer.buttonsPairs[i].VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, dialogViewer.buttonsPairs[i].VBO);
@@ -2935,7 +2960,13 @@ int main(int argc, char* argv[]) {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
-	renderText(character->dialogs.answers[i].text, dialogViewer.buttons[i].x, dialogViewer.buttons[i].y, 1.0f);
+	renderText(curDialog->answers[i].text, dialogViewer.buttons[i].x, dialogViewer.buttons[i].y, 1.0f);
+
+	if(selectedNewAnswer){
+		character->curDialog = &curDialog->answers[i];
+		character->curDialogIndex++;
+		curDialog = character->curDialog;
+	}
       }
     }else if(dialogEditor.open){
       Character* editedCharacter = mouse.selectedCharacter;
@@ -2963,36 +2994,35 @@ int main(int argc, char* argv[]) {
 	  bool found = false;
 	  float mouseY = mouse.cursor.z + 0.06f;
 	  
-	  for(int i=0;i<answerInput1 + mouse.selectedCharacter->dialogs.answersSize;i++){
+	  if (selectedTextInput) {
+	    selectedTextInput->active = false;
+		
+	    if(tempTextInputStorageCursor != 0){ 
+	      *selectedTextInput->buf = malloc(sizeof(char) * (strlen(tempTextInputStorage)+1));
+	      strcpy(*selectedTextInput->buf, tempTextInputStorage); 
+
+	      selectedTextInput = NULL;
+
+	      tempTextInputStorageCursor = 0;
+	      memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
+	    }
+	  }
+	  
+	  for(int i=0;i<answerInput1 + curDialog->answersSize;i++){
 	    if(dialogEditor.textInputs[i].rect.x <= mouse.cursor.x && dialogEditor.textInputs[i].rect.x + dialogEditor.textInputs[i].rect.w >= mouse.cursor.x && dialogEditor.textInputs[i].rect.y >= mouseY && dialogEditor.textInputs[i].rect.y - dialogEditor.textInputs[i].rect.h <= mouseY){
 
 	      // save text in prev text input
-	      if (selectedTextInput) {
-		selectedTextInput->active = false;
-		
-		if(tempTextInputStorageCursor != 0){ 
-		  selectedTextInput->bufLen = strlen(tempTextInputStorage);
-		  *selectedTextInput->buf = malloc(sizeof(char) * (selectedTextInput->bufLen+1)); 
-		  strcpy(*selectedTextInput->buf, tempTextInputStorage); 
-
-		  selectedTextInput = NULL;
-
-		  tempTextInputStorageCursor = 0;
-		  memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
-		}
-	      }
 	    
 	      selectedTextInput = &dialogEditor.textInputs[i];
 	      dialogEditor.textInputs[i].active = true;
 
 	      // new selectedInput had text use it for tempTextStorage
 	      if(*selectedTextInput->buf){
-		tempTextInputStorageCursor = selectedTextInput->bufLen; 
+		tempTextInputStorageCursor = strlen(*selectedTextInput->buf); 
 		strcpy(tempTextInputStorage,*selectedTextInput->buf);  
 
 		free(*selectedTextInput->buf); 
 		*selectedTextInput->buf = NULL;
-		selectedTextInput->bufLen = 0;
 	      }
 
 	      found = true;
@@ -3000,22 +3030,6 @@ int main(int argc, char* argv[]) {
 	    }
 	  }
 	  if(found == false){
-	    if(selectedTextInput){
-	      selectedTextInput->active = false;
-
-	      if (tempTextInputStorageCursor != 0) { 
-		  
-		selectedTextInput->bufLen = strlen(tempTextInputStorage);
-		*selectedTextInput->buf = malloc(sizeof(char) * (selectedTextInput->bufLen + 1));
-		strcpy(*selectedTextInput->buf, tempTextInputStorage);
-
-		selectedTextInput = NULL;
-	     
-		tempTextInputStorageCursor=0;
-		memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
-	      }
-	    }
-	    
 	    // mouse vs buttons
 	    for(int i=0; i<dialogEditorButtonsCounter; i++){
 	      if(dialogEditor.buttons[i].x <= mouse.cursor.x && dialogEditor.buttons[i].x + dialogEditor.buttons[i].w >= mouse.cursor.x && dialogEditor.buttons[i].y >= mouseY && dialogEditor.buttons[i].y - dialogEditor.buttons[i].h <= mouseY){
@@ -3023,12 +3037,14 @@ int main(int argc, char* argv[]) {
 		// is add button
 		if(i >= addButton1 && i<= addButton5){
 		  if(i - addButton1 == curDialog->answersSize -1){
+		    tempTextInputStorageCursor = 0;
+		    memset(tempTextInputStorage, 0, 512 * sizeof(char));
+		    selectedTextInput = NULL;
 		    
 		    curDialog->answersSize++;
 		    curDialog->answers = realloc(curDialog->answers, curDialog->answersSize * sizeof(Dialog));
-		    curDialog->answers[curDialog->answersSize-1].text = NULL;
-			curDialog->answers[curDialog->answersSize - 1].answers = NULL;
-
+		    memset(&curDialog->answers[curDialog->answersSize-1], 0 , sizeof(Dialog));
+		    
 		    // TODO: Get rid of this loop and use code below instead
 		    for(int i=0;i<curDialog->answersSize;i++){
 		      dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text; 
@@ -3039,6 +3055,10 @@ int main(int argc, char* argv[]) {
 		    //    dialogEditor.textInputs[newAnswerIndex+answerInput1].buf = &curDialog->answers[newAnswerIndex].text;
 		  }
 		}else if(i >= nextButton1 && i<= nextButton6){
+		  if(i - nextButton1 < curDialog->answersSize){
+
+		  tempTextInputStorageCursor = 0;
+		  memset(tempTextInputStorage, 0, 512 * sizeof(char));
 		  selectedTextInput = NULL;
 		  
 		  int answerIndex = i - nextButton1;
@@ -3046,6 +3066,7 @@ int main(int argc, char* argv[]) {
 		  editedCharacter->curDialogIndex++;
 		  editedCharacter->curDialog = &curDialog->answers[answerIndex];
 		  curDialog = editedCharacter->curDialog;
+
 
 		  // keep history
 		  {
@@ -3061,17 +3082,16 @@ int main(int argc, char* argv[]) {
 		  }
 
 		  if(!curDialog->answers){ 
-		    curDialog->replicaText = NULL;
 		    curDialog->answersSize = 1; 
 		    curDialog->answers = calloc(1, sizeof(Dialog));
-		    //curDialog->answers[0].text = NULL;
 		  }
 
-
-		  dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
+		  dialogEditor.textInputs[replicaInput].buf = &curDialog->replicaText;
 
 		  for(int i=0;i<curDialog->answersSize;i++){ 
 		    dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text;
+		  }
+		  
 		  }
 		}else if(i == prevDialogButton){
 		  editedCharacter->curDialogIndex--;
@@ -3086,23 +3106,23 @@ int main(int argc, char* argv[]) {
 
 			prevDialog = &editedCharacter->dialogs;
 
-		  for(int i=0;i<editedCharacter->historySize;i++){
-		    prevDialog = &prevDialog->answers[editedCharacter->dialogHistory[i]];
-		  }
+			for(int i=0;i<editedCharacter->historySize;i++){
+			  prevDialog = &prevDialog->answers[editedCharacter->dialogHistory[i]];
+			}
 		  
 
-		  editedCharacter->curDialog = prevDialog;
-		  curDialog = editedCharacter->curDialog;
+			editedCharacter->curDialog = prevDialog;
+			curDialog = editedCharacter->curDialog;
 
-		  if (editedCharacter->curDialogIndex == 0) {
-			dialogEditor.textInputs[charNameInput].buf = &editedCharacter->name;
-		  }
+			if (editedCharacter->curDialogIndex == 0) {
+			  dialogEditor.textInputs[charNameInput].buf = &editedCharacter->name;
+			}
 
-		dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
+			dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
 
-		  for(int i=0;i<curDialog->answersSize;i++){
-		    dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text;
-		  }
+			for(int i=0;i<curDialog->answersSize;i++){
+			  dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text;
+			}
 
 		  
 		}
@@ -3134,6 +3154,13 @@ int main(int argc, char* argv[]) {
 	
 	renderText(editedCharacter->name,dialogEditor.textInputs[charNameInput].rect.x, dialogEditor.textInputs[charNameInput].rect.y ,1.0f);
 	renderText("Character name: ",dialogEditor.rect.x, dialogEditor.textInputs[charNameInput].rect.y ,1.0f);
+      }
+
+      // prev player answer
+      if(editedCharacter->curDialogIndex != 0)
+      {
+	renderText("Player said: ",dialogEditor.rect.x + letterW, dialogEditor.rect.y, 1.0f);
+	renderText(curDialog->text,dialogEditor.rect.x + letterW + strlen("Player said: ") * letterW, dialogEditor.rect.y, 1.0f);
       }
 
       // prev button
@@ -3170,6 +3197,9 @@ int main(int argc, char* argv[]) {
 	glBindVertexArray(0);
 
 	renderText(curDialog->replicaText,dialogEditor.textInputs[replicaInput].rect.x, dialogEditor.textInputs[replicaInput].rect.y ,1.0f);
+	
+	//printf("%d %d\n", placeForNewLine,strlen(curDialog->replicaText));
+	
 
 	if(editedCharacter->curDialogIndex == 0){
 	  renderText("Initial phrase: ",dialogEditor.rect.x, dialogEditor.textInputs[replicaInput].rect.y + letterH ,1.0f);
@@ -3194,7 +3224,6 @@ int main(int argc, char* argv[]) {
 	  }
 
 	  int answersIndex = i-2;
-
 
 	  // next button
 	  {
@@ -4474,7 +4503,7 @@ bool loadSave(char* saveName){
 	characters[charactersSize].modelName = curModels[i].name;
 	characters[charactersSize].id = charactersSize;
 
-	characters[charactersSize].dialogs.answersSize = 0;
+	memset(&characters[charactersSize].dialogs, 0, sizeof(Dialog));
 
 	characters[charactersSize].historySize = 0;
 	characters[charactersSize].curDialogIndex = 0;
@@ -4648,4 +4677,14 @@ void initSnowParticles(){
 	snowParticle[loop].z = (float)(rand() % gridZ / 10.0f) + (float)(rand() % 100 / 1000.0f);
       }
   }
+}
+
+int lastNewLineCharPos(char* str){
+  int len = strlen(str);
+  for (int i = len - 1; i >= 0; i--) {
+    if (str[i] == '\n') {
+      return i; // Return the index of the last '\n' character
+    }
+  }
+  return -1; // Return -1 if '\n' is not found
 }

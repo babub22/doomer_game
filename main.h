@@ -127,6 +127,7 @@ typedef struct{
 typedef enum{
   charNameInput,
   replicaInput,
+  // prevAnswerInput, 
   answerInput1,
   answerInput2,
   answerInput3,
@@ -167,7 +168,6 @@ typedef struct{
   
   UIRect rect;
   char** buf;
-  int bufLen; // cap - 512 chars
 } TextInput;
 
 typedef struct{
@@ -268,7 +268,6 @@ struct Dialog {
   char* text;
   Dialog* answers;
   int answersSize;
-  bool player;
 };
 
 typedef struct{
@@ -463,6 +462,8 @@ bool saveMap(char *saveName);
 
 void resetMouse();
 void initSnowParticles();
+
+int lastNewLineCharPos(str);
 
 bool createMap(int x, int y, int z);
 
