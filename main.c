@@ -13,6 +13,8 @@ GLuint selectionRectVAO;
 GLuint selectionRectVBO;
 GLuint selectionRectVAO;
 
+VPair hudRect;
+
 Object** objsStore;
 size_t objsStoreSize;
 
@@ -41,7 +43,10 @@ int gridX = 120;
 int gridY = 15;
 int gridZ = 120;
 
-const float letterW = .04f;
+const float letterCellW = .04f;
+const float letterCellH = .07f;
+
+const float letterW = .04f / 1.9f;
 const float letterH = .07f;
 
 GLuint mappedTextures[texturesCounter + particlesCounter];
@@ -119,6 +124,104 @@ GLuint hudShader;
 GLuint cursorVBO;
 GLuint cursorVAO;
 
+void serializePrint(Dialog* root, FILE* fp)
+{
+  // Base case
+  if (root == NULL) return;
+
+  // Else, store current node and recur for its children
+  printf("%s ", root->text ? root->text : "NULL");
+
+  for (int i = 0; i < root->answersSize//[i]
+	 ; i++)
+    serializePrint(&root->answers[i], fp);
+
+  // Store marker at the end of children
+  printf("%c ", ')');
+}
+
+void serialize(Dialog* root, FILE *fp)
+{
+  // Base case
+  if (root == NULL) return;
+ 
+  // Else, store current node and recur for its children
+  fprintf(fp,"R\"%s\"A\"%s\" ", root->replicaText ? root->replicaText : "NULL", root->text ? root->text : "NULL");
+  
+  for (int i = 0; i < root->answersSize//[i]
+	 ; i++) 
+    serialize(&root->answers[i],  fp);
+ 
+  // Store marker at the end of children
+  fprintf(fp,"%c", ')');
+}
+
+int deSerialize(Dialog* root, Dialog* parent, FILE *fp)
+{
+  // Read next item from file. If there are no more items or next
+  // item is marker, then return 1 to indicate same
+  char val[dialogEditorAnswerInputLimit + 1];
+  char replicaStr[dialogEditorReplicaInputLimit + 1];
+  char ch = fgetc(fp);
+
+  while (ch != 'R') {
+    if (ch == ')')
+      return 1;
+    else if (ch == EOF) 
+      return 0; 
+    else 
+      ch = fgetc(fp);
+  }
+
+  ungetc(ch, fp);
+
+  if (!fscanf(fp, "R\"%[^\"]\"A\"%[^\"]\" ",&replicaStr, &val) )  
+    return 1;
+
+  if (parent) {  
+    parent->answersSize++;
+
+    if (parent->answers) {
+      parent->answers = realloc(parent->answers, parent->answersSize * sizeof(Dialog));
+      memset(&parent->answers[parent->answersSize - 1], 0, sizeof(Dialog));
+    }
+    else {
+      parent->answers = calloc(1, sizeof(Dialog));
+    }
+
+    //  parent->answers[parent->answersSize-1] = calloc(1, sizeof(Dialog));
+    root = &parent->answers[parent->answersSize - 1];  
+  }
+ 
+  // Else create node with this item and recur for childrenser
+  //  root = newNode(val);
+  /*  root->answersSize++;
+
+      if(root->answers){
+      root->answers = realloc(root->answers, root->answersSize * sizeof(Dialog));
+      }else{
+      root->answers = malloc(sizeof(Dialog));
+      }*/
+
+  if(strcmp(val, "NULL") != 0){ 
+    root->text = malloc(sizeof(char) * strlen(val) + 1);
+    strcpy(root->text, val);  
+  }
+
+  if(strcmp(replicaStr, "NULL") != 0){
+    root->replicaText = malloc(sizeof(char) * strlen(replicaStr) + 1);
+    strcpy(root->replicaText, replicaStr);  
+  }
+
+  for (int i = 0; i < 7; i++)
+    if (deSerialize(&root->answers[i], root, fp))
+      break;
+ 
+  // Finally return 0 for successful finish
+  return 0;
+}
+
+
 // accepts percents
 float* uiRectPercentage(float x, float y, float w, float h){
   vec2 lt = { 2 * x - 1, 2 * y - 1 };
@@ -156,7 +259,7 @@ float* uiRectPoints(float x, float y, float w, float h){
 
     argVec2(rt), 1.0f, 1.0f,
     argVec2(lb), 0.0f, 0.0f,
-    argVec2(rb), 0.0f, 1.0f };
+    argVec2(rb), 0.0f, 1.0f }; 
    
   float* rect = malloc(sizeof(stackRect));	
   memcpy(rect, stackRect, sizeof(stackRect));
@@ -186,7 +289,7 @@ int main(int argc, char* argv[]) {
 
   GLuint netTileVBO, netTileVAO;
   GLuint texturedTileVBO, texturedTileVAO;
-  GLuint snowFlakeVBO, snowFlakeVAO;
+  GLuint snowFlakesMeshVBO, snowFlakesMeshVAO;
   GLuint centerMouseSelVBO, centerMouseSelVAO;
 
   glewInit();
@@ -195,6 +298,15 @@ int main(int argc, char* argv[]) {
   {
     glGenBuffers(1, &cursorVBO);
     glGenVertexArrays(1, &cursorVAO);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // 2d free rect
+  {
+    glGenBuffers(1, &hudRect.VBO);
+    glGenVertexArrays(1, &hudRect.VAO);
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -297,9 +409,11 @@ int main(int argc, char* argv[]) {
       glGenBuffers(1, &dialogEditor.vpairs[charNameInput].VBO);
       glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[charNameInput].VBO);
       
-      float* nameInput = uiRectPoints(dialogEditor.rect.x + letterW * (strlen(dialogEditorCharNameTitle) + 1), dialogEditor.rect.y, 0.4f, 0.1f);
+      float* nameInput = uiRectPoints(dialogEditor.rect.x + letterCellW * (strlen(dialogEditorCharNameTitle) + 1), dialogEditor.rect.y - letterH / 2, 33 * letterW, letterH);
       
-      dialogEditor.textInputs[charNameInput].rect = (UIRect){ dialogEditor.rect.x + letterW * (strlen(dialogEditorCharNameTitle) + 1), dialogEditor.rect.y, 0.4f, 0.1f}; 
+      dialogEditor.textInputs[charNameInput].rect = (UIRect){ dialogEditor.rect.x + letterCellW * (strlen(dialogEditorCharNameTitle) + 1), dialogEditor.rect.y - letterH / 2, 33 * letterW, letterH};
+
+      dialogEditor.textInputs[charNameInput].charsLimit = dialogEditorNameInputLimit;
 
       glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), nameInput, GL_STATIC_DRAW);
       free(nameInput);
@@ -322,9 +436,11 @@ int main(int argc, char* argv[]) {
       glGenBuffers(1, &dialogEditor.vpairs[replicaInput].VBO);
       glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[replicaInput].VBO);
 
-      float* replica = uiRectPoints(dialogEditor.rect.x + 0.01f, dialogEditor.rect.y - 0.25f, letterW * 37, letterH * 3 + 0.05f);
+      float* replica = uiRectPoints(dialogEditor.rect.x + 0.01f, dialogEditor.rect.y - 0.25f, letterCellW * 37, letterCellH * 3 + 0.05f);
       
-      dialogEditor.textInputs[replicaInput].rect = (UIRect){ dialogEditor.rect.x + 0.01f, dialogEditor.rect.y - 0.25f, letterW * 37, letterH * 3 + 0.05f};
+      dialogEditor.textInputs[replicaInput].rect = (UIRect){ dialogEditor.rect.x + 0.01f, dialogEditor.rect.y - 0.25f, letterCellW * 37, letterCellH * 3 + 0.05f};
+
+      dialogEditor.textInputs[replicaInput].charsLimit = dialogEditorReplicaInputLimit;
       
       glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), replica, GL_STATIC_DRAW);
       free(replica);
@@ -348,9 +464,9 @@ int main(int argc, char* argv[]) {
       glGenBuffers(1, &dialogEditor.buttonsPairs[prevDialogButton].VBO);
       glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[prevDialogButton].VBO); 
 
-      float* prevBut = uiRectPoints(dialogEditor.textInputs[replicaInput].rect.x, dialogEditor.textInputs[replicaInput].rect.y + letterH * 2, letterW, letterH);
+      float* prevBut = uiRectPoints(dialogEditor.textInputs[replicaInput].rect.x, dialogEditor.rect.y, letterCellW, letterCellH);
       
-      dialogEditor.buttons[prevDialogButton] = (UIRect){ dialogEditor.textInputs[replicaInput].rect.x, dialogEditor.textInputs[replicaInput].rect.y + letterH * 2, letterW, letterH };
+      dialogEditor.buttons[prevDialogButton] = (UIRect){ dialogEditor.textInputs[replicaInput].rect.x, dialogEditor.rect.y, letterCellW, letterCellH };
       
       glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), prevBut, GL_STATIC_DRAW);
       free(prevBut);
@@ -370,8 +486,8 @@ int main(int argc, char* argv[]) {
       float baseY = dialogEditor.textInputs[replicaInput].rect.y - dialogEditor.textInputs[replicaInput].rect.h;
       float baseX = dialogEditor.textInputs[replicaInput].rect.x;
 
-      float answerInputH = letterH;
-      float answerInputW = letterW * 16;
+      float answerInputH = letterCellH;
+      float answerInputW = letterW * 64;
       
       for(int i=answerInput1;i<dialogEditorInputsCounter;i++){
 	// next buttons
@@ -384,9 +500,9 @@ int main(int argc, char* argv[]) {
 	  glGenBuffers(1, &dialogEditor.buttonsPairs[nextButIndex].VBO);
 	  glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[nextButIndex].VBO);
 
-	  float* buttonPoints = uiRectPoints(baseX + answerInputW + 0.02f + letterW, baseY - ((i-1) * (answerInputH + 0.03f)), letterW, answerInputH);
+	  float* buttonPoints = uiRectPoints(baseX + answerInputW + 0.02f + letterCellW, baseY - ((i-1) * (answerInputH + 0.03f)), letterCellW, answerInputH);
 
-	  dialogEditor.buttons[nextButIndex] = (UIRect){ baseX + answerInputW + 0.02f + letterW, baseY - ((i-1) * (answerInputH + 0.03f)), letterW, answerInputH };
+	  dialogEditor.buttons[nextButIndex] = (UIRect){ baseX + answerInputW + 0.02f + letterCellW, baseY - ((i-1) * (answerInputH + 0.03f)), letterCellW, answerInputH };
       
 	  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), buttonPoints, GL_STATIC_DRAW);
 	  free(buttonPoints);
@@ -411,9 +527,9 @@ int main(int argc, char* argv[]) {
 	  glGenBuffers(1, &dialogEditor.buttonsPairs[minusButIndex].VBO);
 	  glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[minusButIndex].VBO);
 
-	  float* buttonPoints = uiRectPoints(baseX + answerInputW + 0.01f, baseY - ((i-1) * (answerInputH + 0.03f)), letterW, answerInputH);
+	  float* buttonPoints = uiRectPoints(baseX + answerInputW + 0.01f, baseY - ((i-1) * (answerInputH + 0.03f)), letterCellW, answerInputH);
 
-	  dialogEditor.buttons[minusButIndex] = (UIRect){baseX + answerInputW + 0.01f, baseY - ((i-1) * (answerInputH + 0.03f)), letterW, answerInputH };
+	  dialogEditor.buttons[minusButIndex] = (UIRect){baseX + answerInputW + 0.01f, baseY - ((i-1) * (answerInputH + 0.03f)), letterCellW, answerInputH };
       
 	  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), buttonPoints, GL_STATIC_DRAW);
 	  free(buttonPoints);
@@ -439,9 +555,9 @@ int main(int argc, char* argv[]) {
 	    glGenBuffers(1, &dialogEditor.buttonsPairs[addButIndex].VBO);
 	    glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[addButIndex].VBO);
 
-	    float* buttonPoints = uiRectPoints(baseX + 0.02f, baseY - letterH - ((i-1) * (answerInputH + 0.03f)) - 0.02f, letterW, answerInputH);
+	    float* buttonPoints = uiRectPoints(baseX + 0.02f, baseY - letterCellH - ((i-1) * (answerInputH + 0.03f)) - 0.02f, letterCellW, answerInputH);
 
-	    dialogEditor.buttons[addButIndex] = (UIRect){ baseX + 0.02f, baseY - letterH - ((i-1) * (answerInputH + 0.03f)) - 0.02f, letterW, answerInputH };
+	    dialogEditor.buttons[addButIndex] = (UIRect){ baseX + 0.02f, baseY - letterCellH - ((i-1) * (answerInputH + 0.03f)) - 0.02f, letterCellW, answerInputH };
       
 	    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), buttonPoints, GL_STATIC_DRAW);
 	    free(buttonPoints);
@@ -467,6 +583,8 @@ int main(int argc, char* argv[]) {
 	  float* answerInpt = uiRectPoints(baseX, baseY - ((i-1) * (answerInputH + 0.03f)), answerInputW, answerInputH);
 
 	  dialogEditor.textInputs[i].rect = (UIRect){baseX, baseY - ((i-1) * (answerInputH + 0.03f)), answerInputW, answerInputH };
+
+	  dialogEditor.textInputs[i].charsLimit = dialogEditorAnswerInputLimit;
       
 	  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), answerInpt, GL_STATIC_DRAW);
 	  free(answerInpt);
@@ -484,7 +602,7 @@ int main(int argc, char* argv[]) {
     }
 
     dialogViewer.buttons = malloc(sizeof(UIRect) * dialogEditorButtonsCounter);
-    dialogViewer.buttonsPairs = malloc(sizeof(UIRect) * dialogEditorButtonsCounter);
+    //    dialogViewer.buttonsPairs = malloc(sizeof(UIRect) * dialogEditorButtonsCounter);
     
     // dialog viewer background
     {
@@ -494,11 +612,13 @@ int main(int argc, char* argv[]) {
       glGenBuffers(1, &dialogViewer.VBO);
       glBindBuffer(GL_ARRAY_BUFFER, dialogViewer.VBO);
 
-      float* dialogViewerPoints = uiRectPoints(dialogEditor.rect.x, -0.1f , dialogEditor.rect.w, (6*letterH + 0.02f) + 0.05f + 5 * letterH);
+      float xLeftPad = .025f;
 
-      dialogViewer.rect = (UIRect){ dialogEditor.rect.x, -0.1f , dialogEditor.rect.w, (6*letterH + 0.02f) + 0.05f + 5 * letterH };
+      float* dialogViewerPoints = uiRectPoints(dialogEditor.rect.x - xLeftPad, -0.1f - 0.01f , dialogEditor.rect.w + .03f, (6*letterCellH + 0.02f) + 0.05f + 5 * letterCellH);
 
-      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), dialogViewerPoints, GL_STATIC_DRAW);
+      dialogViewer.rect = (UIRect){ dialogEditor.rect.x - xLeftPad, -0.1f - 0.01f , dialogEditor.rect.w + .03f, (6*letterCellH + 0.02f) + 0.05f + 5 * letterCellH };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), dialogViewerPoints, GL_STATIC_DRAW);
       free(dialogViewerPoints);
       
       glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
@@ -511,33 +631,33 @@ int main(int argc, char* argv[]) {
       glBindVertexArray(0);
     }
 
-    // dialog answers background
+    // dialog viewer answers background
     {
-      float baseY = -0.1f - (0.05f + 5 * letterH);
+      float baseY = - (0.02f + 6 * letterCellH);
 
       for(int i=0;i<answerBut6+1;i++){
-	glGenVertexArrays(1, &dialogViewer.buttonsPairs[i].VAO);
-	glBindVertexArray(dialogViewer.buttonsPairs[i].VAO);
+	//	glGenVertexArrays(1, &dialogViewer.buttonsPairs[i].VAO);
+	//	glBindVertexArray(dialogViewer.buttonsPairs[i].VAO);
 
-	glGenBuffers(1, &dialogViewer.buttonsPairs[i].VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, dialogViewer.buttonsPairs[i].VBO);
+	//	glGenBuffers(1, &dialogViewer.buttonsPairs[i].VBO);
+	//	glBindBuffer(GL_ARRAY_BUFFER, dialogViewer.buttonsPairs[i].VBO);
 
-	float* answerButton = uiRectPoints(dialogViewer.rect.x + 0.02f ,baseY - (i*(letterH + 0.01f)), letterW * 16, letterH);
+	float* answerButton = uiRectPoints(dialogViewer.rect.x + 0.03f ,baseY - (i*(letterCellH + 0.01f)), dialogEditor.textInputs[answerInput1].rect.w, letterCellH);
 
-	dialogViewer.buttons[i] = (UIRect){ dialogViewer.rect.x + 0.02f ,baseY - (i*(letterH + 0.01f)), letterW * 16, letterH };
+	dialogViewer.buttons[i] = (UIRect){ dialogViewer.rect.x + 0.03f ,baseY - (i*(letterCellH + 0.01f)), dialogEditor.textInputs[answerInput1].rect.w, letterCellH };
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), answerButton, GL_STATIC_DRAW);
+	//	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), answerButton, GL_STATIC_DRAW);
 	free(answerButton);
       
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	/*glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
 
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
-	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(1);*/
       }
 
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glBindVertexArray(0);
+      //      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      //      glBindVertexArray(0);
     }
     
     // console
@@ -794,24 +914,26 @@ int main(int argc, char* argv[]) {
   
   // snowflakes
   {
-    glGenVertexArrays(1, &snowFlakeVAO);
-    glBindVertexArray(snowFlakeVAO);
+    glGenVertexArrays(1, &snowFlakesMeshVAO);
+    glBindVertexArray(snowFlakesMeshVAO);
 
-    glGenBuffers(1, &snowFlakeVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, snowFlakeVBO);
+    glGenBuffers(1, &snowFlakesMeshVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, snowFlakesMeshVBO);
 
-    
-    float snowFlakeVerts[] = {
+
+    /*
+    float snowFlakesMeshVerts[] = {
       0.0f, 0.0f, 0.0f, 
       0.0f, 0.015f / 4.0f, 0.0f  };
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(snowFlakeVerts)
-		 ,snowFlakeVerts, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(snowFlakesMeshVerts)
+		 ,snowFlakesMeshVerts, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);*/
+
+    //    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    
     glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
   } 
     
@@ -1185,7 +1307,9 @@ int main(int argc, char* argv[]) {
       }
 
       if (event.type == SDL_KEYDOWN) {
-	if(console.open){
+	if(event.key.keysym.scancode == SDL_SCANCODE_F5 && !selectedTextInput) {
+	  saveMap(curSaveName);
+	}else if(console.open){
 	  consoleHasResponse = false;
 	  
 	  if(event.key.keysym.scancode == SDL_SCANCODE_RETURN){
@@ -1304,16 +1428,16 @@ int main(int argc, char* argv[]) {
 	  }
 	}else if(dialogViewer.open){
 	  if(event.key.keysym.scancode == SDL_SCANCODE_T){
-	    mouse.selectedCharacter->curDialogIndex = 0;
-	    mouse.selectedCharacter->curDialog = &mouse.selectedCharacter->dialogs;
+	    characters[mouse.focusedModel->characterId].curDialogIndex = 0;
+	    characters[mouse.focusedModel->characterId].curDialog = &characters[mouse.focusedModel->characterId].dialogs;
 	    
 	    dialogViewer.open = false;
 	    dialogEditor.open = true;
 	  }
 	}else if(dialogEditor.open){
 	  if(event.key.keysym.scancode == SDL_SCANCODE_B && !selectedTextInput){
-	    mouse.selectedCharacter->curDialogIndex = 0;
-	    mouse.selectedCharacter->curDialog = &mouse.selectedCharacter->dialogs;
+	    characters[mouse.focusedModel->characterId].curDialogIndex = 0;
+	    characters[mouse.focusedModel->characterId].curDialog = &characters[mouse.focusedModel->characterId].dialogs;
 
 	    dialogEditor.open = false;
 
@@ -1322,8 +1446,8 @@ int main(int argc, char* argv[]) {
 	      memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
 	    }
 	  }else if(event.key.keysym.scancode == SDL_SCANCODE_T && !selectedTextInput){
-	    mouse.selectedCharacter->curDialogIndex = 0;
-	    mouse.selectedCharacter->curDialog = &mouse.selectedCharacter->dialogs;
+	    characters[mouse.focusedModel->characterId].curDialogIndex = 0;
+	    characters[mouse.focusedModel->characterId].curDialog = &characters[mouse.focusedModel->characterId].dialogs;
 
 	    dialogViewer.open = true;
 	    dialogEditor.open = false;
@@ -1334,28 +1458,91 @@ int main(int argc, char* argv[]) {
 	    }
 	  }else{
 	    if(selectedTextInput){
+	      const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+	      
 	      if(event.key.keysym.scancode == SDL_SCANCODE_RETURN){
 		*selectedTextInput->buf = malloc(sizeof(char) * (strlen(*selectedTextInput->buf)+1));
 		strcpy(*selectedTextInput->buf, tempTextInputStorage);
 
 		selectedTextInput->active = false;
-		selectedTextInput = NULL;
+		selectedTextInput = NULL; 
 	    
 		tempTextInputStorageCursor=0;
 		memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
+	      }else if(currentKeyStates[SDL_SCANCODE_LCTRL] && currentKeyStates[SDL_SCANCODE_BACKSPACE]){
+		int lastSpacePos = lastCharPos(tempTextInputStorage, ' ');
+
+		if(lastSpacePos != -1){
+		  strcut(tempTextInputStorage,lastSpacePos ,tempTextInputStorageCursor);   
+		  tempTextInputStorageCursor = lastSpacePos;
+		}else{
+		  memset(tempTextInputStorage, 0, 512 * sizeof(char));
+		  tempTextInputStorageCursor = 0;
+		}
+	      }else if(currentKeyStates[SDL_SCANCODE_LCTRL] && currentKeyStates[SDL_SCANCODE_V]){
+		char * clipboardStr = SDL_GetClipboardText();
+
+		cleanString(clipboardStr);
+
+		int clipboardStrLen = strlen(clipboardStr);
+		int diff = (tempTextInputStorageCursor + clipboardStrLen) - selectedTextInput->charsLimit;  
+
+		if (diff < clipboardStrLen) {
+		  for (int i = 0;i< clipboardStrLen;i++) {
+		    char ch = clipboardStr[i];
+		    
+		    int pos = lastCharPos(tempTextInputStorage, '\n');
+		  
+		    if(selectedTextInput->rect.w/letterW<= tempTextInputStorageCursor - pos){
+		      tempTextInputStorage[tempTextInputStorageCursor] = '\n';
+		      tempTextInputStorageCursor++;  
+		    }
+
+		    tempTextInputStorage[tempTextInputStorageCursor] = ch;
+		    tempTextInputStorageCursor++;
+
+		    if(tempTextInputStorageCursor >= selectedTextInput->charsLimit) break;
+		  }
+		}
+
+		SDL_free(clipboardStr);
+	      }else if(currentKeyStates[SDL_SCANCODE_LCTRL] && currentKeyStates[SDL_SCANCODE_C]){
+		if(tempTextInputStorageCursor != 0){
+		  SDL_SetClipboardText(tempTextInputStorage);
+		}
 	      }else if(tempTextInputStorageCursor > 0 && event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
 		tempTextInputStorageCursor--;
 		tempTextInputStorage[tempTextInputStorageCursor] = 0;
-	      }else if(tempTextInputStorageCursor < 512 - 1){
-		if(event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39){
-		  int pos = lastNewLineCharPos(tempTextInputStorage);
+	      }else if(tempTextInputStorageCursor < selectedTextInput->charsLimit){
+		if(event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39 || event.key.keysym.scancode == 55){
+		  int pos = lastCharPos(tempTextInputStorage, '\n');
 		  
-		  if(selectedTextInput->rect.w/(letterW/1.9f)<= tempTextInputStorageCursor - pos){
+		  if(selectedTextInput->rect.w/(letterCellW/1.9f)<= tempTextInputStorageCursor - pos){
 		    tempTextInputStorage[tempTextInputStorageCursor] = '\n';
 		    tempTextInputStorageCursor++;  
 		  }
 		  
-		  tempTextInputStorage[tempTextInputStorageCursor] = sdlScancodesToACII[event.key.keysym.scancode];
+		  char newChar = sdlScancodesToACII[event.key.keysym.scancode];
+
+		  if (currentKeyStates[SDL_SCANCODE_LSHIFT]){
+		    if(event.key.keysym.scancode <= 29){
+		      newChar -= 32;
+		    }else if(event.key.keysym.scancode == 36){ // '?'
+		      newChar = 63;
+		    }else if(event.key.keysym.scancode == 30){ // '!'
+		      newChar = 33;
+		    }else if(event.key.keysym.scancode == 33){ // '$'
+		      newChar = 36;
+		    }else if(event.key.keysym.scancode == 31){ // '@'
+		      newChar = 64;
+		    }else if(event.key.keysym.scancode == 32){ // '#'
+		      newChar = 35;
+		    }else if(event.key.keysym.scancode == 34){ // '%'
+		      newChar = 37;
+		    }
+		  }
+		  
+		  tempTextInputStorage[tempTextInputStorageCursor] = newChar;
 		  tempTextInputStorageCursor++;
 		}else if(event.key.keysym.scancode == SDL_SCANCODE_SPACE){
 		  bool prevCharIsntSpace = tempTextInputStorageCursor > 0 && tempTextInputStorage[tempTextInputStorageCursor - 1] != ' ';
@@ -1635,37 +1822,49 @@ int main(int argc, char* argv[]) {
 	    break;
 	  }
 	  case(SDL_SCANCODE_B): {
-	    if(mouse.focusedModel && loadedModels1D[mouse.focusedModel->name].type == characterModelType){
+	    if(mouse.focusedModel){
+			if (mouse.focusedModel->characterId == -1) { 
+				if (characters == NULL) {
+					characters = malloc(sizeof(Character));
+				}
+				else {
+					characters = realloc(characters, (charactersSize + 1) * sizeof(Character));
+					//memset(&characters[charactersSize].dialogs,0,sizeof(Dialog));	
+				}
+				memset(&characters[charactersSize], 0, sizeof(Character));
+
+				characters[charactersSize].id = charactersSize;
+				characters[charactersSize].modelId = mouse.focusedModel->id;
+				characters[charactersSize].modelName = mouse.focusedModel->name;
+				characters[charactersSize].curDialog = &characters[charactersSize].dialogs;
+
+				characters[charactersSize].curDialog->answersSize = 1;
+				characters[charactersSize].curDialog->answers = calloc(1, sizeof(Dialog));
+
+				mouse.focusedModel->characterId = characters[charactersSize].id;  
+
+				charactersSize++;
+			}
+
 	      dialogEditor.open = true;
 
-	      Character* editedCharacter = mouse.selectedCharacter;
+	      Character* editedCharacter = &characters[mouse.focusedModel->characterId];
 	      
-	      editedCharacter->curDialog = &editedCharacter->dialogs;
+	      editedCharacter->curDialog = &editedCharacter->dialogs; 
 	      editedCharacter->curDialogIndex = 0;
-	      
-	      if(editedCharacter->dialogs.answersSize == 0) {
-		editedCharacter->dialogs.replicaText = NULL;
-		editedCharacter->dialogs.text = NULL;
-		editedCharacter->dialogs.answersSize = 1;
-		editedCharacter->dialogs.answers = calloc(1, sizeof(Dialog));
-
-		editedCharacter->dialogsLen = 1;
-		editedCharacter->name = NULL;
-
-	      }
 
 	      dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
 	      dialogEditor.textInputs[charNameInput].buf = &editedCharacter->name;
 
 	      for(int i=0;i<editedCharacter->dialogs.answersSize;i++){
-		dialogEditor.textInputs[i+answerInput1].buf = &editedCharacter->curDialog->answers[i].text;
+		dialogEditor.textInputs[i+answerInput1].buf = &editedCharacter->curDialog->answers[i].text; 
 	      }
 
 	    }
 	    
 	    break;
 	  }
-	  case(SDL_SCANCODE_EQUALS): {
+	  case(SDL_SCANCODE_EQUALS): { 
 	    if (floor < gridY - 1) {
 	      floor++;
 	    }
@@ -1694,10 +1893,6 @@ int main(int argc, char* argv[]) {
 	      glUniform1f(radius, 200.0f);
 	    }
 				  
-	    break;
-	  }
-	  case(SDL_SCANCODE_F5): {
-	    saveMap(curSaveName);
 	    break;
 	  }
 	  case(SDL_SCANCODE_H): {
@@ -2152,10 +2347,6 @@ int main(int argc, char* argv[]) {
 
 	if(isIntersect){
 	  mouse.selectedModel = &curModels[i];
-
-	  if(loadedModels1D[curModels[i].name].type == characterModelType){
-	    mouse.selectedCharacter = &characters[curModels[i].characterId];
-	  }
 	}
 
 	glBindVertexArray(loadedModels1D[name].VAO);
@@ -2221,9 +2412,10 @@ int main(int argc, char* argv[]) {
 
 	setSolidColorTx(whiteColor, 1.0f);
 
-	glBindVertexArray(snowFlakeVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, snowFlakeVBO);
+	glBindVertexArray(snowFlakesMeshVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, snowFlakesMeshVBO);
 
+	int vertexIndex=0;
 	for (int loop = 0; loop < snowAmount; loop++)
 	  {
 	    if (snowParticle[loop].active) {
@@ -2231,17 +2423,21 @@ int main(int argc, char* argv[]) {
 	      float y = snowParticle[loop].y;
 	      float z = snowParticle[loop].z;
 
-	      //	if (radarCheck((vec3) { x, y, z })) {
-	      Matrix out = IDENTITY_MATRIX;
+	      snowMeshVertixes[vertexIndex] = x;
+	      snowMeshVertixes[vertexIndex+1] = y;
+	      snowMeshVertixes[vertexIndex+2] = z;
+	      
+	      snowMeshVertixes[vertexIndex+3] = x;
+	      snowMeshVertixes[vertexIndex+4] = y - 0.015f / 4.0f;
+	      snowMeshVertixes[vertexIndex+5] = z;
 
-	      // translate without mult
-	      out.m[12] = x;
-	      out.m[13] = y;
-	      out.m[14] = z;
-		
-	      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+	      vertexIndex += 6;
+		      
+	      //	      float snowFlakesMeshVerts[] = {
+		//		0.0f, 0.0f, 0.0f, 
+		//		0.0f, 0.015f / 4.0f, 0.0f  };
 
-	      glDrawArrays(GL_LINES, 0, 2);
+	      //	      glDrawArrays(GL_LINES, 0, 2);
 	      //		}
 
 	      //		vec3i gridIndexes = xyz_indexesToCoords(x,y,z);
@@ -2271,6 +2467,26 @@ int main(int argc, char* argv[]) {
 	      }
 	    }
 	  }
+	/*
+	float x = snowParticle[loop].x;
+	float y = snowParticle[loop].y;
+	float z = snowParticle[loop].z;
+*/
+	Matrix out = IDENTITY_MATRIX;
+
+	out.m[12] = 0.0;
+	out.m[13] = 0.0;
+	out.m[14] = 0.0f;
+		
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+	
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 2 * 3 * snowAmount
+		     , snowMeshVertixes, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+	
+	glDrawArrays(GL_LINES, 0, 2 * snowAmount);
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2360,7 +2576,7 @@ int main(int argc, char* argv[]) {
 	      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 
 
-	      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, wallMeshes[side][type-1].VBOsize);
+	      glDrawArrays(GL_TRIANGLES, 0, wallMeshes[side][type-1].VBOsize);
 
 	      glBindTexture(GL_TEXTURE_2D, 0);
 	      glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2411,7 +2627,7 @@ int main(int argc, char* argv[]) {
 		mouse.gridIntersect = (vec2i){x,z};
 		mouse.intersection = intersection;
 		mouse.groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
-
+		 
 		minDistType = TileEl;
 		//  continue;
 	      }
@@ -2654,14 +2870,14 @@ int main(int argc, char* argv[]) {
 	  if(mouse.wallType == halfWallT){
 	    glBindVertexArray(halfWallHighlight[mouse.wallSide].VAO);
 	    glBindBuffer(GL_ARRAY_BUFFER, halfWallHighlight[mouse.wallSide].VBO);
-	    glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, halfWallHighlight[mouse.wallSide].VBOsize);
+	    glDrawArrays(GL_TRIANGLES, 0, halfWallHighlight[mouse.wallSide].VBOsize);
 	    // vec3* wallPos = wallPosBySide(pos, mouse.wallSide, bBlockH * 0.4f, wallD, bBlockD, bBlockW);
 	    //renderWallBorder(wallPos,mouse.wallSide, selBorderT, redColor);
 	  }
 	  else {
 	    glBindVertexArray(wallHighlight[mouse.wallSide].VAO);
 	    glBindBuffer(GL_ARRAY_BUFFER, wallHighlight[mouse.wallSide].VBO);
-	    glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, wallHighlight[mouse.wallSide].VBOsize);
+	    glDrawArrays(GL_TRIANGLES, 0, wallHighlight[mouse.wallSide].VBOsize);
 	    //vec3* wallPos = wallPosBySide(pos, mouse.wallSide, bBlockH, wallD, bBlockD, bBlockW);
 	    //  renderWallBorder(wallPos,mouse.wallSide, selBorderT, redColor);
 	  } 
@@ -2689,7 +2905,7 @@ int main(int argc, char* argv[]) {
 		
 	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 
-	  glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, tileHighlight[mouse.groundInter-1].VBOsize);
+	  glDrawArrays(GL_TRIANGLES, 0, tileHighlight[mouse.groundInter-1].VBOsize);
 
 	}
       }
@@ -2764,19 +2980,22 @@ int main(int argc, char* argv[]) {
       glBindVertexArray(objectsMenu.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
 
-      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+      glDrawArrays(GL_TRIANGLES, 0, 6);
     
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
-      
-      int selectedIndex = modelsTypesInfo[0].counter - ( ((mouse.cursor.z + 0.5f) - 0.06f)  / .1f);  
 
+      float mouseY = mouse.cursor.z + 0.06f;
+      
+      int selectedIndex = (1.0f-((mouseY +1.0f)/2.0f)) / (letterH/2);
+      selectedIndex++;
+      
       if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= modelsTypesInfo[objectsMenuSelectedType].counter){
 	if(mouse.clickL){
 	  curModelsSize++;
 
 	  if(curModels){ 
-	    curModels = realloc(curModels, curModelsSize * sizeof(Model));
+	    curModels = realloc(curModels, curModelsSize * sizeof(Model)); 
 	  }else{
 	    curModels = malloc(sizeof(Model)); 
 	  }
@@ -2786,28 +3005,12 @@ int main(int argc, char* argv[]) {
 	  int index1D = loadedModels2D[objectsMenuSelectedType][selectedIndex - 1].index1D;
 
 	  curModels[curModelsSize-1].name = index1D;
-	  curModels[curModelsSize-1].characterId = -1;
+	  curModels[curModelsSize-1].characterId = -1; 
 
 	  // if type == char add new character
-	  if(loadedModels1D[index1D].type == characterModelType) {
-	    if(characters == NULL){
-	      characters = malloc(sizeof(Character));
-	    }else{
-	      characters = realloc(characters, (charactersSize+1) * sizeof(Character));
-	    }
-
-	    characters[charactersSize].id = charactersSize;
-	    characters[charactersSize].modelId = curModels[curModelsSize-1].id;
-	    characters[charactersSize].modelName = curModels[curModelsSize-1].name;
-	    // characters[charactersSize].dialogs = NULL;
-	    characters[charactersSize].name = NULL;
-
-	    curModels[curModelsSize-1].characterId = characters[charactersSize].id;
-	    
-	    charactersSize++;
-	  }
 	  
-	  curModels[curModelsSize-1].mat = IDENTITY_MATRIX;
+	  
+	  curModels[curModelsSize-1].mat = IDENTITY_MATRIX;  
 
 	  scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f); 
 	  if(mouse.gridIntersect.x != -1 && mouse.gridIntersect.z != -1){
@@ -2832,23 +3035,23 @@ int main(int argc, char* argv[]) {
 	float cursorW = 0.02f;
 	  
 	float  selectionRect[] = {
-	  -1.0f, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 0.0f,
-	  objectsMenuWidth, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 1.0f,
-	  -1.0f, 1.0f - (selectedIndex) * 0.1f, 0.0f, 0.0f,
+	  -1.0f, 1.0f - (selectedIndex-1) * letterH, 1.0f, 0.0f,
+	  objectsMenuWidth, 1.0f - (selectedIndex-1) * letterH, 1.0f, 1.0f,
+	  -1.0f, 1.0f - (selectedIndex) * letterH, 0.0f, 0.0f,
 
-	  objectsMenuWidth, 1.0f - (selectedIndex-1) * 0.1f, 1.0f, 1.0f,
-	  -1.0f,  1.0f - selectedIndex * 0.1f, 0.0f, 0.0f,
-	  objectsMenuWidth,  1.0f - selectedIndex * 0.1f, 0.0f, 1.0f };
+	  objectsMenuWidth, 1.0f - (selectedIndex-1) * letterH, 1.0f, 1.0f,
+	  -1.0f,  1.0f - selectedIndex * letterH, 0.0f, 0.0f,
+	  objectsMenuWidth,  1.0f - selectedIndex * letterH, 0.0f, 1.0f };
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(selectionRect), selectionRect, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
 
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
 	glEnableVertexAttribArray(1);
 
-	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -2863,7 +3066,6 @@ int main(int argc, char* argv[]) {
 	float cursorW = 0.02f;
 
 	float typeButtonW = (1.0f + objectsMenuWidth) / 2;
-	float typeButtonH = 0.1f;
 
 	float baseX = objectsMenuWidth;
 
@@ -2887,13 +3089,13 @@ int main(int argc, char* argv[]) {
 	  }
 
 	  float typeRect[] = {
-	    baseX, 1.0f - (i) * typeButtonH, 1.0f, 0.0f,
-	    baseX + typeButtonW, 1.0f - (i) * typeButtonH, 1.0f, 1.0f,
-	    baseX, 1.0f - (i+1) * typeButtonH, 0.0f, 0.0f,
+	    baseX, 1.0f - (i) * letterH, 1.0f, 0.0f,
+	    baseX + typeButtonW, 1.0f - (i) * letterH, 1.0f, 1.0f,
+	    baseX, 1.0f - (i+1) * letterH, 0.0f, 0.0f,
 
-	    baseX + typeButtonW, 1.0f - (i) * typeButtonH, 1.0f, 1.0f,
-	    baseX, 1.0f - (i+1) * typeButtonH, 0.0f, 0.0f,
-	    baseX + typeButtonW, 1.0f - (i+1) * typeButtonH, 0.0f, 1.0f };
+	    baseX + typeButtonW, 1.0f - (i) * letterH, 1.0f, 1.0f,
+	    baseX, 1.0f - (i+1) * letterH, 0.0f, 0.0f,
+	    baseX + typeButtonW, 1.0f - (i+1) * letterH, 0.0f, 1.0f };
 
 	  glBufferData(GL_ARRAY_BUFFER, sizeof(typeRect), typeRect, GL_STATIC_DRAW);
 
@@ -2903,22 +3105,22 @@ int main(int argc, char* argv[]) {
 	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 	  glEnableVertexAttribArray(1);
 
-	  glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	  glDrawArrays(GL_TRIANGLES, 0, 6);
 	  
 	}
 	// TODO: Come up how to merge these two loops
 	// it throws exeption if put it into loop above
 	for (int i = 0; i < modelTypeCounter; i++) {
-	  renderText(modelsTypesInfo[i].str, baseX, 1.0f - ((i) * typeButtonH), 1.0f);
+	  renderText(modelsTypesInfo[i].str, baseX, 1.0f - ((i) * letterH), 1.0f);
 	}
       }
 
       for(int i=0;i<modelsTypesInfo[objectsMenuSelectedType].counter;i++){
-	renderText(loadedModels2D[objectsMenuSelectedType][i].name, -1.0f, 1.0f - (i * 0.1f), 1);
+	renderText(loadedModels2D[objectsMenuSelectedType][i].name, -1.0f, 1.0f - (i * letterH), 1);
       }
     }else if(dialogViewer.open){
-      Character* character = mouse.selectedCharacter;
-      Dialog* curDialog = character->curDialog;
+	Character* editedCharacter = &characters[mouse.focusedModel->characterId];
+      Dialog* curDialog = editedCharacter->curDialog;
 
       // dialog viewer background
       {
@@ -2927,49 +3129,138 @@ int main(int argc, char* argv[]) {
 	glBindVertexArray(dialogViewer.VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, dialogViewer.VBO);
 
-	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+
+      char str[dialogEditorAnswerInputLimit + 10];
+      
+      // name things
+      {
+	if(!editedCharacter->name){
+	  strcpy(str, "[none]");
+	}else{
+	  strcpy(str, editedCharacter->name);
+	}
+	
+	strcat(str, ":");
+	
+	float baseY = dialogViewer.rect.y + letterH + 0.02f;
+	
+	glBindVertexArray(hudRect.VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
+
+	float nameW = (strlen(str) + 1) * letterW;
+	    
+	float answerSelection[] = {
+	  dialogViewer.rect.x, baseY, 1.0f, 0.0f,
+	  dialogViewer.rect.x + nameW, baseY, 1.0f, 1.0f,
+	  dialogViewer.rect.x, baseY - letterH - .02f, 0.0f, 0.0f,
+
+	  dialogViewer.rect.x + nameW, baseY, 1.0f, 1.0f,
+	  dialogViewer.rect.x, baseY - letterH - .02f, 0.0f, 0.0f,
+	  dialogViewer.rect.x + nameW, baseY - letterH - .02f, 0.0f, 1.0f };
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(answerSelection), answerSelection, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
     
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
+	renderText(str, dialogViewer.rect.x, dialogViewer.rect.y + letterH + 0.02f, 1.0f);
       }
-
-      renderText(character->name, dialogViewer.rect.x + 0.02f, dialogViewer.rect.y, 1.0f);
-      renderText(curDialog->replicaText, dialogViewer.rect.x, dialogViewer.rect.y - letterH, 1.0f);
+      
+      renderText(curDialog->replicaText, dialogViewer.rect.x + 0.02f, dialogViewer.rect.y - 0.02f, 1.0f);
 
       float mouseY = mouse.cursor.z + 0.06f;
       bool selectedNewAnswer = false;
       
       // dialog answers buttons
-      for(int i=0;i<character->dialogs.answersSize;i++){
-	setSolidColorTx(blackColor, 1.0f);
+      for(int i=0;i< curDialog->answersSize;i++){
+	bool isEnd = false;
 	
-	if(dialogViewer.buttons[i].x <= mouse.cursor.x && dialogViewer.buttons[i].x + dialogViewer.buttons[i].w >= mouse.cursor.x && dialogViewer.buttons[i].y >= mouseY && dialogViewer.buttons[i].y - dialogViewer.buttons[i].h <= mouseY){
-	  setSolidColorTx(redColor, 1.0f);
+	if (curDialog->answers[i].answersSize == 0){
+	  isEnd = true;
+	  strcpy(str, "[end]");
+
+	  if(curDialog->answers[i].text){
+	    strcat(str, curDialog->answers[i].text);
+	  }
+	}else{
+	  if(curDialog->answers[i].text)
+	    strcpy(str, curDialog->answers[i].text);
+	  else{
+	    strcpy(str, "[empty]");
+	  }
+	}
+	
+	float answerLen = strlen(str) +1;
+	float selectionW = (answerLen * letterW) + letterCellW;
+
+	if(dialogViewer.buttons[i].x <= mouse.cursor.x && dialogViewer.buttons[i].x + selectionW >= mouse.cursor.x && dialogViewer.buttons[i].y >= mouseY && dialogViewer.buttons[i].y - dialogViewer.buttons[i].h <= mouseY){
 
 	  if(mouse.clickL){
 	    selectedNewAnswer = true;
 	  }
-	}
-      
-	glBindVertexArray(dialogViewer.buttonsPairs[i].VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, dialogViewer.buttonsPairs[i].VBO);
+	  
+	  setSolidColorTx(redColor, 1.0f);
+	    
+	  glBindVertexArray(hudRect.VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
+	    
+	  float answerSelection[] = {
+	    dialogViewer.buttons[i].x, dialogViewer.buttons[i].y, 1.0f, 0.0f,
+	    dialogViewer.buttons[i].x + selectionW, dialogViewer.buttons[i].y, 1.0f, 1.0f,
+	    dialogViewer.buttons[i].x, dialogViewer.buttons[i].y - dialogViewer.buttons[i].h, 0.0f, 0.0f,
 
-	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	    dialogViewer.buttons[i].x + selectionW, dialogViewer.buttons[i].y, 1.0f, 1.0f,
+	    dialogViewer.buttons[i].x, dialogViewer.buttons[i].y - dialogViewer.buttons[i].h, 0.0f, 0.0f,
+	    dialogViewer.buttons[i].x + selectionW, dialogViewer.buttons[i].y - dialogViewer.buttons[i].h, 0.0f, 1.0f };
+
+	  glBufferData(GL_ARRAY_BUFFER, sizeof(answerSelection), answerSelection, GL_STATIC_DRAW);
+
+	  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
+
+	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	  glEnableVertexAttribArray(1);
+
+	  glDrawArrays(GL_TRIANGLES, 0, 6);
     
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);  
+	}
 
-	renderText(curDialog->answers[i].text, dialogViewer.buttons[i].x, dialogViewer.buttons[i].y, 1.0f);
+	renderText("-", dialogViewer.buttons[i].x, dialogViewer.buttons[i].y, 1.0f);
+	renderText(str, dialogViewer.buttons[i].x + letterCellW, dialogViewer.buttons[i].y, 1.0f);
 
 	if(selectedNewAnswer){
-		character->curDialog = &curDialog->answers[i];
-		character->curDialogIndex++;
-		curDialog = character->curDialog;
+	  if(isEnd){
+		  editedCharacter->curDialogIndex = 0;
+		  editedCharacter->curDialog = &editedCharacter->dialogs;
+
+	    dialogViewer.open = false;
+	    dialogEditor.open = true;
+	    break;
+	  }
+	  
+	  editedCharacter->curDialog = &curDialog->answers[i];
+	  editedCharacter->curDialogIndex++;
+	  curDialog = editedCharacter->curDialog;
+	  break;
 	}
       }
     }else if(dialogEditor.open){
-      Character* editedCharacter = mouse.selectedCharacter;
+      Character* editedCharacter = &characters[mouse.focusedModel->characterId];
       Dialog* curDialog = editedCharacter->curDialog;
       
       glActiveTexture(solidColorTx);
@@ -2982,7 +3273,7 @@ int main(int argc, char* argv[]) {
 	glBindVertexArray(dialogEditor.VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.VBO);
 
-	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
     
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -2993,26 +3284,25 @@ int main(int argc, char* argv[]) {
 	if(mouse.clickL){
 	  bool found = false;
 	  float mouseY = mouse.cursor.z + 0.06f;
+
 	  
 	  if (selectedTextInput) {
 	    selectedTextInput->active = false;
-		
+
+	      // save text in prev text input
 	    if(tempTextInputStorageCursor != 0){ 
 	      *selectedTextInput->buf = malloc(sizeof(char) * (strlen(tempTextInputStorage)+1));
 	      strcpy(*selectedTextInput->buf, tempTextInputStorage); 
-
-	      selectedTextInput = NULL;
 
 	      tempTextInputStorageCursor = 0;
 	      memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
 	    }
 	  }
+
+		selectedTextInput = NULL;	
 	  
 	  for(int i=0;i<answerInput1 + curDialog->answersSize;i++){
 	    if(dialogEditor.textInputs[i].rect.x <= mouse.cursor.x && dialogEditor.textInputs[i].rect.x + dialogEditor.textInputs[i].rect.w >= mouse.cursor.x && dialogEditor.textInputs[i].rect.y >= mouseY && dialogEditor.textInputs[i].rect.y - dialogEditor.textInputs[i].rect.h <= mouseY){
-
-	      // save text in prev text input
-	    
 	      selectedTextInput = &dialogEditor.textInputs[i];
 	      dialogEditor.textInputs[i].active = true;
 
@@ -3037,10 +3327,6 @@ int main(int argc, char* argv[]) {
 		// is add button
 		if(i >= addButton1 && i<= addButton5){
 		  if(i - addButton1 == curDialog->answersSize -1){
-		    tempTextInputStorageCursor = 0;
-		    memset(tempTextInputStorage, 0, 512 * sizeof(char));
-		    selectedTextInput = NULL;
-		    
 		    curDialog->answersSize++;
 		    curDialog->answers = realloc(curDialog->answers, curDialog->answersSize * sizeof(Dialog));
 		    memset(&curDialog->answers[curDialog->answersSize-1], 0 , sizeof(Dialog));
@@ -3056,44 +3342,39 @@ int main(int argc, char* argv[]) {
 		  }
 		}else if(i >= nextButton1 && i<= nextButton6){
 		  if(i - nextButton1 < curDialog->answersSize){
-
-		  tempTextInputStorageCursor = 0;
-		  memset(tempTextInputStorage, 0, 512 * sizeof(char));
-		  selectedTextInput = NULL;
-		  
-		  int answerIndex = i - nextButton1;
+		    int answerIndex = i - nextButton1;
 		     
-		  editedCharacter->curDialogIndex++;
-		  editedCharacter->curDialog = &curDialog->answers[answerIndex];
-		  curDialog = editedCharacter->curDialog;
+		    editedCharacter->curDialogIndex++;
+		    editedCharacter->curDialog = &curDialog->answers[answerIndex];
+		    curDialog = editedCharacter->curDialog;
 
 
-		  // keep history
-		  {
-		    editedCharacter->historySize++; 
+		    // keep history
+		    {
+		      editedCharacter->historySize++; 
 
-		    if(!editedCharacter->dialogHistory){
-		      editedCharacter->dialogHistory = malloc(sizeof(int));
-		    }else{
-		      editedCharacter->dialogHistory = realloc(editedCharacter->dialogHistory, sizeof(int) * editedCharacter->historySize);
+		      if(!editedCharacter->dialogHistory){
+			editedCharacter->dialogHistory = malloc(sizeof(int));
+		      }else{
+			editedCharacter->dialogHistory = realloc(editedCharacter->dialogHistory, sizeof(int) * editedCharacter->historySize);
+		      }
+
+		      editedCharacter->dialogHistory[editedCharacter->historySize-1] = answerIndex; 
 		    }
 
-		    editedCharacter->dialogHistory[editedCharacter->historySize-1] = answerIndex; 
-		  }
+		    if(!curDialog->answers){ 
+		      curDialog->answersSize = 1; 
+		      curDialog->answers = calloc(1, sizeof(Dialog));
+		    }
 
-		  if(!curDialog->answers){ 
-		    curDialog->answersSize = 1; 
-		    curDialog->answers = calloc(1, sizeof(Dialog));
-		  }
+		    dialogEditor.textInputs[replicaInput].buf = &curDialog->replicaText;
 
-		  dialogEditor.textInputs[replicaInput].buf = &curDialog->replicaText;
-
-		  for(int i=0;i<curDialog->answersSize;i++){ 
-		    dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text;
-		  }
+		    for(int i=0;i<curDialog->answersSize;i++){ 
+		      dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text;
+		    }
 		  
 		  }
-		}else if(i == prevDialogButton){
+		}else if(i == prevDialogButton && editedCharacter->curDialogIndex > 0){
 		  editedCharacter->curDialogIndex--;
 
 		  // keep history
@@ -3104,27 +3385,27 @@ int main(int argc, char* argv[]) {
 
 		  Dialog* prevDialog = NULL;
 
-			prevDialog = &editedCharacter->dialogs;
+		  prevDialog = &editedCharacter->dialogs;
 
-			for(int i=0;i<editedCharacter->historySize;i++){
-			  prevDialog = &prevDialog->answers[editedCharacter->dialogHistory[i]];
-			}
+		  for(int i=0;i<editedCharacter->historySize;i++){
+		    prevDialog = &prevDialog->answers[editedCharacter->dialogHistory[i]];
+		  }
 		  
 
-			editedCharacter->curDialog = prevDialog;
-			curDialog = editedCharacter->curDialog;
+		  editedCharacter->curDialog = prevDialog;
+		  curDialog = editedCharacter->curDialog;
 
-			if (editedCharacter->curDialogIndex == 0) {
-			  dialogEditor.textInputs[charNameInput].buf = &editedCharacter->name;
-			}
+		  if (editedCharacter->curDialogIndex == 0) {
+		    dialogEditor.textInputs[charNameInput].buf = &editedCharacter->name;
+		  }
 
-			dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
+		  dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
 
-			for(int i=0;i<curDialog->answersSize;i++){
-			  dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text;
-			}
+		  for(int i=0;i<curDialog->answersSize;i++){
+		    dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text;
+		  }
 
-		  
+		  break;
 		}
 		
 	      }
@@ -3135,53 +3416,49 @@ int main(int argc, char* argv[]) {
 
       // dialog char input
       if(editedCharacter->curDialogIndex == 0)
-      {
-	dialogEditor.textInputs[charNameInput].localType = charNameInput;
-	
-	if(dialogEditor.textInputs[charNameInput].active){
-	  setSolidColorTx(redColor, 1.0f);
-	}else{
-	  setSolidColorTx(greenColor, 1.0f);
-	}
+	{	
+	  if(dialogEditor.textInputs[charNameInput].active){
+	    setSolidColorTx(redColor, 1.0f);
+	  }else{
+	    setSolidColorTx(greenColor, 1.0f);
+	  }
       
-	glBindVertexArray(dialogEditor.vpairs[charNameInput].VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[charNameInput].VBO);
+	  glBindVertexArray(dialogEditor.vpairs[charNameInput].VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[charNameInput].VBO);
 
-	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	  glDrawArrays(GL_TRIANGLES, 0, 6);
     
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
 	
-	renderText(editedCharacter->name,dialogEditor.textInputs[charNameInput].rect.x, dialogEditor.textInputs[charNameInput].rect.y ,1.0f);
-	renderText("Character name: ",dialogEditor.rect.x, dialogEditor.textInputs[charNameInput].rect.y ,1.0f);
-      }
+	  renderText(editedCharacter->name,dialogEditor.textInputs[charNameInput].rect.x, dialogEditor.textInputs[charNameInput].rect.y ,1.0f);
+	  renderText("Character name:",dialogEditor.rect.x, dialogEditor.textInputs[charNameInput].rect.y ,1.0f);
+	}
 
       // prev player answer
       if(editedCharacter->curDialogIndex != 0)
-      {
-	renderText("Player said: ",dialogEditor.rect.x + letterW, dialogEditor.rect.y, 1.0f);
-	renderText(curDialog->text,dialogEditor.rect.x + letterW + strlen("Player said: ") * letterW, dialogEditor.rect.y, 1.0f);
-      }
+	{
+	  renderText("Player said:",dialogEditor.rect.x + letterCellW * 2, dialogEditor.rect.y, 1.0f);
+	  renderText(curDialog->text,dialogEditor.rect.x + letterCellW * 2, dialogEditor.rect.y - letterH, 1.0f);
+	}
 
       // prev button
       if(editedCharacter->curDialogIndex != 0)
-      {	  
-	glBindVertexArray(dialogEditor.buttonsPairs[prevDialogButton].VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[prevDialogButton].VBO);
+	{	  
+	  glBindVertexArray(dialogEditor.buttonsPairs[prevDialogButton].VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[prevDialogButton].VBO);
 
-	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	  glDrawArrays(GL_TRIANGLES, 0, 6);
     
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
 
-	renderText("<",dialogEditor.buttons[prevDialogButton].x, dialogEditor.buttons[prevDialogButton].y ,1.0f);
-	glBindTexture(GL_TEXTURE_2D, solidColorTx);
-      }
+	  renderText("<",dialogEditor.buttons[prevDialogButton].x, dialogEditor.buttons[prevDialogButton].y ,1.0f);
+	  glBindTexture(GL_TEXTURE_2D, solidColorTx);
+	}
 
       // dialog replica input
-      {
-	dialogEditor.textInputs[replicaInput].localType = replicaInput;
-	
+      {	
 	if(dialogEditor.textInputs[replicaInput].active){
 	  setSolidColorTx(redColor, 1.0f);
 	}else{
@@ -3191,7 +3468,7 @@ int main(int argc, char* argv[]) {
 	glBindVertexArray(dialogEditor.vpairs[replicaInput].VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[replicaInput].VBO);
 
-	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
     
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -3201,22 +3478,20 @@ int main(int argc, char* argv[]) {
 	//printf("%d %d\n", placeForNewLine,strlen(curDialog->replicaText));
 	
 
-	if(editedCharacter->curDialogIndex == 0){
-	  renderText("Initial phrase: ",dialogEditor.rect.x, dialogEditor.textInputs[replicaInput].rect.y + letterH ,1.0f);
+	if(editedCharacter->curDialogIndex == 0){ 
+	  renderText("Initial entity phrase:",dialogEditor.rect.x, dialogEditor.textInputs[replicaInput].rect.y + letterCellH ,1.0f);
 	}else{
-	  renderText("Phrase: ",dialogEditor.rect.x, dialogEditor.textInputs[replicaInput].rect.y + letterH ,1.0f);
+	  renderText("Entity answer:",dialogEditor.rect.x, dialogEditor.textInputs[replicaInput].rect.y + letterCellH ,1.0f);
 	}
 	
       }
 
       // new answer input
       {
-	renderText("Player answers: ",dialogEditor.rect.x, dialogEditor.textInputs[answerInput1].rect.y + letterH ,1.0f);
+	renderText("Player answers:",dialogEditor.rect.x, dialogEditor.textInputs[answerInput1].rect.y + letterCellH ,1.0f);
 	
 	// it will known from Dialog struct amount of answers for this replic
-	for(int i=answerInput1;i<curDialog->answersSize + answerInput1;i++){
-	  dialogEditor.textInputs[i].localType = i;
-	  
+	for(int i=answerInput1;i<curDialog->answersSize + answerInput1;i++){	  
 	  if(dialogEditor.textInputs[i].active){
 	    setSolidColorTx(redColor, 1.0f);
 	  }else{
@@ -3232,7 +3507,7 @@ int main(int argc, char* argv[]) {
 	    glBindVertexArray(dialogEditor.buttonsPairs[nextButIndex].VAO);
 	    glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[nextButIndex].VBO);
 
-	    glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	    glDrawArrays(GL_TRIANGLES, 0, 6);
     
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
 	    glBindVertexArray(0);
@@ -3248,7 +3523,7 @@ int main(int argc, char* argv[]) {
 	    glBindVertexArray(dialogEditor.buttonsPairs[minusButIndex].VAO);
 	    glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[minusButIndex].VBO);
 
-	    glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	    glDrawArrays(GL_TRIANGLES, 0, 6);
     
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
 	    glBindVertexArray(0);
@@ -3265,7 +3540,7 @@ int main(int argc, char* argv[]) {
 	      glBindVertexArray(dialogEditor.buttonsPairs[addButIndex].VAO);
 	      glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.buttonsPairs[addButIndex].VBO);
 
-	      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	      glDrawArrays(GL_TRIANGLES, 0, 6);
     
 	      glBindBuffer(GL_ARRAY_BUFFER, 0);
 	      glBindVertexArray(0);
@@ -3280,7 +3555,7 @@ int main(int argc, char* argv[]) {
 	    glBindVertexArray(dialogEditor.vpairs[i].VAO);
 	    glBindBuffer(GL_ARRAY_BUFFER, dialogEditor.vpairs[i].VBO);
 
-	    glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	    glDrawArrays(GL_TRIANGLES, 0, 6);
     
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
 	    glBindVertexArray(0); 
@@ -3300,7 +3575,7 @@ int main(int argc, char* argv[]) {
 
       sprintf(buf, "Focused model [%s-%d] Mode: %s", loadedModels1D[mouse.focusedModel->name].name, mouse.focusedModel->id, manipulationMode!= -1 ?manipulationModeStr[manipulationMode] : "None");
 
-      renderText(buf, -1.0f, 1.0f, 1.0f);
+      renderText(buf, -1.0f, 1.0f, 1.0f); 
     }
 
     // render cursor
@@ -3323,9 +3598,9 @@ int main(int argc, char* argv[]) {
 
 	  // TODO: If i try to render TRIANGLE with 3 in glDrawArrays instead of 6 + 0.0... here
 	  // it causes artifacts
-	  0.0f,0.0f,0.0f,0.0f,
-	  0.0f,0.0f,0.0f,0.0f,
-	  0.0f,0.0f,0.0f,0.0f,
+//	  0.0f,0.0f,0.0f,0.0f,
+	//  0.0f,0.0f,0.0f,0.0f,
+	 // 0.0f,0.0f,0.0f,0.0f,
 	};
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);
@@ -3336,7 +3611,7 @@ int main(int argc, char* argv[]) {
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
-	glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -3351,7 +3626,7 @@ int main(int argc, char* argv[]) {
       glBindVertexArray(console.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, console.VBO);
 
-      glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
+      glDrawArrays(GL_TRIANGLES, 0, 6);
     
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
@@ -3374,10 +3649,10 @@ int main(int argc, char* argv[]) {
 	}
       }
 
-      renderText(consoleBuffer, -1.0f + letterW / 2.0f, 1.0f, 1.0f);
+      renderText(consoleBuffer, -1.0f + letterCellW / 2.0f, 1.0f, 1.0f);
 
       if(consoleHasResponse){
-	renderText(consoleResponse, -1.0f + letterW / 2.0f, 1.0f - consoleH, 1.0f);
+	renderText(consoleResponse, -1.0f + letterCellW / 2.0f, 1.0f - consoleH, 1.0f);
 
       }
     }
@@ -4309,67 +4584,106 @@ void calculateModelAABB(Model* model){
 // w and h of one letter cell
 const float atlasStep =  0.0625;
 
-void renderText(char* text, float x, float y, float scale){
+void renderText(char* text, float x, float y, float scale){ 
   if(!text) return;
-  
-  glBindVertexArray(textVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-  glBindTexture(GL_TEXTURE_2D, fontAtlas);
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   int iter = 0;
   int padCounter = 0;
   char ch = text[iter];
 
-  x += letterW;
-  //x += letterH;
+  x += letterCellW;
+
+  int initialX = x;
   
+  int len = noSpacesAndNewLinesStrLen(text);
+  int symblosSize = len * sizeof(float) * 6 * 4;
+  float* symbols = malloc(symblosSize);
+
+  int i = 0;
+
   while(ch){
     if(ch == '\n'){
-      y-=letterH;
+      y-=letterCellH * 0.95f;
       padCounter = 0;
 
       iter++;
       ch = text[iter];
+      continue;
+    }
 
+    if (ch == ' ') {
+      padCounter++;
+      iter++;
+      ch = text[iter];
       continue;
     }
     
-    float lettersPad = padCounter * (letterW / 1.9);
+    float lettersPad = padCounter * letterW;
     int index = ch - 33;
     vec2i pos = englLettersMap[index];
   
     float baseY = atlasStep * pos.z;
     float baseX = atlasStep * pos.x;
 
-    float symbol[] = {
-      x + lettersPad, y, baseX, baseY + atlasStep, // left top
-      x - letterW + lettersPad, y, baseX + atlasStep, baseY + atlasStep, // right top
+    // 1
+    symbols[i] = x + lettersPad;
+    symbols[i+1] = y; 
+    symbols[i+2] = baseX;
+    symbols[i+3] = baseY + atlasStep;
 
-      x + lettersPad, y - letterH, baseX, baseY, // right bot
+    // 2
+    symbols[i+4] = x - letterCellW + lettersPad;
+    symbols[i+5] = y;
+    symbols[i+6] = baseX + atlasStep;
+    symbols[i+7] = baseY + atlasStep;
+    
+    // 3
+    symbols[i+8] = x + lettersPad;
+    symbols[i+9] = y - letterCellH;
+    symbols[i+10] = baseX;
+    symbols[i+11] = baseY;
 
-      x - letterW + lettersPad, y, baseX + atlasStep, baseY + atlasStep, // right top
+    // 4
+    symbols[i+12] = x - letterCellW + lettersPad;
+    symbols[i+13] = y;
+    symbols[i+14] = baseX + atlasStep;
+    symbols[i+15] = baseY + atlasStep;
 
-      x + lettersPad, y - letterH, baseX, baseY, // right bot
-      x - letterW + lettersPad, y - letterH, baseX + atlasStep, baseY
-    };
+    // 5
+    symbols[i+16] = x + lettersPad;
+    symbols[i+17] = y - letterCellH;
+    symbols[i+18] = baseX;
+    symbols[i+19] = baseY;
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(symbol), symbol, GL_STATIC_DRAW);
+    // 6
+    symbols[i+20] = x - letterCellW + lettersPad;
+    symbols[i+21] = y - letterCellH;
+    symbols[i+22] = baseX + atlasStep;
+    symbols[i+23] = baseY;
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1 , 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-      
-    glDrawArrays(GL_TRIANGLES, 0, GL_ARRAY_BUFFER, 6);
-  
+    i+=24;
     iter++;
     padCounter++;
     ch = text[iter];
   }
+
+  glBindVertexArray(textVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+  glBindTexture(GL_TEXTURE_2D, fontAtlas);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  
+  glBufferData(GL_ARRAY_BUFFER, symblosSize, symbols, GL_STATIC_DRAW);
+  free(symbols);
+
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+  glEnableVertexAttribArray(0);
+
+  glVertexAttribPointer(1 , 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (2 * sizeof(float)));
+  glEnableVertexAttribArray(1);
+      
+  glDrawArrays(GL_TRIANGLES, 0, symblosSize / 16);
   
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
@@ -4406,8 +4720,6 @@ int strtrim(char *str){
 }
 
 bool loadSave(char* saveName){
-  //  resetMouse();
-  
   char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char));
 
   strcat(save, saveName);
@@ -4438,8 +4750,7 @@ bool loadSave(char* saveName){
       curModelsSize = 0;
     }
   }
-  
-  int sizeX, sizeZ, sizeY;
+
   fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
       
   grid = malloc(sizeof(Tile**) * (gridY));
@@ -4472,68 +4783,70 @@ bool loadSave(char* saveName){
     
   fscanf(map, "\nUsed models: %d\n", &curModelsSize);
 
-  if(curModelsSize != 0){
-    curModels = malloc(curModelsSize * sizeof(Model));
-    
-    for(int i=0; i<curModelsSize; i++){
-      /*	  if(curModels[i].name == yalinka){
-      // TODO: Make here some enum to string function
-      fprintf(map, "Yalinka[%d] ", yalinka);
-      }*/
-      int name = -1;
-      fscanf(map, "%d ", &name);
+  if (curModelsSize != 0) {
+	  curModels = malloc(curModelsSize * sizeof(Model));
 
-      if(name >= loadedModelsSize || name < 0){
-	printf("Models parsing error, model name (%d) doesnt exist \n", name);
-	exit(0); 
-      }   
-	  
-      //curModels[i] = malloc(sizeof(Model));
-      curModels[i].name = name;    
-      curModels[i].id = i;  
+	  for (int i = 0; i < curModelsSize; i++) {
+		  /*	  if(curModels[i].name == yalinka){
+		  // TODO: Make here some enum to string function
+		  fprintf(map, "Yalinka[%d] ", yalinka);
+		  }*/
+		  int name = -1;
+		  fscanf(map, "%d ", &name);
 
-      if(loadedModels1D[name].type == characterModelType){
-	if(!characters){
-	  characters = malloc(sizeof(Character) * (charactersSize+1));
-	}else{
-	  characters = realloc(characters, sizeof(Character) * (charactersSize+1));
-	}
+		  if (name >= loadedModelsSize || name < 0) {
+			  printf("Models parsing error, model name (%d) doesnt exist \n", name);
+			  exit(0);
+		  }
 
-	characters[charactersSize].modelId = curModels[i].id;
-	characters[charactersSize].modelName = curModels[i].name;
-	characters[charactersSize].id = charactersSize;
+		  //curModels[i] = malloc(sizeof(Model));
+		  curModels[i].name = name;
+		  curModels[i].id = i;
+		  curModels[i].characterId = -1;
 
-	memset(&characters[charactersSize].dialogs, 0, sizeof(Dialog));
+		  fgetc(map); // read [
 
-	characters[charactersSize].historySize = 0;
-	characters[charactersSize].curDialogIndex = 0;
-	characters[charactersSize].dialogHistory = NULL;
-	
-	characters[charactersSize].dialogsLen = 0;
+		  for (int mat = 0; mat < 16; mat++) {
+			  fscanf(map, "%f ", &curModels[i].mat.m[mat]);
+		  }
 
-	curModels[i].characterId = characters[charactersSize].id;
-	
-	charactersSize++;
-      }
-      
-      fgetc(map); // read [
+		  calculateModelAABB(&curModels[i]);
 
-      for(int mat=0;mat<16;mat++){
-	fscanf(map, "%f ", &curModels[i].mat.m[mat]);
-      }
+		  fgetc(map); // read ]\n
 
-      calculateModelAABB(&curModels[i]);
-	  
-      fgetc(map); // read ]\n
-    }
-  }
+		  char ch = fgetc(map);
 
-  fscanf(map, "\nCharacters\n");
-   
-  for(int i=0; i<charactersSize; i++){ 
-    char name[10];
-    int dialogs = -1;
-    fscanf(map, "%s %d \n", &name, &dialogs);
+		  if (ch == '1') { 
+			  charactersSize++;
+
+			  if (characters) {
+				  characters = malloc(characters, sizeof(Character));
+			  }
+			  else {
+				  characters = realloc(characters, charactersSize * sizeof(Character));
+			  }
+
+			  memset(&characters[charactersSize - 1], 0, sizeof(Character));
+
+			  curModels[i].characterId = charactersSize - 1;
+			  characters->id = charactersSize - 1;
+
+		    char named[32];
+		    int nameType = -1;
+
+		    fscanf(map, "%s %d ", &named, &nameType);
+
+		    characters[charactersSize-1].name = malloc(sizeof(char) * strlen(named));
+		    strcpy(characters[charactersSize-1].name, named); 
+
+		    deSerialize(&characters[charactersSize-1].dialogs, NULL, map);
+		//	fgetc(map);
+		  }
+		  else {
+		    fgetc(map);
+		  }
+	  }
+  
   }
  
   printf("Save %s loaded! \n", save);
@@ -4578,16 +4891,28 @@ bool saveMap(char *saveName){
       fprintf(map, "%f ", curModels[i].mat.m[mat]);
     }
 	  
-    fprintf(map, "]\n");
+    fprintf(map, "]");
+
+	if (curModels[i].characterId != -1) {
+		fprintf(map, "1");
+		fprintf(map, "%s %d ", characters[curModels[i].characterId].name ? characters[curModels[i].characterId].name : "None", characters[curModels[i].characterId].modelName);
+		serialize(&characters[curModels[i].characterId].dialogs, map);
+		fprintf(map, "\n");
+	}
+	else {
+		fprintf(map, "0\n");
+	}
+
   }
 
   // save characters
-  fprintf(map, "\Characters\n");
+  /*  fprintf(map, "\Characters\n");
   
   for(int i=0; i<charactersSize; i++){
-    fprintf(map, "%s %d \n", "None", 0);
-  }
-  
+    fprintf(map, "%s %d ", characters[i].name ? characters[i].name : "None", characters[i].modelName);
+    serialize(&characters[i].dialogs, map);  
+    }*/
+
   printf("Map saved!\n");
 
   fclose(map);
@@ -4648,6 +4973,7 @@ bool createMap(int newX, int newY, int newZ){
 void initSnowParticles(){
   if(snowParticle){
     free(snowParticle);
+    free(snowMeshVertixes);
     snowParticle = NULL;
   }
   
@@ -4664,6 +4990,7 @@ void initSnowParticles(){
     }
 
     snowParticle = (Particle*)malloc(sizeof(Particle) * snowAmount);
+    snowMeshVertixes = malloc(sizeof(float) * 2 * 3 * snowAmount);
 
     for (int loop = 0; loop < snowAmount; loop++)
       {
@@ -4679,12 +5006,46 @@ void initSnowParticles(){
   }
 }
 
-int lastNewLineCharPos(char* str){
+int lastCharPos(char* str, char ch){
   int len = strlen(str);
   for (int i = len - 1; i >= 0; i--) {
-    if (str[i] == '\n') {
+    if (str[i] == ch) {
       return i; // Return the index of the last '\n' character
     }
   }
   return -1; // Return -1 if '\n' is not found
+}
+
+
+int noSpacesAndNewLinesStrLen(char* str){
+  int len = strlen(str);
+  
+  for (int i = len - 1; i >= 0; i--) {
+    if (str[i] == '\n' || str[i] == ' ') {
+      len--; // Return the index of the last '\n' character
+    }
+  }
+  
+  return len; // Return -1 if '\n' is not found
+}
+
+void cleanString(char *str) {
+    int i, j;
+    int isPreviousSpace = 0;
+
+    for (i = 0, j = 0; str[i] != '\0'; i++) {
+        // Remove non-alphanumeric characters
+      if (isalnum(str[i]) || (str[i] >= '!' && str[i] <= '/') || (str[i] >= ':' && str[i] <= '@')) {
+            str[j++] = str[i];
+            isPreviousSpace = 0; // Reset space flag
+        }
+        // Convert multiple spaces into a single space
+        else if (isspace(str[i])) {
+            if (!isPreviousSpace) {
+                str[j++] = ' ';
+                isPreviousSpace = 1; // Set space flag
+            }
+        }
+    }
+    str[j] = '\0'; // Null terminate the cleaned string
 }

@@ -163,8 +163,7 @@ typedef enum{
 typedef struct{
   bool active;
 
-  // for DialogEditor it will be DialogEditorInputs type
-  int localType;
+  int charsLimit;
   
   UIRect rect;
   char** buf;
@@ -192,13 +191,6 @@ typedef struct{
   
   UIRect* buttons;
 } Menu;
-
-/*
-typedef enum{
-  dialogLog,
-  answersBackground,  dialogViewerPartsCounter
-} DialogViewerParts;
-*/
 
 typedef enum{
   answerBut1,
@@ -364,7 +356,6 @@ typedef struct{
   Model* focusedModel;
   // player focused to manipulate
   // on key
-  Character* selectedCharacter;
 
   vec2 cursor;
 } Mouse;
@@ -372,6 +363,8 @@ typedef struct{
 typedef struct{
   float w, h, d;
 } Sizes;
+
+float* snowMeshVertixes;
 
 typedef struct{
   bool    active;
@@ -463,7 +456,7 @@ bool saveMap(char *saveName);
 void resetMouse();
 void initSnowParticles();
 
-int lastNewLineCharPos(str);
+int lastCharPos(char* str, char ch);
 
 bool createMap(int x, int y, int z);
 
@@ -471,9 +464,13 @@ bool radarCheck(vec3 point);
 
 int strcut(char *str, int begin, int len);
 
+void cleanString(char *str);
+
 int strtrim(char *str);
 
 ModelInfo* loadOBJ(char* path, char* texturePath);
+
+int noSpacesAndNewLinesStrLen(char* str);
 
 #define increaseVAOnVBO() boundVBO++; boundVAO++
 
@@ -510,12 +507,17 @@ GLuint loadShader(GLenum shaderType, const char* filename);
 #define selBorderD 0.01f
 #define selBorderT 0.01f
 
+#define dialogEditorReplicaInputLimit 283
+
+#define dialogEditorNameInputLimit 32
+#define dialogEditorAnswerInputLimit 63
+
 #define selTileBorderH 0.001f
 
 #define dialogEditorCharNameTitle "Char name: "
 
 const char sdlScancodesToACII[] = {
-  [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
+  [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', [55]='.'
 };
 
 const char* manipulationModeStr[] = { "Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };
