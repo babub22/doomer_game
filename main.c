@@ -10,9 +10,6 @@ char curSaveName[CONSOLE_BUF_CAP];
 GLuint selectionRectVBO;
 GLuint selectionRectVAO;
 
-GLuint selectionRectVBO;
-GLuint selectionRectVAO;
-
 VPair hudRect;
 
 Object** objsStore;
@@ -124,149 +121,6 @@ GLuint hudShader;
 GLuint cursorVBO;
 GLuint cursorVAO;
 
-void serializePrint(Dialog* root, FILE* fp)
-{
-  // Base case
-  if (root == NULL) return;
-
-  // Else, store current node and recur for its children
-  printf("%s ", root->text ? root->text : "NULL");
-
-  for (int i = 0; i < root->answersSize//[i]
-	 ; i++)
-    serializePrint(&root->answers[i], fp);
-
-  // Store marker at the end of children
-  printf("%c ", ')');
-}
-
-void serialize(Dialog* root, FILE *fp)
-{
-  // Base case
-  if (root == NULL) return;
- 
-  // Else, store current node and recur for its children
-  fprintf(fp,"R\"%s\"A\"%s\" ", root->replicaText ? root->replicaText : "NULL", root->text ? root->text : "NULL");
-  
-  for (int i = 0; i < root->answersSize//[i]
-	 ; i++) 
-    serialize(&root->answers[i],  fp);
- 
-  // Store marker at the end of children
-  fprintf(fp,"%c", ')');
-}
-
-int deSerialize(Dialog* root, Dialog* parent, FILE *fp)
-{
-  // Read next item from file. If there are no more items or next
-  // item is marker, then return 1 to indicate same
-  char val[dialogEditorAnswerInputLimit + 1];
-  char replicaStr[dialogEditorReplicaInputLimit + 1];
-  char ch = fgetc(fp);
-
-  while (ch != 'R') {
-    if (ch == ')')
-      return 1;
-    else if (ch == EOF) 
-      return 0; 
-    else 
-      ch = fgetc(fp);
-  }
-
-  ungetc(ch, fp);
-
-  if (!fscanf(fp, "R\"%[^\"]\"A\"%[^\"]\" ",&replicaStr, &val) )  
-    return 1;
-
-  if (parent) {  
-    parent->answersSize++;
-
-    if (parent->answers) {
-      parent->answers = realloc(parent->answers, parent->answersSize * sizeof(Dialog));
-      memset(&parent->answers[parent->answersSize - 1], 0, sizeof(Dialog));
-    }
-    else {
-      parent->answers = calloc(1, sizeof(Dialog));
-    }
-
-    //  parent->answers[parent->answersSize-1] = calloc(1, sizeof(Dialog));
-    root = &parent->answers[parent->answersSize - 1];  
-  }
- 
-  // Else create node with this item and recur for childrenser
-  //  root = newNode(val);
-  /*  root->answersSize++;
-
-      if(root->answers){
-      root->answers = realloc(root->answers, root->answersSize * sizeof(Dialog));
-      }else{
-      root->answers = malloc(sizeof(Dialog));
-      }*/
-
-  if(strcmp(val, "NULL") != 0){ 
-    root->text = malloc(sizeof(char) * strlen(val) + 1);
-    strcpy(root->text, val);  
-  }
-
-  if(strcmp(replicaStr, "NULL") != 0){
-    root->replicaText = malloc(sizeof(char) * strlen(replicaStr) + 1);
-    strcpy(root->replicaText, replicaStr);  
-  }
-
-  for (int i = 0; i < 7; i++)
-    if (deSerialize(&root->answers[i], root, fp))
-      break;
- 
-  // Finally return 0 for successful finish
-  return 0;
-}
-
-
-// accepts percents
-float* uiRectPercentage(float x, float y, float w, float h){
-  vec2 lt = { 2 * x - 1, 2 * y - 1 };
-  vec2 rt = { 2 * w - 1, 2 * y - 1 };
-
-  vec2 lb = { 2 * x - 1, 2 * h - 1 };
-  vec2 rb = { 2 * w - 1, 2 * h - 1 };
-  
-  float stackRect[] = { 
-    argVec2(lt), 1.0f, 0.0f,
-    argVec2(rt), 1.0f, 1.0f,
-    argVec2(lb), 0.0f, 0.0f,
-
-    argVec2(rt), 1.0f, 1.0f,
-    argVec2(lb), 0.0f, 0.0f,
-    argVec2(rb), 0.0f, 1.0f };
-  
-  float* rect = malloc(sizeof(stackRect));	
-  memcpy(rect, stackRect, sizeof(stackRect));
-	
-  return rect;
-}
-
-float* uiRectPoints(float x, float y, float w, float h){
-  vec2 lt = { x, y };
-  vec2 rt = { x + w, y };
-
-  vec2 lb = { x, y - h };
-  vec2 rb = { x + w, y - h };
-  
-  float stackRect[] = { 
-    argVec2(lt), 1.0f, 0.0f,
-    argVec2(rt), 1.0f, 1.0f,
-    argVec2(lb), 0.0f, 0.0f,
-
-    argVec2(rt), 1.0f, 1.0f,
-    argVec2(lb), 0.0f, 0.0f,
-    argVec2(rb), 0.0f, 1.0f }; 
-   
-  float* rect = malloc(sizeof(stackRect));	
-  memcpy(rect, stackRect, sizeof(stackRect));
-	
-  return rect;
-}
-
 int main(int argc, char* argv[]) {
   borderArea = (float)bBlockW/8;
   
@@ -284,7 +138,7 @@ int main(int argc, char* argv[]) {
   SDL_WarpMouseInWindow(window, windowW/2.0f, windowH/2.0f);
   SDL_SetRelativeMouseMode(SDL_TRUE);
   SDL_GLContext context = SDL_GL_CreateContext(window);
-  
+
   SDL_ShowCursor(SDL_DISABLE);
 
   GLuint netTileVBO, netTileVAO;
@@ -294,6 +148,9 @@ int main(int argc, char* argv[]) {
 
   glewInit();
 
+  SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+  SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 16);
+  
   // cursor buffers
   {
     glGenBuffers(1, &cursorVBO);
@@ -1016,12 +873,16 @@ int main(int argc, char* argv[]) {
   bool highlighting = 1;
   
   // init opengl
-  {  
+  {
+  //  glEnable(GL_MULTISAMPLE);  
+    
     glEnable(GL_TEXTURE_2D);
     glShadeModel(GL_SMOOTH);
     glClearDepth(1.0f);
     glEnable(GL_DEPTH_TEST);  
     glDepthFunc(GL_LEQUAL);
+
+    glEnable(GL_MULTISAMPLE);  
   }
     
   // load textures
@@ -1270,6 +1131,8 @@ int main(int argc, char* argv[]) {
   glUniform1f(radius, drawDistance);
 
   ManipulationMode manipulationMode = -1;
+  float manipulationStep = 0.01f;
+  float manipulationScaleStep = 5 * 0.01f + 1;
 
   // show show
 
@@ -1381,6 +1244,7 @@ int main(int argc, char* argv[]) {
 			    
 			    if(str_tok){
 			      strcpy(curSaveName, str_tok);
+				  
 			      createMap(x, y, z);
 			      sprintf(consoleResponse, "Map was craeted with size x: %d y: %d z:%d", x,y,z);
 			    }else{
@@ -1433,6 +1297,14 @@ int main(int argc, char* argv[]) {
 	    
 	    dialogViewer.open = false;
 	    dialogEditor.open = true;
+	    
+	    dialogEditor.textInputs[replicaInput].buf = &characters[mouse.focusedModel->characterId].curDialog->replicaText;
+	    dialogEditor.textInputs[charNameInput].buf = &characters[mouse.focusedModel->characterId].name;
+
+	    for (int i = 0; i < characters[mouse.focusedModel->characterId].dialogs.answersSize; i++) {
+	      dialogEditor.textInputs[i + answerInput1].buf = &characters[mouse.focusedModel->characterId].curDialog->answers[i].text;
+	    }
+		 
 	  }
 	}else if(dialogEditor.open){
 	  if(event.key.keysym.scancode == SDL_SCANCODE_B && !selectedTextInput){
@@ -1460,7 +1332,7 @@ int main(int argc, char* argv[]) {
 	    if(selectedTextInput){
 	      const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 	      
-	      if(event.key.keysym.scancode == SDL_SCANCODE_RETURN){
+	      if(false ){//event.key.keysym.scancode == SDL_SCANCODE_RETURN && *selectedTextInput->buf){
 		*selectedTextInput->buf = malloc(sizeof(char) * (strlen(*selectedTextInput->buf)+1));
 		strcpy(*selectedTextInput->buf, tempTextInputStorage);
 
@@ -1473,7 +1345,11 @@ int main(int argc, char* argv[]) {
 		int lastSpacePos = lastCharPos(tempTextInputStorage, ' ');
 
 		if(lastSpacePos != -1){
-		  strcut(tempTextInputStorage,lastSpacePos ,tempTextInputStorageCursor);   
+		  // TODO: On realease strcut() leads to some strange exception
+		  for (int i = lastSpacePos; i < tempTextInputStorageCursor-1; i++) {
+		    tempTextInputStorage[i] = '\0';
+		  }
+		  //strcut(tempTextInputStorage,lastSpacePos ,tempTextInputStorageCursor - 1);    
 		  tempTextInputStorageCursor = lastSpacePos;
 		}else{
 		  memset(tempTextInputStorage, 0, 512 * sizeof(char));
@@ -1545,12 +1421,12 @@ int main(int argc, char* argv[]) {
 		  tempTextInputStorage[tempTextInputStorageCursor] = newChar;
 		  tempTextInputStorageCursor++;
 		}else if(event.key.keysym.scancode == SDL_SCANCODE_SPACE){
-		  bool prevCharIsntSpace = tempTextInputStorageCursor > 0 && tempTextInputStorage[tempTextInputStorageCursor - 1] != ' ';
+		  bool prevCharIsntSpace = tempTextInputStorageCursor > 0 && tempTextInputStorage[tempTextInputStorageCursor - 1] != ' '; 
 
 		  if(prevCharIsntSpace){
 		    tempTextInputStorage[tempTextInputStorageCursor] = ' ';
 		    tempTextInputStorageCursor++;
-		  }
+		  } 
 		}
 	      }else if(tempTextInputStorageCursor > 0 && event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
 		tempTextInputStorageCursor--;
@@ -1569,17 +1445,30 @@ int main(int argc, char* argv[]) {
 	    if(manipulationMode != -1){
 	      switch(manipulationMode){
 	      case(TRANSFORM_Z):{
-		mouse.focusedModel->mat.m[13] = mouse.focusedModel->mat.m[13] + 0.001f;
+		mouse.focusedModel->mat.m[13] = mouse.focusedModel->mat.m[13] + manipulationStep;
 		calculateModelAABB(mouse.focusedModel);
 		break;
 	      }
 	      case(TRANSFORM_XY):{
-		mouse.focusedModel->mat.m[12] = mouse.focusedModel->mat.m[12] - 0.01f;
+		mouse.focusedModel->mat.m[12] = mouse.focusedModel->mat.m[12] - manipulationStep;
 		calculateModelAABB(mouse.focusedModel);
 		break;
 	      }
 	      case(SCALE):{
-		scale(mouse.focusedModel->mat.m, 1.05f, 1.05f, 1.05f);
+		float xTemp = mouse.focusedModel->mat.m[12];
+		float yTemp = mouse.focusedModel->mat.m[13];
+		float zTemp = mouse.focusedModel->mat.m[14];
+
+		mouse.focusedModel->mat.m[12] = 0;
+		mouse.focusedModel->mat.m[13] = 0;
+		mouse.focusedModel->mat.m[14] = -zTemp;
+
+		scale(mouse.focusedModel->mat.m, manipulationScaleStep, manipulationScaleStep, manipulationScaleStep);
+
+		mouse.focusedModel->mat.m[12] = xTemp;
+		mouse.focusedModel->mat.m[13] = yTemp;
+		mouse.focusedModel->mat.m[14] = zTemp;
+
 		calculateModelAABB(mouse.focusedModel);
 		break;
 	      }
@@ -1625,18 +1514,31 @@ int main(int argc, char* argv[]) {
 	    if(manipulationMode != -1){
 	      switch(manipulationMode){ 
 	      case(TRANSFORM_Z):{
-		mouse.focusedModel->mat.m[13] = mouse.focusedModel->mat.m[13] - 0.001f;   
+		mouse.focusedModel->mat.m[13] = mouse.focusedModel->mat.m[13] - manipulationStep;   
 		calculateModelAABB(mouse.focusedModel); 
 		break;
 	      }
 	      case(TRANSFORM_XY):{
-		mouse.focusedModel->mat.m[12] = mouse.focusedModel->mat.m[12] + 0.01f;    
+		mouse.focusedModel->mat.m[12] = mouse.focusedModel->mat.m[12] + manipulationStep;    
 		calculateModelAABB(mouse.focusedModel);
 		break;
 	      }
 	      case(SCALE):{
-		scale(mouse.focusedModel->mat.m, 1.0f/1.05f, 1.0f/1.05f, 1.0f/1.05f);
-		calculateModelAABB(mouse.focusedModel);
+		float xTemp = mouse.focusedModel->mat.m[12];
+		float yTemp = mouse.focusedModel->mat.m[13];
+		float zTemp = mouse.focusedModel->mat.m[14];
+
+		mouse.focusedModel->mat.m[12] = 0;
+		mouse.focusedModel->mat.m[13] = 0;
+		mouse.focusedModel->mat.m[14] = -zTemp;
+
+		scale(mouse.focusedModel->mat.m, 1.0f/manipulationScaleStep, 1.0f/manipulationScaleStep, 1.0f/manipulationScaleStep);
+
+		mouse.focusedModel->mat.m[12] = xTemp;
+		mouse.focusedModel->mat.m[13] = yTemp; 
+		mouse.focusedModel->mat.m[14] = zTemp;
+
+		calculateModelAABB(mouse.focusedModel); 
 		break;
 	      }
 
@@ -1681,11 +1583,11 @@ int main(int argc, char* argv[]) {
 	    break;
 	  }
 	  case(SDL_SCANCODE_F): {
-	    if(mouse.selectedModel && !mouse.focusedModel){
-	      mouse.focusedModel = mouse.selectedModel;
-	    }else if(mouse.focusedModel){
+	    if(mouse.focusedModel && mouse.selectedModel && mouse.focusedModel->id == mouse.selectedModel->id){
 	      mouse.focusedModel = NULL;
-	    };
+	    }else{
+	      mouse.focusedModel = mouse.selectedModel;
+	    }
 	  
 	    break;
 	  }
@@ -1714,29 +1616,31 @@ int main(int argc, char* argv[]) {
 	  }
 	  case(SDL_SCANCODE_LEFT): {
 	    if(manipulationMode != -1){
-	      switch(manipulationMode){
-	      case(ROTATE_Y):{
-		rotateY(mouse.focusedModel->mat.m, -rad(1.0f));
+	      float xTemp = mouse.focusedModel->mat.m[12];
+	      float yTemp = mouse.focusedModel->mat.m[13];
+	      float zTemp = mouse.focusedModel->mat.m[14];
+	      
+	      if(manipulationMode == ROTATE_Y || manipulationMode == ROTATE_X || manipulationMode == ROTATE_Z){
+		mouse.focusedModel->mat.m[12] = 0;
+		mouse.focusedModel->mat.m[13] = 0;
+		mouse.focusedModel->mat.m[14] = -zTemp;
+
+		if(manipulationMode == ROTATE_Y){
+		  rotateY(mouse.focusedModel->mat.m, -rad(1.0f));
+		}else if(manipulationMode == ROTATE_X){
+		  rotateX(mouse.focusedModel->mat.m, -rad(1.0f));
+		}else if(manipulationMode == ROTATE_Z){
+		  rotateZ(mouse.focusedModel->mat.m, -rad(1.0f));
+		}
+
+		mouse.focusedModel->mat.m[12] = xTemp;
+		mouse.focusedModel->mat.m[13] = yTemp;
+		mouse.focusedModel->mat.m[14] = zTemp;
+		
 		calculateModelAABB(mouse.focusedModel);
-		break;
-	      }
-	      case(ROTATE_Z):{
-		rotateZ(mouse.focusedModel->mat.m, -rad(1.0f));
+	      }else if(manipulationMode == TRANSFORM_XY){
+		mouse.focusedModel->mat.m[14] = mouse.focusedModel->mat.m[14] + manipulationStep;
 		calculateModelAABB(mouse.focusedModel);
-		break;
-	      }
-	      case(ROTATE_X):{
-		rotateX(mouse.focusedModel->mat.m, -rad(1.0f));
-		calculateModelAABB(mouse.focusedModel);
-		break;
-	      }
-	      case(TRANSFORM_XY):{
-		mouse.focusedModel->mat.m[14] = mouse.focusedModel->mat.m[14] + 0.01f;
-		calculateModelAABB(mouse.focusedModel);
-		break;
-	      }
-		      
-	      default: break;
 	      }
 	    }else if (mouse.wallType != -1) {
 	      WallType prevType = 0;
@@ -1762,24 +1666,33 @@ int main(int argc, char* argv[]) {
 	  }
 	  case(SDL_SCANCODE_RIGHT): {
 	    if(manipulationMode != -1){
+	      float xTemp = mouse.focusedModel->mat.m[12];
+	      float yTemp = mouse.focusedModel->mat.m[13];
+	      float zTemp = mouse.focusedModel->mat.m[14];
+
+	      if(manipulationMode == ROTATE_Y || manipulationMode == ROTATE_X || manipulationMode == ROTATE_Z){
+		mouse.focusedModel->mat.m[12] = 0;
+		mouse.focusedModel->mat.m[13] = 0;
+		mouse.focusedModel->mat.m[14] = -zTemp;
+
+		if(manipulationMode == ROTATE_Y){
+		  rotateY(mouse.focusedModel->mat.m, rad(1.0f));
+		}else if(manipulationMode == ROTATE_X){
+		  rotateX(mouse.focusedModel->mat.m, rad(1.0f));
+		}else if(manipulationMode == ROTATE_Z){
+		  rotateZ(mouse.focusedModel->mat.m, rad(1.0f));
+		}
+
+		mouse.focusedModel->mat.m[12] = xTemp;
+		mouse.focusedModel->mat.m[13] = yTemp;
+		mouse.focusedModel->mat.m[14] = zTemp;
+		
+		calculateModelAABB(mouse.focusedModel);
+	      }
+
 	      switch(manipulationMode){
-	      case(ROTATE_Y):{
-		rotateY(mouse.focusedModel->mat.m, rad(1.0f));
-		calculateModelAABB(mouse.focusedModel);
-		break;
-	      }
-	      case(ROTATE_Z):{
-		rotateZ(mouse.focusedModel->mat.m, rad(1.0f));
-		calculateModelAABB(mouse.focusedModel);
-		break;
-	      }
-	      case(ROTATE_X):{
-		rotateX(mouse.focusedModel->mat.m, rad(1.0f));
-		calculateModelAABB(mouse.focusedModel);
-		break;
-	      }
 	      case(TRANSFORM_XY):{
-		mouse.focusedModel->mat.m[14] = mouse.focusedModel->mat.m[14] - 0.01f;
+		mouse.focusedModel->mat.m[14] = mouse.focusedModel->mat.m[14] - manipulationStep;
 		calculateModelAABB(mouse.focusedModel);
 		break;
 	      }
@@ -1823,28 +1736,29 @@ int main(int argc, char* argv[]) {
 	  }
 	  case(SDL_SCANCODE_B): {
 	    if(mouse.focusedModel){
-			if (mouse.focusedModel->characterId == -1) { 
-				if (characters == NULL) {
-					characters = malloc(sizeof(Character));
-				}
-				else {
-					characters = realloc(characters, (charactersSize + 1) * sizeof(Character));
-					//memset(&characters[charactersSize].dialogs,0,sizeof(Dialog));	
-				}
-				memset(&characters[charactersSize], 0, sizeof(Character));
+	      if (mouse.focusedModel->characterId == -1) { 
+		if (characters == NULL) {
+		  characters = malloc(sizeof(Character));
+		}
+		else {
+		  characters = realloc(characters, (charactersSize + 1) * sizeof(Character));
+		  //memset(&characters[charactersSize].dialogs,0,sizeof(Dialog));	
+		}
+		memset(&characters[charactersSize], 0, sizeof(Character));
 
-				characters[charactersSize].id = charactersSize;
-				characters[charactersSize].modelId = mouse.focusedModel->id;
-				characters[charactersSize].modelName = mouse.focusedModel->name;
-				characters[charactersSize].curDialog = &characters[charactersSize].dialogs;
+		characters[charactersSize].id = charactersSize;
+		characters[charactersSize].modelId = mouse.focusedModel->id;
+		characters[charactersSize].modelName = mouse.focusedModel->name;
+		characters[charactersSize].curDialog = &characters[charactersSize].dialogs;
 
-				characters[charactersSize].curDialog->answersSize = 1;
-				characters[charactersSize].curDialog->answers = calloc(1, sizeof(Dialog));
+		characters[charactersSize].curDialog->answersSize = 1;
+		characters[charactersSize].curDialog->answers = calloc(1, sizeof(Dialog));
+		//		printf("Alloc\n");
 
-				mouse.focusedModel->characterId = characters[charactersSize].id;  
+		mouse.focusedModel->characterId = characters[charactersSize].id;  
 
-				charactersSize++;
-			}
+		charactersSize++;
+	      }
 
 	      dialogEditor.open = true;
 
@@ -1900,11 +1814,17 @@ int main(int argc, char* argv[]) {
 	    break;
 	  }
 	  case(SDL_SCANCODE_DELETE): {
-	    if(mouse.selectedModel){
+	    if(mouse.focusedModel){
+	      
 	      int index = 0;
 
+	      // clear dialogs
+	      int charId = curModels[mouse.focusedModel->id].characterId;
+
+	      destroyCharacter(charId);
+	      
 	      for(int i=0;i<curModelsSize;i++){ 
-		if(curModels[i].id == mouse.selectedModel->id){
+		if(curModels[i].id == mouse.focusedModel->id){
 		  continue;
 		}
 
@@ -1915,6 +1835,7 @@ int main(int argc, char* argv[]) {
 	      curModelsSize--;
 	      curModels = realloc(curModels, curModelsSize * sizeof(Model));
 	    
+	      mouse.focusedModel = NULL;
 	    }else if (mouse.wallSide != -1) {
 	      WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
 
@@ -1925,6 +1846,7 @@ int main(int argc, char* argv[]) {
 	      if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
 		grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls &= ~(0xFF << (oppositeSide * 8));
 	      }
+
 	    }
 
 	    break;
@@ -1944,7 +1866,21 @@ int main(int argc, char* argv[]) {
 	}
       }
 
-      mouse.wheel = event.wheel.y;
+      if(event.type == SDL_MOUSEWHEEL){
+	mouse.wheel = event.wheel.y;
+
+	if(mouse.focusedModel){
+	  const float dStep = 0.0001f;
+	  
+	  if(event.wheel.y > 0){
+	    manipulationStep += dStep;
+	  }else if(event.wheel.y < 0 && manipulationStep - dStep >= dStep){
+	    manipulationStep -= dStep;
+	  }
+	
+	  manipulationScaleStep = (manipulationStep * 5) + 1;
+	}
+      }
       
       if (event.type == SDL_MOUSEMOTION) {
 	if(objectsMenu.open || dialogEditor.open || dialogViewer.open){
@@ -2694,7 +2630,7 @@ int main(int argc, char* argv[]) {
 	const int z = mouse.gridIntersect.z;
 
 	const vec3 tile = xyz_indexesToCoords(x,floor,z);
-
+	
 	if(mouse.intersection.x < tile.x + borderArea){
 	  mouse.tileSide = left;
 	}else if(mouse.intersection.x > tile.x + bBlockW - borderArea){
@@ -2719,25 +2655,26 @@ int main(int argc, char* argv[]) {
 	setSolidColorTx(darkPurple, 1.0f);
 
 	//	  glBegin(GL_TRIANGLES);
-	
-	if(mouse.tileSide == center){
-	  vec3 pos = { tile.x + bBlockD / 2 - borderArea, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2 - borderArea };
 
-	  glBindVertexArray(netTileVAO);
-	  glBindBuffer(GL_ARRAY_BUFFER, netTileVBO);
+	if(mouse.tileSide != -1){
+	  glBindVertexArray(selectionRectVAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, selectionRectVBO);
 
 	  Matrix out = IDENTITY_MATRIX;
 
-	  // translate without mult
-	  out.m[12] = pos.x;
-	  out.m[13] = pos.y;
-	  out.m[14] = pos.z;
+	  out.m[12] = mouse.gridIntersect.x;
+	  out.m[13] = floor;
+	  out.m[14] = mouse.gridIntersect.z;
 		
 	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+	}
 
-	  glDrawArrays(GL_TRIANGLES, 0, 6);
+	if(mouse.tileSide == center){
+	  vec3 pos = { tile.x + bBlockD / 2 - borderArea, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2 - borderArea };
+
+	  //	  glDrawArrays(GL_TRIANGLES, 0, 6);
 	}else if(mouse.tileSide == top || mouse.tileSide == bot){
-	  float zPos = tile.z;
+	  /*	  float zPos = tile.z;
 	      
 	  if(mouse.tileSide == top){
 	    zPos -= borderArea / 2;
@@ -2746,6 +2683,29 @@ int main(int argc, char* argv[]) {
 	  }
 
 	  vec3 pos = { tile.x + borderArea + selectionW / 2, tile.y + selBorderD/2.0f, zPos };
+
+	  const vec3 c0 = { pos.x, pos.y, pos.z };
+	  const vec3 c1 = { pos.x + borderArea * 3, pos.y, pos.z };
+	  const vec3 c3 = { pos.x,pos.y, pos.z + borderArea };
+	  const vec3 c2 = { pos.x + borderArea * 3,pos.y, pos.z + borderArea };
+    
+	  float netTileVerts[] = {
+	    argVec3(c0), 
+	    argVec3(c1), 
+	    argVec3(c2),
+	    
+	    argVec3(c1),       
+	    argVec3(c2),
+	    argVec3(c3),
+	  };
+
+
+	  glBufferData(GL_ARRAY_BUFFER, sizeof(netTileVerts), netTileVerts, GL_STATIC_DRAW);
+
+	  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
+
+	  glDrawArrays(GL_TRIANGLES, 0, 6); */
 
 	  //    glVertex3f(pos.x, pos.y, pos.z);
 	  //   glVertex3f(pos.x + borderArea * 3, pos.y, pos.z);
@@ -2777,51 +2737,54 @@ int main(int argc, char* argv[]) {
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	  
-	//      glEnd();
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	if(mouse.tileSide != -1 && mouse.tileSide != center){
-	    
 	  Side oppositeSide = 0;
 	  vec2i oppositeTile = {0};
+	  
+	  glBindVertexArray(wallMeshes[mouse.tileSide][mouse.brush-1].VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, wallMeshes[mouse.tileSide][mouse.brush-1].VBO);
+		
+	  glActiveTexture(0);
+	  glBindTexture(GL_TEXTURE_2D, 0);
+	      		
+	  Matrix out = IDENTITY_MATRIX;
 
-	  vec3* wallPos = wallPosBySide(mouse.tileSide, wallsSizes[mouse.brush].h, wallD, bBlockD, bBlockW);
+	  // translate without mult
+	  out.m[12] = tile.x;
+	  out.m[13] = tile.y;
+	  out.m[14] = tile.z;
+		
+	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 
-	  switch(mouse.brush){
-	  case(windowT):{
-	    //renderWindow(wallPos,0);
-	    break;
-	  }
-	  case(doorFrameT):{
-	    //renderDoorFrame(wallPos,0);
-	    break;
-	  }
-	  default: {
-	    //	  renderWall(wallPos, 0);
-	    break;
-	  };
-	  }
-	      
+	  glDrawArrays(GL_TRIANGLES, 0, wallMeshes[mouse.tileSide][mouse.brush -1].VBOsize);
+
 	  if(oppositeTileTo((vec2i){x, z}, mouse.tileSide,&oppositeTile,&oppositeSide)){
-	    //  vec3* wallPos = wallPosBySide((vec3){(float)oppositeTile.x / 10, tile.y, (float)oppositeTile.z / 10}, oppositeSide, wallsSizes[mouse.brush].h, wallD, bBlockD, bBlockW);
-	    vec3* wallPos = NULL;
-	    switch(mouse.brush){
-	    case(windowT):{
-	      //renderWindow(wallPos,0);
-	      break;
-	    }
-	    case(doorFrameT):{
-	      //renderDoorFrame(wallPos,0);
-	      break;
-	    }
-	    default: {
-	      // renderWall(wallPos, 0);
-	      break;
-	    };
-	    }
+	    Matrix out = IDENTITY_MATRIX;
+
+	    // translate without mult
+	    vec3 oppositePos = xyz_indexesToCoords(oppositeTile.x, floor, oppositeTile.z); 
+	    
+	    out.m[12] = oppositePos.x;
+	    out.m[13] = oppositePos.y;
+	    out.m[14] = oppositePos.z;
+
+	    
+	  glBindVertexArray(wallMeshes[oppositeSide][mouse.brush-1].VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, wallMeshes[oppositeSide][mouse.brush-1].VBO);
+		
+	    
+	    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+
+	    
+	    glDrawArrays(GL_TRIANGLES, 0, wallMeshes[oppositeSide][mouse.brush -1].VBOsize);
 	  }
 
+	  glBindTexture(GL_TEXTURE_2D, 0);
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+	      
 	  if(mouse.clickR){
 	    // delete if something exist on this place
 	    {
@@ -2992,6 +2955,8 @@ int main(int argc, char* argv[]) {
       
       if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= modelsTypesInfo[objectsMenuSelectedType].counter){
 	if(mouse.clickL){
+	  mouse.focusedModel = NULL;
+	  
 	  curModelsSize++;
 
 	  if(curModels){ 
@@ -3119,7 +3084,7 @@ int main(int argc, char* argv[]) {
 	renderText(loadedModels2D[objectsMenuSelectedType][i].name, -1.0f, 1.0f - (i * letterH), 1);
       }
     }else if(dialogViewer.open){
-	Character* editedCharacter = &characters[mouse.focusedModel->characterId];
+      Character* editedCharacter = &characters[mouse.focusedModel->characterId];
       Dialog* curDialog = editedCharacter->curDialog;
 
       // dialog viewer background
@@ -3157,11 +3122,11 @@ int main(int argc, char* argv[]) {
 	float answerSelection[] = {
 	  dialogViewer.rect.x, baseY, 1.0f, 0.0f,
 	  dialogViewer.rect.x + nameW, baseY, 1.0f, 1.0f,
-	  dialogViewer.rect.x, baseY - letterH - .02f, 0.0f, 0.0f,
+	  dialogViewer.rect.x, baseY - letterH, 0.0f, 0.0f,
 
 	  dialogViewer.rect.x + nameW, baseY, 1.0f, 1.0f,
-	  dialogViewer.rect.x, baseY - letterH - .02f, 0.0f, 0.0f,
-	  dialogViewer.rect.x + nameW, baseY - letterH - .02f, 0.0f, 1.0f };
+	  dialogViewer.rect.x, baseY - letterH, 0.0f, 0.0f,
+	  dialogViewer.rect.x + nameW, baseY - letterH, 0.0f, 1.0f };
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(answerSelection), answerSelection, GL_STATIC_DRAW);
 
@@ -3245,11 +3210,20 @@ int main(int argc, char* argv[]) {
 
 	if(selectedNewAnswer){
 	  if(isEnd){
-		  editedCharacter->curDialogIndex = 0;
-		  editedCharacter->curDialog = &editedCharacter->dialogs;
+	    editedCharacter->curDialogIndex = 0;
+	    editedCharacter->curDialog = &editedCharacter->dialogs;
 
 	    dialogViewer.open = false;
 	    dialogEditor.open = true;
+	    
+	    dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
+	    dialogEditor.textInputs[charNameInput].buf = &editedCharacter->name;
+
+	    for(int i=0;i<editedCharacter->dialogs.answersSize;i++){
+	      dialogEditor.textInputs[i+answerInput1].buf = &editedCharacter->curDialog->answers[i].text; 
+	    }
+
+	    
 	    break;
 	  }
 	  
@@ -3290,9 +3264,10 @@ int main(int argc, char* argv[]) {
 	    selectedTextInput->active = false;
 
 	      // save text in prev text input
-	    if(tempTextInputStorageCursor != 0){ 
+	    if(tempTextInputStorageCursor != 0){
 	      *selectedTextInput->buf = malloc(sizeof(char) * (strlen(tempTextInputStorage)+1));
 	      strcpy(*selectedTextInput->buf, tempTextInputStorage); 
+	      //	      printf("Alloc %s \n", *selectedTextInput->buf);
 
 	      tempTextInputStorageCursor = 0;
 	      memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
@@ -3335,10 +3310,71 @@ int main(int argc, char* argv[]) {
 		    for(int i=0;i<curDialog->answersSize;i++){
 		      dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text; 
 		    }
+		  }
+		}else if(i >= minusButton1 && i<= minusButton6){
+		  if(i - minusButton1 < curDialog->answersSize){
+		    int answerIndex = i - minusButton1;
 
-		    // 
-		    //	    int newAnswerIndex = curDialog->answersSize-1; 
-		    //    dialogEditor.textInputs[newAnswerIndex+answerInput1].buf = &curDialog->answers[newAnswerIndex].text;
+		    destroyDialogsFrom(&curDialog->answers[answerIndex]);
+		    
+		    int index = 0; 
+		    for(int i=0;i<curDialog->answersSize;i++){
+		      if(i == answerIndex){
+			continue;
+		      }
+			
+		      curDialog->answers[index] = curDialog->answers[i]; 
+		      index++;
+		    }
+		    
+		    curDialog->answersSize--;
+		    curDialog->answers = realloc(curDialog->answers, curDialog->answersSize * sizeof(Dialog));
+			 
+		    if(editedCharacter->historySize == 0 && curDialog->answersSize == 0){    
+		      destroyCharacter(editedCharacter->id); 
+		      mouse.selectedModel->characterId = -1; 
+		      dialogEditor.open = false;
+		      break; 
+		    }
+
+		    if(curDialog->answersSize == 0 && editedCharacter->historySize != 0){ 
+		      editedCharacter->curDialogIndex--;
+
+		      // keep history
+		      {
+			editedCharacter->historySize--;
+			editedCharacter->dialogHistory = realloc(editedCharacter->dialogHistory, sizeof(int) * editedCharacter->historySize);
+		      }
+
+		      Dialog* prevDialog = NULL;
+
+		      prevDialog = &editedCharacter->dialogs;
+
+		      for(int i=0;i<editedCharacter->historySize;i++){
+			prevDialog = &prevDialog->answers[editedCharacter->dialogHistory[i]];
+		      }
+		  
+
+		      editedCharacter->curDialog = prevDialog;
+		      curDialog = editedCharacter->curDialog;
+
+		      if (editedCharacter->curDialogIndex == 0) {
+			dialogEditor.textInputs[charNameInput].buf = &editedCharacter->name;
+		      }
+
+		      dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
+
+			  for (int i = 0; i < curDialog->answersSize; i++) {
+				  dialogEditor.textInputs[i + answerInput1].buf = &curDialog->answers[i].text;
+			  }
+			  break;
+
+		    }
+		    
+		    // TODO: Get rid of this loop and use code below instead
+		    for(int i=0;i<curDialog->answersSize;i++){
+		      dialogEditor.textInputs[i+answerInput1].buf = &curDialog->answers[i].text; 
+		    }
 		  }
 		}else if(i >= nextButton1 && i<= nextButton6){
 		  if(i - nextButton1 < curDialog->answersSize){
@@ -3363,7 +3399,8 @@ int main(int argc, char* argv[]) {
 		    }
 
 		    if(!curDialog->answers){ 
-		      curDialog->answersSize = 1; 
+		      curDialog->answersSize = 1;
+		      //		      printf("Alloc\n");
 		      curDialog->answers = calloc(1, sizeof(Dialog));
 		    }
 
@@ -3432,7 +3469,7 @@ int main(int argc, char* argv[]) {
 	  glBindVertexArray(0);
 	
 	  renderText(editedCharacter->name,dialogEditor.textInputs[charNameInput].rect.x, dialogEditor.textInputs[charNameInput].rect.y ,1.0f);
-	  renderText("Character name:",dialogEditor.rect.x, dialogEditor.textInputs[charNameInput].rect.y ,1.0f);
+	  renderText("Entity name:",dialogEditor.rect.x, dialogEditor.textInputs[charNameInput].rect.y ,1.0f);
 	}
 
       // prev player answer
@@ -3573,7 +3610,7 @@ int main(int argc, char* argv[]) {
     }else if(mouse.focusedModel){ 
       char buf[100];
 
-      sprintf(buf, "Focused model [%s-%d] Mode: %s", loadedModels1D[mouse.focusedModel->name].name, mouse.focusedModel->id, manipulationMode!= -1 ?manipulationModeStr[manipulationMode] : "None");
+      sprintf(buf, "Focused model [%s-%d] Mode: %s Step: %.4f", loadedModels1D[mouse.focusedModel->name].name, mouse.focusedModel->id, manipulationMode!= -1 ?manipulationModeStr[manipulationMode] : "None", manipulationStep);
 
       renderText(buf, -1.0f, 1.0f, 1.0f); 
     }
@@ -4012,8 +4049,6 @@ void wallsLoadVAOandVBO(){
     for(int type=1; type <wallTypeCounter; type++){
       vec3* wallPos = wallPosBySide(side, wallsSizes[type].h, wallD, bBlockD, bBlockW);
 
-
-
       // load VBO and VAO for highlighting
       if(type == halfWallT || type == wallT){
 	if(type == halfWallT){
@@ -4138,7 +4173,7 @@ void wallsLoadVAOandVBO(){
       glGenBuffers(1, &wallMeshes[side][type-1].VBO);
       glBindBuffer(GL_ARRAY_BUFFER, wallMeshes[side][type-1].VBO);
 
-      if(type == wallT || type == halfWallT){
+      if(type == wallT){
 	float verts[] = {
 	  argVec3(wallPos[0]), 0.0f, 1.0f,
 	  argVec3(wallPos[1]), 1.0f, 1.0f,
@@ -4149,11 +4184,23 @@ void wallsLoadVAOandVBO(){
 	  argVec3(wallPos[3]), 0.0f, 0.0f, 
 	};
 
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+	  
+	wallMeshes[side][type-1].VBOsize = 6;
+      }else if(type == halfWallT){
+	float verts[] = {
+	  argVec3(wallPos[0]), 0.0f, .4f,
+	  argVec3(wallPos[1]), 1.0f, .4f,
+	  argVec3(wallPos[3]), 0.0f, 0.0f, 
+      
+	  argVec3(wallPos[1]), 1.0f, .4f,
+	  argVec3(wallPos[2]), 1.0f, 0.0f,
+	  argVec3(wallPos[3]), 0.0f, 0.0f, 
+	};
 	  
 	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
 	  
 	wallMeshes[side][type-1].VBOsize = 6;
-	//	  printf("Wall size: %d \n", (sizeof(verts) / (sizeof(float) * 3)));
       }else if(type == windowT){
 	const float windowBotH = bBlockH * 0.35f;
 	   
@@ -4312,36 +4359,35 @@ void wallsLoadVAOandVBO(){
 	    // left
 	    wallPos[0].x, wallPos[0].y - doorTopPad, wallPos[0].z, 0.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
 	    
-	    wallPos[0].x + doorPad/2, wallPos[0].y - doorTopPad, wallPos[0].z, 0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
+	    wallPos[0].x, wallPos[0].y - doorTopPad, wallPos[0].z - doorPad/2, 0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
 	    
 	    wallPos[3].x, wallPos[3].y, wallPos[3].z, 0.0f, 0.0f,
 	    
 
-	    wallPos[0].x + doorPad/2, wallPos[0].y - doorTopPad, wallPos[0].z, 0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
+	    wallPos[0].x, wallPos[0].y - doorTopPad, wallPos[0].z - doorPad/2, 0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
 
-	    wallPos[3].x + doorPad/2, wallPos[3].y, wallPos[3].z, 0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f - (doorTopPad / wallsSizes[doorFrameT].h),
+	    wallPos[3].x, wallPos[3].y, wallPos[3].z - doorPad/2, 0.0f + ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f - (doorTopPad / wallsSizes[doorFrameT].h),
 	    
 	    wallPos[3].x, wallPos[3].y, wallPos[3].z, 0.0f, 0.0f,
   
 	    // right
-	    wallPos[1].x - doorPad/2, wallPos[1].y - doorTopPad, wallPos[1].z, 1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
+	    wallPos[1].x, wallPos[1].y - doorTopPad, wallPos[1].z + doorPad/2, 1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
 
 	    wallPos[1].x, wallPos[1].y - doorTopPad, wallPos[1].z, 1.0f, 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
 
 	    wallPos[2].x, wallPos[2].y, wallPos[2].z, 1.0f, 0.0f,
 
-	    wallPos[1].x - doorPad/2, wallPos[1].y - doorTopPad, wallPos[1].z, 1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
+	    wallPos[1].x, wallPos[1].y - doorTopPad, wallPos[1].z + doorPad/2, 1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 1.0f - (doorTopPad / wallsSizes[doorFrameT].h),
 	    
 	    wallPos[2].x, wallPos[2].y, wallPos[2].z, 1.0f, 0.0f,
 
-	    wallPos[2].x - doorPad/2, wallPos[2].y, wallPos[2].z, 1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f,
+	    wallPos[2].x, wallPos[2].y, wallPos[2].z + doorPad/2, 1.0f - ((doorPad/2)/ wallsSizes[doorFrameT].w), 0.0f,
 	  };
 
 	  
 	  glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
 
 	}else{
-
 	  float verts[] = {
 	    // side
 	    argVec3(wallPos[0]), 0.0f, 1.0f,
@@ -4720,6 +4766,8 @@ int strtrim(char *str){
 }
 
 bool loadSave(char* saveName){
+  mouse.focusedModel = NULL;
+  
   char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char));
 
   strcat(save, saveName);
@@ -4745,6 +4793,10 @@ bool loadSave(char* saveName){
     grid = NULL;
 
     if (curModels) {
+      for(int i=0;i<curModelsSize;i++){
+	destroyCharacter(curModels[i].characterId);
+      }
+      
       free(curModels);
       curModels = NULL;
       curModelsSize = 0;
@@ -4783,7 +4835,7 @@ bool loadSave(char* saveName){
     
   fscanf(map, "\nUsed models: %d\n", &curModelsSize);
 
-  if (curModelsSize != 0) {
+  if (curModelsSize != 0) { 
 	  curModels = malloc(curModelsSize * sizeof(Model));
 
 	  for (int i = 0; i < curModelsSize; i++) {
@@ -4816,11 +4868,11 @@ bool loadSave(char* saveName){
 
 		  char ch = fgetc(map);
 
-		  if (ch == '1') { 
-			  charactersSize++;
+		  if (ch == '1') {  
+			  charactersSize++; 
 
-			  if (characters) {
-				  characters = malloc(characters, sizeof(Character));
+			  if (!characters) { 
+				  characters = malloc(charactersSize * sizeof(Character));
 			  }
 			  else {
 				  characters = realloc(characters, charactersSize * sizeof(Character));
@@ -4836,13 +4888,13 @@ bool loadSave(char* saveName){
 
 		    fscanf(map, "%s %d ", &named, &nameType);
 
-		    characters[charactersSize-1].name = malloc(sizeof(char) * strlen(named));
+		    characters[charactersSize-1].name = malloc(sizeof(char) * (strlen(named) + 1));
 		    strcpy(characters[charactersSize-1].name, named); 
 
-		    deSerialize(&characters[charactersSize-1].dialogs, NULL, map);
+		    deserializeDialogTree(&characters[charactersSize-1].dialogs, NULL, map);
 		//	fgetc(map);
 		  }
-		  else {
+		  else if(ch != '\n'){
 		    fgetc(map);
 		  }
 	  }
@@ -4893,10 +4945,10 @@ bool saveMap(char *saveName){
 	  
     fprintf(map, "]");
 
-	if (curModels[i].characterId != -1) {
+	if (curModels[i].characterId != -1) { 
 		fprintf(map, "1");
 		fprintf(map, "%s %d ", characters[curModels[i].characterId].name ? characters[curModels[i].characterId].name : "None", characters[curModels[i].characterId].modelName);
-		serialize(&characters[curModels[i].characterId].dialogs, map);
+		serializeDialogTree(&characters[curModels[i].characterId].dialogs, map);  
 		fprintf(map, "\n");
 	}
 	else {
@@ -4910,7 +4962,7 @@ bool saveMap(char *saveName){
   
   for(int i=0; i<charactersSize; i++){
     fprintf(map, "%s %d ", characters[i].name ? characters[i].name : "None", characters[i].modelName);
-    serialize(&characters[i].dialogs, map);  
+    serializeDialogTree(&characters[i].dialogs, map);  
     }*/
 
   printf("Map saved!\n");
@@ -4921,6 +4973,7 @@ bool saveMap(char *saveName){
 }
 
 bool createMap(int newX, int newY, int newZ){
+  mouse.focusedModel = NULL;
   //  resetMouse();
   
   if(grid){
@@ -5010,10 +5063,10 @@ int lastCharPos(char* str, char ch){
   int len = strlen(str);
   for (int i = len - 1; i >= 0; i--) {
     if (str[i] == ch) {
-      return i; // Return the index of the last '\n' character
+      return i;
     }
   }
-  return -1; // Return -1 if '\n' is not found
+  return -1;
 }
 
 
@@ -5022,11 +5075,11 @@ int noSpacesAndNewLinesStrLen(char* str){
   
   for (int i = len - 1; i >= 0; i--) {
     if (str[i] == '\n' || str[i] == ' ') {
-      len--; // Return the index of the last '\n' character
+      len--;
     }
   }
   
-  return len; // Return -1 if '\n' is not found
+  return len;
 }
 
 void cleanString(char *str) {
@@ -5034,18 +5087,187 @@ void cleanString(char *str) {
     int isPreviousSpace = 0;
 
     for (i = 0, j = 0; str[i] != '\0'; i++) {
-        // Remove non-alphanumeric characters
       if (isalnum(str[i]) || (str[i] >= '!' && str[i] <= '/') || (str[i] >= ':' && str[i] <= '@')) {
             str[j++] = str[i];
-            isPreviousSpace = 0; // Reset space flag
+            isPreviousSpace = 0;
         }
-        // Convert multiple spaces into a single space
+      
         else if (isspace(str[i])) {
             if (!isPreviousSpace) {
                 str[j++] = ' ';
-                isPreviousSpace = 1; // Set space flag
+                isPreviousSpace = 1;
             }
         }
     }
-    str[j] = '\0'; // Null terminate the cleaned string
+    str[j] = '\0';
+}
+
+void destroyCharacter(int id){
+  if(id == -1 || !characters) {
+    return;
+  }
+  
+  Character* deletedCharacter = &characters[id];
+  Dialog* dialog = &deletedCharacter->dialogs;
+  destroyDialogsFrom(dialog);
+
+  if(deletedCharacter->name){
+    free(deletedCharacter->name);
+  }
+
+  if(deletedCharacter->dialogHistory){
+    free(deletedCharacter->dialogHistory);
+  }
+
+  int index = 0;
+		
+  for(int i=0;i<charactersSize;i++){
+    if(i == deletedCharacter->id){
+      continue;
+    }
+		  
+    characters[index] = characters[i];
+    index++;
+  }
+
+  charactersSize--;
+
+  if(charactersSize == 0){
+    characters = NULL;
+  }
+  
+  characters = realloc(characters, charactersSize * sizeof(Character));
+}
+
+
+void destroyDialogsFrom(Dialog* root)
+{
+  // Base case
+  if (root == NULL) return;
+  
+  for (int i = 0; i < root->answersSize; i++) {
+    destroyDialogsFrom(&root->answers[i]);
+  }
+
+  if (root->text) {
+    free(root->text);
+  }
+
+  if (root->replicaText) {
+    free(root->replicaText);
+  }
+
+  if(root->answersSize != 0){
+    free(root->answers);
+  }
+}
+
+
+void serializeDialogTree(Dialog* root, FILE *fp)
+{
+  if (root == NULL) return;
+ 
+  fprintf(fp,"R\"%s\"A\"%s\" ", root->replicaText ? root->replicaText : "NULL", root->text ? root->text : "NULL");
+  
+  for (int i = 0; i < root->answersSize; i++) 
+    serializeDialogTree(&root->answers[i],  fp);
+
+  fprintf(fp,"%c", ')');
+}
+
+int deserializeDialogTree(Dialog* root, Dialog* parent, FILE *fp)
+{
+  char val[dialogEditorAnswerInputLimit + 1];
+  char replicaStr[dialogEditorReplicaInputLimit + 1];
+  char ch = fgetc(fp);
+
+  while (ch != 'R') {
+    if (ch == ')')
+      return 1;
+    else if (ch == EOF) 
+      return 0; 
+    else 
+      ch = fgetc(fp);
+  }
+
+  ungetc(ch, fp);
+
+  if (!fscanf(fp, "R\"%[^\"]\"A\"%[^\"]\" ",&replicaStr, &val) )  
+    return 1;
+
+  if (parent) {  
+    parent->answersSize++;
+
+    if (parent->answers) {
+      parent->answers = realloc(parent->answers, parent->answersSize * sizeof(Dialog));
+      memset(&parent->answers[parent->answersSize - 1], 0, sizeof(Dialog));
+    }
+    else {
+      parent->answers = calloc(1, sizeof(Dialog));
+    }
+
+    root = &parent->answers[parent->answersSize - 1];  
+  }
+
+  if(strcmp(val, "NULL") != 0){ 
+    root->text = malloc(sizeof(char) * strlen(val) + 1);
+    strcpy(root->text, val);  
+  }
+
+  if(strcmp(replicaStr, "NULL") != 0){
+    root->replicaText = malloc(sizeof(char) * strlen(replicaStr) + 1);
+    strcpy(root->replicaText, replicaStr);  
+  }
+
+  for (int i = 0; i < 7; i++)
+    if (deserializeDialogTree(&root->answers[i], root, fp))
+      break;
+ 
+  return 0;
+}
+
+
+// accepts percents
+float* uiRectPercentage(float x, float y, float w, float h){
+  vec2 lt = { 2 * x - 1, 2 * y - 1 };
+  vec2 rt = { 2 * w - 1, 2 * y - 1 };
+
+  vec2 lb = { 2 * x - 1, 2 * h - 1 };
+  vec2 rb = { 2 * w - 1, 2 * h - 1 };
+  
+  float stackRect[] = { 
+    argVec2(lt), 1.0f, 0.0f,
+    argVec2(rt), 1.0f, 1.0f,
+    argVec2(lb), 0.0f, 0.0f,
+
+    argVec2(rt), 1.0f, 1.0f,
+    argVec2(lb), 0.0f, 0.0f,
+    argVec2(rb), 0.0f, 1.0f };
+  
+  float* rect = malloc(sizeof(stackRect));	
+  memcpy(rect, stackRect, sizeof(stackRect));
+	
+  return rect;
+}
+
+float* uiRectPoints(float x, float y, float w, float h){
+  vec2 lt = { x, y };
+  vec2 rt = { x + w, y };
+
+  vec2 lb = { x, y - h };
+  vec2 rb = { x + w, y - h };
+  
+  float stackRect[] = { 
+    argVec2(lt), 1.0f, 0.0f,
+    argVec2(rt), 1.0f, 1.0f,
+    argVec2(lb), 0.0f, 0.0f,
+
+    argVec2(rt), 1.0f, 1.0f,
+    argVec2(lb), 0.0f, 0.0f,
+    argVec2(rb), 0.0f, 1.0f }; 
+   
+  float* rect = malloc(sizeof(stackRect));	
+  memcpy(rect, stackRect, sizeof(stackRect));
+	
+  return rect;
 }

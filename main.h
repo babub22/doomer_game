@@ -476,6 +476,14 @@ int noSpacesAndNewLinesStrLen(char* str);
 
 GLuint loadShader(GLenum shaderType, const char* filename);
 
+void destroyCharacter(int id);
+void destroyDialogsFrom(Dialog* root);
+int deserializeDialogTree(Dialog* root, Dialog* parent, FILE *fp);
+void serializeDialogTree(Dialog* root, FILE *fp);
+
+float* uiRectPercentage(float x, float y, float w, float h);
+float* uiRectPoints(float x, float y, float w, float h);
+
 #define FPS 60
 
 #define CONSOLE_BUF_CAP 64
