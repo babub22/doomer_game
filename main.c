@@ -31,6 +31,9 @@ int tempTextInputStorageCursor;
 
 TextInput dialogEditorNameInput;
 
+VPair roofBlock;
+VPair stepsBlock;
+
 // placed/created models
 Model* curModels;
 size_t curModelsSize;
@@ -709,6 +712,133 @@ int main(int argc, char* argv[]) {
       glBindVertexArray(0);
     }
 
+    // roof
+    {
+      glGenVertexArrays(1, &roofBlock.VAO);
+      glBindVertexArray(roofBlock.VAO);
+
+      glGenBuffers(1, &roofBlock.VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, roofBlock.VBO);
+
+      float texturedTileVerts[] = {
+	0.0f, floorH, 0.0f, 1.0f, 1.0f,
+	bBlockW, floorH, 0.0f , 0.0f, 0.0f,
+	0.0f, 0.0f, bBlockD , 1.0f, 0.0f,
+	
+	bBlockW, floorH, 0.0f , 0.0f, 1.0f,
+	0.0f, 0.0f, bBlockD, 1.0f, 0.0f,
+	bBlockW, 0.0f, bBlockD, 0.0f, 0.0f, 
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(texturedTileVerts), texturedTileVerts, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // stepsBlock
+    {
+      glGenVertexArrays(1, &stepsBlock.VAO);
+      glBindVertexArray(stepsBlock.VAO);
+
+      glGenBuffers(1, &stepsBlock.VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, stepsBlock.VBO);
+
+      float stepW = bBlockW / 4.0f;
+      float stepH = floorH / 4.0f;
+
+      float texturedTileVerts[] = {
+	// higher step top part
+	0.0f, floorH, 0.0f, 1.0f, 1.0f,
+	bBlockW, floorH, 0.0f , 0.0f, 0.0f,
+	0.0f, floorH, stepW , 1.0f, 0.0f,
+	
+	bBlockW, floorH, 0.0f , 0.0f, 0.0f,
+	0.0f, floorH, stepW , 1.0f, 0.0f,
+	bBlockW, floorH, stepW, 0.0f, 0.0f,
+
+	// higher step side part
+	0.0f, floorH, stepW, 1.0f, 1.0f,
+	bBlockW, floorH, stepW , 0.0f, 0.0f,
+	0.0f, floorH - stepH, stepW , 1.0f, 0.0f,
+	
+	bBlockW, floorH , stepW , 0.0f, 0.0f,
+	0.0f, floorH - stepH, stepW , 1.0f, 0.0f,
+	bBlockW, floorH - stepH, stepW, 0.0f, 0.0f,
+
+	// 3th step top part
+	0.0f, floorH - stepH, stepW, 1.0f, 1.0f,
+	bBlockW, floorH - stepH, stepW , 0.0f, 0.0f,
+	0.0f, floorH - stepH, stepW*2, 1.0f, 0.0f,
+	
+	bBlockW, floorH - stepH, stepW , 0.0f, 0.0f,
+	0.0f, floorH - stepH, stepW *2, 1.0f, 0.0f,
+	bBlockW, floorH - stepH, stepW * 2, 0.0f, 0.0f,
+
+	// 3th step side part
+	0.0f, floorH - stepH, stepW*2, 1.0f, 1.0f,
+	bBlockW, floorH - stepH, stepW*2 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 2, stepW*2 , 1.0f, 0.0f,
+	
+	bBlockW, floorH - stepH, stepW*2 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 2, stepW*2 , 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 2, stepW*2, 0.0f, 0.0f,
+
+	// 2th step top part
+	0.0f, floorH - stepH * 2, stepW * 2, 1.0f, 1.0f,
+	bBlockW, floorH - stepH * 2, stepW *2, 0.0f, 0.0f,
+	0.0f, floorH - stepH * 2, stepW*3, 1.0f, 0.0f,
+	
+	bBlockW, floorH - stepH * 2, stepW *2 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 2, stepW *3, 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 2, stepW * 3, 0.0f, 0.0f,
+
+	// 2th step side part
+	0.0f, floorH - stepH * 2, stepW*3, 1.0f, 1.0f,
+	bBlockW, floorH - stepH * 2, stepW*3 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 3, stepW*3 , 1.0f, 0.0f,
+	
+	bBlockW, floorH - stepH * 2, stepW*3 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 3, stepW*3 , 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 3, stepW*3, 0.0f, 0.0f,
+
+	// 1th step top part
+	0.0f, floorH - stepH * 3, stepW * 3, 1.0f, 1.0f,
+	bBlockW, floorH - stepH * 3, stepW *3, 0.0f, 0.0f,
+	0.0f, floorH - stepH * 3, stepW*4, 1.0f, 0.0f,
+	
+	bBlockW, floorH - stepH * 3, stepW *3 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 3, stepW *4, 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 3, stepW * 4, 0.0f, 0.0f,
+
+	// 1th step side part
+	0.0f, floorH - stepH * 3, stepW*4, 1.0f, 1.0f,
+	bBlockW, floorH - stepH * 3, stepW*4 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 4, stepW*4 , 1.0f, 0.0f,
+	
+	bBlockW, floorH - stepH * 3, stepW*4 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 4, stepW*4 , 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 4, stepW*4, 0.0f, 0.0f,
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(texturedTileVerts), texturedTileVerts, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+    
     // textured tiels
     tileMeshes = malloc(2 * sizeof(MeshBuffer));
 
@@ -2202,7 +2332,7 @@ int main(int argc, char* argv[]) {
 	    continue;
 	  }
 		
-	  vec3 tile = xyz_indexesToCoords(x,floor,z);
+	  vec3 tile = {(float)x * bBlockW, (float)floor * floorH, (float)z * bBlockD};
 
 	  /*
 	    const vec3 c0 = { tile.x, tile.y, tile.z };
@@ -2394,7 +2524,7 @@ int main(int argc, char* argv[]) {
 		  snowParticle[loop].fade = (float)(rand() % 100) / 1000.0f + 0.003f;
 
 		  snowParticle[loop].x = (float)(rand() % gridX / 10.0f) + (float)(rand() % 100 / 1000.0f);
-		  snowParticle[loop].y = (gridY - 1) * bBlockH;
+		  snowParticle[loop].y = (gridY - 1) * floorH;
 		  snowParticle[loop].z = (float)(rand() % gridZ / 10.0f) + (float)(rand() % 100 / 1000.0f);
 		}
 	      }
@@ -2530,7 +2660,7 @@ int main(int argc, char* argv[]) {
 	      continue;
 	    }
 	    
-	    const vec3 tile = { (float)x / 10, (float) y * bBlockH, (float)z / 10 };
+	    const vec3 tile = { (float)x / 10, (float) y * (floorH), (float)z / 10 };
 
 	    const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
 	    const vec3 lb = { tile.x, tile.y, tile.z };
@@ -2662,9 +2792,9 @@ int main(int argc, char* argv[]) {
 
 	  Matrix out = IDENTITY_MATRIX;
 
-	  out.m[12] = mouse.gridIntersect.x;
-	  out.m[13] = floor;
-	  out.m[14] = mouse.gridIntersect.z;
+	  out.m[12] = tile.x;
+	  out.m[13] = tile.y;
+	  out.m[14] = tile.z;
 		
 	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 	}
@@ -2672,6 +2802,28 @@ int main(int argc, char* argv[]) {
 	if(mouse.tileSide == center){
 	  vec3 pos = { tile.x + bBlockD / 2 - borderArea, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2 - borderArea };
 
+	  float  selectionRect[] = {
+	    tile.x + bBlockD / 2 - borderArea, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2 - borderArea,
+	    tile.x + bBlockD / 2, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2 - borderArea,
+	    tile.x + bBlockD / 2 - borderArea, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2,
+
+	    tile.x + bBlockD / 2, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2 - borderArea,
+	    tile.x + bBlockD / 2 - borderArea, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2,
+	    tile.x + bBlockD / 2, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2,
+	  };
+
+	  glBufferData(GL_ARRAY_BUFFER, sizeof(selectionRect), selectionRect, GL_STATIC_DRAW);
+
+	  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
+
+	  //	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+	  //	  glEnableVertexAttribArray(1);
+
+	  glDrawArrays(GL_TRIANGLES, 0, 6);
+
+
+	  
 	  //	  glDrawArrays(GL_TRIANGLES, 0, 6);
 	}else if(mouse.tileSide == top || mouse.tileSide == bot){
 	  /*	  float zPos = tile.z;
@@ -2739,7 +2891,26 @@ int main(int argc, char* argv[]) {
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	if(mouse.tileSide != -1 && mouse.tileSide != center){
+	if(mouse.tileSide == center){
+	  glBindVertexArray(roofBlock.VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, roofBlock.VBO);
+		
+	  glActiveTexture(0);
+	  glBindTexture(GL_TEXTURE_2D, 0);
+	      		
+	  Matrix out = IDENTITY_MATRIX;
+
+	  // translate without mult
+	  out.m[12] = tile.x;
+	  out.m[13] = tile.y;
+	  out.m[14] = tile.z;
+		
+	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+
+	  glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	}
+	else if(mouse.tileSide != -1 && mouse.tileSide != center){
 	  Side oppositeSide = 0;
 	  vec2i oppositeTile = {0};
 	  
@@ -5053,7 +5224,7 @@ void initSnowParticles(){
 	snowParticle[loop].fade = (float)(rand() % 100) / 1000.0f + 0.003f;
 
 	snowParticle[loop].x = (float)(rand() % gridX / 10.0f) + (float)(rand() % 100 / 1000.0f);
-	snowParticle[loop].y = (float)(rand() % (int)(gridY * bBlockH)) + (float)(rand() % 1000) / 1000.0f;
+	snowParticle[loop].y = (float)(rand() % (int)(gridY * floorH)) + (float)(rand() % 1000) / 1000.0f;
 	snowParticle[loop].z = (float)(rand() % gridZ / 10.0f) + (float)(rand() % 100 / 1000.0f);
       }
   }

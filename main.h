@@ -49,7 +49,12 @@ typedef enum{
   windowT,
   //windowLeftT,
   //windowRightT,
-  wallTypeCounter
+  wallTypeCounter,
+
+  roofBlockT,
+  stepsBlockT,
+  
+  extendedWallTypeCounter
 } WallType;
 
 typedef struct{
@@ -432,7 +437,7 @@ void renderText(char* text, float x, float y, float scale);
 
 #define xyz_coordsToIndexes(x,y,z) {x / bBlockW, y / bBlockH, z / bBlockD}
 
-#define xyz_indexesToCoords(x,y,z) {(float)x * bBlockW, (float)y * bBlockH, (float)z * bBlockD}
+#define xyz_indexesToCoords(x,y,z) {(float)x * bBlockW, (float)y * floorH, (float)z * bBlockD}
 
 #define vec3_coordsToIndexes(vecCoords) {vecCoords.x / bBlockW, vecCoords.y / bBlockH, vecCoords.z / bBlockD}
 
@@ -511,6 +516,8 @@ float* uiRectPoints(float x, float y, float w, float h);
 #define bBlockW 0.1f
 #define bBlockD 0.1f
 #define bBlockH 0.2f
+
+#define floorH bBlockH / 2
 
 #define selBorderD 0.01f
 #define selBorderT 0.01f
