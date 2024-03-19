@@ -47,10 +47,12 @@ typedef enum{
   halfWallT,
   doorFrameT,
   windowT,
+  // halfWallFenceT,
   //windowLeftT,
   //windowRightT,
   wallTypeCounter,
 
+  // roof should be always after wallTypeCounter
   roofBlockT,
   stepsBlockT,
   
@@ -222,17 +224,34 @@ typedef struct{
   AnimTimer anim;
 } Object;
 
+typedef struct {
+    VPair vpair;
+
+    WallType type;
+
+    int tx;
+
+    float* vertexes;
+    int vertexesSize;
+} TileBlock;
+
 typedef struct{
   int walls;
   int wallsTx;
   
-  Object** wallsData;
+  //Object** wallsData;
+
+  TileBlock* block;
 
   // 1 byte - empty/net/textured
   // 2 byte - under texture id
   // 3 byte - over texture id
-  // 4 byte - empty
-  int ground;    
+  // 4 byte - empty // maybe store H here
+  int ground;
+
+  float wallsPad[4];
+  
+  float groundLift;
 } Tile;
 
 typedef enum{
@@ -362,8 +381,15 @@ typedef struct{
   // player focused to manipulate
   // on key
 
+  // blocks
+  TileBlock* brushBlock;
+  //  TileBlock* brushBlock;
+
   vec2 cursor;
 } Mouse;
+
+ TileBlock* tileBlocksTempl;
+int tileBlocksTemplSize;
 
 typedef struct{
   float w, h, d;

@@ -714,29 +714,44 @@ int main(int argc, char* argv[]) {
 
     // roof
     {
-      glGenVertexArrays(1, &roofBlock.VAO);
-      glBindVertexArray(roofBlock.VAO);
+      if(!tileBlocksTempl) {
+		  tileBlocksTempl = malloc(sizeof(TileBlock));
+      }else{
+		  tileBlocksTempl = realloc(tileBlocksTemplSize, sizeof(TileBlock) * tileBlocksTemplSize);
+      }
+      
+      glGenVertexArrays(1, &tileBlocksTempl[tileBlocksTemplSize].vpair.VAO);
+      glBindVertexArray(tileBlocksTempl[tileBlocksTemplSize].vpair.VAO);
 
-      glGenBuffers(1, &roofBlock.VBO);
-      glBindBuffer(GL_ARRAY_BUFFER, roofBlock.VBO);
-
-      float texturedTileVerts[] = {
+      glGenBuffers(1, &tileBlocksTempl[tileBlocksTemplSize].vpair.VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, tileBlocksTempl[tileBlocksTemplSize].vpair.VBO);
+      
+      float roofBlock[] = {
 	0.0f, floorH, 0.0f, 1.0f, 1.0f,
 	bBlockW, floorH, 0.0f , 0.0f, 0.0f,
 	0.0f, 0.0f, bBlockD , 1.0f, 0.0f,
-	
+
 	bBlockW, floorH, 0.0f , 0.0f, 1.0f,
 	0.0f, 0.0f, bBlockD, 1.0f, 0.0f,
 	bBlockW, 0.0f, bBlockD, 0.0f, 0.0f, 
       };
+      
+      tileBlocksTempl[tileBlocksTemplSize].vertexes = malloc(sizeof(roofBlock));
+      memcpy(tileBlocksTempl[tileBlocksTemplSize].vertexes, roofBlock, sizeof(roofBlock));
+      tileBlocksTempl[tileBlocksTemplSize].vertexesSize = 6;
+      tileBlocksTempl[tileBlocksTemplSize].type = roofBlockT;
 
-      glBufferData(GL_ARRAY_BUFFER, sizeof(texturedTileVerts), texturedTileVerts, GL_STATIC_DRAW);
+      tileBlocksTemplSize++;
+
+      // TODO: I can win some peft to now calculate new buffer if transforms things == default
+      /*
+      glBufferData(GL_ARRAY_BUFFER, sizeof(roofBlock), roofBlock, GL_STATIC_DRAW);
 
       glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
       glEnableVertexAttribArray(0);
 
       glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-      glEnableVertexAttribArray(1);
+      glEnableVertexAttribArray(1);*/
 
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
@@ -1606,7 +1621,77 @@ int main(int argc, char* argv[]) {
 	      default: break;
 	      }
 	    }
+	    else if(mouse.brushBlock){
+	      if(mouse.brushBlock->type == roofBlockT){
+		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+
+		if(currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[11] + manipulationStep <= floorH){
+		    mouse.brushBlock->vertexes[11] += manipulationStep;
+		    mouse.brushBlock->vertexes[21] += manipulationStep;
+		    mouse.brushBlock->vertexes[26] += manipulationStep;
+		}else if(!currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[1] + manipulationStep <= floorH){
+		    mouse.brushBlock->vertexes[1] += manipulationStep;
+		    mouse.brushBlock->vertexes[6] += manipulationStep;
+		    mouse.brushBlock->vertexes[16] += manipulationStep; 
+		}
+		
+	      }
+	    }
 	    else if (mouse.wallType != -1) {
+	      vec3 pos = vec3_indexesToCoords(mouse.wallTile);
+	      vec3 forw = {0,0,1};
+
+	      if(mouse.wallSide == left || mouse.wallSide == right){
+		forw = (vec3){1,0,0};
+	      }
+
+	      float dot1 = dotf3(pos, forw);
+	      float dot2 = dotf3(curCamera->pos, forw);
+
+	      bool cameraInFront = dot1 < dot2;
+	      
+	      float dStep = 0.0f;
+	      
+	      if(cameraInFront){
+		if(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] - manipulationStep >= -bBlockW /2){
+		  dStep = -manipulationStep;
+		}
+	      }else{
+		if(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] + manipulationStep < bBlockW/2) {
+		  dStep = manipulationStep;
+		}
+	      }
+				  
+	      grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] += dStep;
+	      
+	      vec2i oppositeTile = {0};
+	      int oppositeSide = -1;
+	      
+	      if(oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, &oppositeSide)){
+		grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].wallsPad[oppositeSide] += dStep;
+	      }
+
+	      /*
+		if(mouse.wallSide == top){
+		if(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] - manipulationStep >= -bBlockW) {
+		  grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] -= manipulationStep;
+		  vec2i oppositeTile = {0};
+		  int oppositeSide = -1;
+		  if(oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, &oppositeSide)){
+		    grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].wallsPad[oppositeSide] -= manipulationStep;
+		  }
+		}
+	      } else if(mouse.wallSide == bot){
+		if(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] + manipulationStep >= -bBlockW) {
+		  grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] += manipulationStep;
+		  vec2i oppositeTile = {0};
+		  int oppositeSide = -1;
+		  if(oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, &oppositeSide)){
+		    grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].wallsPad[oppositeSide] += manipulationStep;
+		  }
+		}
+	      }
+	      
 	      Texture nextTx = 0;
 
 	      if (mouse.wallTx != texturesCounter - 1) {
@@ -1616,9 +1701,14 @@ int main(int argc, char* argv[]) {
 		nextTx = 0;
 	      }
 
-	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);*/
 	    }
 	    else if (mouse.groundInter != -1) {
+	      if(mouse.selectedTile->groundLift + manipulationStep < floorH){
+		mouse.selectedTile->groundLift += manipulationStep;
+	      }
+	      
+	      /*
 	      GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
 
 	      if (type != texturedTile) {
@@ -1635,6 +1725,7 @@ int main(int argc, char* argv[]) {
 		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx + 1);
 		}
 	      }
+*/
 	    }
 
 	    break;
@@ -1674,9 +1765,56 @@ int main(int argc, char* argv[]) {
 
 	      default: break;
 	      }
+	    }else if(mouse.brushBlock){
+	      if(mouse.brushBlock->type == roofBlockT){
+		  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+		  
+		  if(currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[11] - manipulationStep >= 0){
+		    mouse.brushBlock->vertexes[11] -= manipulationStep;
+		    mouse.brushBlock->vertexes[21] -= manipulationStep;
+		    mouse.brushBlock->vertexes[26] -= manipulationStep;
+		  }else if(!currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[1] - manipulationStep >= 0){
+		    mouse.brushBlock->vertexes[1] -= manipulationStep;
+		    mouse.brushBlock->vertexes[6] -= manipulationStep;
+		    mouse.brushBlock->vertexes[16] -= manipulationStep;
+		  }
+		}
 	    }else if (mouse.wallType != -1) {
-	      Texture prevTx = 0;
+	      vec3 pos = vec3_indexesToCoords(mouse.wallTile);
+	      vec3 forw = {0,0,1};
 
+	      if(mouse.wallSide == left || mouse.wallSide == right){
+		forw = (vec3){1,0,0};
+	      }
+	      
+	      float dot1 = dotf3(pos, forw);
+	      float dot2 = dotf3(curCamera->pos, forw);
+	      
+	      bool cameraInFront = dot1 < dot2;
+
+	      float dStep = 0.0f;
+	      
+	      if(cameraInFront){
+		if(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] + manipulationStep < bBlockW/2) {
+		  dStep = manipulationStep;
+		}
+	      }else{
+		if(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] - manipulationStep >= -bBlockW /2){
+		  dStep = -manipulationStep;
+		}
+	      }
+				  
+	      grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsPad[mouse.wallSide] += dStep;
+	      
+	      vec2i oppositeTile = {0};
+	      int oppositeSide = -1;
+	      
+	      if(oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, &oppositeSide)){
+		grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].wallsPad[oppositeSide] += dStep;
+	      }
+
+		//}
+	    /*
 	      if (mouse.wallTx != 0) {
 		prevTx = mouse.wallTx - 1;
 	      }
@@ -1684,10 +1822,14 @@ int main(int argc, char* argv[]) {
 		prevTx = texturesCounter - 1;
 	      }
 
-	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, prevTx);
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, prevTx);*/
 	    }
 	    else if (mouse.groundInter != -1) {
-	      GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
+	      if(mouse.selectedTile->groundLift - manipulationStep >= 0){
+		mouse.selectedTile->groundLift -= manipulationStep;
+	      }
+	      
+	      /*GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
 
 	      if (type != texturedTile) {
 		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
@@ -1703,6 +1845,7 @@ int main(int argc, char* argv[]) {
 		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx - 1);
 		}
 	      }
+*/
 	    }
 
 	    break;
@@ -2251,6 +2394,7 @@ int main(int argc, char* argv[]) {
     mouse.tileSide = -1;
     mouse.intersection = (vec3){ -1,-1 };
     mouse.groundInter = -1;
+  //  mouse.brushBlock = NULL;
 
     mouse.selectedModel = NULL;
 
@@ -2568,6 +2712,40 @@ int main(int argc, char* argv[]) {
       for (int y = 0; y < gridY; y++) {
 	for (int z = 0; z < gridZ; z++) {
 	  vec3 tile = xyz_indexesToCoords(x,y,z);
+
+	  // block
+
+	  if(grid[y][z][x].block != NULL){
+	    printf("%f \n", grid[y][z][x].block->vertexes[1]);
+	    glBindVertexArray(grid[y][z][x].block->vpair.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, grid[y][z][x].block->vpair.VBO);
+		
+	    glActiveTexture(0);
+	    glBindTexture(GL_TEXTURE_2D, 0);
+	      		
+	    Matrix out = IDENTITY_MATRIX;
+
+	    // translate without mult
+	    out.m[12] = tile.x;
+	    out.m[13] = tile.y; 
+	    out.m[14] = tile.z;
+		
+	    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+
+	    glBufferData(GL_ARRAY_BUFFER, grid[y][z][x].block->vertexesSize * sizeof(float) * 5, grid[y][z][x].block->vertexes, GL_STATIC_DRAW);
+
+	    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+	    glEnableVertexAttribArray(0);
+
+	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	    glEnableVertexAttribArray(1);
+
+	    glDrawArrays(GL_TRIANGLES, 0, 6);
+	  
+	    glBindBuffer(GL_ARRAY_BUFFER, 0);
+	    glBindVertexArray(0);
+	  }
+	  
 	  // walls
 	  if(grid[y][z][x].walls !=0){
 	    for(int side=0;side<basicSideCounter;side++){
@@ -2635,10 +2813,16 @@ int main(int argc, char* argv[]) {
 	      Matrix out = IDENTITY_MATRIX;
 
 	      // translate without mult
-	      out.m[12] = tile.x;
-	      out.m[13] = tile.y;
-	      out.m[14] = tile.z;
-		
+	      if(side == left || side == right){
+		out.m[12] = tile.x + grid[y][z][x].wallsPad[side];
+		out.m[13] = tile.y;
+		out.m[14] = tile.z;
+	      }else if(side == bot || side == top){
+		out.m[12] = tile.x;
+		out.m[13] = tile.y;
+		out.m[14] = tile.z + grid[y][z][x].wallsPad[side];
+	      }
+	      
 	      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 
 
@@ -2710,6 +2894,7 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(tileMeshes[i-1].VAO);
 
 		Texture tx = valueIn(grid[y][z][x].ground, i);
+		float lift = grid[y][z][x].groundLift;
 		  
 		glActiveTexture(tx);
 		glBindTexture(GL_TEXTURE_2D, tx);
@@ -2719,9 +2904,9 @@ int main(int argc, char* argv[]) {
 
 		// translate without mult
 		out.m[12] = tile.x;
-		out.m[13] = tile.y;
+		out.m[13] = tile.y + lift;
 		out.m[14] = tile.z;
-		
+
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -2800,6 +2985,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	if(mouse.tileSide == center){
+	  
 	  vec3 pos = { tile.x + bBlockD / 2 - borderArea, tile.y + selBorderD/2.0f, tile.z + bBlockD / 2 - borderArea };
 
 	  float  selectionRect[] = {
@@ -2892,8 +3078,19 @@ int main(int argc, char* argv[]) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	if(mouse.tileSide == center){
-	  glBindVertexArray(roofBlock.VAO);
-	  glBindBuffer(GL_ARRAY_BUFFER, roofBlock.VBO);
+	  if(!mouse.brushBlock){
+	    mouse.brushBlock = calloc(1, sizeof(TileBlock));
+	    memcpy(mouse.brushBlock, &tileBlocksTempl[roofBlockT - wallTypeCounter - 1], sizeof(TileBlock));
+
+	    	    mouse.brushBlock->vertexes = malloc(mouse.brushBlock->vertexesSize * sizeof(float) * 5);
+	    
+	    	    memcpy(mouse.brushBlock->vertexes, tileBlocksTempl[roofBlockT - wallTypeCounter - 1].vertexes, mouse.brushBlock->vertexesSize * sizeof(float) * 5);
+	  }
+
+	  printf("Src %f \n",tileBlocksTempl[roofBlockT - wallTypeCounter - 1].vertexes[1]);
+
+	  glBindVertexArray(mouse.brushBlock->vpair.VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, mouse.brushBlock->vpair.VBO);
 		
 	  glActiveTexture(0);
 	  glBindTexture(GL_TEXTURE_2D, 0);
@@ -2902,13 +3099,28 @@ int main(int argc, char* argv[]) {
 
 	  // translate without mult
 	  out.m[12] = tile.x;
-	  out.m[13] = tile.y;
+	  out.m[13] = tile.y; 
 	  out.m[14] = tile.z;
 		
 	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 
-	  glDrawArrays(GL_TRIANGLES, 0, 6);
+	  glBufferData(GL_ARRAY_BUFFER, mouse.brushBlock->vertexesSize * sizeof(float) * 5, mouse.brushBlock->vertexes, GL_STATIC_DRAW);
 
+	  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
+
+	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	  glEnableVertexAttribArray(1);
+
+	  glDrawArrays(GL_TRIANGLES, 0, 6);
+	  
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+
+	  if (mouse.clickR) {
+	    mouse.selectedTile->block = mouse.brushBlock;
+	    mouse.brushBlock = NULL;
+	  }
 	}
 	else if(mouse.tileSide != -1 && mouse.tileSide != center){
 	  Side oppositeSide = 0;
@@ -4358,7 +4570,32 @@ void wallsLoadVAOandVBO(){
 	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
 	  
 	wallMeshes[side][type-1].VBOsize = 6;
-      }else if(type == halfWallT){
+      }
+	  /*
+	  else if (type == halfWallFenceT) {
+	float fencePlankW = bBlockW / 8;
+	
+	float verts[] = {
+	  argVec3(wallPos[0]), 0.0f, .4f,
+	  wallPos[0].x + fencePlankW, wallPos[0].y, wallPos[0].z, 1.0f, .4f,
+	  wallPos[0].x, 0.0f, wallPos[0].z, 0.0f, 0.0f, 
+
+	  wallPos[0].z + fencePlankW * 2, 0.0f, .4f,
+	  wallPos[0].z + fencePlankW, wallPos[0].y, wallPos[0].z + fencePlankW, 1.0f, .4f,
+	  wallPos[0].z, 0.0f, wallPos[0].z, 0.0f, 0.0f, 
+      
+	  
+	  argVec3(wallPos[1]), 1.0f, .4f,
+	  argVec3(wallPos[2]), 1.0f, 0.0f,
+	  argVec3(wallPos[3]), 0.0f, 0.0f, 
+	};
+	  
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+	  
+	wallMeshes[side][type-1].VBOsize = 6;
+      }
+	  */
+else if(type == halfWallT){
 	float verts[] = {
 	  argVec3(wallPos[0]), 0.0f, .4f,
 	  argVec3(wallPos[1]), 1.0f, .4f,
@@ -4982,7 +5219,7 @@ bool loadSave(char* saveName){
     grid[y] = malloc(sizeof(Tile*) * (gridZ));
 
     for (int z = 0; z < gridZ; z++) {
-      grid[y][z] = malloc(sizeof(Tile) * (gridX));
+      grid[y][z] = calloc(gridX, sizeof(Tile));
 
       for (int x = 0; x < gridX; x++) {
 	fscanf(map, "[Wls: %d, WlsTx %d, Grd: %d]", &grid[y][z][x].walls, &grid[y][z][x].wallsTx, &grid[y][z][x].ground);
