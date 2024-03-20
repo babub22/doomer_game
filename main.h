@@ -239,8 +239,7 @@ typedef struct{
   int walls;
   int wallsTx;
   
-  //Object** wallsData;
-
+  float* customWalls[4];
   TileBlock* block;
 
   // 1 byte - empty/net/textured
@@ -250,7 +249,6 @@ typedef struct{
   int ground;
 
   float wallsPad[4];
-  
   float groundLift;
 } Tile;
 
@@ -664,6 +662,27 @@ const vec2i englLettersMap[] = {
   { 3, 8}, // '|'
   { 2, 8}, // '}'
   { 1, 8}, // '~'
+};
+
+const char* sidesToStr[] = { "Top", "Bot", "Right", "Left"};
+
+// Walls gaps concating things
+const int values[2][2][4] = {
+  [0]={ // bot / top
+    [0] = { 5, 15, 20, 1 }, // right 
+    [1] = { 0, 10, 25, -1 } // left
+  },
+  [1]= { // right / left
+    [0] = { 7, 17, 22, -1 }, // top
+    [1] = { 2, 12, 27, 1 } // bot
+  }
+};
+
+const int valuesOpposite[4][4] = {
+  [top] = { 2, 12, 27, 1 }, 
+  [bot] = { 7, 17, 22, -1 } ,
+  [right] = { 0, 10, 25, -1 }, 
+  [left] = { 5, 15, 20, 1 }, 
 };
 
 

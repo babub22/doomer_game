@@ -525,10 +525,10 @@ int main(int argc, char* argv[]) {
 	free(answerButton);
       
 	/*glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-	  glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(0);
 
-	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
-	  glEnableVertexAttribArray(1);*/
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+	glEnableVertexAttribArray(1);*/
       }
 
       //      glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -730,9 +730,9 @@ int main(int argc, char* argv[]) {
     // roof
     {
       if(!tileBlocksTempl) {
-	tileBlocksTempl = malloc(sizeof(TileBlock));
+		  tileBlocksTempl = malloc(sizeof(TileBlock));
       }else{
-	tileBlocksTempl = realloc(tileBlocksTemplSize, sizeof(TileBlock) * tileBlocksTemplSize);
+		  tileBlocksTempl = realloc(tileBlocksTemplSize, sizeof(TileBlock) * tileBlocksTemplSize);
       }
       
       glGenVertexArrays(1, &tileBlocksTempl[tileBlocksTemplSize].vpair.VAO);
@@ -760,13 +760,13 @@ int main(int argc, char* argv[]) {
 
       // TODO: I can win some peft to now calculate new buffer if transforms things == default
       /*
-	glBufferData(GL_ARRAY_BUFFER, sizeof(roofBlock), roofBlock, GL_STATIC_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(roofBlock), roofBlock, GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
-	glEnableVertexAttribArray(0);
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
 
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);*/
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+      glEnableVertexAttribArray(1);*/
 
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
@@ -939,14 +939,14 @@ int main(int argc, char* argv[]) {
 
 
     /*
-      float snowFlakesMeshVerts[] = {
+    float snowFlakesMeshVerts[] = {
       0.0f, 0.0f, 0.0f, 
       0.0f, 0.015f / 4.0f, 0.0f  };
 
-      glBufferData(GL_ARRAY_BUFFER, sizeof(snowFlakesMeshVerts)
-      ,snowFlakesMeshVerts, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(snowFlakesMeshVerts)
+		 ,snowFlakesMeshVerts, GL_STATIC_DRAW);
 
-      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);*/
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);*/
 
     //    glBindBuffer(GL_ARRAY_BUFFER, 0);
     
@@ -1034,7 +1034,7 @@ int main(int argc, char* argv[]) {
   
   // init opengl
   {
-    //  glEnable(GL_MULTISAMPLE);  
+  //  glEnable(GL_MULTISAMPLE);  
     
     glEnable(GL_TEXTURE_2D);
     glShadeModel(GL_SMOOTH);
@@ -1641,13 +1641,13 @@ int main(int argc, char* argv[]) {
 		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
 		if(currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[11] + manipulationStep <= floorH){
-		  mouse.brushBlock->vertexes[11] += manipulationStep;
-		  mouse.brushBlock->vertexes[21] += manipulationStep;
-		  mouse.brushBlock->vertexes[26] += manipulationStep;
+		    mouse.brushBlock->vertexes[11] += manipulationStep;
+		    mouse.brushBlock->vertexes[21] += manipulationStep;
+		    mouse.brushBlock->vertexes[26] += manipulationStep;
 		}else if(!currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[1] + manipulationStep <= floorH){
-		  mouse.brushBlock->vertexes[1] += manipulationStep;
-		  mouse.brushBlock->vertexes[6] += manipulationStep;
-		  mouse.brushBlock->vertexes[16] += manipulationStep; 
+		    mouse.brushBlock->vertexes[1] += manipulationStep;
+		    mouse.brushBlock->vertexes[6] += manipulationStep;
+		    mouse.brushBlock->vertexes[16] += manipulationStep; 
 		}
 		
 	      }
@@ -1687,16 +1687,16 @@ int main(int argc, char* argv[]) {
 	      }
 
 	      /*
-		Texture nextTx = 0;
+	      Texture nextTx = 0;
 
-		if (mouse.wallTx != texturesCounter - 1) {
+	      if (mouse.wallTx != texturesCounter - 1) {
 		nextTx = mouse.wallTx + 1;
-		}
-		else {
+	      }
+	      else {
 		nextTx = 0;
-		}
+	      }
 
-		setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);*/
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);*/
 	    }
 	    else if (mouse.groundInter != -1) {
 	      if(mouse.selectedTile->groundLift + manipulationStep < floorH){
@@ -1704,23 +1704,23 @@ int main(int argc, char* argv[]) {
 	      }
 	      
 	      /*
-		GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
+	      GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
 
-		if (type != texturedTile) {
+	      if (type != texturedTile) {
 		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
 		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, 0);
-		}
-		else {
+	      }
+	      else {
 		Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
 
 		if (curTx == texturesCounter - 1) {
-		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
+		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
 		}
 		else {
-		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx + 1);
+		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx + 1);
 		}
-		}
-	      */
+	      }
+*/
 	    }
 
 	    break;
@@ -1762,18 +1762,18 @@ int main(int argc, char* argv[]) {
 	      }
 	    }else if(mouse.brushBlock){
 	      if(mouse.brushBlock->type == roofBlockT){
-		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+		  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 		  
-		if(currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[11] - manipulationStep >= 0){
-		  mouse.brushBlock->vertexes[11] -= manipulationStep;
-		  mouse.brushBlock->vertexes[21] -= manipulationStep;
-		  mouse.brushBlock->vertexes[26] -= manipulationStep;
-		}else if(!currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[1] - manipulationStep >= 0){
-		  mouse.brushBlock->vertexes[1] -= manipulationStep;
-		  mouse.brushBlock->vertexes[6] -= manipulationStep;
-		  mouse.brushBlock->vertexes[16] -= manipulationStep;
+		  if(currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[11] - manipulationStep >= 0){
+		    mouse.brushBlock->vertexes[11] -= manipulationStep;
+		    mouse.brushBlock->vertexes[21] -= manipulationStep;
+		    mouse.brushBlock->vertexes[26] -= manipulationStep;
+		  }else if(!currentKeyStates[SDL_SCANCODE_LCTRL] && mouse.brushBlock->vertexes[1] - manipulationStep >= 0){
+		    mouse.brushBlock->vertexes[1] -= manipulationStep;
+		    mouse.brushBlock->vertexes[6] -= manipulationStep;
+		    mouse.brushBlock->vertexes[16] -= manipulationStep;
+		  }
 		}
-	      }
 	    }else if (mouse.wallType != -1) {
 	      vec3 pos = vec3_indexesToCoords(mouse.wallTile);
 	      vec3 forw = {0,0,1};
@@ -1808,16 +1808,16 @@ int main(int argc, char* argv[]) {
 		grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].wallsPad[oppositeSide] += dStep;
 	      }
 
-	      //}
-	      /*
-		if (mouse.wallTx != 0) {
+		//}
+	    /*
+	      if (mouse.wallTx != 0) {
 		prevTx = mouse.wallTx - 1;
-		}
-		else {
+	      }
+	      else {
 		prevTx = texturesCounter - 1;
-		}
+	      }
 
-		setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, prevTx);*/
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, prevTx);*/
 	    }
 	    else if (mouse.groundInter != -1) {
 	      if(mouse.selectedTile->groundLift - manipulationStep >= 0){
@@ -1826,21 +1826,21 @@ int main(int argc, char* argv[]) {
 	      
 	      /*GroundType type = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
 
-		if (type != texturedTile) {
+	      if (type != texturedTile) {
 		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
 		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, texturesCounter - 1);
-		}
-		else {
+	      }
+	      else {
 		Texture curTx = valueIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
 
 		if (curTx == 0) {
-		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
+		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
 		}
 		else {
-		setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx - 1);
+		  setIn(grid[floor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx - 1);
 		}
-		}
-	      */
+	      }
+*/
 	    }
 
 	    break;
@@ -1924,21 +1924,21 @@ int main(int argc, char* argv[]) {
 	      
 	      /*WallType prevType = 0;
 
-		if (mouse.wallType != 1) {
+	      if (mouse.wallType != 1) {
 		prevType = mouse.wallType - 1;
-		}
-		else {
+	      }
+	      else {
 		prevType = wallTypeCounter - 1;
-		}
+	      }
 
-		Side oppositeSide = 0;
-		vec2i oppositeTile = { 0 };
+	      Side oppositeSide = 0;
+	      vec2i oppositeTile = { 0 };
 
-		setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, prevType);
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, prevType);
 
-		if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
+	      if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
 		setIn(grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, prevType);
-		}*/
+	      }*/
 	    }
 
 	    break;
@@ -1990,23 +1990,23 @@ int main(int argc, char* argv[]) {
 
 	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);
 	      /*
-		WallType nextType = 0;
+	      WallType nextType = 0;
 
-		if (mouse.wallType != wallTypeCounter - 1) {
+	      if (mouse.wallType != wallTypeCounter - 1) {
 		nextType = mouse.wallType + 1;
-		}
-		else {
+	      }
+	      else {
 		nextType = 1;
-		}
+	      }
 
-		Side oppositeSide = 0;
-		vec2i oppositeTile = { 0 };
+	      Side oppositeSide = 0;
+	      vec2i oppositeTile = { 0 };
 
-		setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, nextType);
+	      setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls, mouse.wallSide, nextType);
 
-		if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
+	      if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
 		setIn(grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls, oppositeSide, nextType);
-		}*/
+	      }*/
 	    }
 
 	    break;
@@ -2411,7 +2411,7 @@ int main(int argc, char* argv[]) {
     mouse.tileSide = -1;
     mouse.intersection = (vec3){ -1,-1 };
     mouse.groundInter = -1;
-    //  mouse.brushBlock = NULL;
+  //  mouse.brushBlock = NULL;
 
     mouse.selectedModel = NULL;
 
@@ -2661,8 +2661,8 @@ int main(int argc, char* argv[]) {
 	      vertexIndex += 6;
 		      
 	      //	      float snowFlakesMeshVerts[] = {
-	      //		0.0f, 0.0f, 0.0f, 
-	      //		0.0f, 0.015f / 4.0f, 0.0f  };
+		//		0.0f, 0.0f, 0.0f, 
+		//		0.0f, 0.015f / 4.0f, 0.0f  };
 
 	      //	      glDrawArrays(GL_LINES, 0, 2);
 	      //		}
@@ -2695,10 +2695,10 @@ int main(int argc, char* argv[]) {
 	    }
 	  }
 	/*
-	  float x = snowParticle[loop].x;
-	  float y = snowParticle[loop].y;
-	  float z = snowParticle[loop].z;
-	*/
+	float x = snowParticle[loop].x;
+	float y = snowParticle[loop].y;
+	float z = snowParticle[loop].z;
+*/
 	Matrix out = IDENTITY_MATRIX;
 
 	out.m[12] = 0.0;
@@ -3046,36 +3046,36 @@ int main(int argc, char* argv[]) {
 	}else if(mouse.tileSide == top || mouse.tileSide == bot){
 	  /*	  float zPos = tile.z;
 	      
-		  if(mouse.tileSide == top){
-		  zPos -= borderArea / 2;
-		  }else{
-		  zPos += bBlockD - borderArea/2;
-		  }
+	  if(mouse.tileSide == top){
+	    zPos -= borderArea / 2;
+	  }else{
+	    zPos += bBlockD - borderArea/2;
+	  }
 
-		  vec3 pos = { tile.x + borderArea + selectionW / 2, tile.y + selBorderD/2.0f, zPos };
+	  vec3 pos = { tile.x + borderArea + selectionW / 2, tile.y + selBorderD/2.0f, zPos };
 
-		  const vec3 c0 = { pos.x, pos.y, pos.z };
-		  const vec3 c1 = { pos.x + borderArea * 3, pos.y, pos.z };
-		  const vec3 c3 = { pos.x,pos.y, pos.z + borderArea };
-		  const vec3 c2 = { pos.x + borderArea * 3,pos.y, pos.z + borderArea };
+	  const vec3 c0 = { pos.x, pos.y, pos.z };
+	  const vec3 c1 = { pos.x + borderArea * 3, pos.y, pos.z };
+	  const vec3 c3 = { pos.x,pos.y, pos.z + borderArea };
+	  const vec3 c2 = { pos.x + borderArea * 3,pos.y, pos.z + borderArea };
     
-		  float netTileVerts[] = {
-		  argVec3(c0), 
-		  argVec3(c1), 
-		  argVec3(c2),
+	  float netTileVerts[] = {
+	    argVec3(c0), 
+	    argVec3(c1), 
+	    argVec3(c2),
 	    
-		  argVec3(c1),       
-		  argVec3(c2),
-		  argVec3(c3),
-		  };
+	    argVec3(c1),       
+	    argVec3(c2),
+	    argVec3(c3),
+	  };
 
 
-		  glBufferData(GL_ARRAY_BUFFER, sizeof(netTileVerts), netTileVerts, GL_STATIC_DRAW);
+	  glBufferData(GL_ARRAY_BUFFER, sizeof(netTileVerts), netTileVerts, GL_STATIC_DRAW);
 
-		  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-		  glEnableVertexAttribArray(0);
+	  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
 
-		  glDrawArrays(GL_TRIANGLES, 0, 6); */
+	  glDrawArrays(GL_TRIANGLES, 0, 6); */
 
 	  //    glVertex3f(pos.x, pos.y, pos.z);
 	  //   glVertex3f(pos.x + borderArea * 3, pos.y, pos.z);
@@ -3186,8 +3186,8 @@ int main(int argc, char* argv[]) {
 	    out.m[14] = oppositePos.z;
 
 	    
-	    glBindVertexArray(wallMeshes[oppositeSide][mouse.brush-1].VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, wallMeshes[oppositeSide][mouse.brush-1].VBO);
+	  glBindVertexArray(wallMeshes[oppositeSide][mouse.brush-1].VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, wallMeshes[oppositeSide][mouse.brush-1].VBO);
 		
 	    
 	    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
@@ -3202,6 +3202,7 @@ int main(int argc, char* argv[]) {
 	      
 	  if(mouse.clickR){
 	    // delete if something exist on this place
+
 	    WallType type = (mouse.selectedTile->walls >> (mouse.tileSide*8)) & 0xFF;
 	      
 	    if(type == 0){
@@ -3765,7 +3766,7 @@ int main(int argc, char* argv[]) {
 	  if (selectedTextInput) {
 	    selectedTextInput->active = false;
 
-	    // save text in prev text input
+	      // save text in prev text input
 	    if(tempTextInputStorageCursor != 0){
 	      *selectedTextInput->buf = malloc(sizeof(char) * (strlen(tempTextInputStorage)+1));
 	      strcpy(*selectedTextInput->buf, tempTextInputStorage); 
@@ -3776,7 +3777,7 @@ int main(int argc, char* argv[]) {
 	    }
 	  }
 
-	  selectedTextInput = NULL;	
+		selectedTextInput = NULL;	
 	  
 	  for(int i=0;i<answerInput1 + curDialog->answersSize;i++){
 	    if(dialogEditor.textInputs[i].rect.x <= mouse.cursor.x && dialogEditor.textInputs[i].rect.x + dialogEditor.textInputs[i].rect.w >= mouse.cursor.x && dialogEditor.textInputs[i].rect.y >= mouseY && dialogEditor.textInputs[i].rect.y - dialogEditor.textInputs[i].rect.h <= mouseY){
@@ -3866,10 +3867,10 @@ int main(int argc, char* argv[]) {
 
 		      dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
 
-		      for (int i = 0; i < curDialog->answersSize; i++) {
-			dialogEditor.textInputs[i + answerInput1].buf = &curDialog->answers[i].text;
-		      }
-		      break;
+			  for (int i = 0; i < curDialog->answersSize; i++) {
+				  dialogEditor.textInputs[i + answerInput1].buf = &curDialog->answers[i].text;
+			  }
+			  break;
 
 		    }
 		    
@@ -4143,9 +4144,9 @@ int main(int argc, char* argv[]) {
 
 	  // TODO: If i try to render TRIANGLE with 3 in glDrawArrays instead of 6 + 0.0... here
 	  // it causes artifacts
-	  //	  0.0f,0.0f,0.0f,0.0f,
-	  //  0.0f,0.0f,0.0f,0.0f,
-	  // 0.0f,0.0f,0.0f,0.0f,
+//	  0.0f,0.0f,0.0f,0.0f,
+	//  0.0f,0.0f,0.0f,0.0f,
+	 // 0.0f,0.0f,0.0f,0.0f,
 	};
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);
@@ -4702,31 +4703,31 @@ void wallsLoadVAOandVBO(){
 	  
 	wallMeshes[side][type-1].VBOsize = 6;
       }
-      /*
-	else if (type == halfWallFenceT) {
+	  /*
+	  else if (type == halfWallFenceT) {
 	float fencePlankW = bBlockW / 8;
 	
 	float verts[] = {
-	argVec3(wallPos[0]), 0.0f, .4f,
-	wallPos[0].x + fencePlankW, wallPos[0].y, wallPos[0].z, 1.0f, .4f,
-	wallPos[0].x, 0.0f, wallPos[0].z, 0.0f, 0.0f, 
+	  argVec3(wallPos[0]), 0.0f, .4f,
+	  wallPos[0].x + fencePlankW, wallPos[0].y, wallPos[0].z, 1.0f, .4f,
+	  wallPos[0].x, 0.0f, wallPos[0].z, 0.0f, 0.0f, 
 
-	wallPos[0].z + fencePlankW * 2, 0.0f, .4f,
-	wallPos[0].z + fencePlankW, wallPos[0].y, wallPos[0].z + fencePlankW, 1.0f, .4f,
-	wallPos[0].z, 0.0f, wallPos[0].z, 0.0f, 0.0f, 
+	  wallPos[0].z + fencePlankW * 2, 0.0f, .4f,
+	  wallPos[0].z + fencePlankW, wallPos[0].y, wallPos[0].z + fencePlankW, 1.0f, .4f,
+	  wallPos[0].z, 0.0f, wallPos[0].z, 0.0f, 0.0f, 
       
 	  
-	argVec3(wallPos[1]), 1.0f, .4f,
-	argVec3(wallPos[2]), 1.0f, 0.0f,
-	argVec3(wallPos[3]), 0.0f, 0.0f, 
+	  argVec3(wallPos[1]), 1.0f, .4f,
+	  argVec3(wallPos[2]), 1.0f, 0.0f,
+	  argVec3(wallPos[3]), 0.0f, 0.0f, 
 	};
 	  
 	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
 	  
 	wallMeshes[side][type-1].VBOsize = 6;
-	}
-      */
-      else if(type == halfWallT){
+      }
+	  */
+else if(type == halfWallT){
 	float verts[] = {
 	  argVec3(wallPos[0]), 0.0f, .4f,
 	  argVec3(wallPos[1]), 1.0f, .4f,
@@ -5375,68 +5376,68 @@ bool loadSave(char* saveName){
   fscanf(map, "\nUsed models: %d\n", &curModelsSize);
 
   if (curModelsSize != 0) { 
-    curModels = malloc(curModelsSize * sizeof(Model));
+	  curModels = malloc(curModelsSize * sizeof(Model));
 
-    for (int i = 0; i < curModelsSize; i++) {
-      /*	  if(curModels[i].name == yalinka){
-      // TODO: Make here some enum to string function
-      fprintf(map, "Yalinka[%d] ", yalinka);
-      }*/
-      int name = -1;
-      fscanf(map, "%d ", &name);
+	  for (int i = 0; i < curModelsSize; i++) {
+		  /*	  if(curModels[i].name == yalinka){
+		  // TODO: Make here some enum to string function
+		  fprintf(map, "Yalinka[%d] ", yalinka);
+		  }*/
+		  int name = -1;
+		  fscanf(map, "%d ", &name);
 
-      if (name >= loadedModelsSize || name < 0) {
-	printf("Models parsing error, model name (%d) doesnt exist \n", name);
-	exit(0);
-      }
+		  if (name >= loadedModelsSize || name < 0) {
+			  printf("Models parsing error, model name (%d) doesnt exist \n", name);
+			  exit(0);
+		  }
 
-      //curModels[i] = malloc(sizeof(Model));
-      curModels[i].name = name;
-      curModels[i].id = i;
-      curModels[i].characterId = -1;
+		  //curModels[i] = malloc(sizeof(Model));
+		  curModels[i].name = name;
+		  curModels[i].id = i;
+		  curModels[i].characterId = -1;
 
-      fgetc(map); // read [
+		  fgetc(map); // read [
 
-      for (int mat = 0; mat < 16; mat++) {
-	fscanf(map, "%f ", &curModels[i].mat.m[mat]);
-      }
+		  for (int mat = 0; mat < 16; mat++) {
+			  fscanf(map, "%f ", &curModels[i].mat.m[mat]);
+		  }
 
-      calculateModelAABB(&curModels[i]);
+		  calculateModelAABB(&curModels[i]);
 
-      fgetc(map); // read ]\n
+		  fgetc(map); // read ]\n
 
-      char ch = fgetc(map);
+		  char ch = fgetc(map);
 
-      if (ch == '1') {  
-	charactersSize++; 
+		  if (ch == '1') {  
+			  charactersSize++; 
 
-	if (!characters) { 
-	  characters = malloc(charactersSize * sizeof(Character));
-	}
-	else {
-	  characters = realloc(characters, charactersSize * sizeof(Character));
-	}
+			  if (!characters) { 
+				  characters = malloc(charactersSize * sizeof(Character));
+			  }
+			  else {
+				  characters = realloc(characters, charactersSize * sizeof(Character));
+			  }
 
-	memset(&characters[charactersSize - 1], 0, sizeof(Character));
+			  memset(&characters[charactersSize - 1], 0, sizeof(Character));
 
-	curModels[i].characterId = charactersSize - 1;
-	characters->id = charactersSize - 1;
+			  curModels[i].characterId = charactersSize - 1;
+			  characters->id = charactersSize - 1;
 
-	char named[32];
-	int nameType = -1;
+		    char named[32];
+		    int nameType = -1;
 
-	fscanf(map, "%s %d ", &named, &nameType);
+		    fscanf(map, "%s %d ", &named, &nameType);
 
-	characters[charactersSize-1].name = malloc(sizeof(char) * (strlen(named) + 1));
-	strcpy(characters[charactersSize-1].name, named); 
+		    characters[charactersSize-1].name = malloc(sizeof(char) * (strlen(named) + 1));
+		    strcpy(characters[charactersSize-1].name, named); 
 
-	deserializeDialogTree(&characters[charactersSize-1].dialogs, NULL, map);
-	//	fgetc(map);
-      }
-      else if(ch != '\n'){
-	fgetc(map);
-      }
-    }
+		    deserializeDialogTree(&characters[charactersSize-1].dialogs, NULL, map);
+		//	fgetc(map);
+		  }
+		  else if(ch != '\n'){
+		    fgetc(map);
+		  }
+	  }
   
   }
  
@@ -5484,25 +5485,25 @@ bool saveMap(char *saveName){
 	  
     fprintf(map, "]");
 
-    if (curModels[i].characterId != -1) { 
-      fprintf(map, "1");
-      fprintf(map, "%s %d ", characters[curModels[i].characterId].name ? characters[curModels[i].characterId].name : "None", characters[curModels[i].characterId].modelName);
-      serializeDialogTree(&characters[curModels[i].characterId].dialogs, map);  
-      fprintf(map, "\n");
-    }
-    else {
-      fprintf(map, "0\n");
-    }
+	if (curModels[i].characterId != -1) { 
+		fprintf(map, "1");
+		fprintf(map, "%s %d ", characters[curModels[i].characterId].name ? characters[curModels[i].characterId].name : "None", characters[curModels[i].characterId].modelName);
+		serializeDialogTree(&characters[curModels[i].characterId].dialogs, map);  
+		fprintf(map, "\n");
+	}
+	else {
+		fprintf(map, "0\n");
+	}
 
   }
 
   // save characters
   /*  fprintf(map, "\Characters\n");
   
-      for(int i=0; i<charactersSize; i++){
-      fprintf(map, "%s %d ", characters[i].name ? characters[i].name : "None", characters[i].modelName);
-      serializeDialogTree(&characters[i].dialogs, map);  
-      }*/
+  for(int i=0; i<charactersSize; i++){
+    fprintf(map, "%s %d ", characters[i].name ? characters[i].name : "None", characters[i].modelName);
+    serializeDialogTree(&characters[i].dialogs, map);  
+    }*/
 
   printf("Map saved!\n");
 
@@ -5622,23 +5623,23 @@ int noSpacesAndNewLinesStrLen(char* str){
 }
 
 void cleanString(char *str) {
-  int i, j;
-  int isPreviousSpace = 0;
+    int i, j;
+    int isPreviousSpace = 0;
 
-  for (i = 0, j = 0; str[i] != '\0'; i++) {
-    if (isalnum(str[i]) || (str[i] >= '!' && str[i] <= '/') || (str[i] >= ':' && str[i] <= '@')) {
-      str[j++] = str[i];
-      isPreviousSpace = 0;
-    }
+    for (i = 0, j = 0; str[i] != '\0'; i++) {
+      if (isalnum(str[i]) || (str[i] >= '!' && str[i] <= '/') || (str[i] >= ':' && str[i] <= '@')) {
+            str[j++] = str[i];
+            isPreviousSpace = 0;
+        }
       
-    else if (isspace(str[i])) {
-      if (!isPreviousSpace) {
-	str[j++] = ' ';
-	isPreviousSpace = 1;
-      }
+        else if (isspace(str[i])) {
+            if (!isPreviousSpace) {
+                str[j++] = ' ';
+                isPreviousSpace = 1;
+            }
+        }
     }
-  }
-  str[j] = '\0';
+    str[j] = '\0';
 }
 
 void destroyCharacter(int id){
