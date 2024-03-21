@@ -12,6 +12,7 @@ GLuint selectionRectVAO;
 
 VPair hudRect;
 
+VPair planePairs;
 
 Object** objsStore;
 size_t objsStoreSize;
@@ -72,15 +73,24 @@ float borderArea;
 GLuint objectsMenuTypeRectVBO;
 GLuint objectsMenuTypeRectVAO;
 
-Menu dialogViewer;
+Menu dialogViewer= { .type = dialogViewerT };
+Menu objectsMenu = { .type = objectsMenuT };
+Menu dialogEditor = { .type = dialogEditorT };
+Menu blocksMenu = { .type = blocksMenuT };
 
-Menu dialogEditor;
+Menu planeCreatorMenu = { .type = planeCreatorT };
+
+Plane* planeOnCreation;
+
+Plane* createdPlanes;
+int createdPlanesSize;
+
+Menu* curMenu;
 
 int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
 
-Menu objectsMenu;
 ModelType objectsMenuSelectedType = objectModelType;
 float objectsMenuWidth = -1.0f + 1.0f / 4.0f;
 
@@ -152,7 +162,7 @@ int main(int argc, char* argv[]) {
   GLuint netTileVBO, netTileVAO;
   GLuint texturedTileVBO, texturedTileVAO;
   GLuint snowFlakesMeshVBO, snowFlakesMeshVAO;
-  GLuint centerMouseSelVBO, centerMouseSelVAO;
+  GLuint centerMouseSelVBO, centerMouseSelVAO; 
 
   glewInit();
 
@@ -172,6 +182,15 @@ int main(int argc, char* argv[]) {
   {
     glGenBuffers(1, &hudRect.VBO);
     glGenVertexArrays(1, &hudRect.VAO);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // plane 3d
+  {
+    glGenBuffers(1, &planePairs.VBO);
+    glGenVertexArrays(1, &planePairs.VAO);
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -1457,7 +1476,8 @@ int main(int argc, char* argv[]) {
 	    
 	    dialogViewer.open = false;
 	    dialogEditor.open = true;
-	    
+	    curMenu = &dialogEditor;
+	      
 	    dialogEditor.textInputs[replicaInput].buf = &characters[mouse.focusedModel->characterId].curDialog->replicaText;
 	    dialogEditor.textInputs[charNameInput].buf = &characters[mouse.focusedModel->characterId].name;
 
@@ -1466,12 +1486,13 @@ int main(int argc, char* argv[]) {
 	    }
 		 
 	  }
-	}else if(dialogEditor.open){
+	}else if(curMenu && curMenu->type == dialogEditorT){
 	  if(event.key.keysym.scancode == SDL_SCANCODE_B && !selectedTextInput){
 	    characters[mouse.focusedModel->characterId].curDialogIndex = 0;
 	    characters[mouse.focusedModel->characterId].curDialog = &characters[mouse.focusedModel->characterId].dialogs;
 
 	    dialogEditor.open = false;
+	    curMenu = NULL;
 
 	    if(tempTextInputStorageCursor!=0){
 	      tempTextInputStorageCursor=0;
@@ -1483,6 +1504,7 @@ int main(int argc, char* argv[]) {
 
 	    dialogViewer.open = true;
 	    dialogEditor.open = false;
+	    curMenu = &dialogViewer;
 
 	    if(tempTextInputStorageCursor!=0){
 	      tempTextInputStorageCursor=0;
@@ -1653,7 +1675,7 @@ int main(int argc, char* argv[]) {
 	      }
 	    }
 	    else if (mouse.wallType != -1) {
-	      vec3 pos = vec3_indexesToCoords(mouse.wallTile);
+   	      vec3 pos = vec3_indexesToCoords(mouse.wallTile);
 	      vec3 forw = {0,0,1};
 
 	      if(mouse.wallSide == left || mouse.wallSide == right){
@@ -1874,10 +1896,16 @@ int main(int argc, char* argv[]) {
 	    break;
 	  }
 	  case(SDL_SCANCODE_X): {
-	    drawDistance -= .1f / 2.0f;
+	    if(mouse.brushBlock != NULL){
+	      free(mouse.brushBlock->vertexes);
+	      free(mouse.brushBlock);
+	      mouse.brushBlock = NULL;
+	    }else{
+	      drawDistance -= .1f / 2.0f;
 
-	    if(enviromental.fog){
-	      glUniform1f(radius, drawDistance);
+	      if(enviromental.fog){
+		glUniform1f(radius, drawDistance);
+	      }
 	    }
 
 	    break;
@@ -2021,7 +2049,11 @@ int main(int argc, char* argv[]) {
 	    break;
 	  }
 	  case(SDL_SCANCODE_O): {
-	    objectsMenu.open = !objectsMenu.open; 
+	    if(!curMenu || curMenu->type == objectsMenuT){
+	      objectsMenu.open = !objectsMenu.open;
+	      curMenu = objectsMenu.open ? &objectsMenu : NULL;
+	    }
+	    
 	    break;
 	  }
 	  case(SDL_SCANCODE_B): {
@@ -2051,6 +2083,7 @@ int main(int argc, char* argv[]) {
 	      }
 
 	      dialogEditor.open = true;
+	      curMenu = &dialogEditor;
 
 	      Character* editedCharacter = &characters[mouse.focusedModel->characterId];
 	      
@@ -2064,6 +2097,9 @@ int main(int argc, char* argv[]) {
 		dialogEditor.textInputs[i+answerInput1].buf = &editedCharacter->curDialog->answers[i].text; 
 	      }
 
+	    }else if(!curMenu || curMenu->type == blocksMenuT){
+	      blocksMenu.open = !blocksMenu.open;
+	      curMenu = blocksMenu.open ? &blocksMenu : NULL;
 	    }
 	    
 	    break;
@@ -2098,9 +2134,161 @@ int main(int argc, char* argv[]) {
 	    }
 				  
 	    break;
-	  }
-	  case(SDL_SCANCODE_H): {
-	    highlighting = !highlighting;
+	  }case(SDL_SCANCODE_P): {
+	     if(!curMenu || curMenu->type == planeCreatorT){
+	       planeCreatorMenu.open = !planeCreatorMenu.open;
+	       curMenu = planeCreatorMenu.open ? &planeCreatorMenu : NULL;
+	     }
+
+	     
+	    break;
+	  }case(SDL_SCANCODE_H): {
+	    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+	    
+	    if(mouse.wallSide != -1 && currentKeyStates[SDL_SCANCODE_LCTRL]){
+	      Tile* tile =  &grid[floor][mouse.wallTile.z][mouse.wallTile.x];
+	      Tile* oppositeGrid = NULL;
+
+	      TileBlock* block = tile->block;
+	      
+	      vec2i oppositeTile;
+	      Side oppositeSide;
+	  
+	      if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, &oppositeSide)) {
+			oppositeGrid = &grid[floor][oppositeTile.z][oppositeTile.x];
+
+		if(!block){
+		  block = oppositeGrid->block;
+		}
+
+		if(block && block->type == roofBlockT){
+		  if(!tile->customWalls[mouse.wallSide].alligned && !tile->customWalls[mouse.wallSide].alligned){
+		    if(mouse.wallSide == top){
+		      float xLeft = 0.0f;
+		      float xRight = bBlockW;
+		      
+		      float newH = block->vertexes[1];
+
+		      float newV = map(newH , 0, 0.2, 0, 1);
+
+		      printf("%f \n", newH * 10);
+		      
+		      if (oppositeGrid) {
+			oppositeGrid->customWalls[oppositeSide].buf[1] = newH;
+			oppositeGrid->customWalls[oppositeSide].buf[4] = newV;
+			
+			oppositeGrid->customWalls[oppositeSide].buf[6] = newH;
+			oppositeGrid->customWalls[oppositeSide].buf[9] = newV;
+						
+			oppositeGrid->customWalls[oppositeSide].buf[16] = newH;
+			oppositeGrid->customWalls[oppositeSide].buf[19] = newV;
+			
+			oppositeGrid->customWalls[oppositeSide].alligned = true;
+		      }
+
+		      tile->customWalls[mouse.wallSide].buf[1] = newH;
+		      tile->customWalls[mouse.wallSide].buf[4] = newV;
+		      
+		      tile->customWalls[mouse.wallSide].buf[6] = newH;
+		      tile->customWalls[mouse.wallSide].buf[9] = newV;
+		      
+		      tile->customWalls[mouse.wallSide].buf[16] = newH;
+		      tile->customWalls[mouse.wallSide].buf[19] = newV;
+
+		      tile->customWalls[mouse.wallSide].alligned = true;
+		    }else if(mouse.wallSide == bot){
+		      float xLeft = 0.0f;
+		      float xRight = bBlockW;
+		      
+		      float newH = block->vertexes[11];
+
+		      float newV = map(newH , 0, 0.2, 0, 1);
+
+		      printf("%f \n", newH * 10);			 
+		      
+		      if (oppositeGrid) {
+			oppositeGrid->customWalls[oppositeSide].buf[1] = newH;
+			oppositeGrid->customWalls[oppositeSide].buf[4] = newV;
+			
+			oppositeGrid->customWalls[oppositeSide].buf[6] = newH;
+			oppositeGrid->customWalls[oppositeSide].buf[9] = newV;
+						
+			oppositeGrid->customWalls[oppositeSide].buf[16] = newH;
+			oppositeGrid->customWalls[oppositeSide].buf[19] = newV;
+			
+			oppositeGrid->customWalls[oppositeSide].alligned = true;
+		      }
+
+		      tile->customWalls[mouse.wallSide].buf[1] = newH;
+		      tile->customWalls[mouse.wallSide].buf[4] = newV;
+		      
+		      tile->customWalls[mouse.wallSide].buf[6] = newH;
+		      tile->customWalls[mouse.wallSide].buf[9] = newV;
+		      
+		      tile->customWalls[mouse.wallSide].buf[16] = newH;
+		      tile->customWalls[mouse.wallSide].buf[19] = newV;
+
+		      tile->customWalls[mouse.wallSide].alligned = true;
+		    }else if(mouse.wallSide == left || mouse.wallSide == right){
+		      float xLeft = 0.0f;
+		      float xRight = bBlockW;
+		      		      
+		      float newH = block->vertexes[1];
+		      float backH = block->vertexes[11];
+
+		      float newV = map(newH, 0, 0.2, 0, 1);
+		      float backV = map(backH, 0, 0.2, 0, 1);
+
+		      printf("%f \n", newH * 10);			 
+		      
+		      if (oppositeGrid) {
+			oppositeGrid->customWalls[oppositeSide].buf[1] =backH; //newH;
+			oppositeGrid->customWalls[oppositeSide].buf[4] = backV;//newV;
+			
+			oppositeGrid->customWalls[oppositeSide].buf[6] = newH;
+			oppositeGrid->customWalls[oppositeSide].buf[9] = newV;
+						
+			oppositeGrid->customWalls[oppositeSide].buf[16] = newH;
+			oppositeGrid->customWalls[oppositeSide].buf[19] = newV;
+			
+			oppositeGrid->customWalls[oppositeSide].alligned = true;
+		      }
+
+		      tile->customWalls[mouse.wallSide].buf[1] = backH;
+		      tile->customWalls[mouse.wallSide].buf[4] = backV;
+		      
+		      tile->customWalls[mouse.wallSide].buf[6] = newH;
+		      tile->customWalls[mouse.wallSide].buf[9] = newV;
+		      
+		      tile->customWalls[mouse.wallSide].buf[16] = newH;
+		      tile->customWalls[mouse.wallSide].buf[19] = newV;
+
+		      tile->customWalls[mouse.wallSide].alligned = true;
+		    }  
+		}else{
+		  // back to default
+		  memcpy(tile->customWalls[mouse.wallSide].buf, customWallTemp[mouse.wallSide], sizeof(float) * 6 * 5);
+		  tile->customWalls[mouse.wallSide].bufSize = 6*5;
+		  tile->customWalls[mouse.wallSide].alligned = false;
+
+			if (oppositeGrid) {
+				memcpy(oppositeGrid->customWalls[oppositeSide].buf, customWallTemp[oppositeSide], sizeof(float) * 6 * 5);
+				oppositeGrid->customWalls[oppositeSide].bufSize = 6*5;
+				oppositeGrid->customWalls[oppositeSide].alligned = false;
+			}
+
+		  }
+		  
+		  // top -> x0 y1 z2
+		  //
+		}	      
+	      }
+
+	      
+	    }else{
+	      highlighting = !highlighting;
+	    }
+	    
 	    break;
 	  }
 	  case(SDL_SCANCODE_DELETE): {
@@ -2127,14 +2315,21 @@ int main(int argc, char* argv[]) {
 	    
 	      mouse.focusedModel = NULL;
 	    }else if (mouse.wallSide != -1) {
-	      WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
+	      // WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
 
 	      Side oppositeSide = 0;
 	      vec2i oppositeTile = { 0 };
-	      grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls &= ~(0xFF << (mouse.wallSide * 8));
 
-	      if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
-		grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].walls &= ~(0xFF << (oppositeSide * 8));
+	      if(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].customWalls[mouse.wallSide].buf){
+		grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].customWalls[mouse.wallSide].bufSize = 0;
+		free(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].customWalls[mouse.wallSide].buf);
+		grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].customWalls[mouse.wallSide].buf = NULL;
+
+		if (oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, & oppositeTile, & oppositeSide)) {
+		  free(grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf);
+		  grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf = NULL;
+		  grid[mouse.wallTile.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].bufSize = 0;
+		}
 	      }
 
 	    }
@@ -2173,7 +2368,7 @@ int main(int argc, char* argv[]) {
       }
       
       if (event.type == SDL_MOUSEMOTION) {
-	if(objectsMenu.open || dialogEditor.open || dialogViewer.open){
+	if(curMenu){
 	  float x = -1.0 + 2.0 * (event.motion.x / windowW);
 	  float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
 
@@ -2181,7 +2376,7 @@ int main(int argc, char* argv[]) {
 	  mouse.cursor.z = y;  
 	}
 
-	if (curCamera && !objectsMenu.open && !dialogEditor.open && !dialogViewer.open) { 
+	if (curCamera && !curMenu) { 
 	  mouse.screenPos.x = windowW / 2;
 	  mouse.screenPos.z = windowH / 2; 
 
@@ -2221,7 +2416,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    if(!console.open && !dialogEditor.open && !objectsMenu.open && !dialogViewer.open){
+    if(!console.open && !curMenu){
       const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
       if (currentKeyStates[SDL_SCANCODE_W])
@@ -2234,6 +2429,7 @@ int main(int argc, char* argv[]) {
 	    curCamera->pos.z -= cameraSpeed * normFront.z;
 	  }
 	  else {
+		  /*
 	    float dx = speed * sin(rad(player.angle));
 	    float dz = speed * cos(rad(player.angle));
 
@@ -2297,6 +2493,7 @@ int main(int argc, char* argv[]) {
 	      player.pos.z += dz;
 	    }
 
+		  */
 	  }
 	}
       else if (currentKeyStates[SDL_SCANCODE_S])
@@ -2631,6 +2828,94 @@ int main(int argc, char* argv[]) {
       glDisable(GL_BLEND);
     }
 
+    // plane things
+    {
+    // draw plane on cur creation
+    glBindVertexArray(planePairs.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, planePairs.VBO);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	
+    if(planeOnCreation){
+      glActiveTexture(0);
+      glBindTexture(GL_TEXTURE_2D, 0);
+
+      float w = planeOnCreation->w /2;
+      float h = planeOnCreation->h /2;
+
+      float planeModel[] = {
+	-w, h, 0.0f, 0.0f, 1.0f,
+	w, h, 0.0f , 1.0f, 1.0f,
+	-w, -h, 0.0f , 0.0f, 0.0f,
+	
+	w, h, 0.0f , 1.0f, 1.0f,
+	-w, -h, 0.0f, 1.0f, 0.0f,
+	w, -h, 0.0f, 0.0f, 0.0f
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(planeModel), planeModel, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+      glEnableVertexAttribArray(1);
+
+      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, planeOnCreation->mat.m);
+
+      glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    // draw planes
+    for(int i=0;i<createdPlanesSize;i++){
+      // bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i].lb, curModels[i].rt, NULL, NULL);
+
+      //      int name = curModels[i].name;
+
+      Plane plane = createdPlanes[i];
+
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	
+      glActiveTexture(plane.tx);
+      glBindTexture(GL_TEXTURE_2D, plane.tx);
+
+      float w = plane.w /2;
+      float h = plane.h /2;
+
+      float planeModel[] = {
+	-w, h, 0.0f, 1.0f, 1.0f,
+	w, h, 0.0f , 0.0f, 0.0f,
+	-w, -h, 0.0f , 1.0f, 0.0f,
+	
+	w, h, 0.0f , 0.0f, 0.0f,
+	-w, -h, 0.0f , 1.0f, 0.0f,
+	w, -h, 0.0f, 0.0f, 0.0f
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(planeModel), planeModel, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+      glEnableVertexAttribArray(1);
+
+      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, plane.mat.m);
+
+      glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    glDisable(GL_BLEND);
+    
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_BLEND);
+  }
+
     // snowParticles rendering
     if(enviromental.snow)
       {
@@ -2640,7 +2925,7 @@ int main(int argc, char* argv[]) {
 	setSolidColorTx(whiteColor, 1.0f);
 
 	glBindVertexArray(snowFlakesMeshVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, snowFlakesMeshVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, snowFlakesMeshVBO); 
 
 	int vertexIndex=0;
 	for (int loop = 0; loop < snowAmount; loop++)
@@ -2763,29 +3048,32 @@ int main(int argc, char* argv[]) {
 	  }
 	  
 	  // walls
-	  if(grid[y][z][x].walls !=0){
+	  if(true){
 	    for(int side=0;side<basicSideCounter;side++){
-	      WallType type = (grid[y][z][x].walls >> (side*8)) & 0xFF;
 
-	      if(type == 0){
-		continue;
-	      }
-	      
-	      vec3* wallPos = wallPosBySide(side, wallsSizes[type].h, wallD, bBlockD, bBlockW);
+	      if(grid[y][z][x].customWalls[side].buf != NULL) {
 
-	      vec3 lb = {0};
-	      vec3 rt = {0};
-		
-	      lb.x = tile.x + min(wallPos[3].x, wallPos[2].x);
-	      lb.y = tile.y + wallPos[3].y;
-	      lb.z = tile.z + min(wallPos[3].z, wallPos[2].z);
+		vec3 lb = { 1000,1000,1000 };
+		vec3 rt = {0};
 
-	      rt.x = tile.x + max(wallPos[0].x, wallPos[1].x);
-	      rt.y = tile.y + wallPos[0].y;
-	      rt.z = tile.z + max(wallPos[0].z, wallPos[1].z);
+		for(int i3=0;i3<grid[y][z][x].customWalls[side].bufSize;i3 += 5){
+		  lb.x= min(lb.x, grid[y][z][x].customWalls[side].buf[i3]);
+		  lb.y= min(lb.y, grid[y][z][x].customWalls[side].buf[i3+1]);
+		  lb.z= min(lb.z, grid[y][z][x].customWalls[side].buf[i3+2]);
 
-	      free(wallPos);
-	    
+		  rt.x= max(rt.x, grid[y][z][x].customWalls[side].buf[i3]);
+		  rt.y= max(rt.y, grid[y][z][x].customWalls[side].buf[i3+1]);
+		  rt.z= max(rt.z, grid[y][z][x].customWalls[side].buf[i3+2]);
+		}
+
+		lb.x += tile.x;
+	      lb.y += tile.y;
+	      lb.z += tile.z;
+
+	      rt.x += tile.x;
+	      rt.y += tile.y ;
+	      rt.z += tile.z ;
+
 	      // wall in/out camera
 	      int in=0;
 
@@ -2805,39 +3093,33 @@ int main(int argc, char* argv[]) {
 	      
 	      if(y >= floor){
 		float intersectionDistance = 0.0f;
-		bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, NULL, &intersectionDistance);
+		bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, NULL, &intersectionDistance);
 
 		if(isIntersect && minIntersectionDist > intersectionDistance){
 		  minIntersectionDist = intersectionDistance;
 		
 		  mouse.wallSide = side;
 		  mouse.wallTile = (vec3i){x,y,z};
-		  mouse.wallType = type;
+		  //mouse.wallType = type;
 		  mouse.wallTx = tx;
 
 		  minDistType = WallEl;
 		}
 	      }
 
-	      if(grid[y][z][x].customWalls[side] != NULL){
-		glBindVertexArray(customWallV.VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, customWallV.VBO);
+	      glBindVertexArray(customWallV.VAO);
+	      glBindBuffer(GL_ARRAY_BUFFER, customWallV.VBO);
 
-		glBufferData(GL_ARRAY_BUFFER, wallMeshes[side][type-1].VBOsize * sizeof(float) * 5,  grid[y][z][x].customWalls[side], GL_STATIC_DRAW);
+	      glBufferData(GL_ARRAY_BUFFER, grid[y][z][x].customWalls[side].bufSize * sizeof(float) * 5,  grid[y][z][x].customWalls[side].buf, GL_STATIC_DRAW);
 
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
-		glEnableVertexAttribArray(0);
+	      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+	      glEnableVertexAttribArray(0);
 
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-		glEnableVertexAttribArray(1);
+	      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	      glEnableVertexAttribArray(1);
 
-		glActiveTexture(tx);
-		glBindTexture(GL_TEXTURE_2D, tx);
-	    
-	      }else{
-		glBindVertexArray(wallMeshes[side][type-1].VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, wallMeshes[side][type-1].VBO);
-	      }
+	      glActiveTexture(tx);
+	      glBindTexture(GL_TEXTURE_2D, tx);
 	
 	      glActiveTexture(tx);
 	      glBindTexture(GL_TEXTURE_2D, tx);
@@ -2858,12 +3140,13 @@ int main(int argc, char* argv[]) {
 	      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 
 
-	      glDrawArrays(GL_TRIANGLES, 0, wallMeshes[side][type-1].VBOsize);
+	      glDrawArrays(GL_TRIANGLES, 0, grid[y][z][x].customWalls[side].bufSize / 5); // 5 - num of el vec3 + uv 
 
 	      glBindTexture(GL_TEXTURE_2D, 0);
 	      glBindBuffer(GL_ARRAY_BUFFER, 0);
 	      glBindVertexArray(0);
 		
+	      }
 	    }
 	  }
 
@@ -2872,11 +3155,11 @@ int main(int argc, char* argv[]) {
 	    GroundType type = valueIn(grid[y][z][x].ground, 0);
 
 	    // skip netTile on not cur floor
-	    if(type == netTile && y != floor){
-	      continue;
-	    }
+	    //if(y != floor){
+	      //  continue;
+	      //}
 	    
-	    const vec3 tile = { (float)x / 10, (float) y * (floorH), (float)z / 10 };
+		const vec3 tile = xyz_indexesToCoords(x, floor, z);
 
 	    const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
 	    const vec3 lb = { tile.x, tile.y, tile.z };
@@ -2902,21 +3185,23 @@ int main(int argc, char* argv[]) {
 	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir,lb,rt, &intersection, &intersectionDistance);
 	
 	    if(isIntersect && minIntersectionDist > intersectionDistance){
-	      minIntersectionDist = intersectionDistance;
 
 	      if (y == floor) {
+		minIntersectionDist = intersectionDistance;
+		
 		mouse.selectedTile = &grid[y][z][x];
 		mouse.gridIntersect = (vec2i){x,z};
 		mouse.intersection = intersection;
 		mouse.groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 		 
 		minDistType = TileEl;
-		//  continue;
 	      }
 	    }
-	
+
 	    // tile rendering
 	    if(type == texturedTile){
+	    const vec3 tile = xyz_indexesToCoords(x,y,z);
+
 	      for(int i=1;i<=2;i++){
 		if(y==0 && i == fromUnder){
 		  continue;
@@ -2955,6 +3240,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    /*
     if(minDistType == WallEl){
       mouse.selectedTile = NULL;
       mouse.gridIntersect = (vec2i){ -1,-1 };
@@ -2966,7 +3252,7 @@ int main(int argc, char* argv[]) {
       mouse.wallTile = (vec3i){ -1,-1,-1 };
       mouse.wallType = -1;
       mouse.wallTx = mouse.wallTx = -1;
-    }
+    }*/
 
     // render mouse.brush
     if(mouse.selectedTile)
@@ -3109,18 +3395,7 @@ int main(int argc, char* argv[]) {
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	if(mouse.tileSide == center){
-	  if(!mouse.brushBlock){
-	    mouse.brushBlock = calloc(1, sizeof(TileBlock));
-	    memcpy(mouse.brushBlock, &tileBlocksTempl[roofBlockT - wallTypeCounter - 1], sizeof(TileBlock));
-
-	    mouse.brushBlock->vertexes = malloc(mouse.brushBlock->vertexesSize * sizeof(float) * 5);
-	    
-	    memcpy(mouse.brushBlock->vertexes, tileBlocksTempl[roofBlockT - wallTypeCounter - 1].vertexes, mouse.brushBlock->vertexesSize * sizeof(float) * 5);
-	  }
-
-	  printf("Src %f \n",tileBlocksTempl[roofBlockT - wallTypeCounter - 1].vertexes[1]);
-
+	if(mouse.brushBlock && mouse.tileSide == center){
 	  glBindVertexArray(mouse.brushBlock->vpair.VAO);
 	  glBindBuffer(GL_ARRAY_BUFFER, mouse.brushBlock->vpair.VBO);
 		
@@ -3202,9 +3477,8 @@ int main(int argc, char* argv[]) {
 	      
 	  if(mouse.clickR){
 	    // delete if something exist on this place
-	    WallType type = (mouse.selectedTile->walls >> (mouse.tileSide*8)) & 0xFF;
 	      
-	    if(type == 0){
+	    if(mouse.selectedTile->customWalls[mouse.tileSide].buf == NULL) {
 	      bool oppositeExtend[4] = {0};
 
 	      bool itHasWall = false;
@@ -3219,31 +3493,23 @@ int main(int argc, char* argv[]) {
 	      bool oppositeExists = oppositeTileTo((vec2i){x, z}, mouse.tileSide, &oppositeTile, &oppositeSide);
 	    
 	      for(int i=0;i<2;i++){	      
-		if(selectedSide == top || selectedSide == bot){
-		  WallType type = (tile->walls >> (right*8)) & 0xFF;
-	      
-		  if(type != 0){
+		if(selectedSide == top || selectedSide == bot){	      
+		  if(tile->customWalls[right].buf){
 		    oppositeExtend[right] = true;
 		    itHasWall = true;
 		  }
 	      
-		  type = (tile->walls >> (left*8)) & 0xFF;
-	      
-		  if(type != 0){
+		  if(tile->customWalls[left].buf){
 		    oppositeExtend[left]  = true;
 		    itHasWall = true;
 		  }
 		}else if (selectedSide == left || selectedSide == right){
-		  WallType type = (tile->walls >> (top*8)) & 0xFF;
-
-		  if(type != 0){
+		  if(tile->customWalls[top].buf){
 		    oppositeExtend[top] = true;
 		    itHasWall = true;
 		  }
-	      
-		  type = (tile->walls >> (bot*8)) & 0xFF;
-		  
-		  if(type != 0){
+	      		  
+		  if(tile->customWalls[bot].buf) {
 		    oppositeExtend[bot] = true;
 		    itHasWall = true;
 		  }	
@@ -3269,38 +3535,34 @@ int main(int argc, char* argv[]) {
 	      Side tempOppositeSide = 0;
 	      vec2i tempOppositeTile = {0};
 		  
-	      setIn(grid[floor][curTile.z][curTile.x].walls, selectedSide, mouse.brush);
 	      setIn(grid[floor][curTile.z][curTile.x].wallsTx, selectedSide, 0); // first texture
+
+	      grid[floor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].buf = malloc(sizeof(float) * 6 * 5);
+	      grid[floor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].bufSize = 6 * 5;
+	      memcpy(grid[floor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].buf, customWallTemp[selectedSide], sizeof(float) * 6 * 5);
 		  
 	      if(oppositeExists){
-		grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].walls |= (mouse.brush << oppositeSide*8);
+		grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf = malloc(sizeof(float) * 6 * 5);
+		grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].bufSize = 6 * 5;
+		memcpy(grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf, customWallTemp[oppositeSide], sizeof(float) * 6 * 5);
+
 		setIn(grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].wallsTx, mouse.tileSide, 0); 
 	      }
 
 	      for(int i=0;i<basicSideCounter && oppositeExists;i++){
 		if(!oppositeExtend[i]) continue;
 		  
-		if(!grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide]){
-		  grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide] = malloc(sizeof(float) * 6 * 5);
-		  memcpy(grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide], customWallTemp[oppositeSide], sizeof(float) * 6 * 5);
-		}   
-		  
 		bool itLeftRight = (oppositeSide == left || oppositeSide == right);
 		bool indexSecond = i == bot || i == left;
 
-		grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide][values[itLeftRight][indexSecond][0]] += wallD * values[itLeftRight][indexSecond][3];
-		grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide][values[itLeftRight][indexSecond][1]] += wallD * values[itLeftRight][indexSecond][3];
-		grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide][values[itLeftRight][indexSecond][2]] += wallD * values[itLeftRight][indexSecond][3];
+		grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf[values[itLeftRight][indexSecond][0]] += wallD * values[itLeftRight][indexSecond][3];
+		grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf[values[itLeftRight][indexSecond][1]] += wallD * values[itLeftRight][indexSecond][3];
+		grid[floor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf[values[itLeftRight][indexSecond][2]] += wallD * values[itLeftRight][indexSecond][3];
 
 		if(oppositeTileTo(curTile, i, &tempOppositeTile,&tempOppositeSide)){
-		  if (!grid[floor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide]) {
-		    grid[floor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide] = malloc(sizeof(float) * 6 * 5);
-		    memcpy(grid[floor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide], customWallTemp[tempOppositeSide], sizeof(float) * 6 * 5);
-		  }
-
-		  grid[floor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide][valuesOpposite[oppositeSide][0]] += wallD * valuesOpposite[oppositeSide][3];
-		  grid[floor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide][valuesOpposite[oppositeSide][1]] += wallD * valuesOpposite[oppositeSide][3];
-		  grid[floor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide][valuesOpposite[oppositeSide][2]] += wallD * valuesOpposite[oppositeSide][3];
+		  grid[floor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide].buf[valuesOpposite[oppositeSide][0]] += wallD * valuesOpposite[oppositeSide][3];
+		  grid[floor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide].buf[valuesOpposite[oppositeSide][1]] += wallD * valuesOpposite[oppositeSide][3];
+		  grid[floor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide].buf[valuesOpposite[oppositeSide][2]] += wallD * valuesOpposite[oppositeSide][3];
 		}
 	      
 	      }
@@ -3355,7 +3617,9 @@ int main(int argc, char* argv[]) {
       if(highlighting && mouse.groundInter != -1){
 	GroundType type = valueIn(mouse.selectedTile->ground, 0);
 
-	if(type != 0){
+	//	printf("%d \n", type);
+	
+	//	if(type != 0){
 	  vec3 tile = xyz_indexesToCoords(mouse.gridIntersect.x, floor, mouse.gridIntersect.z);
 
 	  glBindVertexArray(tileHighlight[mouse.groundInter-1].VAO);
@@ -3372,7 +3636,7 @@ int main(int argc, char* argv[]) {
 
 	  glDrawArrays(GL_TRIANGLES, 0, tileHighlight[mouse.groundInter-1].VBOsize);
 
-	}
+	  //}
       }
     
       glBindTexture(GL_TEXTURE_2D, 0);
@@ -3435,9 +3699,43 @@ int main(int argc, char* argv[]) {
     glDisable(GL_DEPTH_TEST);
     glUseProgram(hudShader);
 
+    // aim render
+    if(!curMenu){
+      glBindVertexArray(hudRect.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
 
+      glActiveTexture(solidColorTx);
+      glBindTexture(GL_TEXTURE_2D, solidColorTx);
+      setSolidColorTx(blackColor, 1.0f);
+
+      float aimW = 0.003f;
+      float aimH = 0.006f;
+
+      float aim[] = {
+	-aimW, aimH, 1.0f, 0.0f,
+	aimW, aimH, 1.0f, 1.0f,
+	-aimW, -aimH, 0.0f, 0.0f,
+
+	aimW, aimH, 1.0f, 1.0f,
+	-aimW, -aimH, 0.0f, 0.0f,
+	aimW, -aimH, 0.0f, 1.0f };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(aim), aim, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+      glEnableVertexAttribArray(1);
+
+      glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+    
     // render objects menu
-    if(objectsMenu.open){
+    if(curMenu && curMenu->type == objectsMenuT){
       glActiveTexture(solidColorTx);
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
       setSolidColorTx(blackColor, 1.0f);
@@ -3491,6 +3789,7 @@ int main(int argc, char* argv[]) {
 	  calculateModelAABB(&curModels[curModelsSize-1]);
 	  
 	  objectsMenu.open = false;
+	  curMenu = NULL;
 	};
 
 	setSolidColorTx(redColor, 1.0f);
@@ -3585,7 +3884,229 @@ int main(int argc, char* argv[]) {
       for(int i=0;i<modelsTypesInfo[objectsMenuSelectedType].counter;i++){
 	renderText(loadedModels2D[objectsMenuSelectedType][i].name, -1.0f, 1.0f - (i * letterH), 1);
       }
-    }else if(dialogViewer.open){
+    }else if(curMenu && curMenu->type == blocksMenuT){
+      glActiveTexture(solidColorTx);
+      glBindTexture(GL_TEXTURE_2D, solidColorTx);
+      setSolidColorTx(blackColor, 1.0f);
+      
+      glBindVertexArray(objectsMenu.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
+
+      glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+
+      float mouseY = mouse.cursor.z + 0.06f;
+      
+      int selectedIndex = (1.0f-((mouseY +1.0f)/2.0f)) / (letterH/2);
+      selectedIndex++;
+      
+      if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= tileBlocksCounter){
+	if(mouse.clickL){
+	  if(mouse.brushBlock){
+	    free(mouse.brushBlock->vertexes);
+	    free(mouse.brushBlock);
+	    mouse.brushBlock = NULL;
+	  }
+	  
+	  mouse.brushBlock = calloc(1, sizeof(TileBlock));
+	  memcpy(mouse.brushBlock, &tileBlocksTempl[selectedIndex - 1], sizeof(TileBlock));
+
+	  mouse.brushBlock->vertexes = malloc(mouse.brushBlock->vertexesSize * sizeof(float) * 5);
+	    
+	  memcpy(mouse.brushBlock->vertexes, tileBlocksTempl[selectedIndex - 1].vertexes, mouse.brushBlock->vertexesSize * sizeof(float) * 5);	  
+	  
+	  curMenu->open = false; 
+	  curMenu = NULL;
+	};
+
+	setSolidColorTx(redColor, 1.0f);
+      
+	glBindVertexArray(selectionRectVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, selectionRectVBO);
+	
+	float cursorH = 0.06f;
+	float cursorW = 0.02f;
+	  
+	float  selectionRect[] = {
+	  -1.0f, 1.0f - (selectedIndex-1) * letterH, 1.0f, 0.0f,
+	  objectsMenuWidth, 1.0f - (selectedIndex-1) * letterH, 1.0f, 1.0f,
+	  -1.0f, 1.0f - (selectedIndex) * letterH, 0.0f, 0.0f,
+
+	  objectsMenuWidth, 1.0f - (selectedIndex-1) * letterH, 1.0f, 1.0f,
+	  -1.0f,  1.0f - selectedIndex * letterH, 0.0f, 0.0f,
+	  objectsMenuWidth,  1.0f - selectedIndex * letterH, 0.0f, 1.0f };
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(selectionRect), selectionRect, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+	glEnableVertexAttribArray(1);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+
+      for(int i=0;i<tileBlocksCounter;i++){
+	renderText(tileBlocksStr[i], -1.0f, 1.0f - (i * letterH), 1);
+      }
+    }else if(curMenu && curMenu->type == planeCreatorT){
+      if (!planeOnCreation) {
+	planeOnCreation = calloc(1, sizeof(Plane));
+
+	Matrix out = IDENTITY_MATRIX;
+
+	vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
+	//	curCamera->pos.x -= cameraSpeed * normFront.x;
+
+	float dist = 0.3f;
+	
+	out.m[12] = curCamera->pos.x + dist * mouse.rayDir.x;
+	out.m[13] = curCamera->pos.y;
+	out.m[14] = curCamera->pos.z + (dist/2) * mouse.rayDir.z;
+
+	printf("%f %f %f \n", out.m[12], out.m[13], out.m[14]);
+
+	planeOnCreation->w = 0.1f;
+	planeOnCreation->h = 0.1f;
+	
+	planeOnCreation->mat = out; 
+      }
+
+      glActiveTexture(solidColorTx);
+      glBindTexture(GL_TEXTURE_2D, solidColorTx);
+      setSolidColorTx(blackColor, 1.0f);
+
+      glBindVertexArray(hudRect.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
+
+      char buf[100];
+      sprintf(buf, "- + W: %f \n- + H: %f", planeOnCreation->w, planeOnCreation->h);
+
+      float creatorW = (strlen(buf)/2.0f * letterW) + letterW;
+      float creatorH = 0.17f + letterH;
+
+      float creatorMenu[] = {
+	-1.0f, 1.0f, 1.0f, 0.0f,
+	-1.0f + creatorW, 1.0f, 1.0f, 1.0f,
+	-1.0f, 1.0f - creatorH, 0.0f, 0.0f,
+
+	-1.0f + creatorW, 1.0f, 1.0f, 1.0f,
+	-1.0f, 1.0f - creatorH, 0.0f, 0.0f,
+	-1.0f + creatorW, 1.0f - creatorH, 0.0f, 1.0f
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(creatorMenu), creatorMenu, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+      glEnableVertexAttribArray(1);
+
+      glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+
+      float mouseY = mouse.cursor.z + 0.06f;
+      
+      int selectedIndex = (1.0f-((mouseY +1.0f)/2.0f)) / (letterH/2);
+      int selectedSign = 0;
+
+      float xLeftFrame = 0;
+      float xRightFrame = 0;
+      
+      selectedIndex++;
+
+      if(selectedIndex == 1 || selectedIndex == 2){
+	if(mouse.cursor.x >= -1.0f && mouse.cursor.x <= -1.0f + letterW * 2){
+	  xLeftFrame = -1.0f;
+	  xRightFrame = -1.0f + letterW * 2;
+	
+	  selectedSign = -1;
+	}else if(mouse.cursor.x > -1.0f + letterW * 2 && mouse.cursor.x <= -1.0f + letterW * 4){
+	  xLeftFrame = -1.0f + letterW * 2;
+	  xRightFrame = -1.0f + letterW * 4;
+	
+	  selectedSign = 1;
+	}
+      }else if(selectedIndex == 3){
+	if(mouse.cursor.x >= -1.0f && mouse.cursor.x <= -1.0f + strlen("Create") * letterW + letterW){
+	  xLeftFrame = -1.0f;
+	  xRightFrame = -1.0f + strlen("Create") * letterW + letterW;
+
+	  selectedSign = 2; // create button
+	}
+      }
+
+      
+      if(selectedSign != 0 && selectedIndex <= 3){
+	if(mouse.clickL){
+	  if(selectedIndex == 1){
+	    planeOnCreation->w += 0.01f * selectedSign;
+	  }else if(selectedIndex == 2){
+	    planeOnCreation->h += 0.01f * selectedSign;
+	  }else if(selectedIndex == 3 && selectedSign == 2){
+	    if(!createdPlanes){
+	      createdPlanes = malloc(sizeof(Plane));
+	    }else{
+	      createdPlanes = realloc(createdPlanes, createdPlanesSize+1 * sizeof(Plane));
+	    }
+
+	    memcpy(&createdPlanes[createdPlanesSize],planeOnCreation ,sizeof(Plane));
+
+	    createdPlanesSize++;
+
+	    free(planeOnCreation);
+	    planeOnCreation = NULL;
+
+	    curMenu->open = false;
+	    curMenu = NULL;
+	  }
+	};
+
+	setSolidColorTx(redColor, 1.0f);
+      
+	glBindVertexArray(selectionRectVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, selectionRectVBO);
+
+	if(selectedIndex == 3){
+	  xLeftFrame = -1.0f;
+	  xRightFrame = -1.0f + strlen("Create") * letterW + letterW;
+	}
+
+	float  selectionRect[] = {
+	  xLeftFrame, 1.0f - (selectedIndex-1) * letterH, 1.0f, 0.0f,
+	  xRightFrame, 1.0f - (selectedIndex-1) * letterH, 1.0f, 1.0f,
+	  xLeftFrame, 1.0f - (selectedIndex) * letterH, 0.0f, 0.0f,
+
+	  xRightFrame, 1.0f - (selectedIndex-1) * letterH, 1.0f, 1.0f,
+	  xLeftFrame,  1.0f - selectedIndex * letterH, 0.0f, 0.0f,
+	  xRightFrame,  1.0f - selectedIndex * letterH, 0.0f, 1.0f };
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(selectionRect), selectionRect, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
+
+	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
+	  glEnableVertexAttribArray(1);
+
+	  glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+      }
+
+      renderText(buf, -1.0f, 1.0f, 1);
+      renderText("Create", -1.0f, 1.0f - letterH * 2, 1);
+    }else if(curMenu && curMenu->type == dialogViewerT){
       Character* editedCharacter = &characters[mouse.focusedModel->characterId];
       Dialog* curDialog = editedCharacter->curDialog;
 
@@ -3717,6 +4238,7 @@ int main(int argc, char* argv[]) {
 
 	    dialogViewer.open = false;
 	    dialogEditor.open = true;
+	    curMenu = &dialogEditor;
 	    
 	    dialogEditor.textInputs[replicaInput].buf = &editedCharacter->curDialog->replicaText;
 	    dialogEditor.textInputs[charNameInput].buf = &editedCharacter->name;
@@ -3735,7 +4257,7 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
       }
-    }else if(dialogEditor.open){
+    }else if(curMenu && curMenu->type == dialogEditorT){
       Character* editedCharacter = &characters[mouse.focusedModel->characterId];
       Dialog* curDialog = editedCharacter->curDialog;
       
@@ -3834,8 +4356,10 @@ int main(int argc, char* argv[]) {
 			 
 		    if(editedCharacter->historySize == 0 && curDialog->answersSize == 0){    
 		      destroyCharacter(editedCharacter->id); 
-		      mouse.selectedModel->characterId = -1; 
+		      mouse.selectedModel->characterId = -1;
+		      
 		      dialogEditor.open = false;
+		      curMenu = NULL;
 		      break; 
 		    }
 
@@ -4110,21 +4634,187 @@ int main(int argc, char* argv[]) {
 	}
       }
     }else if(mouse.focusedModel){ 
-      char buf[100];
+      char buf[164];
 
       sprintf(buf, "Focused model [%s-%d] Mode: %s Step: %.4f", loadedModels1D[mouse.focusedModel->name].name, mouse.focusedModel->id, manipulationMode!= -1 ?manipulationModeStr[manipulationMode] : "None", manipulationStep);
       
-      renderText(buf, -1.0f, 1.0f, 1.0f); 
+      renderText(buf, -1.0f, 1.0f, 1.0f);
+
+      sprintf(buf, "[F] unfocus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [T + Z] Y move; [G] scale]");
+
+      // black backGround drawins
+      {
+	glActiveTexture(solidColorTx);
+	glBindTexture(GL_TEXTURE_2D, solidColorTx);
+	setSolidColorTx(blackColor, 1.0f);
+	
+      	glBindVertexArray(hudRect.VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
+	    
+	float answerSelection[] = {
+	  -1.0f, -1.0f + letterH * 2, 1.0f, 0.0f,
+	  1.0f, -1.0f + letterH * 2, 1.0f, 1.0f,
+	  -1.0f, -1.0f, 0.0f, 0.0f,
+
+	  1.0f, -1.0f + letterH * 2, 1.0f, 1.0f,
+	  -1.0f, -1.0f, 0.0f, 0.0f,
+	  1.0f, -1.0f, 0.0f, 0.0f, 
+	};
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(answerSelection), answerSelection, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+      
+      renderText(buf, -1.0f, -1.0f + letterH * 2, 1.0f); 
     }else if(mouse.wallSide != -1){ 
-      char buf[30];
+      char buf[130];
 
       sprintf(buf, "Selected wall[%s]", sidesToStr[mouse.wallSide]);
 
-      renderText(buf, -1.0f, 1.0f, 1.0f); 
+      renderText(buf, -1.0f, 1.0f, 1.0f);
+      
+      Tile* tile =  &grid[floor][mouse.wallTile.z][mouse.wallTile.x];
+
+      bool itHasBlock = tile->block;
+      vec2i oppositeTile;
+	  
+      if (!itHasBlock && oppositeTileTo((vec2i) { mouse.wallTile.x, mouse.wallTile.z }, mouse.wallSide, &oppositeTile, NULL)) {
+	Tile* tile = &grid[floor][oppositeTile.z][oppositeTile.x];
+	itHasBlock = tile->block;
+      }
+
+      sprintf(buf, "[Up] move wall from camera [Down] move wall to camera %s", itHasBlock ? "[LCtrl + H] aling to block" : "");
+
+      // black backGround drawins
+      {
+	glActiveTexture(solidColorTx);
+	glBindTexture(GL_TEXTURE_2D, solidColorTx);
+	setSolidColorTx(blackColor, 1.0f);
+	
+      	glBindVertexArray(hudRect.VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
+	    
+	float answerSelection[] = {
+	  -1.0f, -1.0f + letterH, 1.0f, 0.0f,
+	  1.0f, -1.0f + letterH, 1.0f, 1.0f,
+	  -1.0f, -1.0f, 0.0f, 0.0f,
+
+	  1.0f, -1.0f + letterH, 1.0f, 1.0f,
+	  -1.0f, -1.0f, 0.0f, 0.0f,
+	  1.0f, -1.0f, 0.0f, 0.0f, 
+	};
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(answerSelection), answerSelection, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+      
+      renderText(buf, -1.0f, -1.0f + letterH, 1.0f); 
+    }else if(mouse.brushBlock){ 
+      char buf[130];
+
+      sprintf(buf, "Selected block [%s]", tileBlocksStr[mouse.brushBlock->type]);
+
+      renderText(buf, -1.0f, 1.0f, 1.0f);
+
+      sprintf(buf, "[X] discard selection [Right Click] place [LCtrl + R] rotate");
+
+      // black backGround drawins
+      {
+	glActiveTexture(solidColorTx);
+	glBindTexture(GL_TEXTURE_2D, solidColorTx);
+	setSolidColorTx(blackColor, 1.0f);
+	
+      	glBindVertexArray(hudRect.VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
+	    
+	float answerSelection[] = {
+	  -1.0f, -1.0f + letterH, 1.0f, 0.0f,
+	  1.0f, -1.0f + letterH, 1.0f, 1.0f,
+	  -1.0f, -1.0f, 0.0f, 0.0f,
+
+	  1.0f, -1.0f + letterH, 1.0f, 1.0f,
+	  -1.0f, -1.0f, 0.0f, 0.0f,
+	  1.0f, -1.0f, 0.0f, 0.0f, 
+	};
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(answerSelection), answerSelection, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+      
+      renderText(buf, -1.0f, -1.0f + letterH, 1.0f);
+    }else{
+      char buf[130];
+      
+      sprintf(buf, "[O] objects [B] blocks [T] textures [P] planes");
+
+      // black backGround drawins
+      {
+	glActiveTexture(solidColorTx);
+	glBindTexture(GL_TEXTURE_2D, solidColorTx);
+	setSolidColorTx(blackColor, 1.0f);
+	
+      	glBindVertexArray(hudRect.VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
+	    
+	float answerSelection[] = {
+	  -1.0f, -1.0f + letterH, 0.0f, 1.0f,
+	  1.0f, -1.0f + letterH, 1.0f, 1.0f,
+	  -1.0f, -1.0f, 0.0f, 0.0f,
+
+	  1.0f, -1.0f + letterH, 1.0f, 1.0f,
+	  -1.0f, -1.0f, 1.0f, 0.0f,
+	  1.0f, -1.0f, 0.0f, 0.0f, 
+	};
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(answerSelection), answerSelection, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+      }
+
+      renderText(buf, -1.0f, -1.0f + letterH, 1.0f); 
     }
 
     // render cursor
-    if(objectsMenu.open || dialogEditor.open || dialogViewer.open)
+    if(curMenu)
       {
 	glActiveTexture(solidColorTx);
 	glBindTexture(GL_TEXTURE_2D, solidColorTx);
@@ -4220,7 +4910,7 @@ int main(int argc, char* argv[]) {
     }
     
     if (deltatime != 0) {
-      sprintf(windowTitle, game" FPS: %d Save: %s.doomer", 1000 / deltatime, curSaveName);
+      sprintf(windowTitle, game" BazoMetr: %d%% Save: %s.doomer", 1000 / deltatime, curSaveName);
       SDL_SetWindowTitle(window, windowTitle);
     }
   }
@@ -5342,18 +6032,93 @@ bool loadSave(char* saveName){
     }
   }
 
+  
   fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
+
       
   grid = malloc(sizeof(Tile**) * (gridY));
 
   for (int y = 0; y < gridY; y++) {
+    grid[y] = malloc(sizeof(Tile*) * (gridZ));
+    for (int z = 0; z < gridZ; z++) {
+      grid[y][z] = calloc(gridX, sizeof(Tile));
+      
+	  for (int x = 0; y==0 && x < gridX; x++) {
+	setIn(grid[y][z][x].ground, 0, texturedTile);
+	setIn(grid[y][z][x].ground, 2, frozenGround);
+      }
+	  
+    }
+  } 
+   
+  int wallsCounter = -1; 
+  fscanf(map, "Walls used: %d", &wallsCounter);  
+   
+  for (int i = 0; i < wallsCounter; i++) {
+    int x = -1,y = -1,z = -1;
+    
+    fscanf(map, "\n%d %d %d ",&x,&y,&z);
+
+    int sidesCounter = 0;
+      
+    fscanf(map, "%d %d %d ", &grid[y][z][x].wallsTx, &grid[y][z][x].ground, &sidesCounter);
+
+    GroundType type = valueIn(grid[y][z][x].ground, 0);
+    
+    if(y == 0 && (type == netTile || type == 0)){
+      setIn(grid[y][z][x].ground, 0, texturedTile);
+      setIn(grid[y][z][x].ground, 2, frozenGround);
+    }
+      
+    Tile* tile = &grid[y][z][x];
+
+    Side side = -1;
+    int bufSize = -1; 
+
+    for(int i2=0;i2<sidesCounter;i2++){
+      fscanf(map, "%d %d ", &side, &bufSize);
+      tile->customWalls[side].buf = malloc(sizeof(float) * bufSize);  
+      tile->customWalls[side].bufSize = bufSize; 
+
+      for(int i2=0;i2<bufSize;i2++){
+	fscanf(map, "%f ", &tile->customWalls[side].buf[i2]);
+      }
+    }
+      
+  }
+  
+
+  /*for (int y = 0; y < gridY; y++) {
     grid[y] = malloc(sizeof(Tile*) * (gridZ));
 
     for (int z = 0; z < gridZ; z++) {
       grid[y][z] = calloc(gridX, sizeof(Tile));
 
       for (int x = 0; x < gridX; x++) {
-	fscanf(map, "[Wls: %d, WlsTx %d, Grd: %d]", &grid[y][z][x].walls, &grid[y][z][x].wallsTx, &grid[y][z][x].ground);
+	Tile tile = grid[y][z][x];
+	GroundType type = valueIn(tile.ground, 0);
+
+	if(type == netTile || type == 0 || (!tile.customWalls[0].buf && !tile.customWalls[1].buf && !tile.customWalls[2].buf && !tile.customWalls[3].buf)){
+	  continue;
+	}
+	
+	fprintf(map, "%d %d %d ",x,y,z, grid[y][z][x].wallsTx, grid[y][z][x].ground);
+	
+	fprintf(map, "%d %d ",x,y,z, grid[y][z][x].wallsTx, grid[y][z][x].ground);
+
+	for(int i=0;i<basicSideCounter;i++){
+	  if(tile.customWalls[i].buf){
+	    fprintf(map, "%d %d ",i,tile.customWalls[i].bufSize);
+
+	    for(int i2=0;i2<tile.customWalls[i].bufSize;i2++){
+	      fprintf(map, "%f ",tile.customWalls[i].buf[i2]);
+	    }
+	    
+	  }
+	}
+
+	fprintf(map, "\n");
+	//fscanf(map, "[Wls: %d, WlsTx %d, Grd: %d]", &grid[y][z][x].walls, &grid[y][z][x].wallsTx, &grid[y][z][x].ground);
 
 	GroundType type = valueIn(grid[y][z][x].ground, 0);
 
@@ -5370,7 +6135,7 @@ bool loadSave(char* saveName){
       }
     }
     fgetc(map); // read \n
-  }
+  }*/
     
   fscanf(map, "\nUsed models: %d\n", &curModelsSize);
 
@@ -5460,16 +6225,73 @@ bool saveMap(char *saveName){
   FILE* map = fopen(save, "w+");
 
   fprintf(map, "%d %d %d \n", gridY, gridZ, gridX);
+  
+  int wallsCounter = 0;
+  vec3i* wallsIndexes = malloc(sizeof(vec3i) * gridY * gridX * gridZ);
 
   for (int y = 0; y < gridY; y++) {
     for (int z = 0; z < gridZ; z++) {
       for (int x = 0; x < gridX; x++) {
-	fprintf(map, "[Wls: %d, WlsTx %d, Grd: %d],", grid[y][z][x].walls, grid[y][z][x].wallsTx, grid[y][z][x].ground);
+	Tile tile = grid[y][z][x];
+	GroundType type = valueIn(tile.ground, 0);
+
+	if(tile.customWalls[0].buf || tile.customWalls[1].buf || tile.customWalls[2].buf || tile.customWalls[3].buf){
+	    wallsIndexes[wallsCounter] = (vec3i){x,y,z};
+	    wallsCounter++;
+	}
+	else if (y != 0 && type == texturedTile) {
+		wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
+		wallsCounter++;
+	}
+
       }
     }
-
-    fprintf(map, "\n");
   }
+
+  fprintf(map, "Walls used: %d", wallsCounter);
+  
+  for (int i = 0; i < wallsCounter; i++) {
+    fprintf(map, "\n");
+      
+    int x = wallsIndexes[i].x;
+    int y = wallsIndexes[i].y; 
+    int z = wallsIndexes[i].z;
+    
+    Tile tile = grid[y][z][x];
+
+    int sidesAvaible = 0;
+    
+    if(tile.customWalls[0].buf){
+      sidesAvaible++;
+    }
+
+    if(tile.customWalls[1].buf){
+      sidesAvaible++;
+    }
+
+    if(tile.customWalls[2].buf){
+      sidesAvaible++;
+    }
+
+    if(tile.customWalls[3].buf){
+      sidesAvaible++;
+    }
+    
+    fprintf(map, "%d %d %d %d %d %d ",x,y,z, grid[y][z][x].wallsTx, grid[y][z][x].ground, sidesAvaible);
+
+    for(int i1=0;i1<basicSideCounter;i1++){
+      if(tile.customWalls[i1].buf){
+	fprintf(map, "%d %d ",i1,tile.customWalls[i1].bufSize);
+
+	for(int i2=0;i2<tile.customWalls[i1].bufSize;i2++){
+	  fprintf(map, "%f ",tile.customWalls[i1].buf[i2]);
+	}
+	    
+      }
+    }
+  }
+
+  free(wallsIndexes);
 
   fprintf(map, "\nUsed models: %d\n",curModelsSize);
 	
@@ -5582,7 +6404,7 @@ void initSnowParticles(){
     }
 
     snowParticle = (Particle*)malloc(sizeof(Particle) * snowAmount);
-    snowMeshVertixes = malloc(sizeof(float) * 2 * 3 * snowAmount);
+    snowMeshVertixes = malloc(sizeof(float) * 2 * 3 * snowAmount);  
 
     for (int loop = 0; loop < snowAmount; loop++)
       {

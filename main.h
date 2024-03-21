@@ -53,11 +53,25 @@ typedef enum{
   wallTypeCounter,
 
   // roof should be always after wallTypeCounter
+} WallType;
+
+typedef enum{
   roofBlockT,
   stepsBlockT,
   
-  extendedWallTypeCounter
-} WallType;
+  tileBlocksCounter
+} TileBlocksTypes;
+
+typedef enum{
+  blocksMenuT,
+  objectsMenuT,
+  dialogEditorT,
+  dialogViewerT,
+  planeCreatorT,
+  menuTypesCounter
+} MenuTypes;
+
+const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps" };
 
 typedef struct{
   bool opened;
@@ -66,14 +80,6 @@ typedef struct{
 typedef enum{
   doorObj,
 } ObjectType;
-
-typedef float mat4[16];
-typedef float mat3[9];
-
-typedef struct{
-  vec3 normal;
-  float distance; 
-} Plane;
 
 typedef struct{
   GLuint VBO;
@@ -188,7 +194,8 @@ typedef struct{
   UIRect rect; // of menu background
   
   bool open;
-
+  MenuTypes type;
+  
   // iter with DialogEditorInputs
   VPair* vpairs;
   VPair* buttonsPairs;
@@ -227,7 +234,7 @@ typedef struct{
 typedef struct {
     VPair vpair;
 
-    WallType type;
+    TileBlocksTypes type;
 
     int tx;
 
@@ -236,10 +243,17 @@ typedef struct {
 } TileBlock;
 
 typedef struct{
-  int walls;
+  float* buf;
+  int bufSize;
+  bool alligned;
+} WallVertexBuffer;
+
+typedef struct{
+  // int walls;
   int wallsTx;
   
-  float* customWalls[4];
+  WallVertexBuffer customWalls[4];
+  
   TileBlock* block;
 
   // 1 byte - empty/net/textured
@@ -314,6 +328,22 @@ typedef struct{
   vec3 lb;
   vec3 rt;
 } Model;
+
+typedef struct{
+  int id;
+  int tx;
+  
+  Matrix mat;
+  
+  float w;
+  float h;
+
+  // -1 if not char type
+  int characterId;
+
+  vec3 lb;
+  vec3 rt;
+} Plane;
 
 typedef struct{
   char* name;
@@ -531,7 +561,7 @@ float* uiRectPoints(float x, float y, float w, float h);
 
 #define cyan 0.0f, 1.0f, 1.0f
 
-#define game "Doomer game"
+#define game "Doomer engine"
 #define texturesFolder "./assets/textures/"
 #define objsFolder "./assets/objs/"
 

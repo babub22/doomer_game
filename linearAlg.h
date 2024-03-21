@@ -93,4 +93,5 @@ Matrix lookAt(vec3 eye, vec3 center, vec3 up);
 
 #define vec3ToVec4(vec3, vec4) (vec4){ vec3.x, vec3.y, vec3.z, 1.0f} 
 
+#define map(x, in_min, in_max, out_min, out_max)(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
