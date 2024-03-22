@@ -3,6 +3,33 @@
 #define FAST_OBJ_IMPLEMENTATION
 #include "fast_obj.h"
 
+typedef struct{
+  GLuint tx;
+  
+  int categoryIndex;
+
+  int index1D;
+  int index2D; // where [from context][index2D]
+} Texture;
+
+typedef struct{
+  int index;
+  char* name;
+
+  int txWithThisCategorySize;
+} Category;
+
+#define generalContextText "[O] objects [B] blocks [T] textures [P] planes [1] wall"
+
+#define modelContextText "[F] unfocus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [T + Z] Y move; [G] scale]"
+
+#define blockContextText "[F] unfocus block [Right Click] place [LCtrl + R] rotate"
+
+#define selectedWallContextText "[Up] move wall from camera [Down] move wall to camera %s"
+
+//, itHasBlock ? "[LCtrl + H] aling to block" : ""
+
+
 typedef enum{
   top,
   bot,
@@ -68,6 +95,7 @@ typedef enum{
   dialogEditorT,
   dialogViewerT,
   planeCreatorT,
+  texturesMenuT,
   menuTypesCounter
 } MenuTypes;
 
@@ -105,22 +133,6 @@ typedef struct{
   vec3 Y;
   vec3 Z;
 } Camera;
-
-// to add new texture to game
-// add to this enum and to
-// ./texture/ .bmp image with
-// same number
-typedef enum{
-  woodPlanks,
-  metal,
-  ground,
-  redClo,
-  frozenGround,
-  pinTree,
-  treeCore,
-  solidColorTx,
-  texturesCounter
-} Texture;
 
 typedef enum{
   snow,
@@ -236,7 +248,7 @@ typedef struct {
 
     TileBlocksTypes type;
 
-    int tx;
+  int txIndex;
 
     float* vertexes;
     int vertexesSize;
@@ -265,6 +277,20 @@ typedef struct{
   float wallsPad[4];
   float groundLift;
 } Tile;
+
+typedef struct{
+  int side;
+  vec3i grid;
+  int txIndex;
+  Tile* tile;
+} WallMouseData;
+
+typedef struct{
+  Tile* tile;
+  vec2i grid;
+  vec3 intersection;
+  int groundInter;
+} TileMouseData;
 
 typedef enum{
   netTile = 1,
@@ -331,7 +357,8 @@ typedef struct{
 
 typedef struct{
   int id;
-  int tx;
+  
+  int txIndex;
   
   Matrix mat;
   
@@ -370,6 +397,30 @@ typedef enum{
   fromOver = 2,
 } GroundInter;
 
+typedef enum {
+  mouseModelT = 1,
+  mouseWallT,
+  mouseBlockT,
+  mousePlaneT,
+  mouseTileT,
+} MouseSelectionType;
+
+typedef enum {
+  mouseModelBrushT = 1,
+  mouseWallBrushT,
+  mouseTextureBrushT,
+  mouseTileBrushT,
+  mouseBlockBrushT,
+} MouseBrushType;
+
+const char* mouseBrushTypeStr[] = {
+  [mouseModelBrushT] = "Model",
+  [mouseWallBrushT] = "Wall",
+  [mouseTextureBrushT] = "Texture",
+  [mouseTileBrushT] = "Tile",
+  [mouseBlockBrushT] = "Block",
+};
+
 typedef struct{
   // ray of cursor
   vec2 screenPos;
@@ -378,40 +429,23 @@ typedef struct{
   bool clickL; // in this frame
 
   Side tileSide;
-
-  Side wallSide;
-  vec3i wallTile;
-  WallType wallType;
-  Texture wallTx;
-  // tile under selected wall
-
-  GroundInter groundInter;
   
   int wheel;
 
   vec3 rayDir;
 
   float interDist;
-  //  bool is 
-  
-  vec3 intersection;
-  vec2i gridIntersect;
-  
-  Tile* selectedTile;
-
-  WallType brush;
   
   float w, h; // of cursor
 
-  // resets to NULL every start of frame
-  Model* selectedModel;
-  Model* focusedModel;
-  // player focused to manipulate
-  // on key
+  MouseBrushType brushType;
+  void* brushThing;
 
-  // blocks
-  TileBlock* brushBlock;
-  //  TileBlock* brushBlock;
+  MouseSelectionType focusedType;
+  void* focusedThing;
+
+  MouseSelectionType selectedType;
+  void* selectedThing;
 
   vec2 cursor;
 } Mouse;
@@ -512,7 +546,6 @@ bool loadSave(char* saveName);
 
 bool saveMap(char *saveName);
 
-void resetMouse();
 void initSnowParticles();
 
 int lastCharPos(char* str, char ch);
@@ -535,6 +568,8 @@ int noSpacesAndNewLinesStrLen(char* str);
 
 GLuint loadShader(GLenum shaderType, const char* filename);
 
+SDL_Surface* IMG_Load_And_Flip_Vertical(char* path);
+
 void destroyCharacter(int id);
 void destroyDialogsFrom(Dialog* root);
 int deserializeDialogTree(Dialog* root, Dialog* parent, FILE *fp);
@@ -542,6 +577,10 @@ void serializeDialogTree(Dialog* root, FILE *fp);
 
 float* uiRectPercentage(float x, float y, float w, float h);
 float* uiRectPoints(float x, float y, float w, float h);
+
+TileBlock* constructNewBlock(int type);
+
+#define resetMouse() mouse.selectedType = 0; mouse.selectedThing = NULL; mouse.focusedType = 0; mouse.focusedThing = NULL; mouse.brushType = 0; mouse.brushThing = NULL;
 
 #define FPS 60
 
@@ -714,8 +753,6 @@ const int valuesOpposite[4][4] = {
   [right] = { 0, 10, 25, -1 }, 
   [left] = { 5, 15, 20, 1 }, 
 };
-
-
 
 
   /*

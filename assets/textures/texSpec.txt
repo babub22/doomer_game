@@ -1,0 +1,7 @@
+Wood.png Tex
+Kamen1.png Tex1
+Fundament.png Tex2
+Oboi1.png Tex3
+Bulocnaya.png Vyveski
+Zemlia1.png Tex5
+Beton.png Tex5

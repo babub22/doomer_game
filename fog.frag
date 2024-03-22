@@ -15,8 +15,8 @@ void main(void)
 
     vec4 diffuseTexel = texture2D(colorMap, TexCoord);
 
-    if(diffuseTexel.a < 0.1)
-        discard;
+  //  if(diffuseTexel.a < 0.1)
+//        discard;
 
     vec4 diffuseTerm  = diffuseTexel * attenuation + (.5 * (1.0-attenuation));
     diffuseTerm.a = diffuseTexel.a; 
