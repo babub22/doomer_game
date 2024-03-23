@@ -5,3 +5,6 @@ Oboi1.png Tex3
 Bulocnaya.png Vyveski
 Zemlia1.png Tex5
 Beton.png Tex5
+Kamen2.png Tex
+Sifer1.png Tex
+Okno+Kamen2.png Tex1

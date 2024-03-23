@@ -21,9 +21,13 @@ typedef struct{
 
 #define generalContextText "[O] objects [B] blocks [T] textures [P] planes [1] wall"
 
-#define modelContextText "[F] unfocus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [T + Z] Y move; [G] scale]"
+#define modelContextText "[F] unfocus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [Z] Y move; [G] scale]"
 
-#define blockContextText "[F] unfocus block [Right Click] place [LCtrl + R] rotate"
+#define blockContextText "[Right Click] place [LCtrl + R] rotate"
+
+#define planeContextText "[F] unfocus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [Z] Y move; [G + Up/Down/Left/Right] width/height]"
+
+#define tileContextText "[Up] move tile up [Down] move tile down"
 
 #define selectedWallContextText "[Up] move wall from camera [Down] move wall to camera %s"
 
@@ -243,25 +247,34 @@ typedef struct{
   AnimTimer anim;
 } Object;
 
+typedef struct Tile Tile;
+
 typedef struct {
-    VPair vpair;
+  VPair vpair;
 
-    TileBlocksTypes type;
-
+  TileBlocksTypes type;
+  
+  Tile* tile;
+  
+  Matrix mat;
+  
+  int rotateAngle;
+  
   int txIndex;
 
-    float* vertexes;
-    int vertexesSize;
+  float* vertexes;
+  int vertexesSize;
 } TileBlock;
 
 typedef struct{
   float* buf;
   int bufSize;
+  
   bool alligned;
+  bool txHidden;
 } WallVertexBuffer;
 
-typedef struct{
-  // int walls;
+struct Tile{
   int wallsTx;
   
   WallVertexBuffer customWalls[4];
@@ -276,7 +289,7 @@ typedef struct{
 
   float wallsPad[4];
   float groundLift;
-} Tile;
+};
 
 typedef struct{
   int side;
@@ -481,7 +494,7 @@ typedef enum{
 } ElementType;
 
 typedef enum{
-  ROTATE_X,
+  ROTATE_X = 1,
   ROTATE_Y,
   ROTATE_Z,
   TRANSFORM_XY,
@@ -578,7 +591,7 @@ void serializeDialogTree(Dialog* root, FILE *fp);
 float* uiRectPercentage(float x, float y, float w, float h);
 float* uiRectPoints(float x, float y, float w, float h);
 
-TileBlock* constructNewBlock(int type);
+TileBlock* constructNewBlock(int type, int angle);
 
 #define resetMouse() mouse.selectedType = 0; mouse.selectedThing = NULL; mouse.focusedType = 0; mouse.focusedThing = NULL; mouse.brushType = 0; mouse.brushThing = NULL;
 
@@ -628,7 +641,7 @@ const char sdlScancodesToACII[] = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', [55]='.'
 };
 
-const char* manipulationModeStr[] = { "Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };
+const char* manipulationModeStr[] = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };
 
 // from '!' to 'z' in ASCII
 const vec2i englLettersMap[] = {
@@ -754,12 +767,38 @@ const int valuesOpposite[4][4] = {
   [left] = { 5, 15, 20, 1 }, 
 };
 
+const Side mappedSideToAngleAgainstClock[4][4] = {
+  [top] = {
+    [0] = top, [1] = left, [2] = bot, [3] = right
+  },
+  [bot] = {
+    [0] = bot, [1] = left, [2] = top, [3] = right
+  },
+  [left] = {
+    [0] = right, [1] = top, [2] = left, [3] = bot
+  },
+  [right] = {
+    [0] = right, [1] = bot, [2] = left, [3] = top
+  },
+};
+
+// Width of wall on Right/Left
+const int rightWallMap[2][6] = {
+  [0] = { 0,10,25, 3,13,28 }, // bot-top // first 3 buf index next 3 - uv last sign of value
+  [1] = { 7,17,22, 8,18,23 } // left-right
+};
+
+const int leftWallMap[2][6] = {
+  [0] = { 5,15,20, 8,18,23 }, // bot-top // first 3 buf index next 3 - uv last sign of value
+  [1] = { 2,12,27, 3,13,28 } // left-right
+};
+
 
   /*
     GL_QUADS order
 
   glTexCoord2f(0.0f, 1.0f); glVertex3d(pos[0].x, pos[0].y, pos[0].z);
   glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
-  glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);
+  glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);S
   glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
    */

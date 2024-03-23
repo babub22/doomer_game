@@ -10,16 +10,17 @@ in vec2 TexCoord;
 
 void main(void)
 {
-    float dist = length(vertexToPlayer);
-    float attenuation = clamp((radius - dist) / radius, 0.0, 1.0);
+vec4 diffuseTexel = texture2D(colorMap, TexCoord);
+float dist = length(vertexToPlayer);
+float attenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
-    vec4 diffuseTexel = texture2D(colorMap, TexCoord);
 
-  //  if(diffuseTexel.a < 0.1)
-//        discard;
+if(diffuseTexel.a == 0.0){
+		  discard;
+}
 
-    vec4 diffuseTerm  = diffuseTexel * attenuation + (.5 * (1.0-attenuation));
-    diffuseTerm.a = diffuseTexel.a; 
+vec4 diffuseTerm  = diffuseTexel * attenuation + (.5 * (1.0-attenuation));
+diffuseTerm.a = diffuseTexel.a; 
 
-    gl_FragColor = diffuseTerm;
+gl_FragColor = diffuseTexel;
 }
