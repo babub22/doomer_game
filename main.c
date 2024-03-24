@@ -123,9 +123,9 @@ float consoleH = 1.0f - (1.0f * .05f);
 
 EnviromentalConfig enviromental = { true, true };
 
-const float wallD = 0.0012f;
+const float wallD = 0.05f;
 
-const Sizes wallsSizes[wallTypeCounter+1] = { {0}, {bBlockW,bBlockH,bBlockD}, {bBlockW,bBlockH * 0.4f,bBlockD}, {bBlockW,bBlockH,bBlockD}, {bBlockW,bBlockH,bBlockD}};
+const Sizes wallsSizes[wallTypeCounter+1] = { {0}, {bBlockW * 1,bBlockH * 1,bBlockD * 1}, {bBlockW * 1,bBlockH * 1 * 0.4f,bBlockD * 1}, {bBlockW * 1,bBlockH * 1,bBlockD * 1}, {bBlockW * 1,bBlockH * 1,bBlockD * 1}};
 
 const float doorH = bBlockH * 0.85f;
 const float doorPad =  bBlockW / 4;
@@ -1079,14 +1079,15 @@ int main(int argc, char* argv[]) {
     
     glEnable(GL_TEXTURE_2D);
     glShadeModel(GL_SMOOTH);
-    glClearDepth(1.0f);
+    //glClearDepth(1.0f);
     glEnable(GL_DEPTH_TEST);  
     glDepthFunc(GL_LEQUAL);
-
+    //  glDepthMask(GL_FALSE);
+    
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
 
-    glEnable(GL_MULTISAMPLE);  
+    //    glEnable(GL_MULTISAMPLE);  
   }
 
   // load purple black texture to detect mistakes
@@ -1523,7 +1524,7 @@ int main(int argc, char* argv[]) {
     deltaTime = (double)(currentFrame - lastFrame) / CLOCKS_PER_SEC;
     lastFrame = currentFrame;
 
-    cameraSpeed = 0.5f * deltaTime;
+    cameraSpeed = 10.0f * deltaTime;
 
     SDL_Event event;
 
@@ -3287,7 +3288,7 @@ int main(int argc, char* argv[]) {
 
     // send proj and view mat to shader
     {
-      Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 10.0f);
+      Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 100.0f);
       glUniformMatrix4fv(projUni, 1, GL_FALSE, proj.m);
 
       Matrix view =  IDENTITY_MATRIX;
@@ -3837,30 +3838,59 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(customWallV.VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, customWallV.VBO);
 
-		glBufferData(GL_ARRAY_BUFFER, grid[y][z][x].customWalls[side].bufSize * sizeof(float) * 5,  grid[y][z][x].customWalls[side].buf, GL_STATIC_DRAW);
-
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
-		glEnableVertexAttribArray(0);
-
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-		glEnableVertexAttribArray(1);
 		Matrix out = IDENTITY_MATRIX;
 
 		// translate without mult
-		if(side == left || side == right){
-		  out.m[12] = tile.x + grid[y][z][x].wallsPad[side];
-		  out.m[13] = tile.y;
-		  out.m[14] = tile.z;
-		}else if(side == bot || side == top){
-		  out.m[12] = tile.x;
-		  out.m[13] = tile.y;
-		  out.m[14] = tile.z + grid[y][z][x].wallsPad[side];
+		if (side == left || side == right) {
+			out.m[12] = tile.x + grid[y][z][x].wallsPad[side];
+			out.m[13] = tile.y;
+			out.m[14] = tile.z;
 		}
-	      
+		else if (side == bot || side == top) {
+			out.m[12] = tile.x;
+			out.m[13] = tile.y;
+			out.m[14] = tile.z + grid[y][z][x].wallsPad[side];
+		}
+
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 
+		float d = 1;
+		float h = 2;
+		float w = 1;
 
-		glDrawArrays(GL_TRIANGLES, 0, grid[y][z][x].customWalls[side].bufSize / 5); // 5 - num of el vec3 + uv 
+		float* wal = wallBySide(top,0);
+
+		//600
+
+		int txInn = 0;
+		for(int r=0;r<150;r+=30){
+		  float blockSize[] = {
+		    wal[r], wal[r+1], wal[r+2], wal[r+3], wal[r+4],
+		    wal[r+5], wal[r+6], wal[r+7], wal[r+8], wal[r+9],
+		    wal[r+10], wal[r+11], wal[r+12], wal[r+13], wal[r+14],
+
+		    wal[r+15], wal[r+16], wal[r+17], wal[r+18], wal[r+19],
+		    wal[r+20], wal[r+21], wal[r+22], wal[r+23], wal[r+24],
+		    wal[r+25], wal[r+26], wal[r+27], wal[r+28], wal[r+29],
+		  };
+
+		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[txInn].tx);
+		  
+		  glBufferData(GL_ARRAY_BUFFER, sizeof(blockSize), blockSize, GL_STATIC_DRAW);
+		
+		  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+		  glEnableVertexAttribArray(0);
+		
+		  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+		  glEnableVertexAttribArray(1);
+		
+		  glDrawArrays(GL_TRIANGLES, 0, 6); // 5 - num of el vec3 + uv
+		  txInn++;
+		}
+
+		  
+		free(wal);
+
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -4216,6 +4246,14 @@ int main(int argc, char* argv[]) {
 	  if(mouse.clickR){
 	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 
+	    vec2i curTile = tileData->grid;
+	    Side selectedSide = mouse.tileSide;
+
+	    grid[curFloor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].buf = malloc(sizeof(float) * 6 * 5);
+	    grid[curFloor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].bufSize = 6 * 5;
+	    memcpy(grid[curFloor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].buf, customWallTemp[selectedSide], sizeof(float) * 6 * 5);
+
+	    /*
 	    if(tileData->tile->customWalls[mouse.tileSide].buf == NULL) {
 	      bool oppositeExtend[4] = { 0 };
 
@@ -4225,8 +4263,6 @@ int main(int argc, char* argv[]) {
 	      Side oppositeSide;
 	      vec2i oppositeTile;
 
-	      Side selectedSide = mouse.tileSide;
-	      vec2i curTile = tileData->grid;
 
 	      bool oppositeExists = oppositeTileTo(tileData->grid, mouse.tileSide, &oppositeTile, &oppositeSide);
 	    
@@ -4274,11 +4310,6 @@ int main(int argc, char* argv[]) {
 	      vec2i tempOppositeTile = {0};
 		  
 	      setIn(grid[curFloor][curTile.z][curTile.x].wallsTx, selectedSide, 0); // first texture
-
-	      grid[curFloor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].buf = malloc(sizeof(float) * 6 * 5);
-	      grid[curFloor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].bufSize = 6 * 5;
-	      memcpy(grid[curFloor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].buf, customWallTemp[selectedSide], sizeof(float) * 6 * 5);
-		  
 	      if(oppositeExists){
 		grid[curFloor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf = malloc(sizeof(float) * 6 * 5);
 		grid[curFloor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].bufSize = 6 * 5;
@@ -4305,7 +4336,7 @@ int main(int argc, char* argv[]) {
 	      
 	      }
 	    
-	    }
+	    }*/
 	  }
 	}
       }
@@ -5901,54 +5932,45 @@ vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tile
 }
 
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b){
-  glActiveTexture(solidColorTx);
-  glBindTexture(GL_TEXTURE_2D, solidColorTx);
-  setSolidColorTx(r, g, b, 1.0f);
-  
-  glBegin(GL_LINES);
+	float verts[] = { 0.0f, 0.0f , 0.0f,
+	  0.0f, 0.0f + h, 0.0f,
 
-  glVertex3f(pos.x, pos.y, pos.z);
-  glVertex3f(pos.x, pos.y + h, pos.z);
+	  0.0f ,0.0f , 0.0f,
+	  0.0f + w,0.0f , 0.0f,
 
-  glVertex3f(pos.x ,pos.y, pos.z);
-  glVertex3f(pos.x + w,pos.y, pos.z);
+	  0.0f ,0.0f , 0.0f,
+	  0.0f ,0.0f , 0.0f + d,
 
-  glVertex3f(pos.x ,pos.y, pos.z);
-  glVertex3f(pos.x ,pos.y, pos.z+d);
+	  0.0f ,0.0f + h, 0.0f,
+	  0.0f + w,0.0f + h, 0.0f,
 
-  glVertex3f(pos.x ,pos.y+ h, pos.z);
-  glVertex3f(pos.x + w,pos.y+ h, pos.z);
+	  0.0f ,0.0f + h, 0.0f,
+	  0.0f ,0.0f + h, 0.0f + d,
 
-  glVertex3f(pos.x ,pos.y+h, pos.z);
-  glVertex3f(pos.x ,pos.y+h, pos.z+d);
+	  0.0f + w,0.0f + h, 0.0f,
+	  0.0f + w,0.0f , 0.0f,
 
-  glVertex3f(pos.x + w,pos.y+h, pos.z);
-  glVertex3f(pos.x + w,pos.y, pos.z);
+	  0.0f ,0.0f + h, 0.0f + d,
+	  0.0f ,0.0f , 0.0f + d,
 
-  glVertex3f(pos.x ,pos.y+h, pos.z+d);
-  glVertex3f(pos.x ,pos.y, pos.z+d);
+	  0.0f ,0.0f + h, 0.0f + d,
+	  0.0f + w,0.0f + h, 0.0f + d,
 
-  glVertex3f(pos.x ,pos.y+h, pos.z+d);
-  glVertex3f(pos.x + w,pos.y+h, pos.z+d);
+	  0.0f + w,0.0f + h, 0.0f,
+	  0.0f + w,0.0f + h, 0.0f + d,
 
-  glVertex3f(pos.x + w,pos.y+h, pos.z);
-  glVertex3f(pos.x + w,pos.y+h, pos.z+d);
+	  0.0f + w,0.0f + h, 0.0f + d,
+	  0.0f + w,0.0f , 0.0f + d,
 
-  glVertex3f(pos.x + w,pos.y+h, pos.z+d);
-  glVertex3f(pos.x + w,pos.y, pos.z+d);
-  
-  glVertex3f(pos.x + w,pos.y+h, pos.z);
-  glVertex3f(pos.x + w,pos.y+h, pos.z+d);
+	  0.0f + w,0.0f + h, 0.0f,
+	  0.0f + w,0.0f + h, 0.0f + d,
 
-  glVertex3f(pos.x ,pos.y, pos.z+d);
-  glVertex3f(pos.x + w,pos.y, pos.z+d);
-  
-  glVertex3f(pos.x + w,pos.y, pos.z);
-  glVertex3f(pos.x + w,pos.y, pos.z+d);  
+	  0.0f ,0.0f , 0.0f + d,
+	  0.0f + w,0.0f , 0.0f + d,
 
-  glBindTexture(GL_TEXTURE_2D, 0);
-  
-  glEnd();
+	  0.0f + w,0.0f , 0.0f,
+	  0.0f + w,0.0f , 0.0f + d
+	};
 }
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist) {
@@ -6306,8 +6328,51 @@ void wallsLoadVAOandVBO(){
       glGenBuffers(1, &wallMeshes[side][type-1].VBO);
       glBindBuffer(GL_ARRAY_BUFFER, wallMeshes[side][type-1].VBO);
 
+      float w = 1;
+      float h = 2;
+      float d = 1;
+
       if(type == wallT){
-	float verts[] = {
+		  float verts[] = { 0.0f, 0.0f , 0.0f,
+		0.0f, 0.0f + h, 0.0f,
+
+		0.0f ,0.0f , 0.0f,
+		0.0f + w,0.0f , 0.0f,
+
+		0.0f ,0.0f , 0.0f,
+		0.0f ,0.0f , 0.0f + d,
+
+		0.0f ,0.0f + h, 0.0f,
+		0.0f + w,0.0f + h, 0.0f,
+
+		0.0f ,0.0f + h, 0.0f,
+		0.0f ,0.0f + h, 0.0f + d,
+
+		0.0f + w,0.0f + h, 0.0f,
+		0.0f + w,0.0f , 0.0f,
+
+		0.0f ,0.0f + h, 0.0f + d,
+		0.0f ,0.0f , 0.0f + d,
+
+		0.0f ,0.0f + h, 0.0f + d,
+		0.0f + w,0.0f + h, 0.0f + d,
+
+		0.0f + w,0.0f + h, 0.0f,
+		0.0f + w,0.0f + h, 0.0f + d,
+
+		0.0f + w,0.0f + h, 0.0f + d,
+		0.0f + w,0.0f , 0.0f + d,
+
+		0.0f + w,0.0f + h, 0.0f,
+		0.0f + w,0.0f + h, 0.0f + d,
+
+		0.0f ,0.0f , 0.0f + d,
+		0.0f + w,0.0f , 0.0f + d,
+
+		0.0f + w,0.0f , 0.0f,
+		0.0f + w,0.0f , 0.0f + d
+		  };
+	    /*	float verts[] = {
 	  argVec3(wallPos[0]), 0.0f, 1.0f,
 	  argVec3(wallPos[1]), 1.0f, 1.0f,
 	  argVec3(wallPos[3]), 0.0f, 0.0f, 
@@ -6315,7 +6380,11 @@ void wallsLoadVAOandVBO(){
 	  argVec3(wallPos[1]), 1.0f, 1.0f,
 	  argVec3(wallPos[2]), 1.0f, 0.0f, 
 	  argVec3(wallPos[3]), 0.0f, 0.0f,
-	};
+
+	  argVec3(wallPos[1]), 1.0f, 1.0f,
+	  argVec3(wallPos[2]), 1.0f, 0.0f, 
+	  argVec3(wallPos[3]), 0.0f, 0.0f,
+	};*/
 
 	if(!customWallTemp[side]){
 	  customWallTemp[side] = malloc(sizeof(verts));
@@ -7739,7 +7808,7 @@ TileBlock* constructNewBlock(int type, int angle){
     newBlock->mat.m[12] = tile.x;
     newBlock->mat.m[13] = tile.y;
     newBlock->mat.m[14] = tile.z;
-
+	 
     newBlock->tile = tileData->tile;
   }
   
@@ -7750,4 +7819,224 @@ TileBlock* constructNewBlock(int type, int angle){
   memcpy(newBlock->vertexes, tileBlocksTempl[type].vertexes, newBlock->vertexesSize * sizeof(float) * 5);
 
   return newBlock;
+}
+
+float* wallBySide(Side side, float thick){
+  float* wall = malloc(600);
+
+  float w = 1;
+  float d = 1;
+  float h = 2;
+
+  
+  float t = (float)1/8;
+  
+  if(thick != 0.0f){
+    //   t = thick;
+  }
+  
+  if(side == left){
+    w = t;
+		  
+    float verts[] = {
+      // top
+      -t, h, 0.0f,           0.0f, 1.0f,
+      w, h, 0.0f,     t, 1.0f,
+      -t,h,d,          0.0f, 0.0f,
+
+      w, h, 0.0f,     t, 1.0f,
+      -t,h,d,          0.0f, 0.0f,
+      w,h,d,          t, 0.0f,
+
+      // back
+      -t, h, 0.0f,     0.0f, 1.0f,
+      w, h, 0.0f,     t, 1.0f,
+      -t, 0.0f , 0.0f, 0.0f, 0.0f,
+
+      w, h, 0.0f,     t, 1.0f,
+      -t, 0.0f , 0.0f, 0.0f, 0.0f,
+      w, 0.0f , 0.0f, t, 0.0f,
+
+      //left
+      -t, 0.0f, 0.0f, 0.0f, 0.0f,
+      -t, h, 0.0f,    0.0f, 1.0f,
+      -t, h , d,      1.0f, 1.0f,
+
+      -t, h, d,       1.0f, 1.0f,
+      -t, 0.0f, 0.0f, 0.0f, 0.0f,
+      -t, 0.0f , d,   1.0f, 0.0f,
+
+      // right
+      w, 0.0f, 0.0f,  0.0f, 0.0f,
+      w, h, 0.0f,     0.0f, 1.0f,
+      w, h , d,       1.0f, 1.0f,
+
+      w, h, d,       1.0f, 1.0f,
+      w, 0.0f, 0.0f, 0.0f, 0.0f,
+      w, 0.0f , d,   1.0f, 0.0f,
+
+      // front
+      -t, h, d,       0.0f, 1.0f,
+      w, h, d,       t, 1.0f,
+      -t, 0.0f , d,   0.0f, 0.0f,
+
+      w, h, d,       t, 1.0f,
+      -t, 0.0f , d,   0.0f, 0.0f,
+      w, 0.0f , d,   t, 0.0f
+    };
+
+    memcpy(wall, verts, sizeof(verts));
+  }else if(side == right){
+	float verts[] = {
+		// top
+	        w - t, h, 0.0f,     0.0f, 1.0f,
+		w + t, h, 0.0f,     1.0f, t,
+		w - t,h,d,          0.0f, 0.0f,
+
+		w + t, h, 0.0f,     t, 1.0f,
+		w - t,h,d,          0.0f, 0.0f,
+		w + t,h,d,          t, 0.0f,
+
+		// back
+		w - t, h, 0.0f,     0.0f, 1.0f,
+		w + t, h, 0.0f,     t, 1.0f,
+		w - t, 0.0f , 0.0f, 0.0f, 0.0f,
+
+		w + t, h, 0.0f,     t, 1.0f,
+		w - t, 0.0f , 0.0f, 0.0f, 0.0f,
+		w + t, 0.0f , 0.0f, t, 0.0f,
+
+		//left
+		w - t, 0.0f, 0.0f, 0.0f, 0.0f,
+		w - t, h, 0.0f,    0.0f, 1.0f,
+		w - t, h , d,      1.0f, 1.0f,
+
+		w - t, h, d,       1.0f, 1.0f,
+		w - t, 0.0f, 0.0f, 0.0f, 0.0f,
+		w - t, 0.0f , d,   1.0f, 0.0f,
+
+		// right
+		w + t, 0.0f, 0.0f,  0.0f, 0.0f,
+		w + t, h, 0.0f,     0.0f, 1.0f,
+		w + t, h , d,       1.0f, 1.0f,
+
+		w + t, h, d,       1.0f, 1.0f,
+		w + t, 0.0f, 0.0f, 0.0f, 0.0f,
+		w + t, 0.0f , d,   1.0f, 0.0f,
+
+		// front
+		w - t, h, d,       0.0f, 1.0f,
+		w + t, h, d,       t, 1.0f,
+		w - t, 0.0f , d,   0.0f, 0.0f,
+
+		w + t, h, d,       t, 1.0f,
+		w - t, 0.0f , d,   0.0f, 0.0f,
+		w + t, 0.0f , d,   t, 0.0f
+	};
+
+	memcpy(wall, verts, sizeof(verts));
+  }else if(side == top){
+    d = t;
+    	
+	float verts[] = {
+		// top
+		0.0f, h, -t, 0.0f, 0.0f,
+		w, h, -t,    t, 0.0f,
+		0.0f,h, d,   0.0f, 1.0f,
+
+		w, h, -t,    t, 0.0f,
+		0.0f,h,d,    0.0f, 1.0f,
+		w,h,d,       t, 1.0f,
+
+		// back
+		0.0f, h, -t,      0.0f, 1.0f,
+		w, h, -t,         1.0f, 1.0f,
+		0.0f, 0.0f , -t,  0.0f, 0.0f,
+
+		w, h, -t,         1.0f, 1.0f,
+		0.0f, 0.0f , -t,  0.0f, 0.0f,
+		w, 0.0f , -t,     1.0f, 0.0f,
+
+		//left
+		0.0f, 0.0f, -t,  0.0f, 0.0f,
+		0.0f, h, -t,     0.0f, 1.0f,
+		0.0f, h , d,     t, 1.0f,
+
+		0.0f, h, d,      t, 1.0f,
+		0.0f, 0.0f, -t,  0.0f, 0.0f,
+		0.0f, 0.0f , d,  t, 0.0f,
+
+		// right
+		w, 0.0f, -t,     0.0f, 0.0f,
+		w, h, -t,        0.0f, 1.0f,
+		w, h , d,        t, 1.0f,
+
+		w, h, d,         t, 1.0f,
+		w, 0.0f, -t,     0.0f, 0.0f,
+		w, 0.0f , d,     t, 0.0f,
+
+		// front
+		0.0f, h, d,      0.0f, 1.0f,
+		w, h, d,         1.0f, 1.0f,
+		0.0f, 0.0f , d,  0.0f, 0.0f,
+
+		w, h, d,         1.0f, 1.0f,
+		0.0f, 0.0f , d,  0.0f, 0.0f,
+		w, 0.0f , d,     1.0f, 0.0f
+	};
+
+      memcpy(wall, verts, sizeof(verts));
+  }else if(side == bot){
+        	
+	float verts[] = {
+		// top
+		0.0f, h, d-t, 0.0f, 1.0f,
+		w, h, d-t,    t, 1.0f,
+		0.0f,h, d+t,   0.0f, 0.0f,
+
+		w, h, d-t,    t, 1.0f,
+		0.0f,h,d+t,    0.0f, 0.0f,
+		w,h,d+t,       t, 0.0f,
+
+		// back
+		0.0f, h, d-t,      0.0f, 1.0f,
+		w, h, d-t,         1.0f, 1.0f,
+		0.0f, 0.0f , d-t,  0.0f, 0.0f,
+
+		w, h, d-t,         1.0f, 1.0f,
+		0.0f, 0.0f , d-t,  0.0f, 0.0f,
+		w, 0.0f , d-t,     1.0f, 0.0f,
+
+		//left
+		0.0f, 0.0f, d-t,  0.0f, 0.0f,
+		0.0f, h, d-t,     0.0f, 1.0f,
+		0.0f, h , d+t,     t, 1.0f,
+
+		0.0f, h, d+t,      t, 1.0f,
+		0.0f, 0.0f, d-t,  0.0f, 0.0f,
+		0.0f, 0.0f , d+t,  t, 0.0f,
+
+		// right
+		w, 0.0f, d-t,     0.0f, 0.0f,
+		w, h, d-t,        0.0f, 1.0f,
+		w, h , d+t,        t, 1.0f,
+
+		w, h, d+t,         t, 1.0f,
+		w, 0.0f, d-t,     0.0f, 0.0f,
+		w, 0.0f , d+t,     t, 0.0f,
+
+		// front
+		0.0f, h, d+t,      0.0f, 1.0f,
+		w, h, d+t,         1.0f, 1.0f,
+		0.0f, 0.0f , d+t,  0.0f, 0.0f,
+
+		w, h, d+t,         1.0f, 1.0f,
+		0.0f, 0.0f , d+t,  0.0f, 0.0f,
+		w, 0.0f , d+t,     1.0f, 0.0f
+	};
+
+      memcpy(wall, verts, sizeof(verts));
+  };
+
+  return wall; 
 }

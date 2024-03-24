@@ -617,11 +617,11 @@ TileBlock* constructNewBlock(int type, int angle);
 #define texturesFolder "./assets/textures/"
 #define objsFolder "./assets/objs/"
 
-#define speed 0.001f/2
+#define speed 100.0f
 
-#define bBlockW 0.1f
-#define bBlockD 0.1f
-#define bBlockH 0.2f
+#define bBlockW (1)
+#define bBlockD (1)
+#define bBlockH (2)
 
 #define floorH bBlockH / 2
 
@@ -634,6 +634,8 @@ TileBlock* constructNewBlock(int type, int angle);
 #define dialogEditorAnswerInputLimit 63
 
 #define selTileBorderH 0.001f
+
+float* wallBySide(Side side, float thick);
 
 #define dialogEditorCharNameTitle "Char name: "
 
