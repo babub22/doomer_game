@@ -22,5 +22,6 @@ if(diffuseTexel.a == 0.0){
 vec4 diffuseTerm  = diffuseTexel * attenuation + (.5 * (1.0-attenuation));
 diffuseTerm.a = diffuseTexel.a; 
 
-gl_FragColor = diffuseTexel;
+gl_FragColor = diffuseTerm;
+//gl_FragColor = vec4(vec3(gl_FragCoord.z), 1.0);
 }

@@ -21,15 +21,15 @@ typedef struct{
 
 #define generalContextText "[O] objects [B] blocks [T] textures [P] planes [1] wall"
 
-#define modelContextText "[F] unfocus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [Z] Y move; [G] scale]"
+#define modelContextText "[F] focus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [Z] Y move; [G] scale]"
 
-#define blockContextText "[Right Click] place [LCtrl + R] rotate"
+#define blockContextText "[LCtrl + R] rotate [Up/Down] + [Ctrl] change block geometry"
 
-#define planeContextText "[F] unfocus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [Z] Y move; [G + Up/Down/Left/Right] width/height]"
+#define planeContextText "[F] focus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [Z] Y move; [G + Up/Down/Left/Right] width/height]"
 
 #define tileContextText "[Up] move tile up [Down] move tile down"
 
-#define selectedWallContextText "[Up] move wall from camera [Down] move wall to camera %s"
+#define selectedWallContextText "[Right/Left]+[Ctrl] - +/- wall width [Up] move wall from [Down/Up] move wall from/to camera %s"
 
 //, itHasBlock ? "[LCtrl + H] aling to block" : ""
 

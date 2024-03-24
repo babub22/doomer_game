@@ -5,13 +5,15 @@
 GLuint textVBO;
 GLuint textVAO;
 
+bool hints = true;
+
 char curSaveName[CONSOLE_BUF_CAP];
 
 Texture* loadedTextures1D;
 Texture** loadedTextures2D;
 char** loadedTexturesNames; // iter same as tex1D
 int loadedTexturesCategoryCounter;
-Category* loadedTexturesCategories;
+Category* loadedTexturesCategories; 
 int loadedTexturesCounter;
 int longestTextureNameLen;
 int longestTextureCategoryLen;
@@ -1830,9 +1832,17 @@ int main(int argc, char* argv[]) {
 	    console.open = true;
 	  
 	    break;
-	  }
+	  }	 case(SDL_SCANCODE_F2):{
+		   hints = !hints;
+	  
+		   break;
+		 }	  case(SDL_SCANCODE_F3):{
+			    enviromental.snow = !enviromental.snow;
+	  
+			    break;
+			  }
 	  case(SDL_SCANCODE_UP): {
-	    if(manipulationMode != 0){
+	    if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
 	      Matrix* mat = -1;
 	      bool itPlane = false;
 
@@ -1913,8 +1923,14 @@ int main(int argc, char* argv[]) {
 	      default: break;
 	      }
 	    }
-	    else if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
-	      TileBlock* block = (TileBlock*) mouse.brushThing;
+	    else if(mouse.brushType == mouseBlockBrushT || mouse.selectedType == mouseBlockT){
+	      TileBlock* block = NULL;
+
+	      if(mouse.brushType == mouseBlockBrushT){
+		block = (TileBlock*) mouse.brushThing;
+	      }else if(mouse.selectedType == mouseBlockT){
+		block = (TileBlock*) mouse.selectedThing;
+	      }
 
 	      if(block->type == roofBlockT) { 
 		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL); 
@@ -2042,7 +2058,7 @@ int main(int argc, char* argv[]) {
 	  }
 	  case(SDL_SCANCODE_DOWN): {
 	    // TODO: if intersected tile + wall will work only tile changer
-	    if(manipulationMode != 0){
+	    if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
 	      Matrix* mat = -1;
 	      bool isPlane = false;
 	      Model* model = NULL;
@@ -2273,8 +2289,8 @@ int main(int argc, char* argv[]) {
 	  case(SDL_SCANCODE_LEFT): {
 	    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 	    
-	    if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
-	      Matrix* mat = -1;
+	    if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){  
+	      Matrix* mat = -1; 
 	      bool isPlane = false;
 	      Model* model = NULL;
 
@@ -2728,7 +2744,6 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (block && block->type == roofBlockT) {
-		  printf("%s \n", sidesToStr[selSide]);
 		  const Side mappedSideToAngleAgainstClock[4][4] = {
 		    [top] = {
 		      [0] = top, [1] = left, [2] = bot, [3] = right
@@ -2986,6 +3001,12 @@ int main(int argc, char* argv[]) {
 		  }
 		}
 
+	      }else if (mouse.selectedType == mouseTileT) {
+		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
+		TileMouseData* data = (TileMouseData*)mouse.selectedThing;
+
+		setIn(data->tile->ground, data->groundInter, 0);
+		setIn(data->tile->ground, 0, netTile);
 	      }else if (mouse.selectedType == mouseBlockT) {
 		TileBlock* data = (TileBlock*)mouse.selectedThing;
 
@@ -3329,8 +3350,6 @@ int main(int argc, char* argv[]) {
     {
       glBindBuffer(GL_ARRAY_BUFFER, netTileVBO);
       glBindVertexArray(netTileVAO);
-
-      printf("%f \n", manipulationStep);
       
       for (int x = 0; x < gridX; x++) {
 	for (int z = 0; z < gridZ; z++){
@@ -3715,8 +3734,8 @@ int main(int argc, char* argv[]) {
 	      minDistToCamera = intersectionDistance;
 	    }
 	    
-	    glBindVertexArray(grid[y][z][x].block->vpair.VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, grid[y][z][x].block->vpair.VBO);
+	    glBindVertexArray(tileBlocksTempl[grid[y][z][x].block->type].vpair.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, tileBlocksTempl[grid[y][z][x].block->type].vpair.VBO);
 		
 	    glActiveTexture(loadedTextures1D[grid[y][z][x].block->txIndex].tx);
 	    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[grid[y][z][x].block->txIndex].tx);
@@ -3731,7 +3750,7 @@ int main(int argc, char* argv[]) {
 	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	    glEnableVertexAttribArray(1);
 
-	    glDrawArrays(GL_TRIANGLES, 0, grid[y][z][x].block->vertexesSize);
+	    glDrawArrays(GL_TRIANGLES, 0, grid[y][z][x].block->vertexesSize); 
 	  
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
 	    glBindVertexArray(0);
@@ -3892,7 +3911,8 @@ int main(int argc, char* argv[]) {
 		
 		TileMouseData* data = malloc(sizeof(TileMouseData));
 
-		data->tile = &grid[curFloor][z][x];
+		data->tile = &grid[y][z][x];
+		
 		data->grid = (vec2i){x,z};
 		data->intersection = intersection;
 		data->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
@@ -4409,7 +4429,7 @@ int main(int argc, char* argv[]) {
     glUseProgram(hudShader);
 
     // aim render
-    if(!curMenu){
+    if(!curMenu && hints){
       glBindVertexArray(hudRect.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
 
@@ -4446,7 +4466,7 @@ int main(int argc, char* argv[]) {
     float baseYPad = 0.0f;
     
     // brush handle usage
-    if((mouse.brushType || mouse.brushThing) && !curMenu){
+    if((mouse.brushType || mouse.brushThing) && !curMenu && hints){
       baseYPad = letterH;
       
       char buf[130];
@@ -4534,7 +4554,7 @@ int main(int argc, char* argv[]) {
     }
 
     // render selected or focused thing
-    if(mouse.focusedThing && !curMenu){
+    if(mouse.focusedThing && !curMenu && hints){
       char buf[164];
       
       switch(mouse.focusedType){
@@ -4555,7 +4575,7 @@ int main(int argc, char* argv[]) {
       }
 
       renderText(buf, -1.0f, 1.0f - baseYPad, 1.0f);
-    }else if(mouse.selectedThing && !curMenu){
+    }else if(mouse.selectedThing && !curMenu && hints){
       char buf[164];
 
       switch(mouse.selectedType){
@@ -4585,15 +4605,22 @@ int main(int argc, char* argv[]) {
 	   break;
 	 }case(mouseTileT):{
 	    TileMouseData* data = (TileMouseData*)mouse.selectedThing;
+
+		int tileTx = valueIn(data->tile->ground, data->groundInter);
+
+		if (tileTx == 35) {
+			bool a = true;
+		}
+
 	  
-	    sprintf(buf, "Selected tile tx: [%s]", loadedTexturesNames[valueIn(data->tile->ground, data->groundInter)]);
+	    sprintf(buf, "Selected tile tx: [%s]", loadedTexturesNames[tileTx]);  
 	
-	    break;
+	    break; 
 	  }
       default: break;
       }
-      
-      renderText(buf, -1.0f, 1.0f - baseYPad, 1.0f);
+       
+      renderText(buf, -1.0f, 1.0f - baseYPad, 1.0f);    
     }
     
     // render objects menu
@@ -5072,6 +5099,9 @@ int main(int argc, char* argv[]) {
 
 	    memcpy(&createdPlanes[createdPlanesSize],planeOnCreation ,sizeof(Plane));
 
+	    createdPlanes[createdPlanesSize].id = createdPlanesSize;
+	    createdPlanes[createdPlanesSize].characterId = -1;
+	    
 	    createdPlanesSize++;
 
 	    free(planeOnCreation);
@@ -5681,7 +5711,7 @@ int main(int argc, char* argv[]) {
     }
 
     // render context text
-    if(!curMenu){
+    if(!curMenu && hints){
       // black backGround drawins
       {
 	glActiveTexture(solidColorTx);
@@ -5715,7 +5745,7 @@ int main(int argc, char* argv[]) {
 	glBindVertexArray(0);
       }
 
-      renderText(contextBelowText, -1.0f, -1.0f + letterH, 1.0f); 
+      renderText(contextBelowText, -1.0f, -1.0f + letterH * contextBelowTextH, 1.0f); 
     }
 
     // render cursor
@@ -6969,82 +6999,81 @@ bool loadSave(char* saveName){
     fscanf(map, "\n%d %d %d ",&x,&y,&z);
 
     int sidesCounter = 0;
+    
+    Tile* tile = &grid[y][z][x];
       
-    fscanf(map, "%d %d %d ", &grid[y][z][x].wallsTx, &grid[y][z][x].ground, &sidesCounter);
+    fscanf(map, "%d %d %f %d ", &tile->wallsTx, &tile->ground, &tile->groundLift, &sidesCounter);
 
-    GroundType type = valueIn(grid[y][z][x].ground, 0);
+    GroundType type = valueIn(tile->ground, 0);
+
+    GroundType tx2 = valueIn(tile->ground, 2);  
     
     if(y == 0 && (type == netTile || type == 0)){
-      setIn(grid[y][z][x].ground, 0, texturedTile);
-      setIn(grid[y][z][x].ground, 2, textureOfGround);
+      setIn(tile->ground, 0, texturedTile); 
+      setIn(tile->ground, 2, textureOfGround);
     }
-      
-    Tile* tile = &grid[y][z][x];
 
-    Side side = -1;
-    int bufSize = -1; 
+
+    Side side = -1; 
+    int bufSize;
+
+    int alligned = 0;
+    int txHidden = 0;
+
+    float pad = 0;
 
     for(int i2=0;i2<sidesCounter;i2++){
-      fscanf(map, "%d %d ", &side, &bufSize);
-      tile->customWalls[side].buf = malloc(sizeof(float) * bufSize);  
-      tile->customWalls[side].bufSize = bufSize; 
+      fscanf(map, "%d %f %d %d %d ", &side, &pad, &bufSize, &alligned, &txHidden);
 
-      for(int i2=0;i2<bufSize;i2++){
+      tile->wallsPad[side] = pad;
+      
+      tile->customWalls[side].alligned = alligned;
+      tile->customWalls[side].txHidden = txHidden;
+
+      tile->customWalls[side].bufSize = bufSize;
+       
+      tile->customWalls[side].buf = malloc(sizeof(float) * tile->customWalls[side].bufSize);  
+
+      for(int i2=0;i2< tile->customWalls[side].bufSize;i2++){
 	fscanf(map, "%f ", &tile->customWalls[side].buf[i2]);
       }
     }
+
+    int blockExists;
+    fscanf(map, "%d ", &blockExists);
+
+    if(blockExists){
+      TileBlock* newBlock = malloc(sizeof(TileBlock));
+
+      int vertexesSize; // must be div by 5
+      int txIndex;
+      int blockType;
+      int rotateAngle;
+
+      fscanf(map, "%d %d %d %d ",&blockType, &rotateAngle, &txIndex, &vertexesSize);
+
+      newBlock->vertexes = malloc(sizeof(float) * vertexesSize);
+      newBlock->vertexesSize = vertexesSize / 5;
       
+      newBlock->txIndex = txIndex;
+      newBlock->rotateAngle = rotateAngle;
+      newBlock->type = blockType;
+      newBlock->tile = tile;
+
+      newBlock->vpair.VBO = tileBlocksTempl[newBlock->type].vpair.VBO;
+	  newBlock->vpair.VAO = tileBlocksTempl[newBlock->type].vpair.VAO;
+
+      for(int i2=0;i2<vertexesSize;i2++){
+	fscanf(map, "%f ", &newBlock->vertexes[i2]);
+      }
+
+      for(int mat=0;mat<16;mat++){
+	fscanf(map, "%f ", &newBlock->mat.m[mat]);
+      }
+
+      tile->block = newBlock;
+    }
   }
-  
-
-  /*for (int y = 0; y < gridY; y++) {
-    grid[y] = malloc(sizeof(Tile*) * (gridZ));
-
-    for (int z = 0; z < gridZ; z++) {
-    grid[y][z] = calloc(gridX, sizeof(Tile));
-
-    for (int x = 0; x < gridX; x++) {
-    Tile tile = grid[y][z][x];
-    GroundType type = valueIn(tile.ground, 0);
-
-    if(type == netTile || type == 0 || (!tile.customWalls[0].buf && !tile.customWalls[1].buf && !tile.customWalls[2].buf && !tile.customWalls[3].buf)){
-    continue;
-    }
-	
-    fprintf(map, "%d %d %d ",x,y,z, grid[y][z][x].wallsTx, grid[y][z][x].ground);
-	
-    fprintf(map, "%d %d ",x,y,z, grid[y][z][x].wallsTx, grid[y][z][x].ground);
-
-    for(int i=0;i<basicSideCounter;i++){
-    if(tile.customWalls[i].buf){
-    fprintf(map, "%d %d ",i,tile.customWalls[i].bufSize);
-
-    for(int i2=0;i2<tile.customWalls[i].bufSize;i2++){
-    fprintf(map, "%f ",tile.customWalls[i].buf[i2]);
-    }
-	    
-    }
-    }
-
-    fprintf(map, "\n");
-    //fscanf(map, "[Wls: %d, WlsTx %d, Grd: %d]", &grid[y][z][x].walls, &grid[y][z][x].wallsTx, &grid[y][z][x].ground);
-
-    GroundType type = valueIn(grid[y][z][x].ground, 0);
-
-    if(type == netTile || type == 0){
-    if(y == 0){
-    setIn(grid[y][z][x].ground, 0, texturedTile);
-    setIn(grid[y][z][x].ground, 2, frozenGround);
-    }else{
-    setIn(grid[y][z][x].ground, 0, netTile);
-    }
-    }
-
-    fgetc(map); // read ,
-    }
-    }
-    fgetc(map); // read \n
-    }*/
     
   fscanf(map, "\nUsed models: %d\n", &curModelsSize);
 
@@ -7052,10 +7081,6 @@ bool loadSave(char* saveName){
     curModels = malloc(curModelsSize * sizeof(Model));
 
     for (int i = 0; i < curModelsSize; i++) {
-      /*	  if(curModels[i].name == yalinka){
-      // TODO: Make here some enum to string function
-      fprintf(map, "Yalinka[%d] ", yalinka);
-      }*/
       int name = -1;
       fscanf(map, "%d ", &name);
 
@@ -7063,8 +7088,7 @@ bool loadSave(char* saveName){
 	printf("Models parsing error, model name (%d) doesnt exist \n", name);
 	exit(0);
       }
-
-      //curModels[i] = malloc(sizeof(Model));
+	   
       curModels[i].name = name;
       curModels[i].id = i;
       curModels[i].characterId = -1;
@@ -7072,7 +7096,7 @@ bool loadSave(char* saveName){
       fgetc(map); // read [
 
       for (int mat = 0; mat < 16; mat++) {
-	fscanf(map, "%f ", &curModels[i].mat.m[mat]);
+	fscanf(map, "%f ", &curModels[i].mat.m[mat]); 
       }
 
       calculateModelAABB(&curModels[i]);
@@ -7102,7 +7126,7 @@ bool loadSave(char* saveName){
 	fscanf(map, "%s %d ", &named, &nameType);
 
 	characters[charactersSize-1].name = malloc(sizeof(char) * (strlen(named) + 1));
-	strcpy(characters[charactersSize-1].name, named); 
+	strcpy(characters[charactersSize-1].name, named);  
 
 	deserializeDialogTree(&characters[charactersSize-1].dialogs, NULL, map);
 	//	fgetc(map);
@@ -7113,42 +7137,123 @@ bool loadSave(char* saveName){
     }
   
   }
+
+  fscanf(map, "\nUsed planes: %d\n", &createdPlanesSize);
+
+  if (curModelsSize != 0) { 
+    createdPlanes = malloc(createdPlanesSize * sizeof(Model));
+
+    for (int i = 0; i < createdPlanesSize; i++) {
+      int tx = -1;
+      float w, h;
+      
+      fscanf(map, "%d %f %f ", &tx, &w, &h);
+
+      if (tx >= loadedTexturesCounter || tx < 0) {
+	printf("Models parsing error, model name (%d) doesnt exist \n", tx);
+	exit(0);
+      }
+
+      createdPlanes[i].w = w;
+      createdPlanes[i].h = h;
+      createdPlanes[i].txIndex = tx;
+      createdPlanes[i].id = i;
+      createdPlanes[i].characterId = -1;
+
+      fgetc(map); // read [
+
+      for (int mat = 0; mat < 16; mat++) {
+	fscanf(map, "%f ", &createdPlanes[i].mat.m[mat]); 
+      }
+
+      //   calculateModelAABB(&curModels[i]);
+
+      fgetc(map); // read ]\n
+
+      char ch = fgetc(map);
+
+      if (ch == '1') {  
+	charactersSize++; 
+
+	if (!characters) { 
+	  characters = malloc(charactersSize * sizeof(Character));
+	}
+	else {
+	  characters = realloc(characters, charactersSize * sizeof(Character));
+	}
+
+	memset(&characters[charactersSize - 1], 0, sizeof(Character));
+
+	createdPlanes[i].characterId = charactersSize - 1;
+	characters->id = charactersSize - 1;
+
+	char named[32];
+	int nameType = -1;
+
+	fscanf(map, "%s %d ", &named, &nameType);
+
+	characters[charactersSize-1].name = malloc(sizeof(char) * (strlen(named) + 1));
+	strcpy(characters[charactersSize-1].name, named);  
+
+	deserializeDialogTree(&characters[charactersSize-1].dialogs, NULL, map);
+	//	fgetc(map);
+      }
+      else if(ch != '\n'){
+	fgetc(map);
+      }
+    }
+  
+  }
+
  
   printf("Save %s loaded! \n", save);
   fclose(map);
   
   strcpy(curSaveName, saveName);
   free(save);
-  
+   
   initSnowParticles();
   
   return true;
 }
 
 bool saveMap(char *saveName){
-  char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char));
+  char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char)); 
 
   strcat(save, saveName);
-  strcat(save, ".doomer");
+  strcat(save, ".doomer"); 
 
   FILE* map = fopen(save, "w+");
-
+   
   fprintf(map, "%d %d %d \n", gridY, gridZ, gridX);
   
   int wallsCounter = 0;
   vec3i* wallsIndexes = malloc(sizeof(vec3i) * gridY * gridX * gridZ);
+
+  int textureOfGround = texture1DIndexByName("Zemlia1");
+
+  if (textureOfGround == -1) {
+    printf("Specify texture of ground");
+    exit(-1);
+  }
 
   for (int y = 0; y < gridY; y++) {
     for (int z = 0; z < gridZ; z++) {
       for (int x = 0; x < gridX; x++) {
 	Tile tile = grid[y][z][x];
 	GroundType type = valueIn(tile.ground, 0);
+	int tx1 = valueIn(tile.ground, 1);
+	int tx2 = valueIn(tile.ground, 2);
+
+	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || tile.groundLift > 0 || (y != 0 && type == texturedTile);
 
 	if(tile.customWalls[0].buf || tile.customWalls[1].buf || tile.customWalls[2].buf || tile.customWalls[3].buf){
 	  wallsIndexes[wallsCounter] = (vec3i){x,y,z};
 	  wallsCounter++;
-	}
-	else if (y != 0 && type == texturedTile) {
+	}else if (acceptTile) {
+	  wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
+	  wallsCounter++;
+	}else if (tile.block) {
 	  wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
 	  wallsCounter++;
 	}
@@ -7185,18 +7290,33 @@ bool saveMap(char *saveName){
     if(tile.customWalls[3].buf){
       sidesAvaible++;
     }
-    
-    fprintf(map, "%d %d %d %d %d %d ",x,y,z, grid[y][z][x].wallsTx, grid[y][z][x].ground, sidesAvaible);
+
+    fprintf(map, "%d %d %d %d %d %f %d ",x,y,z, grid[y][z][x].wallsTx, grid[y][z][x].ground, grid[y][z][x].groundLift, sidesAvaible);
 
     for(int i1=0;i1<basicSideCounter;i1++){
       if(tile.customWalls[i1].buf){
-	fprintf(map, "%d %d ",i1,tile.customWalls[i1].bufSize);
+	//	printf()
+	fprintf(map, "%d %f %d %d %d ",i1,tile.wallsPad[i1],tile.customWalls[i1].bufSize, tile.customWalls[i1].alligned, tile.customWalls[i1].txHidden);
 
 	for(int i2=0;i2<tile.customWalls[i1].bufSize;i2++){
 	  fprintf(map, "%f ",tile.customWalls[i1].buf[i2]);
 	}
-	    
       }
+    }
+
+    if(tile.block){
+      fprintf(map, "%d ", 1); // block exists
+      fprintf(map, "%d %d %d %d ",tile.block->type, tile.block->rotateAngle, tile.block->txIndex, tile.block->vertexesSize * 5);
+
+      for(int i2=0;i2<tile.block->vertexesSize*5;i2++){
+	fprintf(map, "%f ",tile.block->vertexes[i2]);
+      }
+
+      for(int mat=0;mat<16;mat++){
+	fprintf(map, "%f ", tile.block->mat.m[mat]);
+      }
+    }else{
+      fprintf(map, "%d ", 0); // block doesnt exists
     }
   }
 
@@ -7219,6 +7339,30 @@ bool saveMap(char *saveName){
       fprintf(map, "1");
       fprintf(map, "%s %d ", characters[curModels[i].characterId].name ? characters[curModels[i].characterId].name : "None", characters[curModels[i].characterId].modelName);
       serializeDialogTree(&characters[curModels[i].characterId].dialogs, map);  
+      fprintf(map, "\n");
+    }
+    else {
+      fprintf(map, "0\n");
+    }
+  }
+
+  fprintf(map, "Used planes: %d\n",createdPlanesSize);
+  
+  for(int i=0; i<createdPlanesSize; i++){    
+    fprintf(map, "%d %f %f ", createdPlanes[i].txIndex, createdPlanes[i].w, createdPlanes[i].h);
+
+    fprintf(map, "[");
+
+    for(int mat=0;mat<16;mat++){
+      fprintf(map, "%f ", createdPlanes[i].mat.m[mat]);
+    }
+	  
+    fprintf(map, "]");
+
+    if (createdPlanes[i].characterId != -1) { 
+      fprintf(map, "1");
+      fprintf(map, "%s %d ", characters[createdPlanes[i].characterId].name ? characters[createdPlanes[i].characterId].name : "None", characters[createdPlanes[i].characterId].modelName);
+      serializeDialogTree(&characters[createdPlanes[i].characterId].dialogs, map);  
       fprintf(map, "\n");
     }
     else {
