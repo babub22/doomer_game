@@ -3844,8 +3844,9 @@ int main(int argc, char* argv[]) {
 		    grid[y][z][x].walls[side].buf[r+25], grid[y][z][x].walls[side].buf[r+26], grid[y][z][x].walls[side].buf[r+27], grid[y][z][x].walls[side].buf[r+28], grid[y][z][x].walls[side].buf[r+29],
 		  };
 
-		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[grid[y][z][x].walls[side].txIndexes[txInn]].tx);
-		  
+		  //glBindTexture(GL_TEXTURE_2D, loadedTextures1D[grid[y][z][x].walls[side].txIndexes[txInn]].tx);
+		  glBindTexture(GL_TEXTURE_2D, txInn);
+
 		  glBufferData(GL_ARRAY_BUFFER, sizeof(blockSize), blockSize, GL_STATIC_DRAW);
 		
 		  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
@@ -4178,11 +4179,7 @@ int main(int argc, char* argv[]) {
 	    memset(&wal, 0, sizeof(Wall));
 	    wal.mat = IDENTITY_MATRIX;
 
-	    float* wall = wallBySide(top,0);
-
-	    wal.buf = malloc(sizeof(float) * 5 * (6 * 5));
-	    memcpy(wal.buf, wall, sizeof(float) * 5 * (6 * 5));
-
+	    wal.buf = wallBySide(&wal.bufSize, right, 0);
 	    wal.side = selectedSide;
 
 	    wal.mat = IDENTITY_MATRIX;
@@ -4191,7 +4188,7 @@ int main(int argc, char* argv[]) {
 	    wal.mat.m[13] = tile.y;
 	    wal.mat.m[14] = tile.z;
 
-	    free(wall);
+	  //  free(wall);
 	  }
 
 	  // rotate wall to selectedSide
@@ -4203,7 +4200,6 @@ int main(int argc, char* argv[]) {
 	      [right]= { 90, 1, 1}//{ 180, 14, 1, 12, 1 }
 	    };
 
-	    wal.bufSize = sizeof(float) * 5 * (6 * 5);
 
 	    Matrix* mat = &wal.mat;
 
@@ -4220,7 +4216,7 @@ int main(int argc, char* argv[]) {
 	    mat->m[12] += rotationPad[selectedSide][2];
 	    mat->m[14] += rotationPad[selectedSide][1];
 
-	    calculateAABB(*mat, wal.buf,wal.bufSize, &wal.lb, &wal.rt);
+	    calculateAABB(*mat, wal.buf,wal.bufSize, &wal.lb, &wal.rt); 
 	  }
 
 	  // brush phantom
@@ -4240,7 +4236,7 @@ int main(int argc, char* argv[]) {
 	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
 	    glEnableVertexAttribArray(1);
 		
-	    glDrawArrays(GL_TRIANGLES, 0, 30);
+	    glDrawArrays(GL_TRIANGLES, 0, (wal.bufSize / sizeof(float)) / 5);
 
 	    glBindTexture(GL_TEXTURE_2D, 0);
 	    glBindVertexArray(0);
@@ -7768,8 +7764,8 @@ TileBlock* constructNewBlock(int type, int angle){
   return newBlock;
 }
 
-float* wallBySide(Side side, float thick){
-  float* wall = malloc(600);
+float* wallBySide(int* bufSize,Side side, float thick){
+  float* buf = NULL;
 
   float w = 1;
   float d = 1;
@@ -7777,111 +7773,120 @@ float* wallBySide(Side side, float thick){
 
   
   float t = (float)1/8;
-  
-  if(thick != 0.0f){
-    //   t = thick;
-  }
-  
-  if(side == left){
-    w = t;
-		  
-    float verts[] = {
-      // top
-      -t, h, 0.0f,           0.0f, 1.0f,
-      w, h, 0.0f,     t, 1.0f,
-      -t,h,d,          0.0f, 0.0f,
 
-      w, h, 0.0f,     t, 1.0f,
-      -t,h,d,          0.0f, 0.0f,
-      w,h,d,          t, 0.0f,
+  if(side == right){
+        d = t;
 
-      // back
-      -t, h, 0.0f,     0.0f, 1.0f,
-      w, h, 0.0f,     t, 1.0f,
-      -t, 0.0f , 0.0f, 0.0f, 0.0f,
-
-      w, h, 0.0f,     t, 1.0f,
-      -t, 0.0f , 0.0f, 0.0f, 0.0f,
-      w, 0.0f , 0.0f, t, 0.0f,
-
-      //left
-      -t, 0.0f, 0.0f, 0.0f, 0.0f,
-      -t, h, 0.0f,    0.0f, 1.0f,
-      -t, h , d,      1.0f, 1.0f,
-
-      -t, h, d,       1.0f, 1.0f,
-      -t, 0.0f, 0.0f, 0.0f, 0.0f,
-      -t, 0.0f , d,   1.0f, 0.0f,
-
-      // right
-      w, 0.0f, 0.0f,  0.0f, 0.0f,
-      w, h, 0.0f,     0.0f, 1.0f,
-      w, h , d,       1.0f, 1.0f,
-
-      w, h, d,       1.0f, 1.0f,
-      w, 0.0f, 0.0f, 0.0f, 0.0f,
-      w, 0.0f , d,   1.0f, 0.0f,
-
-      // front
-      -t, h, d,       0.0f, 1.0f,
-      w, h, d,       t, 1.0f,
-      -t, 0.0f , d,   0.0f, 0.0f,
-
-      w, h, d,       t, 1.0f,
-      -t, 0.0f , d,   0.0f, 0.0f,
-      w, 0.0f , d,   t, 0.0f
-    };
-
-    memcpy(wall, verts, sizeof(verts));
-  }else if(side == right){
+	float capH = h * 0.12f;
+	float botH = h * 0.4f;
+	
 	float verts[] = {
-		// top
-	        w - t, h, 0.0f,     0.0f, 1.0f,
-		w + t, h, 0.0f,     1.0f, t,
-		w - t,h,d,          0.0f, 0.0f,
+		// cap top
+		0.0f, h, -t, 0.0f, 0.0f,
+		w, h, -t,    t, 0.0f,
+		0.0f,h, d,   0.0f, 1.0f,
 
-		w + t, h, 0.0f,     t, 1.0f,
-		w - t,h,d,          0.0f, 0.0f,
-		w + t,h,d,          t, 0.0f,
+		w, h, -t,    t, 0.0f,
+		0.0f,h,d,    0.0f, 1.0f,
+		w,h,d,       t, 1.0f,
+		
+		// cap bot
+		0.0f, h-capH, -t, 0.0f, 0.0f,
+		w,  h-capH, -t,    t, 0.0f,
+		0.0f, h-capH, d,   0.0f, 1.0f,
 
-		// back
-		w - t, h, 0.0f,     0.0f, 1.0f,
-		w + t, h, 0.0f,     t, 1.0f,
-		w - t, 0.0f , 0.0f, 0.0f, 0.0f,
+		w,  h-capH, -t,    t, 0.0f,
+		0.0f, h-capH,d,    0.0f, 1.0f,
+		w, h-capH,d,       t, 1.0f,
 
-		w + t, h, 0.0f,     t, 1.0f,
-		w - t, 0.0f , 0.0f, 0.0f, 0.0f,
-		w + t, 0.0f , 0.0f, t, 0.0f,
 
-		//left
-		w - t, 0.0f, 0.0f, 0.0f, 0.0f,
-		w - t, h, 0.0f,    0.0f, 1.0f,
-		w - t, h , d,      1.0f, 1.0f,
+		// cap back
+		0.0f, h, -t,      0.0f, 1.0f,
+		w, h, -t,         1.0f, 1.0f,
+		0.0f, h -capH, -t,  0.0f, 0.0f,
 
-		w - t, h, d,       1.0f, 1.0f,
-		w - t, 0.0f, 0.0f, 0.0f, 0.0f,
-		w - t, 0.0f , d,   1.0f, 0.0f,
+		w, h, -t,         1.0f, 1.0f,
+		0.0f, h -capH, -t,  0.0f, 0.0f,
+		w, h -capH, -t,     1.0f, 0.0f,
 
-		// right
-		w + t, 0.0f, 0.0f,  0.0f, 0.0f,
-		w + t, h, 0.0f,     0.0f, 1.0f,
-		w + t, h , d,       1.0f, 1.0f,
+		// cap left
+		0.0f, h -capH, -t,  0.0f, 0.0f,
+		0.0f, h, -t,     0.0f, 1.0f,
+		0.0f, h , d,     t, 1.0f,
 
-		w + t, h, d,       1.0f, 1.0f,
-		w + t, 0.0f, 0.0f, 0.0f, 0.0f,
-		w + t, 0.0f , d,   1.0f, 0.0f,
+		0.0f, h, d,      t, 1.0f,
+		0.0f, h -capH, -t,  0.0f, 0.0f,
+		0.0f, h -capH, d,  t, 0.0f,
 
-		// front
-		w - t, h, d,       0.0f, 1.0f,
-		w + t, h, d,       t, 1.0f,
-		w - t, 0.0f , d,   0.0f, 0.0f,
+		// cap right
+		w, h -capH, -t,     0.0f, 0.0f,
+		w, h, -t,        0.0f, 1.0f,
+		w, h , d,        t, 1.0f,
 
-		w + t, h, d,       t, 1.0f,
-		w - t, 0.0f , d,   0.0f, 0.0f,
-		w + t, 0.0f , d,   t, 0.0f
+		w, h, d,         t, 1.0f,
+		w, h -capH, -t,     0.0f, 0.0f,
+		w, h -capH , d,     t, 0.0f,
+
+		// cap front
+		0.0f, h, d,      0.0f, 1.0f,
+		w, h, d,         1.0f, 1.0f,
+		0.0f, h -capH , d,  0.0f, 0.0f,
+
+		w, h, d,         1.0f, 1.0f,
+		0.0f, h -capH , d,  0.0f, 0.0f,
+		w, h -capH , d,     1.0f, 0.0f,
+
+		//
+		// bot top
+		0.0f, botH, -t, 0.0f, 0.0f,
+		w, botH, -t,    t, 0.0f,
+		0.0f,botH, d,   0.0f, 1.0f,
+
+		w, botH, -t,    t, 0.0f,
+		0.0f,botH,d,    0.0f, 1.0f,
+		w,botH,d,       t, 1.0f,
+
+		// bot back
+		0.0f, botH, -t,      0.0f, 1.0f,
+		w, botH, -t,         1.0f, 1.0f,
+		0.0f, 0.0f , -t,  0.0f, 0.0f,
+
+		w, botH, -t,         1.0f, 1.0f,
+		0.0f, 0.0f , -t,  0.0f, 0.0f,
+		w, 0.0f , -t,     1.0f, 0.0f,
+
+		// bot left
+		0.0f, 0.0f, -t,  0.0f, 0.0f,
+		0.0f, botH, -t,     0.0f, 1.0f,
+		0.0f, botH , d,     t, 1.0f,
+
+		0.0f, botH, d,      t, 1.0f,
+		0.0f, 0.0f, -t,  0.0f, 0.0f,
+		0.0f, 0.0f , d,  t, 0.0f,
+
+		// bot right
+		w, 0.0f, -t,     0.0f, 0.0f,
+		w, botH, -t,        0.0f, 1.0f,
+		w, botH , d,        t, 1.0f,
+
+		w, botH, d,         t, 1.0f,
+		w, 0.0f, -t,     0.0f, 0.0f,
+		w, 0.0f , d,     t, 0.0f,
+
+		// bot front
+		0.0f, botH, d,      0.0f, 1.0f,
+		w, botH, d,         1.0f, 1.0f,
+		0.0f, 0.0f , d,  0.0f, 0.0f,
+
+		w, botH, d,         1.0f, 1.0f,
+		0.0f, 0.0f , d,  0.0f, 0.0f,
+		w, 0.0f , d,     1.0f, 0.0f
 	};
 
-	memcpy(wall, verts, sizeof(verts));
+	*bufSize = sizeof(verts);
+	buf = malloc(sizeof(verts));
+	memcpy(buf, verts, sizeof(verts));
+	return buf;
   }else if(side == top){
     d = t;
     	
@@ -7932,7 +7937,10 @@ float* wallBySide(Side side, float thick){
 		w, 0.0f , d,     1.0f, 0.0f
 	};
 
-      memcpy(wall, verts, sizeof(verts));
+	*bufSize = sizeof(verts);
+	buf = malloc(sizeof(verts));
+	memcpy(buf, verts, sizeof(verts));
+      return buf;
   }else if(side == bot){
         	
 	float verts[] = {
@@ -7982,8 +7990,8 @@ float* wallBySide(Side side, float thick){
 		w, 0.0f , d+t,     1.0f, 0.0f
 	};
 
-      memcpy(wall, verts, sizeof(verts));
+    //  memcpy(wall, verts, sizeof(verts));
   };
 
-  return wall; 
+ // return wall; 
 }

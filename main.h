@@ -657,7 +657,7 @@ TileBlock* constructNewBlock(int type, int angle);
 
 #define selTileBorderH 0.001f
 
-float* wallBySide(Side side, float thick);
+float* wallBySide(int* bufSize, Side side, float thick);
 
 #define dialogEditorCharNameTitle "Char name: "
 
@@ -816,6 +816,7 @@ const int leftWallMap[2][6] = {
   [0] = { 5,15,20, 8,18,23 }, // bot-top // first 3 buf index next 3 - uv last sign of value
   [1] = { 2,12,27, 3,13,28 } // left-right
 };
+
 
 
   /*
