@@ -121,6 +121,26 @@ typedef struct{
   int VBOsize;
 } MeshBuffer;
 
+typedef enum{
+  wTopPlane, wFrontPlane, wBackPlane, wLeftPlane, wRightPlane, wPlaneCounter
+} WallSides;
+
+typedef struct{
+  int txIndexes[wPlaneCounter]; // of each plane
+
+  float* buf;
+  int bufSize;
+
+  Matrix mat;
+
+  vec3 rt;
+  vec3 lb;
+
+  Side side; // where placed
+} Wall;
+
+void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, vec3* lb, vec3* rt);
+
 typedef struct{
   vec3 pos;
   vec3 target;
@@ -289,6 +309,8 @@ struct Tile{
 
   float wallsPad[4];
   float groundLift;
+
+  Wall walls[4];
 };
 
 typedef struct{

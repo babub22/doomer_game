@@ -18,6 +18,8 @@ int loadedTexturesCounter;
 int longestTextureNameLen;
 int longestTextureCategoryLen;
 
+VPair brushWall;
+
 GLuint selectionRectVBO;
 GLuint selectionRectVAO;
 
@@ -212,6 +214,15 @@ int main(int argc, char* argv[]) {
   {
     glGenBuffers(1, &hudRect.VBO);
     glGenVertexArrays(1, &hudRect.VAO);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // brush phantom
+  {
+    glGenBuffers(1, &brushWall.VBO);
+    glGenVertexArrays(1, &brushWall.VAO);
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -528,7 +539,8 @@ int main(int argc, char* argv[]) {
     dialogViewer.buttons = malloc(sizeof(UIRect) * dialogEditorButtonsCounter);
     //    dialogViewer.buttonsPairs = malloc(sizeof(UIRect) * dialogEditorButtonsCounter);
     
-    // dialog viewer background
+    // dialog viewer background
+
     {
       glGenVertexArrays(1, &dialogViewer.VAO);
       glBindVertexArray(dialogViewer.VAO);
@@ -542,7 +554,8 @@ int main(int argc, char* argv[]) {
 
       dialogViewer.rect = (UIRect){ dialogEditor.rect.x - xLeftPad, -0.1f - 0.01f , dialogEditor.rect.w + .03f, (6*letterCellH + 0.02f) + 0.05f + 5 * letterCellH };
 
-      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), dialogViewerPoints, GL_STATIC_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (6 * 4), dialogViewerPoints, GL_STATIC_DRAW);
+
       free(dialogViewerPoints);
       
       glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
@@ -3761,29 +3774,7 @@ int main(int argc, char* argv[]) {
 	  if(true){
 	    for(int side=0;side<basicSideCounter;side++){
 
-	      if(grid[y][z][x].customWalls[side].buf != NULL) {
-
-		vec3 lb = { 1000,1000,1000 };
-		vec3 rt = {0};
-
-		for(int i3=0;i3<grid[y][z][x].customWalls[side].bufSize;i3 += 5){
-		  lb.x= min(lb.x, grid[y][z][x].customWalls[side].buf[i3]);
-		  lb.y= min(lb.y, grid[y][z][x].customWalls[side].buf[i3+1]);
-		  lb.z= min(lb.z, grid[y][z][x].customWalls[side].buf[i3+2]);
-
-		  rt.x= max(rt.x, grid[y][z][x].customWalls[side].buf[i3]);
-		  rt.y= max(rt.y, grid[y][z][x].customWalls[side].buf[i3+1]);
-		  rt.z= max(rt.z, grid[y][z][x].customWalls[side].buf[i3+2]);
-		}
-
-		lb.x += tile.x;
-		lb.y += tile.y;
-		lb.z += tile.z;
-
-		rt.x += tile.x;
-		rt.y += tile.y ;
-		rt.z += tile.z ;
-
+	      if(grid[y][z][x].walls[side].buf != NULL) {
 		// wall in/out camera
 		int in=0;
 
@@ -3803,7 +3794,7 @@ int main(int argc, char* argv[]) {
 	      
 		if(y >= curFloor){
 		  float intersectionDistance;
-		  bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, NULL, &intersectionDistance);
+		  bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x].walls[side].lb, grid[y][z][x].walls[side].rt, NULL, &intersectionDistance);
 		  
 		  if(isIntersect && minDistToCamera  > intersectionDistance){
 		    
@@ -3827,54 +3818,33 @@ int main(int argc, char* argv[]) {
 		  }
 		}
 
-		if(grid[y][z][x].customWalls[side].txHidden){
+		/*		if(grid[y][z][x].walls[side].txHidden){
 		  glActiveTexture(emptyTx);
 		  glBindTexture(GL_TEXTURE_2D, emptyTx);
 		}else{
 		  glActiveTexture(loadedTextures1D[txIndex].tx);
 		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[txIndex].tx);
-		}
+		}*/
 		
 		glBindVertexArray(customWallV.VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, customWallV.VBO);
 
-		Matrix out = IDENTITY_MATRIX;
 
-		// translate without mult
-		if (side == left || side == right) {
-			out.m[12] = tile.x + grid[y][z][x].wallsPad[side];
-			out.m[13] = tile.y;
-			out.m[14] = tile.z;
-		}
-		else if (side == bot || side == top) {
-			out.m[12] = tile.x;
-			out.m[13] = tile.y;
-			out.m[14] = tile.z + grid[y][z][x].wallsPad[side];
-		}
-
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
-
-		float d = 1;
-		float h = 2;
-		float w = 1;
-
-		float* wal = wallBySide(top,0);
-
-		//600
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x].walls[side].mat.m);
 
 		int txInn = 0;
-		for(int r=0;r<150;r+=30){
+		for(int r=0;r<grid[y][z][x].walls[side].bufSize / sizeof(float);r+=30){
 		  float blockSize[] = {
-		    wal[r], wal[r+1], wal[r+2], wal[r+3], wal[r+4],
-		    wal[r+5], wal[r+6], wal[r+7], wal[r+8], wal[r+9],
-		    wal[r+10], wal[r+11], wal[r+12], wal[r+13], wal[r+14],
+		    grid[y][z][x].walls[side].buf[r], grid[y][z][x].walls[side].buf[r+1], grid[y][z][x].walls[side].buf[r+2], grid[y][z][x].walls[side].buf[r+3], grid[y][z][x].walls[side].buf[r+4],
+		    grid[y][z][x].walls[side].buf[r+5], grid[y][z][x].walls[side].buf[r+6], grid[y][z][x].walls[side].buf[r+7], grid[y][z][x].walls[side].buf[r+8], grid[y][z][x].walls[side].buf[r+9],
+		    grid[y][z][x].walls[side].buf[r+10], grid[y][z][x].walls[side].buf[r+11], grid[y][z][x].walls[side].buf[r+12], grid[y][z][x].walls[side].buf[r+13], grid[y][z][x].walls[side].buf[r+14],
 
-		    wal[r+15], wal[r+16], wal[r+17], wal[r+18], wal[r+19],
-		    wal[r+20], wal[r+21], wal[r+22], wal[r+23], wal[r+24],
-		    wal[r+25], wal[r+26], wal[r+27], wal[r+28], wal[r+29],
+		    grid[y][z][x].walls[side].buf[r+15], grid[y][z][x].walls[side].buf[r+16], grid[y][z][x].walls[side].buf[r+17], grid[y][z][x].walls[side].buf[r+18], grid[y][z][x].walls[side].buf[r+19],
+		    grid[y][z][x].walls[side].buf[r+20], grid[y][z][x].walls[side].buf[r+21], grid[y][z][x].walls[side].buf[r+22], grid[y][z][x].walls[side].buf[r+23], grid[y][z][x].walls[side].buf[r+24],
+		    grid[y][z][x].walls[side].buf[r+25], grid[y][z][x].walls[side].buf[r+26], grid[y][z][x].walls[side].buf[r+27], grid[y][z][x].walls[side].buf[r+28], grid[y][z][x].walls[side].buf[r+29],
 		  };
 
-		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[txInn].tx);
+		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[grid[y][z][x].walls[side].txIndexes[txInn]].tx);
 		  
 		  glBufferData(GL_ARRAY_BUFFER, sizeof(blockSize), blockSize, GL_STATIC_DRAW);
 		
@@ -3889,7 +3859,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		  
-		free(wal);
+		//		free(wal);
 
 
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -4198,146 +4168,105 @@ int main(int argc, char* argv[]) {
 	else if(mouse.brushType == mouseWallBrushT && mouse.tileSide != -1 && mouse.tileSide != center){
 	  TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 
-	  Side oppositeSide = 0;
-	  vec2i oppositeTile = {0};
+	  vec2i curTile = tileData->grid;
+	  Side selectedSide = mouse.tileSide;
+
+	  Wall wal = {0};
+
+	  // setup wall
+	  {
+	    memset(&wal, 0, sizeof(Wall));
+	    wal.mat = IDENTITY_MATRIX;
+
+	    float* wall = wallBySide(top,0);
+
+	    wal.buf = malloc(sizeof(float) * 5 * (6 * 5));
+	    memcpy(wal.buf, wall, sizeof(float) * 5 * (6 * 5));
+
+	    wal.side = selectedSide;
+
+	    wal.mat = IDENTITY_MATRIX;
+
+	    wal.mat.m[12] = tile.x;
+	    wal.mat.m[13] = tile.y;
+	    wal.mat.m[14] = tile.z;
+
+	    free(wall);
+	  }
+
+	  // rotate wall to selectedSide
+	  {
+	    static const int rotationPad[4][3] = {
+	      [bot]= { 180, 1, 1 },
+	      [top]= { 0, 0, 0  },
+	      [left]= { 270, 0, 0 }, 
+	      [right]= { 90, 1, 1}//{ 180, 14, 1, 12, 1 }
+	    };
+
+	    wal.bufSize = sizeof(float) * 5 * (6 * 5);
+
+	    Matrix* mat = &wal.mat;
+
+	    float xTemp = mat->m[12];
+	    float yTemp = mat->m[13];
+	    float zTemp = mat->m[14];
+
+	    rotateY(wal.mat.m, rad(rotationPad[selectedSide][0]));
+
+	    mat->m[12] = xTemp;
+	    mat->m[13] = yTemp;
+	    mat->m[14] = zTemp;
+
+	    mat->m[12] += rotationPad[selectedSide][2];
+	    mat->m[14] += rotationPad[selectedSide][1];
+
+	    calculateAABB(*mat, wal.buf,wal.bufSize, &wal.lb, &wal.rt);
+	  }
+
+	  // brush phantom
+	  {
+	    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[0].tx);
 	  
-	  glBindVertexArray(wallMeshes[mouse.tileSide][wallT-1].VAO);
-	  glBindBuffer(GL_ARRAY_BUFFER, wallMeshes[mouse.tileSide][wallT-1].VBO);
+	    glBindVertexArray(brushWall.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, brushWall.VBO);
+
+	    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, wal.mat.m);
+		  
+	    glBufferData(GL_ARRAY_BUFFER, wal.bufSize, wal.buf, GL_STATIC_DRAW);
 		
-	  glActiveTexture(loadedTextures1D[0].tx);
-	  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[0].tx);
-	      		
-	  Matrix out = IDENTITY_MATRIX;
-
-	  // translate without mult
-	  out.m[12] = tile.x;
-	  out.m[13] = tile.y;
-	  out.m[14] = tile.z;
+	    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+	    glEnableVertexAttribArray(0);
 		
-	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+	    glEnableVertexAttribArray(1);
+		
+	    glDrawArrays(GL_TRIANGLES, 0, 30);
 
-	  glDrawArrays(GL_TRIANGLES, 0, wallMeshes[mouse.tileSide][wallT-1].VBOsize);
+	    glBindTexture(GL_TEXTURE_2D, 0);
+	    glBindVertexArray(0);
+	    glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  }
+	  
+	  vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor,tileData->grid.z);
 
+	  Tile* opTile = NULL;
+
+	  Side oppositeSide = 0; 
+	  vec2i oppositeTile = {0};  
+	  
 	  if(oppositeTileTo(tileData->grid, mouse.tileSide,&oppositeTile,&oppositeSide)){
-	    Matrix out = IDENTITY_MATRIX;
-
-	    // translate without mult
-	    vec3 oppositePos = xyz_indexesToCoords(oppositeTile.x, curFloor, oppositeTile.z); 
-	    
-	    out.m[12] = oppositePos.x;
-	    out.m[13] = oppositePos.y;
-	    out.m[14] = oppositePos.z;
-
-	    
-	    glBindVertexArray(wallMeshes[oppositeSide][wallT-1].VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, wallMeshes[oppositeSide][wallT-1].VBO);
-		
-	    
-	    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
-
-	    
-	    glDrawArrays(GL_TRIANGLES, 0, wallMeshes[oppositeSide][wallT-1].VBOsize);
+	    opTile = &grid[curFloor][oppositeTile.z][oppositeTile.x];
 	  }
 
-	  glBindTexture(GL_TEXTURE_2D, 0);
-	  glBindBuffer(GL_ARRAY_BUFFER, 0);
-	  glBindVertexArray(0);
-	      
-	  if(mouse.clickR){
-	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
+	  if(mouse.clickR &&
+	     (!opTile || !opTile->walls[oppositeSide].buf)){
 
-	    vec2i curTile = tileData->grid;
-	    Side selectedSide = mouse.tileSide;
-
-	    grid[curFloor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].buf = malloc(sizeof(float) * 6 * 5);
-	    grid[curFloor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].bufSize = 6 * 5;
-	    memcpy(grid[curFloor][(int)curTile.z][(int)curTile.x].customWalls[selectedSide].buf, customWallTemp[selectedSide], sizeof(float) * 6 * 5);
-
-	    /*
-	    if(tileData->tile->customWalls[mouse.tileSide].buf == NULL) {
-	      bool oppositeExtend[4] = { 0 };
-
-	      bool itHasWall = false;
-	      Tile* tile = tileData->tile;
+	    vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor,tileData->grid.z);
 	    
-	      Side oppositeSide;
-	      vec2i oppositeTile;
-
-
-	      bool oppositeExists = oppositeTileTo(tileData->grid, mouse.tileSide, &oppositeTile, &oppositeSide);
-	    
-	      for(int i=0;i<2;i++){	      
-		if(selectedSide == top || selectedSide == bot){	      
-		  if(tile->customWalls[right].buf){
-		    oppositeExtend[right] = true;
-		    itHasWall = true;
-		  }
-	      
-		  if(tile->customWalls[left].buf){
-		    oppositeExtend[left]  = true;
-		    itHasWall = true;
-		  }
-		}else if (selectedSide == left || selectedSide == right){
-		  if(tile->customWalls[top].buf){
-		    oppositeExtend[top] = true;
-		    itHasWall = true;
-		  }
-	      		  
-		  if(tile->customWalls[bot].buf) {
-		    oppositeExtend[bot] = true;
-		    itHasWall = true;
-		  }	
-		}
-
-		if(itHasWall){
-		  break;
-		}else{
-		  if(i == 0 && oppositeExists){
-		    tile = &grid[curFloor][oppositeTile.z][oppositeTile.x];
-
-		    vec2i tempTile = oppositeTile;
-		    oppositeTile = tileData->grid;
-		    curTile = tempTile;
-
-		    Side tempSide = oppositeSide;
-		    oppositeSide = selectedSide;
-		    selectedSide = tempSide;
-		  };
-		}
-	      }
-
-	      Side tempOppositeSide = 0;
-	      vec2i tempOppositeTile = {0};
-		  
-	      setIn(grid[curFloor][curTile.z][curTile.x].wallsTx, selectedSide, 0); // first texture
-	      if(oppositeExists){
-		grid[curFloor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf = malloc(sizeof(float) * 6 * 5);
-		grid[curFloor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].bufSize = 6 * 5;
-		memcpy(grid[curFloor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf, customWallTemp[oppositeSide], sizeof(float) * 6 * 5);
-
-		setIn(grid[curFloor][(int)oppositeTile.z][(int)oppositeTile.x].wallsTx, mouse.tileSide, 0); 
-	      }
-
-	      for(int i=0;i<basicSideCounter && oppositeExists;i++){
-		if(!oppositeExtend[i]) continue;
-		  
-		bool itLeftRight = (oppositeSide == left || oppositeSide == right);
-		bool indexSecond = i == bot || i == left;
-
-		grid[curFloor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf[values[itLeftRight][indexSecond][0]] += wallD * values[itLeftRight][indexSecond][3];
-		grid[curFloor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf[values[itLeftRight][indexSecond][1]] += wallD * values[itLeftRight][indexSecond][3];
-		grid[curFloor][(int)oppositeTile.z][(int)oppositeTile.x].customWalls[oppositeSide].buf[values[itLeftRight][indexSecond][2]] += wallD * values[itLeftRight][indexSecond][3];
-
-		if(oppositeTileTo(curTile, i, &tempOppositeTile,&tempOppositeSide)){
-		  grid[curFloor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide].buf[valuesOpposite[oppositeSide][0]] += wallD * valuesOpposite[oppositeSide][3];
-		  grid[curFloor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide].buf[valuesOpposite[oppositeSide][1]] += wallD * valuesOpposite[oppositeSide][3];
-		  grid[curFloor][(int)tempOppositeTile.z][(int)tempOppositeTile.x].customWalls[tempOppositeSide].buf[valuesOpposite[oppositeSide][2]] += wallD * valuesOpposite[oppositeSide][3];
-		}
-	      
-	      }
-	    
-	    }*/
+	    memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x].walls[selectedSide], &wal, sizeof(Wall));
 	  }
+
+	  free(wal.buf);
 	}
       }
 
@@ -6857,6 +6786,24 @@ void calculateModelAABB(Model* model){
     model->rt.x = max(model->rt.x, trasformedVert4.x);
     model->rt.y = max(model->rt.y, trasformedVert4.y);
     model->rt.z = max(model->rt.z, trasformedVert4.z);
+  }
+}
+
+void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, vec3* lb, vec3* rt){
+  *lb = (vec3){FLT_MAX,FLT_MAX,FLT_MAX};
+  *rt = (vec3){-FLT_MAX,-FLT_MAX,-FLT_MAX};
+
+  // assumes that first 3 it vec3, last 2 its UV
+  for (int i = 0; i < vertexesSize / sizeof(float); i+=5) {
+    vec4 trasformedVert4 = mulmatvec4(mat,(vec4){vertexes[i+0],vertexes[i+1],vertexes[i+2], 1.0f });
+    
+    lb->x = min(lb->x, trasformedVert4.x);
+    lb->y = min(lb->y, trasformedVert4.y);
+    lb->z = min(lb->z, trasformedVert4.z);
+    
+    rt->x = max(rt->x, trasformedVert4.x);
+    rt->y = max(rt->y, trasformedVert4.y);
+    rt->z = max(rt->z, trasformedVert4.z);
   }
 }
 
