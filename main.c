@@ -18,7 +18,7 @@ int loadedTexturesCounter;
 int longestTextureNameLen;
 int longestTextureCategoryLen;
 
-VPair brushWall;
+BlockInfo wallsVPairs[wallTypeCounter];
 
 GLuint selectionRectVBO;
 GLuint selectionRectVAO;
@@ -127,7 +127,7 @@ EnviromentalConfig enviromental = { true, true };
 
 const float wallD = 0.05f;
 
-const Sizes wallsSizes[wallTypeCounter+1] = { {0}, {bBlockW * 1,bBlockH * 1,bBlockD * 1}, {bBlockW * 1,bBlockH * 1 * 0.4f,bBlockD * 1}, {bBlockW * 1,bBlockH * 1,bBlockD * 1}, {bBlockW * 1,bBlockH * 1,bBlockD * 1}};
+const Sizes wallsSizes[wallTypeCounter+1] = { {0}, {bBlockW * 1,bBlockH * 1,bBlockD * 1}, {bBlockW * 1,bBlockH * 1 * 0.4f,bBlockD * 1}, {bBlockW * 1,bBlockH * 1,bBlockD * 1} };
 
 const float doorH = bBlockH * 0.85f;
 const float doorPad =  bBlockW / 4;
@@ -214,19 +214,14 @@ int main(int argc, char* argv[]) {
   {
     glGenBuffers(1, &hudRect.VBO);
     glGenVertexArrays(1, &hudRect.VAO);
+
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
   }
 
-  // brush phantom
-  {
-    glGenBuffers(1, &brushWall.VBO);
-    glGenVertexArrays(1, &brushWall.VAO);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-  }
+  assembleWallBlockVBO();
+  assembleWindowBlockVBO();
 
   // plane 3d
   {
@@ -828,87 +823,87 @@ int main(int argc, char* argv[]) {
       glGenBuffers(1, &tileBlocksTempl[1].vpair.VBO);
       glBindBuffer(GL_ARRAY_BUFFER, tileBlocksTempl[1].vpair.VBO);
 
-	float stepW = bBlockW / 4.0f;
-	float stepH = floorH / 4.0f;
+      float stepW = bBlockW / 4.0f;
+      float stepH = floorH / 4.0f;
 
-	float texturedTileVerts[] = {
-	  // higher step top part
-	  0.0f, floorH, 0.0f, 1.0f, 1.0f,
-	  bBlockW, floorH, 0.0f , 0.0f, 0.0f,
-	  0.0f, floorH, stepW , 1.0f, 0.0f,
+      float texturedTileVerts[] = {
+	// higher step top part
+	0.0f, floorH, 0.0f, 1.0f, 1.0f,
+	bBlockW, floorH, 0.0f , 0.0f, 0.0f,
+	0.0f, floorH, stepW , 1.0f, 0.0f,
 	
-	  bBlockW, floorH, 0.0f , 0.0f, 0.0f,
-	  0.0f, floorH, stepW , 1.0f, 0.0f,
-	  bBlockW, floorH, stepW, 0.0f, 0.0f,
+	bBlockW, floorH, 0.0f , 0.0f, 0.0f,
+	0.0f, floorH, stepW , 1.0f, 0.0f,
+	bBlockW, floorH, stepW, 0.0f, 0.0f,
 
-	  // higher step side part
-	  0.0f, floorH, stepW, 1.0f, 1.0f,
-	  bBlockW, floorH, stepW , 0.0f, 0.0f,
-	  0.0f, floorH - stepH, stepW , 1.0f, 0.0f,
+	// higher step side part
+	0.0f, floorH, stepW, 1.0f, 1.0f,
+	bBlockW, floorH, stepW , 0.0f, 0.0f,
+	0.0f, floorH - stepH, stepW , 1.0f, 0.0f,
 	
-	  bBlockW, floorH , stepW , 0.0f, 0.0f,
-	  0.0f, floorH - stepH, stepW , 1.0f, 0.0f,
-	  bBlockW, floorH - stepH, stepW, 0.0f, 0.0f,
+	bBlockW, floorH , stepW , 0.0f, 0.0f,
+	0.0f, floorH - stepH, stepW , 1.0f, 0.0f,
+	bBlockW, floorH - stepH, stepW, 0.0f, 0.0f,
 
-	  // 3th step top part
-	  0.0f, floorH - stepH, stepW, 1.0f, 1.0f,
-	  bBlockW, floorH - stepH, stepW , 0.0f, 0.0f,
-	  0.0f, floorH - stepH, stepW*2, 1.0f, 0.0f,
+	// 3th step top part
+	0.0f, floorH - stepH, stepW, 1.0f, 1.0f,
+	bBlockW, floorH - stepH, stepW , 0.0f, 0.0f,
+	0.0f, floorH - stepH, stepW*2, 1.0f, 0.0f,
 	
-	  bBlockW, floorH - stepH, stepW , 0.0f, 0.0f,
-	  0.0f, floorH - stepH, stepW *2, 1.0f, 0.0f,
-	  bBlockW, floorH - stepH, stepW * 2, 0.0f, 0.0f,
+	bBlockW, floorH - stepH, stepW , 0.0f, 0.0f,
+	0.0f, floorH - stepH, stepW *2, 1.0f, 0.0f,
+	bBlockW, floorH - stepH, stepW * 2, 0.0f, 0.0f,
 
-	  // 3th step side part
-	  0.0f, floorH - stepH, stepW*2, 1.0f, 1.0f,
-	  bBlockW, floorH - stepH, stepW*2 , 0.0f, 0.0f,
-	  0.0f, floorH - stepH * 2, stepW*2 , 1.0f, 0.0f,
+	// 3th step side part
+	0.0f, floorH - stepH, stepW*2, 1.0f, 1.0f,
+	bBlockW, floorH - stepH, stepW*2 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 2, stepW*2 , 1.0f, 0.0f,
 	
-	  bBlockW, floorH - stepH, stepW*2 , 0.0f, 0.0f,
-	  0.0f, floorH - stepH * 2, stepW*2 , 1.0f, 0.0f,
-	  bBlockW, floorH - stepH * 2, stepW*2, 0.0f, 0.0f,
+	bBlockW, floorH - stepH, stepW*2 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 2, stepW*2 , 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 2, stepW*2, 0.0f, 0.0f,
 
-	  // 2th step top part
-	  0.0f, floorH - stepH * 2, stepW * 2, 1.0f, 1.0f,
-	  bBlockW, floorH - stepH * 2, stepW *2, 0.0f, 0.0f,
-	  0.0f, floorH - stepH * 2, stepW*3, 1.0f, 0.0f,
+	// 2th step top part
+	0.0f, floorH - stepH * 2, stepW * 2, 1.0f, 1.0f,
+	bBlockW, floorH - stepH * 2, stepW *2, 0.0f, 0.0f,
+	0.0f, floorH - stepH * 2, stepW*3, 1.0f, 0.0f,
 	
-	  bBlockW, floorH - stepH * 2, stepW *2 , 0.0f, 0.0f, // 4
-	  0.0f, floorH - stepH * 2, stepW *3, 1.0f, 0.0f,
-	  bBlockW, floorH - stepH * 2, stepW * 3, 0.0f, 0.0f,
+	bBlockW, floorH - stepH * 2, stepW *2 , 0.0f, 0.0f, // 4
+	0.0f, floorH - stepH * 2, stepW *3, 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 2, stepW * 3, 0.0f, 0.0f,
 
-	  // 2th step side part
-	  0.0f, floorH - stepH * 2, stepW*3, 1.0f, 1.0f,
-	  bBlockW, floorH - stepH * 2, stepW*3 , 0.0f, 0.0f,
-	  0.0f, floorH - stepH * 3, stepW*3 , 1.0f, 0.0f,
+	// 2th step side part
+	0.0f, floorH - stepH * 2, stepW*3, 1.0f, 1.0f,
+	bBlockW, floorH - stepH * 2, stepW*3 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 3, stepW*3 , 1.0f, 0.0f,
 	
-	  bBlockW, floorH - stepH * 2, stepW*3 , 0.0f, 0.0f,
-	  0.0f, floorH - stepH * 3, stepW*3 , 1.0f, 0.0f,
-	  bBlockW, floorH - stepH * 3, stepW*3, 0.0f, 0.0f,
+	bBlockW, floorH - stepH * 2, stepW*3 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 3, stepW*3 , 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 3, stepW*3, 0.0f, 0.0f,
 
-	  // 1th step top part
-	  0.0f, floorH - stepH * 3, stepW * 3, 1.0f, 1.0f,
-	  bBlockW, floorH - stepH * 3, stepW *3, 0.0f, 0.0f,
-	  0.0f, floorH - stepH * 3, stepW*4, 1.0f, 0.0f,
+	// 1th step top part
+	0.0f, floorH - stepH * 3, stepW * 3, 1.0f, 1.0f,
+	bBlockW, floorH - stepH * 3, stepW *3, 0.0f, 0.0f,
+	0.0f, floorH - stepH * 3, stepW*4, 1.0f, 0.0f,
 	
-	  bBlockW, floorH - stepH * 3, stepW *3 , 0.0f, 0.0f,
-	  0.0f, floorH - stepH * 3, stepW *4, 1.0f, 0.0f,
-	  bBlockW, floorH - stepH * 3, stepW * 4, 0.0f, 0.0f,
+	bBlockW, floorH - stepH * 3, stepW *3 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 3, stepW *4, 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 3, stepW * 4, 0.0f, 0.0f,
 
-	  // 1th step side part
-	  0.0f, floorH - stepH * 3, stepW*4, 1.0f, 1.0f,
-	  bBlockW, floorH - stepH * 3, stepW*4 , 0.0f, 0.0f,
-	  0.0f, floorH - stepH * 4, stepW*4 , 1.0f, 0.0f,
+	// 1th step side part
+	0.0f, floorH - stepH * 3, stepW*4, 1.0f, 1.0f,
+	bBlockW, floorH - stepH * 3, stepW*4 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 4, stepW*4 , 1.0f, 0.0f,
 	
-	  bBlockW, floorH - stepH * 3, stepW*4 , 0.0f, 0.0f,
-	  0.0f, floorH - stepH * 4, stepW*4 , 1.0f, 0.0f,
-	  bBlockW, floorH - stepH * 4, stepW*4, 0.0f, 0.0f,
-	};
+	bBlockW, floorH - stepH * 3, stepW*4 , 0.0f, 0.0f,
+	0.0f, floorH - stepH * 4, stepW*4 , 1.0f, 0.0f,
+	bBlockW, floorH - stepH * 4, stepW*4, 0.0f, 0.0f,
+      };
 
-	tileBlocksTempl[1].vertexes = malloc(sizeof(texturedTileVerts));
-	memcpy(tileBlocksTempl[1].vertexes, texturedTileVerts, sizeof(texturedTileVerts));
-	tileBlocksTempl[1].vertexesSize = 8 * 6;
-	tileBlocksTempl[1].type = stepsBlockT;
+      tileBlocksTempl[1].vertexes = malloc(sizeof(texturedTileVerts));
+      memcpy(tileBlocksTempl[1].vertexes, texturedTileVerts, sizeof(texturedTileVerts));
+      tileBlocksTempl[1].vertexesSize = 8 * 6;
+      tileBlocksTempl[1].type = stepsBlockT;
 
       // TODO: I can win some peft to now calculate new buffer if transforms things == default
       /*
@@ -2246,7 +2241,7 @@ int main(int argc, char* argv[]) {
 	      mouse.focusedThing = NULL;
 	      mouse.focusedType = 0;
 	      manipulationMode = 0;
-		  manipulationStep = 0.01f;
+	      manipulationStep = 0.01f;
 	    }
 	    
 	    /*
@@ -3774,7 +3769,7 @@ int main(int argc, char* argv[]) {
 	  if(true){
 	    for(int side=0;side<basicSideCounter;side++){
 
-	      if(grid[y][z][x].walls[side].buf != NULL) {
+	      if(grid[y][z][x].walls[side].txIndexes != NULL) {
 		// wall in/out camera
 		int in=0;
 
@@ -3819,49 +3814,29 @@ int main(int argc, char* argv[]) {
 		}
 
 		/*		if(grid[y][z][x].walls[side].txHidden){
-		  glActiveTexture(emptyTx);
-		  glBindTexture(GL_TEXTURE_2D, emptyTx);
-		}else{
-		  glActiveTexture(loadedTextures1D[txIndex].tx);
-		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[txIndex].tx);
-		}*/
+				glActiveTexture(emptyTx);
+				glBindTexture(GL_TEXTURE_2D, emptyTx);
+				}else{
+				glActiveTexture(loadedTextures1D[txIndex].tx);
+				glBindTexture(GL_TEXTURE_2D, loadedTextures1D[txIndex].tx);
+				}*/
 		
 		glBindVertexArray(customWallV.VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, customWallV.VBO);
 
-
+		
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x].walls[side].mat.m);
 
 		int txInn = 0;
-		for(int r=0;r<grid[y][z][x].walls[side].bufSize / sizeof(float);r+=30){
-		  float blockSize[] = {
-		    grid[y][z][x].walls[side].buf[r], grid[y][z][x].walls[side].buf[r+1], grid[y][z][x].walls[side].buf[r+2], grid[y][z][x].walls[side].buf[r+3], grid[y][z][x].walls[side].buf[r+4],
-		    grid[y][z][x].walls[side].buf[r+5], grid[y][z][x].walls[side].buf[r+6], grid[y][z][x].walls[side].buf[r+7], grid[y][z][x].walls[side].buf[r+8], grid[y][z][x].walls[side].buf[r+9],
-		    grid[y][z][x].walls[side].buf[r+10], grid[y][z][x].walls[side].buf[r+11], grid[y][z][x].walls[side].buf[r+12], grid[y][z][x].walls[side].buf[r+13], grid[y][z][x].walls[side].buf[r+14],
+		for(int i=0;i<wallsVPairs[wallT].planesNum;i++){
+		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[txInn].tx);
+		  
+		  glBindVertexArray(wallsVPairs[wallT].pairs[i].VAO);
+		  glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallT].pairs[i].VBO);
 
-		    grid[y][z][x].walls[side].buf[r+15], grid[y][z][x].walls[side].buf[r+16], grid[y][z][x].walls[side].buf[r+17], grid[y][z][x].walls[side].buf[r+18], grid[y][z][x].walls[side].buf[r+19],
-		    grid[y][z][x].walls[side].buf[r+20], grid[y][z][x].walls[side].buf[r+21], grid[y][z][x].walls[side].buf[r+22], grid[y][z][x].walls[side].buf[r+23], grid[y][z][x].walls[side].buf[r+24],
-		    grid[y][z][x].walls[side].buf[r+25], grid[y][z][x].walls[side].buf[r+26], grid[y][z][x].walls[side].buf[r+27], grid[y][z][x].walls[side].buf[r+28], grid[y][z][x].walls[side].buf[r+29],
-		  };
-
-		  //glBindTexture(GL_TEXTURE_2D, loadedTextures1D[grid[y][z][x].walls[side].txIndexes[txInn]].tx);
-		  glBindTexture(GL_TEXTURE_2D, txInn);
-
-		  glBufferData(GL_ARRAY_BUFFER, sizeof(blockSize), blockSize, GL_STATIC_DRAW);
-		
-		  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
-		  glEnableVertexAttribArray(0);
-		
-		  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
-		  glEnableVertexAttribArray(1);
-		
-		  glDrawArrays(GL_TRIANGLES, 0, 6); // 5 - num of el vec3 + uv
+		  glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[wallT].pairs[i].vertexNum);
 		  txInn++;
 		}
-
-		  
-		//		free(wal);
-
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -4177,18 +4152,13 @@ int main(int argc, char* argv[]) {
 	  // setup wall
 	  {
 	    memset(&wal, 0, sizeof(Wall));
-	    wal.mat = IDENTITY_MATRIX;
-
-	    wal.buf = wallBySide(&wal.bufSize, right, 0);
-	    wal.side = selectedSide;
-
+	    wal.txIndexes = calloc(wallsVPairs[wallT].planesNum, sizeof(int));
+	    
 	    wal.mat = IDENTITY_MATRIX;
 
 	    wal.mat.m[12] = tile.x;
 	    wal.mat.m[13] = tile.y;
 	    wal.mat.m[14] = tile.z;
-
-	  //  free(wall);
 	  }
 
 	  // rotate wall to selectedSide
@@ -4223,21 +4193,13 @@ int main(int argc, char* argv[]) {
 	  {
 	    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[0].tx);
 	  
-	    glBindVertexArray(brushWall.VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, brushWall.VBO);
+	    for(int i=0;i<wallsVPairs[wallT].planesNum;i++){
+	      glBindVertexArray(wallsVPairs[wallT].pairs[i].VAO);
+	      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallT].pairs[i].VBO);
 
-	    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, wal.mat.m);
-		  
-	    glBufferData(GL_ARRAY_BUFFER, wal.bufSize, wal.buf, GL_STATIC_DRAW);
-		
-	    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
-	    glEnableVertexAttribArray(0);
-		
-	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
-	    glEnableVertexAttribArray(1);
-		
-	    glDrawArrays(GL_TRIANGLES, 0, (wal.bufSize / sizeof(float)) / 5);
-
+	      glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[wallT].pairs[i].vertexNum);
+	    }
+	    
 	    glBindTexture(GL_TEXTURE_2D, 0);
 	    glBindVertexArray(0);
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -4256,13 +4218,8 @@ int main(int argc, char* argv[]) {
 
 	  if(mouse.clickR &&
 	     (!opTile || !opTile->walls[oppositeSide].buf)){
-
-	    vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor,tileData->grid.z);
-	    
 	    memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x].walls[selectedSide], &wal, sizeof(Wall));
 	  }
-
-	  free(wal.buf);
 	}
       }
 
@@ -4562,11 +4519,11 @@ int main(int argc, char* argv[]) {
 	 }case(mouseTileT):{
 	    TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
-		int tileTx = valueIn(data->tile->ground, data->groundInter);
+	    int tileTx = valueIn(data->tile->ground, data->groundInter);
 
-		if (tileTx == 35) {
-			bool a = true;
-		}
+	    if (tileTx == 35) {
+	      bool a = true;
+	    }
 
 	  
 	    sprintf(buf, "Selected tile tx: [%s]", loadedTexturesNames[tileTx]);  
@@ -5857,45 +5814,45 @@ vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tile
 }
 
 void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b){
-	float verts[] = { 0.0f, 0.0f , 0.0f,
-	  0.0f, 0.0f + h, 0.0f,
+  float verts[] = { 0.0f, 0.0f , 0.0f,
+    0.0f, 0.0f + h, 0.0f,
 
-	  0.0f ,0.0f , 0.0f,
-	  0.0f + w,0.0f , 0.0f,
+    0.0f ,0.0f , 0.0f,
+    0.0f + w,0.0f , 0.0f,
 
-	  0.0f ,0.0f , 0.0f,
-	  0.0f ,0.0f , 0.0f + d,
+    0.0f ,0.0f , 0.0f,
+    0.0f ,0.0f , 0.0f + d,
 
-	  0.0f ,0.0f + h, 0.0f,
-	  0.0f + w,0.0f + h, 0.0f,
+    0.0f ,0.0f + h, 0.0f,
+    0.0f + w,0.0f + h, 0.0f,
 
-	  0.0f ,0.0f + h, 0.0f,
-	  0.0f ,0.0f + h, 0.0f + d,
+    0.0f ,0.0f + h, 0.0f,
+    0.0f ,0.0f + h, 0.0f + d,
 
-	  0.0f + w,0.0f + h, 0.0f,
-	  0.0f + w,0.0f , 0.0f,
+    0.0f + w,0.0f + h, 0.0f,
+    0.0f + w,0.0f , 0.0f,
 
-	  0.0f ,0.0f + h, 0.0f + d,
-	  0.0f ,0.0f , 0.0f + d,
+    0.0f ,0.0f + h, 0.0f + d,
+    0.0f ,0.0f , 0.0f + d,
 
-	  0.0f ,0.0f + h, 0.0f + d,
-	  0.0f + w,0.0f + h, 0.0f + d,
+    0.0f ,0.0f + h, 0.0f + d,
+    0.0f + w,0.0f + h, 0.0f + d,
 
-	  0.0f + w,0.0f + h, 0.0f,
-	  0.0f + w,0.0f + h, 0.0f + d,
+    0.0f + w,0.0f + h, 0.0f,
+    0.0f + w,0.0f + h, 0.0f + d,
 
-	  0.0f + w,0.0f + h, 0.0f + d,
-	  0.0f + w,0.0f , 0.0f + d,
+    0.0f + w,0.0f + h, 0.0f + d,
+    0.0f + w,0.0f , 0.0f + d,
 
-	  0.0f + w,0.0f + h, 0.0f,
-	  0.0f + w,0.0f + h, 0.0f + d,
+    0.0f + w,0.0f + h, 0.0f,
+    0.0f + w,0.0f + h, 0.0f + d,
 
-	  0.0f ,0.0f , 0.0f + d,
-	  0.0f + w,0.0f , 0.0f + d,
+    0.0f ,0.0f , 0.0f + d,
+    0.0f + w,0.0f , 0.0f + d,
 
-	  0.0f + w,0.0f , 0.0f,
-	  0.0f + w,0.0f , 0.0f + d
-	};
+    0.0f + w,0.0f , 0.0f,
+    0.0f + w,0.0f , 0.0f + d
+  };
 }
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist) {
@@ -6258,58 +6215,58 @@ void wallsLoadVAOandVBO(){
       float d = 1;
 
       if(type == wallT){
-		  float verts[] = { 0.0f, 0.0f , 0.0f,
-		0.0f, 0.0f + h, 0.0f,
+	float verts[] = { 0.0f, 0.0f , 0.0f,
+	  0.0f, 0.0f + h, 0.0f,
 
-		0.0f ,0.0f , 0.0f,
-		0.0f + w,0.0f , 0.0f,
+	  0.0f ,0.0f , 0.0f,
+	  0.0f + w,0.0f , 0.0f,
 
-		0.0f ,0.0f , 0.0f,
-		0.0f ,0.0f , 0.0f + d,
+	  0.0f ,0.0f , 0.0f,
+	  0.0f ,0.0f , 0.0f + d,
 
-		0.0f ,0.0f + h, 0.0f,
-		0.0f + w,0.0f + h, 0.0f,
+	  0.0f ,0.0f + h, 0.0f,
+	  0.0f + w,0.0f + h, 0.0f,
 
-		0.0f ,0.0f + h, 0.0f,
-		0.0f ,0.0f + h, 0.0f + d,
+	  0.0f ,0.0f + h, 0.0f,
+	  0.0f ,0.0f + h, 0.0f + d,
 
-		0.0f + w,0.0f + h, 0.0f,
-		0.0f + w,0.0f , 0.0f,
+	  0.0f + w,0.0f + h, 0.0f,
+	  0.0f + w,0.0f , 0.0f,
 
-		0.0f ,0.0f + h, 0.0f + d,
-		0.0f ,0.0f , 0.0f + d,
+	  0.0f ,0.0f + h, 0.0f + d,
+	  0.0f ,0.0f , 0.0f + d,
 
-		0.0f ,0.0f + h, 0.0f + d,
-		0.0f + w,0.0f + h, 0.0f + d,
+	  0.0f ,0.0f + h, 0.0f + d,
+	  0.0f + w,0.0f + h, 0.0f + d,
 
-		0.0f + w,0.0f + h, 0.0f,
-		0.0f + w,0.0f + h, 0.0f + d,
+	  0.0f + w,0.0f + h, 0.0f,
+	  0.0f + w,0.0f + h, 0.0f + d,
 
-		0.0f + w,0.0f + h, 0.0f + d,
-		0.0f + w,0.0f , 0.0f + d,
+	  0.0f + w,0.0f + h, 0.0f + d,
+	  0.0f + w,0.0f , 0.0f + d,
 
-		0.0f + w,0.0f + h, 0.0f,
-		0.0f + w,0.0f + h, 0.0f + d,
+	  0.0f + w,0.0f + h, 0.0f,
+	  0.0f + w,0.0f + h, 0.0f + d,
 
-		0.0f ,0.0f , 0.0f + d,
-		0.0f + w,0.0f , 0.0f + d,
+	  0.0f ,0.0f , 0.0f + d,
+	  0.0f + w,0.0f , 0.0f + d,
 
-		0.0f + w,0.0f , 0.0f,
-		0.0f + w,0.0f , 0.0f + d
-		  };
-	    /*	float verts[] = {
-	  argVec3(wallPos[0]), 0.0f, 1.0f,
-	  argVec3(wallPos[1]), 1.0f, 1.0f,
-	  argVec3(wallPos[3]), 0.0f, 0.0f, 
+	  0.0f + w,0.0f , 0.0f,
+	  0.0f + w,0.0f , 0.0f + d
+	};
+	/*	float verts[] = {
+		argVec3(wallPos[0]), 0.0f, 1.0f,
+		argVec3(wallPos[1]), 1.0f, 1.0f,
+		argVec3(wallPos[3]), 0.0f, 0.0f, 
       
-	  argVec3(wallPos[1]), 1.0f, 1.0f,
-	  argVec3(wallPos[2]), 1.0f, 0.0f, 
-	  argVec3(wallPos[3]), 0.0f, 0.0f,
+		argVec3(wallPos[1]), 1.0f, 1.0f,
+		argVec3(wallPos[2]), 1.0f, 0.0f, 
+		argVec3(wallPos[3]), 0.0f, 0.0f,
 
-	  argVec3(wallPos[1]), 1.0f, 1.0f,
-	  argVec3(wallPos[2]), 1.0f, 0.0f, 
-	  argVec3(wallPos[3]), 0.0f, 0.0f,
-	};*/
+		argVec3(wallPos[1]), 1.0f, 1.0f,
+		argVec3(wallPos[2]), 1.0f, 0.0f, 
+		argVec3(wallPos[3]), 0.0f, 0.0f,
+		};*/
 
 	if(!customWallTemp[side]){
 	  customWallTemp[side] = malloc(sizeof(verts));
@@ -7073,7 +7030,7 @@ bool loadSave(char* saveName){
       newBlock->tile = tile;
 
       newBlock->vpair.VBO = tileBlocksTempl[newBlock->type].vpair.VBO;
-	  newBlock->vpair.VAO = tileBlocksTempl[newBlock->type].vpair.VAO;
+      newBlock->vpair.VAO = tileBlocksTempl[newBlock->type].vpair.VAO;
 
       for(int i2=0;i2<vertexesSize;i2++){
 	fscanf(map, "%f ", &newBlock->vertexes[i2]);
@@ -7775,223 +7732,644 @@ float* wallBySide(int* bufSize,Side side, float thick){
   float t = (float)1/8;
 
   if(side == right){
-        d = t;
+    d = t;
 
-	float capH = h * 0.12f;
-	float botH = h * 0.4f;
+    float capH = h * 0.12f;
+    float botH = h * 0.4f;
 	
-	float verts[] = {
-		// cap top
-		0.0f, h, -t, 0.0f, 0.0f,
-		w, h, -t,    t, 0.0f,
-		0.0f,h, d,   0.0f, 1.0f,
+    float verts[] = {
+      // cap top
+      0.0f, h, -t, 0.0f, 0.0f,
+      w, h, -t,    t, 0.0f,
+      0.0f,h, d,   0.0f, 1.0f,
 
-		w, h, -t,    t, 0.0f,
-		0.0f,h,d,    0.0f, 1.0f,
-		w,h,d,       t, 1.0f,
+      w, h, -t,    t, 0.0f,
+      0.0f,h,d,    0.0f, 1.0f,
+      w,h,d,       t, 1.0f,
 		
-		// cap bot
-		0.0f, h-capH, -t, 0.0f, 0.0f,
-		w,  h-capH, -t,    t, 0.0f,
-		0.0f, h-capH, d,   0.0f, 1.0f,
+      // cap bot
+      0.0f, h-capH, -t, 0.0f, 0.0f,
+      w,  h-capH, -t,    t, 0.0f,
+      0.0f, h-capH, d,   0.0f, 1.0f,
 
-		w,  h-capH, -t,    t, 0.0f,
-		0.0f, h-capH,d,    0.0f, 1.0f,
-		w, h-capH,d,       t, 1.0f,
+      w,  h-capH, -t,    t, 0.0f,
+      0.0f, h-capH,d,    0.0f, 1.0f,
+      w, h-capH,d,       t, 1.0f,
 
 
-		// cap back
-		0.0f, h, -t,      0.0f, 1.0f,
-		w, h, -t,         1.0f, 1.0f,
-		0.0f, h -capH, -t,  0.0f, 0.0f,
+      // cap back
+      0.0f, h, -t,      0.0f, 1.0f,
+      w, h, -t,         1.0f, 1.0f,
+      0.0f, h -capH, -t,  0.0f, 0.0f,
 
-		w, h, -t,         1.0f, 1.0f,
-		0.0f, h -capH, -t,  0.0f, 0.0f,
-		w, h -capH, -t,     1.0f, 0.0f,
+      w, h, -t,         1.0f, 1.0f,
+      0.0f, h -capH, -t,  0.0f, 0.0f,
+      w, h -capH, -t,     1.0f, 0.0f,
 
-		// cap left
-		0.0f, h -capH, -t,  0.0f, 0.0f,
-		0.0f, h, -t,     0.0f, 1.0f,
-		0.0f, h , d,     t, 1.0f,
+      // cap left
+      0.0f, h -capH, -t,  0.0f, 0.0f,
+      0.0f, h, -t,     0.0f, 1.0f,
+      0.0f, h , d,     t, 1.0f,
 
-		0.0f, h, d,      t, 1.0f,
-		0.0f, h -capH, -t,  0.0f, 0.0f,
-		0.0f, h -capH, d,  t, 0.0f,
+      0.0f, h, d,      t, 1.0f,
+      0.0f, h -capH, -t,  0.0f, 0.0f,
+      0.0f, h -capH, d,  t, 0.0f,
 
-		// cap right
-		w, h -capH, -t,     0.0f, 0.0f,
-		w, h, -t,        0.0f, 1.0f,
-		w, h , d,        t, 1.0f,
+      // cap right
+      w, h -capH, -t,     0.0f, 0.0f,
+      w, h, -t,        0.0f, 1.0f,
+      w, h , d,        t, 1.0f,
 
-		w, h, d,         t, 1.0f,
-		w, h -capH, -t,     0.0f, 0.0f,
-		w, h -capH , d,     t, 0.0f,
+      w, h, d,         t, 1.0f,
+      w, h -capH, -t,     0.0f, 0.0f,
+      w, h -capH , d,     t, 0.0f,
 
-		// cap front
-		0.0f, h, d,      0.0f, 1.0f,
-		w, h, d,         1.0f, 1.0f,
-		0.0f, h -capH , d,  0.0f, 0.0f,
+      // cap front
+      0.0f, h, d,      0.0f, 1.0f,
+      w, h, d,         1.0f, 1.0f,
+      0.0f, h -capH , d,  0.0f, 0.0f,
 
-		w, h, d,         1.0f, 1.0f,
-		0.0f, h -capH , d,  0.0f, 0.0f,
-		w, h -capH , d,     1.0f, 0.0f,
+      w, h, d,         1.0f, 1.0f,
+      0.0f, h -capH , d,  0.0f, 0.0f,
+      w, h -capH , d,     1.0f, 0.0f,
 
-		//
-		// bot top
-		0.0f, botH, -t, 0.0f, 0.0f,
-		w, botH, -t,    t, 0.0f,
-		0.0f,botH, d,   0.0f, 1.0f,
+      //
+      // bot top
+      0.0f, botH, -t, 0.0f, 0.0f,
+      w, botH, -t,    t, 0.0f,
+      0.0f,botH, d,   0.0f, 1.0f,
 
-		w, botH, -t,    t, 0.0f,
-		0.0f,botH,d,    0.0f, 1.0f,
-		w,botH,d,       t, 1.0f,
+      w, botH, -t,    t, 0.0f,
+      0.0f,botH,d,    0.0f, 1.0f,
+      w,botH,d,       t, 1.0f,
 
-		// bot back
-		0.0f, botH, -t,      0.0f, 1.0f,
-		w, botH, -t,         1.0f, 1.0f,
-		0.0f, 0.0f , -t,  0.0f, 0.0f,
+      // bot back
+      0.0f, botH, -t,      0.0f, 1.0f,
+      w, botH, -t,         1.0f, 1.0f,
+      0.0f, 0.0f , -t,  0.0f, 0.0f,
 
-		w, botH, -t,         1.0f, 1.0f,
-		0.0f, 0.0f , -t,  0.0f, 0.0f,
-		w, 0.0f , -t,     1.0f, 0.0f,
+      w, botH, -t,         1.0f, 1.0f,
+      0.0f, 0.0f , -t,  0.0f, 0.0f,
+      w, 0.0f , -t,     1.0f, 0.0f,
 
-		// bot left
-		0.0f, 0.0f, -t,  0.0f, 0.0f,
-		0.0f, botH, -t,     0.0f, 1.0f,
-		0.0f, botH , d,     t, 1.0f,
+      // bot left
+      0.0f, 0.0f, -t,  0.0f, 0.0f,
+      0.0f, botH, -t,     0.0f, 1.0f,
+      0.0f, botH , d,     t, 1.0f,
 
-		0.0f, botH, d,      t, 1.0f,
-		0.0f, 0.0f, -t,  0.0f, 0.0f,
-		0.0f, 0.0f , d,  t, 0.0f,
+      0.0f, botH, d,      t, 1.0f,
+      0.0f, 0.0f, -t,  0.0f, 0.0f,
+      0.0f, 0.0f , d,  t, 0.0f,
 
-		// bot right
-		w, 0.0f, -t,     0.0f, 0.0f,
-		w, botH, -t,        0.0f, 1.0f,
-		w, botH , d,        t, 1.0f,
+      // bot right
+      w, 0.0f, -t,     0.0f, 0.0f,
+      w, botH, -t,        0.0f, 1.0f,
+      w, botH , d,        t, 1.0f,
 
-		w, botH, d,         t, 1.0f,
-		w, 0.0f, -t,     0.0f, 0.0f,
-		w, 0.0f , d,     t, 0.0f,
+      w, botH, d,         t, 1.0f,
+      w, 0.0f, -t,     0.0f, 0.0f,
+      w, 0.0f , d,     t, 0.0f,
 
-		// bot front
-		0.0f, botH, d,      0.0f, 1.0f,
-		w, botH, d,         1.0f, 1.0f,
-		0.0f, 0.0f , d,  0.0f, 0.0f,
+      // bot front
+      0.0f, botH, d,      0.0f, 1.0f,
+      w, botH, d,         1.0f, 1.0f,
+      0.0f, 0.0f , d,  0.0f, 0.0f,
 
-		w, botH, d,         1.0f, 1.0f,
-		0.0f, 0.0f , d,  0.0f, 0.0f,
-		w, 0.0f , d,     1.0f, 0.0f
-	};
+      w, botH, d,         1.0f, 1.0f,
+      0.0f, 0.0f , d,  0.0f, 0.0f,
+      w, 0.0f , d,     1.0f, 0.0f
+    };
 
-	*bufSize = sizeof(verts);
-	buf = malloc(sizeof(verts));
-	memcpy(buf, verts, sizeof(verts));
-	return buf;
+    *bufSize = sizeof(verts);
+    buf = malloc(sizeof(verts));
+    memcpy(buf, verts, sizeof(verts));
+    return buf;
   }else if(side == top){
     d = t;
     	
-	float verts[] = {
-		// top
-		0.0f, h, -t, 0.0f, 0.0f,
-		w, h, -t,    t, 0.0f,
-		0.0f,h, d,   0.0f, 1.0f,
+    float verts[] = {
+      // top
+      0.0f, h, -t, 0.0f, 0.0f,
+      w, h, -t,    t, 0.0f,
+      0.0f,h, d,   0.0f, 1.0f,
 
-		w, h, -t,    t, 0.0f,
-		0.0f,h,d,    0.0f, 1.0f,
-		w,h,d,       t, 1.0f,
+      w, h, -t,    t, 0.0f,
+      0.0f,h,d,    0.0f, 1.0f,
+      w,h,d,       t, 1.0f,
 
-		// back
-		0.0f, h, -t,      0.0f, 1.0f,
-		w, h, -t,         1.0f, 1.0f,
-		0.0f, 0.0f , -t,  0.0f, 0.0f,
+      // back
+      0.0f, h, -t,      0.0f, 1.0f,
+      w, h, -t,         1.0f, 1.0f,
+      0.0f, 0.0f , -t,  0.0f, 0.0f,
 
-		w, h, -t,         1.0f, 1.0f,
-		0.0f, 0.0f , -t,  0.0f, 0.0f,
-		w, 0.0f , -t,     1.0f, 0.0f,
+      w, h, -t,         1.0f, 1.0f,
+      0.0f, 0.0f , -t,  0.0f, 0.0f,
+      w, 0.0f , -t,     1.0f, 0.0f,
 
-		//left
-		0.0f, 0.0f, -t,  0.0f, 0.0f,
-		0.0f, h, -t,     0.0f, 1.0f,
-		0.0f, h , d,     t, 1.0f,
+      //left
+      0.0f, 0.0f, -t,  0.0f, 0.0f,
+      0.0f, h, -t,     0.0f, 1.0f,
+      0.0f, h , d,     t, 1.0f,
 
-		0.0f, h, d,      t, 1.0f,
-		0.0f, 0.0f, -t,  0.0f, 0.0f,
-		0.0f, 0.0f , d,  t, 0.0f,
+      0.0f, h, d,      t, 1.0f,
+      0.0f, 0.0f, -t,  0.0f, 0.0f,
+      0.0f, 0.0f , d,  t, 0.0f,
 
-		// right
-		w, 0.0f, -t,     0.0f, 0.0f,
-		w, h, -t,        0.0f, 1.0f,
-		w, h , d,        t, 1.0f,
+      // right
+      w, 0.0f, -t,     0.0f, 0.0f,
+      w, h, -t,        0.0f, 1.0f,
+      w, h , d,        t, 1.0f,
 
-		w, h, d,         t, 1.0f,
-		w, 0.0f, -t,     0.0f, 0.0f,
-		w, 0.0f , d,     t, 0.0f,
+      w, h, d,         t, 1.0f,
+      w, 0.0f, -t,     0.0f, 0.0f,
+      w, 0.0f , d,     t, 0.0f,
 
-		// front
-		0.0f, h, d,      0.0f, 1.0f,
-		w, h, d,         1.0f, 1.0f,
-		0.0f, 0.0f , d,  0.0f, 0.0f,
+      // front
+      0.0f, h, d,      0.0f, 1.0f,
+      w, h, d,         1.0f, 1.0f,
+      0.0f, 0.0f , d,  0.0f, 0.0f,
 
-		w, h, d,         1.0f, 1.0f,
-		0.0f, 0.0f , d,  0.0f, 0.0f,
-		w, 0.0f , d,     1.0f, 0.0f
-	};
+      w, h, d,         1.0f, 1.0f,
+      0.0f, 0.0f , d,  0.0f, 0.0f,
+      w, 0.0f , d,     1.0f, 0.0f
+    };
 
-	*bufSize = sizeof(verts);
-	buf = malloc(sizeof(verts));
-	memcpy(buf, verts, sizeof(verts));
-      return buf;
+    *bufSize = sizeof(verts);
+    buf = malloc(sizeof(verts));
+    memcpy(buf, verts, sizeof(verts));
+    return buf;
   }else if(side == bot){
         	
-	float verts[] = {
-		// top
-		0.0f, h, d-t, 0.0f, 1.0f,
-		w, h, d-t,    t, 1.0f,
-		0.0f,h, d+t,   0.0f, 0.0f,
+    float verts[] = {
+      // top
+      0.0f, h, d-t, 0.0f, 1.0f,
+      w, h, d-t,    t, 1.0f,
+      0.0f,h, d+t,   0.0f, 0.0f,
 
-		w, h, d-t,    t, 1.0f,
-		0.0f,h,d+t,    0.0f, 0.0f,
-		w,h,d+t,       t, 0.0f,
+      w, h, d-t,    t, 1.0f,
+      0.0f,h,d+t,    0.0f, 0.0f,
+      w,h,d+t,       t, 0.0f,
 
-		// back
-		0.0f, h, d-t,      0.0f, 1.0f,
-		w, h, d-t,         1.0f, 1.0f,
-		0.0f, 0.0f , d-t,  0.0f, 0.0f,
+      // back
+      0.0f, h, d-t,      0.0f, 1.0f,
+      w, h, d-t,         1.0f, 1.0f,
+      0.0f, 0.0f , d-t,  0.0f, 0.0f,
 
-		w, h, d-t,         1.0f, 1.0f,
-		0.0f, 0.0f , d-t,  0.0f, 0.0f,
-		w, 0.0f , d-t,     1.0f, 0.0f,
+      w, h, d-t,         1.0f, 1.0f,
+      0.0f, 0.0f , d-t,  0.0f, 0.0f,
+      w, 0.0f , d-t,     1.0f, 0.0f,
 
-		//left
-		0.0f, 0.0f, d-t,  0.0f, 0.0f,
-		0.0f, h, d-t,     0.0f, 1.0f,
-		0.0f, h , d+t,     t, 1.0f,
+      //left
+      0.0f, 0.0f, d-t,  0.0f, 0.0f,
+      0.0f, h, d-t,     0.0f, 1.0f,
+      0.0f, h , d+t,     t, 1.0f,
 
-		0.0f, h, d+t,      t, 1.0f,
-		0.0f, 0.0f, d-t,  0.0f, 0.0f,
-		0.0f, 0.0f , d+t,  t, 0.0f,
+      0.0f, h, d+t,      t, 1.0f,
+      0.0f, 0.0f, d-t,  0.0f, 0.0f,
+      0.0f, 0.0f , d+t,  t, 0.0f,
 
-		// right
-		w, 0.0f, d-t,     0.0f, 0.0f,
-		w, h, d-t,        0.0f, 1.0f,
-		w, h , d+t,        t, 1.0f,
+      // right
+      w, 0.0f, d-t,     0.0f, 0.0f,
+      w, h, d-t,        0.0f, 1.0f,
+      w, h , d+t,        t, 1.0f,
 
-		w, h, d+t,         t, 1.0f,
-		w, 0.0f, d-t,     0.0f, 0.0f,
-		w, 0.0f , d+t,     t, 0.0f,
+      w, h, d+t,         t, 1.0f,
+      w, 0.0f, d-t,     0.0f, 0.0f,
+      w, 0.0f , d+t,     t, 0.0f,
 
-		// front
-		0.0f, h, d+t,      0.0f, 1.0f,
-		w, h, d+t,         1.0f, 1.0f,
-		0.0f, 0.0f , d+t,  0.0f, 0.0f,
+      // front
+      0.0f, h, d+t,      0.0f, 1.0f,
+      w, h, d+t,         1.0f, 1.0f,
+      0.0f, 0.0f , d+t,  0.0f, 0.0f,
 
-		w, h, d+t,         1.0f, 1.0f,
-		0.0f, 0.0f , d+t,  0.0f, 0.0f,
-		w, 0.0f , d+t,     1.0f, 0.0f
-	};
+      w, h, d+t,         1.0f, 1.0f,
+      0.0f, 0.0f , d+t,  0.0f, 0.0f,
+      w, 0.0f , d+t,     1.0f, 0.0f
+    };
 
     //  memcpy(wall, verts, sizeof(verts));
   };
 
- // return wall; 
+  // return wall; 
 }
+
+void assembleWallBlockVBO(){  // wallBlock buf
+  {
+    wallsVPairs[wallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);
+    wallsVPairs[wallT].planesNum = wPlaneCounter;
+    
+    // top
+    {
+      glGenBuffers(1, &wallsVPairs[wallT].pairs[wTopPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallT].pairs[wTopPlane].VAO);
+
+      wallsVPairs[wallT].pairs[wTopPlane].vertexNum = 6 * 2;
+
+      float topPlane[] = {
+	0.0f, h, -t, 0.0f, 0.0f,
+	w, h, -t,    t, 0.0f,
+	0.0f,h, d,   0.0f, 1.0f,
+      
+	w, h, -t,    t, 0.0f,
+	0.0f,h,d,    0.0f, 1.0f,
+	w,h,d,       t, 1.0f,
+      };
+      
+      glBufferData(GL_ARRAY_BUFFER, sizeof(topPlane), topPlane, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // back
+    {
+      glGenBuffers(1, &wallsVPairs[wallT].pairs[wBackPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallT].pairs[wBackPlane].VAO);
+
+      wallsVPairs[wallT].pairs[wBackPlane].vertexNum = 6 * 2;
+      
+      float backPlane[] = {
+	0.0f, h, -t,      0.0f, 1.0f,
+	w, h, -t,         1.0f, 1.0f,
+	0.0f, 0.0f , -t,  0.0f, 0.0f,
+
+	w, h, -t,         1.0f, 1.0f,
+	0.0f, 0.0f , -t,  0.0f, 0.0f,
+	w, 0.0f , -t,     1.0f, 0.0f,
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(backPlane), backPlane, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    //left
+    {
+      glGenBuffers(1, &wallsVPairs[wallT].pairs[wLeftPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallT].pairs[wLeftPlane].VAO);
+
+      wallsVPairs[wallT].pairs[wLeftPlane].vertexNum = 6 * 2;
+      
+      float leftPlane[] = {
+	0.0f, 0.0f, -t,  0.0f, 0.0f,
+	0.0f, h, -t,     0.0f, 1.0f,
+	0.0f, h , d,     t, 1.0f,
+
+	0.0f, h, d,      t, 1.0f,
+	0.0f, 0.0f, -t,  0.0f, 0.0f,
+	0.0f, 0.0f , d,  t, 0.0f,
+      };
+
+      
+      glBufferData(GL_ARRAY_BUFFER, sizeof(leftPlane), leftPlane, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+    
+    // right
+    {
+      glGenBuffers(1, &wallsVPairs[wallT].pairs[wRightPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallT].pairs[wRightPlane].VAO);
+
+      wallsVPairs[wallT].pairs[wRightPlane].vertexNum = 6 * 2;
+      
+      float rightPlane[] = {
+	w, 0.0f, -t,     0.0f, 0.0f,
+	w, h, -t,        0.0f, 1.0f,
+	w, h , d,        t, 1.0f,
+
+	w, h, d,         t, 1.0f,
+	w, 0.0f, -t,     0.0f, 0.0f,
+	w, 0.0f , d,     t, 0.0f,
+      };
+      
+      glBufferData(GL_ARRAY_BUFFER, sizeof(rightPlane), rightPlane, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    
+    // front
+    {
+      glGenBuffers(1, &wallsVPairs[wallT].pairs[wFrontPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallT].pairs[wFrontPlane].VAO);
+      
+      wallsVPairs[wallT].pairs[wFrontPlane].vertexNum = 6 * 2;
+      
+      float frontPlane[] = {
+	0.0f, h, d,      0.0f, 1.0f,
+	w, h, d,         1.0f, 1.0f,
+	0.0f, 0.0f , d,  0.0f, 0.0f,
+
+	w, h, d,         1.0f, 1.0f,
+	0.0f, 0.0f , d,  0.0f, 0.0f,
+	w, 0.0f , d,     1.0f, 0.0f
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(blockBBuf), blockBBuf, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+  }
+
+  void assembleWindowBlockVBO(){
+    wallsVPairs[windowT].pairs = malloc(sizeof(VPair) * winPlaneCounter);
+    wallsVPairs[windowT].planesNum = winPlaneCounter;
+
+    // float
+    {
+      glGenBuffers(1, &wallsVPairs[windowT].pairs[winFrontPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winFrontPlane].VAO);
+
+      wallsVPairs[windowT].pairs[winFrontPlane].vertexNum = 6 * 2;
+
+      float frontPlane[] = {
+	// cap front
+	0.0f, h, d,      0.0f, 1.0f,
+	w, h, d,         1.0f, 1.0f,
+	0.0f, h -capH , d,  0.0f, 0.0f,
+
+	w, h, d,         1.0f, 1.0f,
+	0.0f, h -capH , d,  0.0f, 0.0f,
+	w, h -capH , d,     1.0f, 0.0f,
+
+	// bot front
+	0.0f, botH, d,      0.0f, 1.0f,
+	w, botH, d,         1.0f, 1.0f,
+	0.0f, 0.0f , d,  0.0f, 0.0f,
+
+	w, botH, d,         1.0f, 1.0f,
+	0.0f, 0.0f , d,  0.0f, 0.0f,
+	w, 0.0f , d,     1.0f, 0.0f
+      };
+      
+      glBufferData(GL_ARRAY_BUFFER, sizeof(frontPlane), frontPlane, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // back
+    {
+      glGenBuffers(1, &wallsVPairs[windowT].pairs[winBackPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winBackPlane].VAO);
+
+      wallsVPairs[windowT].pairs[winBackPlane].vertexNum = 6 * 2;
+      
+      float backSide[] = {
+	// cap back
+	0.0f, h, -t,      0.0f, 1.0f,
+	w, h, -t,         1.0f, 1.0f,
+	0.0f, h -capH, -t,  0.0f, 0.0f,
+
+	w, h, -t,         1.0f, 1.0f,
+	0.0f, h -capH, -t,  0.0f, 0.0f,
+	w, h -capH, -t,     1.0f, 0.0f,
+
+	// bot back
+	0.0f, botH, -t,      0.0f, 1.0f,
+	w, botH, -t,         1.0f, 1.0f,
+	0.0f, 0.0f , -t,  0.0f, 0.0f,
+
+	w, botH, -t,         1.0f, 1.0f,
+	0.0f, 0.0f , -t,  0.0f, 0.0f,
+	w, 0.0f , -t,     1.0f, 0.0f,
+
+      };
+      
+      glBufferData(GL_ARRAY_BUFFER, sizeof(backSide), backSide, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // right
+    {
+      glGenBuffers(1, &wallsVPairs[windowT].pairs[winRightPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winRightPlane].VAO);
+
+      wallsVPairs[windowT].pairs[winRightPlane].vertexNum = 6 * 2;
+	    
+      float rightSide[] = {
+	// cap right
+	w, h -capH, -t,     0.0f, 0.0f,
+	w, h, -t,        0.0f, 1.0f,
+	w, h , d,        t, 1.0f,
+
+	w, h, d,         t, 1.0f,
+	w, h -capH, -t,     0.0f, 0.0f,
+	w, h -capH , d,     t, 0.0f,
+
+	// bot right
+	w, 0.0f, -t,     0.0f, 0.0f,
+	w, botH, -t,        0.0f, 1.0f,
+	w, botH , d,        t, 1.0f,
+
+	w, botH, d,         t, 1.0f,
+	w, 0.0f, -t,     0.0f, 0.0f,
+	w, 0.0f , d,     t, 0.0f,
+
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(rightSide), rightSide, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // left
+    {
+      glGenBuffers(1, &wallsVPairs[windowT].pairs[winLeftPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winLeftPlane].VAO);
+
+      wallsVPairs[windowT].pairs[winLeftPlane].vertexNum = 6 * 2;
+      
+      float leftSide[] = {
+	// cap left
+	0.0f, h -capH, -t,  0.0f, 0.0f,
+	0.0f, h, -t,     0.0f, 1.0f,
+	0.0f, h , d,     t, 1.0f,
+
+	0.0f, h, d,      t, 1.0f,
+	0.0f, h -capH, -t,  0.0f, 0.0f,
+	0.0f, h -capH, d,  t, 0.0f,
+      
+	// bot left
+	0.0f, 0.0f, -t,  0.0f, 0.0f,
+	0.0f, botH, -t,     0.0f, 1.0f,
+	0.0f, botH , d,     t, 1.0f,
+
+	0.0f, botH, d,      t, 1.0f,
+	0.0f, 0.0f, -t,  0.0f, 0.0f,
+	0.0f, 0.0f , d,  t, 0.0f,
+
+      };
+      
+      glBufferData(GL_ARRAY_BUFFER, sizeof(leftSide), leftSide, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // top
+    {
+      glGenBuffers(1, &wallsVPairs[windowT].pairs[winTopPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winTopPlane].VAO);
+      
+      wallsVPairs[windowT].pairs[winTopPlane].vertexNum = 6;
+      
+      float topSide[] = {
+	// cap top
+	0.0f, h, -t, 0.0f, 0.0f,
+	w, h, -t,    t, 0.0f,
+	0.0f,h, d,   0.0f, 1.0f,
+
+	w, h, -t,    t, 0.0f,
+	0.0f,h,d,    0.0f, 1.0f,
+	w,h,d,       t, 1.0f,
+      };
+
+      
+      glBufferData(GL_ARRAY_BUFFER, sizeof(topSide), topSide, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // inner
+    {
+      glGenBuffers(1, &wallsVPairs[windowT].pairs[winInnerPlanes].VBO);
+      glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winInnerPlanes].VAO);
+
+      wallsVPairs[windowT].pairs[winInnerPlanes].vertexNum = 6 * 2;
+
+      float innerSide[] = {
+	// cap bot
+	0.0f, h-capH, -t, 0.0f, 0.0f,
+	w,  h-capH, -t,    t, 0.0f,
+	0.0f, h-capH, d,   0.0f, 1.0f,
+
+	w,  h-capH, -t,    t, 0.0f,
+	0.0f, h-capH,d,    0.0f, 1.0f,
+	w, h-capH,d,       t, 1.0f,
+
+	// bot top
+	0.0f, botH, -t, 0.0f, 0.0f,
+	w, botH, -t,    t, 0.0f,
+	0.0f,botH, d,   0.0f, 1.0f,
+
+	w, botH, -t,    t, 0.0f,
+	0.0f,botH,d,    0.0f, 1.0f,
+	w,botH,d,       t, 1.0f,
+
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(innerSide), innerSide, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+
+    // center(window)
+    {
+      glGenBuffers(1, &wallsVPairs[windowT].pairs[winCenterPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winCenterPlane].VAO);
+
+      wallsVPairs[windowT].pairs[winCenterPlane].vertexNum = 6;
+
+      float hT = t/2;
+      
+      float windowPlane[] = {
+	// cap bot
+	0.0f, h-capH, hT, 0.0f, 0.0f,
+	w,  h-capH, hT,    t, 0.0f,
+	0.0f, botH, hT,   0.0f, 1.0f,
+
+	w,  h-capH, hT,    t, 0.0f,
+	0.0f, botH, hT,    0.0f, 1.0f,
+	w, botH, hT,       t, 1.0f,
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(windowPlane), windowPlane, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+  }

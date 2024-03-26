@@ -73,17 +73,11 @@ typedef struct{
 } AnimTimer;
 
 typedef enum{
-  wallT=1,
-  //  doorT,
-  halfWallT,
-  doorFrameT,
+  wallT,  
+  doorT,
   windowT,
-  // halfWallFenceT,
-  //windowLeftT,
-  //windowRightT,
-  wallTypeCounter,
 
-  // roof should be always after wallTypeCounter
+  wallTypeCounter,
 } WallType;
 
 typedef enum{
@@ -123,18 +117,18 @@ typedef struct{
 
 typedef enum{
   wTopPlane, wFrontPlane, wBackPlane, wLeftPlane, wRightPlane, wPlaneCounter
-} WallSides;
+} WallPlanes;
+
+typedef enum{
+  winTopPlane, winFrontPlane, winBackPlane, winLeftPlane, winRightPlane, winCenterPlane, winInnerPlanes, winPlaneCounter
+} WindowPlanes;
 
 typedef struct{
-  int txIndexes[wPlaneCounter]; // of each plane
+  int* txIndexes; // by windowPlane enum or wallPlane 
 
-  float* buf;
-  int bufSize;
+  WallType wall;
 
   Matrix mat;
-
-  vec3 rt;
-  vec3 lb;
 
   Side side; // where placed
 } Wall;
@@ -221,7 +215,18 @@ typedef struct{
 typedef struct{
   GLuint VBO;
   GLuint VAO;
+  
+  int vertexNum;
+
+  // AABB
+  vec3 rt;
+  vec3 lb;
 } VPair;
+
+typedef struct {
+    VPair* pairs;
+    int planesNum;
+} BlockInfo;
 
 typedef struct{
   GLuint VBO;
@@ -614,6 +619,9 @@ float* uiRectPercentage(float x, float y, float w, float h);
 float* uiRectPoints(float x, float y, float w, float h);
 
 TileBlock* constructNewBlock(int type, int angle);
+
+void assembleWindowBlockVBO();
+void assembleWallBlockVBO();
 
 #define resetMouse() mouse.selectedType = 0; mouse.selectedThing = NULL; mouse.focusedType = 0; mouse.focusedThing = NULL; mouse.brushType = 0; mouse.brushThing = NULL;
 
