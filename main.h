@@ -49,8 +49,8 @@ typedef enum{
 } Side;
 
 typedef struct{
-  vec3 min;
-  vec3 max;
+  vec3 lb;
+  vec3 rt;
 } AABB;
 
 typedef struct {
@@ -116,17 +116,22 @@ typedef struct{
 } MeshBuffer;
 
 typedef enum{
-  wTopPlane, wFrontPlane, wBackPlane, wLeftPlane, wRightPlane, wPlaneCounter
+  wTopPlane, wFrontPlane, wBackPlane,
+  //  wLeftPlane, wRightPlane,
+  wPlaneCounter
 } WallPlanes;
 
 typedef enum{
-  winTopPlane, winFrontPlane, winBackPlane, winLeftPlane, winRightPlane, winCenterPlane, winInnerPlanes, winPlaneCounter
+  winTopPlane, winFrontPlane, winBackPlane,
+  //  winLeftPlane, winRightPlane,
+  winCenterPlane, winInnerPlanes, winPlaneCounter
 } WindowPlanes;
 
 typedef struct{
-  int* txIndexes; // by windowPlane enum or wallPlane 
+  int* txIndexes; // by windowPlane enum or wallPlane
+  AABB* aabb;
 
-  WallType wall;
+  WallType type;
 
   Matrix mat;
 
@@ -217,15 +222,12 @@ typedef struct{
   GLuint VAO;
   
   int vertexNum;
-
-  // AABB
-  vec3 rt;
-  vec3 lb;
+  float* vBuf; // with size vertexNum * 5
 } VPair;
 
 typedef struct {
-    VPair* pairs;
-    int planesNum;
+  VPair* pairs;
+  int planesNum;
 } BlockInfo;
 
 typedef struct{
@@ -323,6 +325,9 @@ typedef struct{
   vec3i grid;
   int txIndex;
   Tile* tile;
+  
+  WallType type;
+  int plane;
 } WallMouseData;
 
 typedef struct{
