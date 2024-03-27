@@ -80,6 +80,8 @@ typedef enum{
   wallTypeCounter,
 } WallType;
 
+const char* wallTypeStr[] = { [wallT] = "Wall", [windowT] = "Window", [doorT] = "Door" };
+
 typedef enum{
   roofBlockT,
   stepsBlockT,
@@ -121,11 +123,49 @@ typedef enum{
   wPlaneCounter
 } WallPlanes;
 
+const char* wallPlanesStr[] = {
+  [wTopPlane]= "Top plane",
+  [wFrontPlane]= "Front plane",
+  [wBackPlane]= "Back plane",
+};
+
 typedef enum{
-  winTopPlane, winFrontPlane, winBackPlane,
+  winFrontCapPlane, winFrontBotPlane,
+  winBackCapPlane, winBackBotPlane,
+  winInnerTopPlane, winInnerBotPlane,
   //  winLeftPlane, winRightPlane,
-  winCenterPlane, winInnerPlanes, winPlaneCounter
+  winTopPlane, winFrontPodokonik, winBackPodokonik,
+  winCenterPlane, winPlaneCounter
 } WindowPlanes;
+
+const char* windowPlanesStr[] = {
+  [winTopPlane]= "Top plane",
+  [winFrontCapPlane]= "Front-cap plane",
+  [winFrontBotPlane]= "Front-bot plane",
+  [winBackCapPlane]= "Back-cap plane",
+  [winBackBotPlane]= "Back-bot plane",
+  [winCenterPlane]= "Center plane" ,
+  [winInnerBotPlane]= "Inner-bot plane",
+  [winInnerTopPlane]= "Inner-top plane",
+  
+  [winFrontPodokonik]= "Front-padokonik",
+  [winBackPodokonik]= "Back-padokonik",
+};
+
+typedef enum{
+  doorTopPlane,
+  doorFrontPlane, doorBackPlane,
+  doorCenterPlane,
+  doorInnerTopPlane,
+  doorPlaneCounter
+} DoorPlanes;
+
+const char* doorPlanesStr[] = {
+  [winTopPlane]= "Top plane",
+  [doorFrontPlane]= "Front plane",
+  [doorBackPlane]= "Back plane",
+  [doorCenterPlane]= "Center plane" ,
+};
 
 typedef struct{
   int* txIndexes; // by windowPlane enum or wallPlane
@@ -627,6 +667,7 @@ TileBlock* constructNewBlock(int type, int angle);
 
 void assembleWindowBlockVBO();
 void assembleWallBlockVBO();
+void assembleDoorBlockVBO();
 
 #define resetMouse() mouse.selectedType = 0; mouse.selectedThing = NULL; mouse.focusedType = 0; mouse.focusedThing = NULL; mouse.brushType = 0; mouse.brushThing = NULL;
 
