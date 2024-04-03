@@ -83,12 +83,15 @@ typedef enum{
   wallT,  
   doorT,
   windowT,
-  wallJoint,
+  wallJointT,
 
   wallTypeCounter,
 } WallType;
 
-const char* wallTypeStr[] = { [wallT] = "Wall", [windowT] = "Window", [doorT] = "Door" };
+const char* wallTypeStr[] = {
+  [wallT] = "Wall", [windowT] = "Window", [doorT] = "Door",
+  [wallJointT] = "Joint"
+};
 
 typedef enum{
   roofBlockT,
@@ -174,6 +177,12 @@ typedef enum{
   jointPlaneCounter
 } JointPlanes;
 
+const char* wallJointPlanesStr[] = {
+  [jointTopPlane] = "Top",
+  [jointFrontPlane] = "Front",
+  [jointSidePlane] = "Side"
+};
+
 const char* doorPlanesStr[] = {
   [winTopPlane]= "Top plane",
   [doorFrontPlane]= "Front plane",
@@ -189,8 +198,8 @@ typedef struct{
 
   Plane* planes;
   
-  Plane joint[jointPlaneCounter];
-  bool jointHide; // whole joint
+  //  Plane joint[jointPlaneCounter];
+  //  bool jointHide; // whole joint
   
   WallType type;
 
@@ -380,6 +389,11 @@ struct Tile{
   float groundLift;
 
   Wall walls[4];
+
+  Plane joint[4][jointPlaneCounter];
+  bool jointExist[4];
+  Matrix mat[4];
+  
 };
 
 typedef struct{
@@ -844,7 +858,7 @@ const vec2i englLettersMap[] = {
   { 4, 8}, // '{'
   { 3, 8}, // '|'
   { 2, 8}, // '}'
-  { 1, 8}, // '~'
+  { 1, 8}, // '~'
 };
 
 const char* sidesToStr[] = { "Top", "Bot", "Right", "Left"};
