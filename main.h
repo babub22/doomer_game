@@ -12,6 +12,11 @@ typedef struct{
   int index2D; // where [from context][index2D]
 } Texture;
 
+/*typedef struct{
+
+} Planes;*/
+
+
 typedef struct{
   int index;
   char* name;
@@ -51,7 +56,10 @@ typedef enum{
 typedef struct{
   vec3 lb;
   vec3 rt;
-} AABB;
+  
+  int txIndex;
+  bool hide;
+} Plane;
 
 typedef struct {
   // use pos as min for AABB
@@ -62,7 +70,6 @@ typedef struct {
 
   float angle;
   Side side;
-
   
   // vec3 colBox;
   float w, h, d;
@@ -76,9 +83,12 @@ typedef enum{
   wallT,  
   doorT,
   windowT,
+  wallJoint,
 
   wallTypeCounter,
 } WallType;
+
+const char* wallTypeStr[] = { [wallT] = "Wall", [windowT] = "Window", [doorT] = "Door" };
 
 typedef enum{
   roofBlockT,
@@ -121,16 +131,67 @@ typedef enum{
   wPlaneCounter
 } WallPlanes;
 
+const char* wallPlanesStr[] = {
+  [wTopPlane]= "Top plane",
+  [wFrontPlane]= "Front plane",
+  [wBackPlane]= "Back plane",
+};
+
 typedef enum{
-  winTopPlane, winFrontPlane, winBackPlane,
-  //  winLeftPlane, winRightPlane,
-  winCenterPlane, winInnerPlanes, winPlaneCounter
+  winFrontCapPlane, winFrontBotPlane,
+  winBackCapPlane, winBackBotPlane,
+  winInnerTopPlane, winInnerBotPlane,
+  //winLeftPlane, winRightPlane,
+  winTopPlane, winFrontPodokonik, winBackPodokonik,
+  winCenterPlane, winPlaneCounter
 } WindowPlanes;
 
-typedef struct{
-  int* txIndexes; // by windowPlane enum or wallPlane
-  AABB* aabb;
+const char* windowPlanesStr[] = {
+  [winTopPlane]= "Top plane",
+  [winFrontCapPlane]= "Front-cap plane",
+  [winFrontBotPlane]= "Front-bot plane",
+  [winBackCapPlane]= "Back-cap plane",
+  [winBackBotPlane]= "Back-bot plane",
+  [winCenterPlane]= "Center plane" ,
+  [winInnerBotPlane]= "Inner-bot plane",
+  [winInnerTopPlane]= "Inner-top plane",
+  
+  [winFrontPodokonik]= "Front-padokonik",
+  [winBackPodokonik]= "Back-padokonik",
+};
 
+typedef enum{
+  doorTopPlane,
+  doorFrontPlane, doorBackPlane,
+  doorCenterPlane,
+  doorInnerTopPlane,
+  doorPlaneCounter
+} DoorPlanes;
+
+typedef enum{
+  jointTopPlane,
+  jointFrontPlane, jointSidePlane,
+  jointPlaneCounter
+} JointPlanes;
+
+const char* doorPlanesStr[] = {
+  [winTopPlane]= "Top plane",
+  [doorFrontPlane]= "Front plane",
+  [doorBackPlane]= "Back plane",
+  [doorCenterPlane]= "Center plane" ,
+};
+
+typedef struct{
+  /* int* txIndexes; // by windowPlane enum or wallPlane
+  AABB* aabb;
+  bool* hide; // info about hidden plans
+*/
+
+  Plane* planes;
+  
+  Plane joint[jointPlaneCounter];
+  bool jointHide; // whole joint
+  
   WallType type;
 
   Matrix mat;
@@ -305,6 +366,7 @@ struct Tile{
   int wallsTx;
   
   WallVertexBuffer customWalls[4];
+  //  Plane joints[4];//[jointPlaneCounter];
   
   TileBlock* block;
 
@@ -415,7 +477,7 @@ typedef struct{
 
   vec3 lb;
   vec3 rt;
-} Plane;
+} Picture;
 
 typedef struct{
   char* name;
@@ -627,6 +689,8 @@ TileBlock* constructNewBlock(int type, int angle);
 
 void assembleWindowBlockVBO();
 void assembleWallBlockVBO();
+void assembleDoorBlockVBO();
+void assembleWallJointVBO();
 
 #define resetMouse() mouse.selectedType = 0; mouse.selectedThing = NULL; mouse.focusedType = 0; mouse.focusedThing = NULL; mouse.brushType = 0; mouse.brushThing = NULL;
 

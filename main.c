@@ -98,13 +98,13 @@ Menu blocksMenu = { .type = blocksMenuT };
 Menu texturesMenu = { .type = texturesMenuT };
 Menu planeCreatorMenu = { .type = planeCreatorT };
 
-Plane* planeOnCreation;
+Picture* planeOnCreation;
 
 int texturesMenuCurCategoryIndex = 0;
 
 int curFloor;
 
-Plane* createdPlanes;
+Picture* createdPlanes;
 int createdPlanesSize;
 
 Menu* curMenu;
@@ -222,6 +222,8 @@ int main(int argc, char* argv[]) {
 
   assembleWallBlockVBO();
   assembleWindowBlockVBO();
+  assembleDoorBlockVBO();
+  assembleWallJointVBO();
 
   // plane 3d
   {
@@ -1691,7 +1693,7 @@ int main(int argc, char* argv[]) {
 
 	    }
 	    else if (mouse.focusedType == mousePlaneT) {
-	      Plane* plane = (Plane*)mouse.focusedThing;
+	      Picture* plane = (Picture*)mouse.focusedThing;
 	      characterId = plane->characterId;
 	    }
 
@@ -1714,7 +1716,7 @@ int main(int argc, char* argv[]) {
 
 	    }
 	    else if (mouse.focusedType == mousePlaneT) {
-	      Plane* plane = (Plane*)mouse.focusedThing;
+	      Picture* plane = (Picture*)mouse.focusedThing;
 	      characterId = plane->characterId;
 	    }
 
@@ -1863,7 +1865,7 @@ int main(int argc, char* argv[]) {
 
 	      }
 	      else if (mouse.focusedType == mousePlaneT) {
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 		itPlane = true;
 	      }
@@ -1890,7 +1892,7 @@ int main(int argc, char* argv[]) {
 	      }
 	      case(SCALE): {
 		if(itPlane){
-		  Plane* plane = (Plane*)mouse.focusedThing;
+		  Picture* plane = (Picture*)mouse.focusedThing;
 		  plane->h += 0.01f;
 		  /*
 		    float xTemp = mat->m[12];
@@ -1962,79 +1964,20 @@ int main(int argc, char* argv[]) {
 
 	      const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
+	      Matrix* mat = &data->tile->walls[data->side].mat;
+
 	      if(currentKeyStates[SDL_SCANCODE_LCTRL]){
-		if (data->tile->customWalls[data->side].buf[1] + manipulationStep <= bBlockH) {
-		  data->tile->customWalls[data->side].buf[1] += manipulationStep;
-		  data->tile->customWalls[data->side].buf[6] += manipulationStep;
-		  data->tile->customWalls[data->side].buf[16] += manipulationStep;
-
-		  float uvStep = (manipulationStep * 10) / 2;
-		  
-		  data->tile->customWalls[data->side].buf[4] += uvStep;
-		  data->tile->customWalls[data->side].buf[9] += uvStep;
-		  data->tile->customWalls[data->side].buf[19] += uvStep;
-
-		  vec2i oppositeTile = { 0 };
-		  int oppositeSide = -1;
-
-		  if (oppositeTileTo((vec2i) { data->grid.x, data->grid.z }, data->side, &oppositeTile, &oppositeSide)) {
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[1] += manipulationStep;
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[6] += manipulationStep;
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[16] += manipulationStep;
-
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[4] += uvStep;
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[9] += uvStep;
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[19] += uvStep;
-		  } 
-		}
+		scale(mat, 1.0f, 1.05f, 1.0f);		
 	      }else{
-
-		vec3 pos = vec3_indexesToCoords(data->grid);
-		vec3 forw = {0,0,1};
-
-		if(data->side == left || data->side == right) {
-		  forw = (vec3){ 1,0,0 };
+		if(data->side == bot || data->side == top){
+		  mat->m[14] += .05f;
+		}else{
+		  mat->m[12] += .05f;
 		}
+	      }
 
-		float dot1 = dotf3(pos, forw);
-		float dot2 = dotf3(curCamera->pos, forw);
-
-		bool cameraInFront = dot1 < dot2;
-
-		float dStep = 0.0f;
-
-		if (cameraInFront) {
-		  if (grid[data->grid.y][data->grid.z][data->grid.x].wallsPad[data->side] - manipulationStep >= -bBlockW / 2) {
-		    dStep = -manipulationStep;
-		  }
-		}
-		else {
-		  if (grid[data->grid.y][data->grid.z][data->grid.x].wallsPad[data->side] + manipulationStep < bBlockW / 2) {
-		    dStep = manipulationStep;
-		  }
-		}
-
-		grid[data->grid.y][data->grid.z][data->grid.x].wallsPad[data->side] += dStep;
-
-	      
-		vec2i oppositeTile = {0};
-		int oppositeSide = -1;
-	      
-		if(oppositeTileTo((vec2i) { data->grid.x, data->grid.z }, data->side, & oppositeTile, & oppositeSide)) {
-		  grid[data->grid.y][oppositeTile.z][oppositeTile.x].wallsPad[oppositeSide] += dStep;
-		}
-
-		/*
-		  Texture nextTx = 0;
-
-		  if (mouse.wallTx != texturesCounter - 1) {
-		  nextTx = mouse.wallTx + 1;
-		  }
-		  else {
-		  nextTx = 0;
-		  }
-
-		  setIn(grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].wallsTx, mouse.wallSide, nextTx);*/
+	      for(int i=0;i<wallsVPairs[data->type].planesNum;i++){
+		calculateAABB(*mat, wallsVPairs[data->type].pairs[i].vBuf, wallsVPairs[data->type].pairs[i].vertexNum, &data->tile->walls[data->side].planes[i].lb, &data->tile->walls[data->side].planes[i].rt);
 	      }
 	    }else if (mouse.selectedType == mouseTileT) {
 	      TileMouseData* data = (TileMouseData*)mouse.selectedThing;
@@ -2078,7 +2021,7 @@ int main(int argc, char* argv[]) {
 
 	      }
 	      else if (mouse.focusedType == mousePlaneT) {
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 		isPlane = true;
 	      }
@@ -2104,7 +2047,7 @@ int main(int argc, char* argv[]) {
 	      }
 	      case(SCALE): {
 		if(isPlane){
-		  Plane* plane = (Plane*)mouse.focusedThing;
+		  Picture* plane = (Picture*)mouse.focusedThing;
 		  plane->h -= 0.01f;
 		}else{
 		  float xTemp = mat->m[12];
@@ -2155,68 +2098,22 @@ int main(int argc, char* argv[]) {
 	      
 	      const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
+	      Matrix* mat = &data->tile->walls[data->side].mat;
+
 	      if(currentKeyStates[SDL_SCANCODE_LCTRL]){
-		if (data->tile->customWalls[data->side].buf[1] - manipulationStep >= 0.01f) {
-		  data->tile->customWalls[data->side].buf[1] -= manipulationStep;
-		  data->tile->customWalls[data->side].buf[6] -= manipulationStep;
-		  data->tile->customWalls[data->side].buf[16] -= manipulationStep;
-
-		  float uvStep = (manipulationStep * 10) / 2;
-		  
-		  data->tile->customWalls[data->side].buf[4] -= uvStep;
-		  data->tile->customWalls[data->side].buf[9] -= uvStep;
-		  data->tile->customWalls[data->side].buf[19] -= uvStep;
-
-		  vec2i oppositeTile = { 0 };
-		  int oppositeSide = -1;
-
-		  if (oppositeTileTo((vec2i) { data->grid.x, data->grid.z }, data->side, &oppositeTile, &oppositeSide)) {
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[1] -= manipulationStep;
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[6] -= manipulationStep;
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[16] -= manipulationStep;
-
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[4] -= uvStep;
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[9] -= uvStep;
-		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[19] -= uvStep;
-		  } 
-		}
+		scale(mat, 1.0f, 1/1.05f, 1.0f);
 	      }else{
-		vec3 pos = vec3_indexesToCoords(data->grid);
-		vec3 forw = {0,0,1};
-
-		if(data->side == left || data->side == right) {
-		  forw = (vec3){ 1,0,0 };
-		}
-
-		float dot1 = dotf3(pos, forw);
-		float dot2 = dotf3(curCamera->pos, forw);
-
-		bool cameraInFront = dot1 < dot2;
-
-		float dStep = 0.0f;
-
-		if (cameraInFront) {
-		  if (grid[data->grid.y][data->grid.z][data->grid.x].wallsPad[data->side] + manipulationStep < bBlockW / 2) {
-		    dStep = manipulationStep; 
-		  }
-		}
-		else {
-		  if (grid[data->grid.y][data->grid.z][data->grid.x].wallsPad[data->side] - manipulationStep >= -bBlockW / 2) {
-		    dStep = -manipulationStep;
-		  }
-		}
-
-		grid[data->grid.y][data->grid.z][data->grid.x].wallsPad[data->side] += dStep;
-
-		vec2i oppositeTile = { 0 };
-		int oppositeSide = -1;
-
-		if (oppositeTileTo((vec2i) { data->grid.x, data->grid.z }, data->side, & oppositeTile, & oppositeSide)) {
-		  grid[data->grid.y][oppositeTile.z][oppositeTile.x].wallsPad[oppositeSide] += dStep;
+		if(data->side == bot || data->side == top){
+		  mat->m[14] -= .05f;
+		}else{
+		  mat->m[12] -= .05f;
 		}
 	      }
+	      
+	    for(int i=0;i<wallsVPairs[data->type].planesNum;i++){
+	      calculateAABB(*mat, wallsVPairs[data->type].pairs[i].vBuf, wallsVPairs[data->type].pairs[i].vertexNum, &data->tile->walls[data->side].planes[i].lb, &data->tile->walls[data->side].planes[i].rt);
 	    }
-	    else if (mouse.selectedType == mouseTileT) {
+	    }else if (mouse.selectedType == mouseTileT) {
 	      TileMouseData* data = (TileMouseData*) mouse.selectedThing;
 
 	      if(data->tile->groundLift - manipulationStep >= 0) {
@@ -2309,7 +2206,7 @@ int main(int argc, char* argv[]) {
 
 	      }
 	      else if (mouse.focusedType == mousePlaneT) {
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 		isPlane = true;
 	      }
@@ -2341,7 +2238,7 @@ int main(int argc, char* argv[]) {
 		  calculateModelAABB(model);
 		}
 	      }else if(manipulationMode == SCALE && isPlane){
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		plane->w -= 0.01f;
 	      }else if (manipulationMode == TRANSFORM_XY) {
 		mat->m[14] = mat->m[14] + manipulationStep;
@@ -2405,7 +2302,7 @@ int main(int argc, char* argv[]) {
 
 	       }
 	       else if (mouse.focusedType == mousePlaneT) {
-		 Plane* plane = (Plane*)mouse.focusedThing;
+		 Picture* plane = (Picture*)mouse.focusedThing;
 		 mat = &plane->mat;
 		 isPlane = true;
 	       }
@@ -2437,7 +2334,7 @@ int main(int argc, char* argv[]) {
 		   calculateModelAABB(model);
 		 }
 	       }else if(manipulationMode == SCALE && isPlane){
-		 Plane* plane = (Plane*)mouse.focusedThing;
+		 Picture* plane = (Picture*)mouse.focusedThing;
 		 plane->w += 0.01f;
 	       }
 
@@ -2519,7 +2416,7 @@ int main(int argc, char* argv[]) {
 
 	       }
 	       else if (mouse.focusedType == mousePlaneT) {
-		 Plane* plane = (Plane*)mouse.focusedThing;
+		 Picture* plane = (Picture*)mouse.focusedThing;
 		 characterId = &plane->characterId;
 	       }
 
@@ -2636,7 +2533,7 @@ int main(int argc, char* argv[]) {
 
 	      break;
 	    }case(SDL_SCANCODE_2):{
-	       if(mouse.brushThing && mouse.brushType != mouseWallBrushT){
+	       if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
 		 free(mouse.brushThing);
 		 mouse.brushThing = NULL;
 	       }else if(mouse.brushType == mouseWallBrushT){
@@ -2660,7 +2557,7 @@ int main(int argc, char* argv[]) {
 	       
 	    break;
 	  }case(SDL_SCANCODE_1):{
-	       if(mouse.brushThing && mouse.brushType != mouseWallBrushT){
+	       if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
 		 free(mouse.brushThing);
 		 mouse.brushThing = NULL;
 	       }else if(mouse.brushType == mouseWallBrushT){
@@ -2683,7 +2580,32 @@ int main(int argc, char* argv[]) {
 	       }
 	      
 	       break;
-	     }case(SDL_SCANCODE_C):{
+	     }case(SDL_SCANCODE_3):{
+	       if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
+		 free(mouse.brushThing);
+		 mouse.brushThing = NULL;
+	       }else if(mouse.brushType == mouseWallBrushT){
+		 WallType* type = mouse.brushThing;
+
+		 if(type == doorT){
+		   mouse.brushType = 0;
+		   free(mouse.brushThing);
+		   mouse.brushThing = NULL;
+		 }else{
+		   *type = doorT;
+		 }
+	       }else{
+		 mouse.brushType = mouseWallBrushT;
+
+		 WallType* type = malloc(sizeof(WallType));
+		 *type = doorT;
+		 
+		 mouse.brushThing = type;
+	       }
+	      
+	       break;
+	     }
+	  case(SDL_SCANCODE_C):{
 		/*		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 		
 				if(currentKeyStates[SDL_SCANCODE_LCTRL]){
@@ -2763,9 +2685,25 @@ int main(int argc, char* argv[]) {
 	      }
 	     
 	      break;
+	    }case(SDL_SCANCODE_J):{
+	    if(mouse.selectedType == mouseWallT){
+	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
+
+	      data->tile->walls[data->side].jointHide = !data->tile->walls[data->side].jointHide;
+	    }
+	     
+	      break;
 	    }
 	  case(SDL_SCANCODE_H): {
 	    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+
+	    if(mouse.selectedType == mouseWallT){
+	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
+
+	      data->tile->walls[data->side].planes[data->plane].hide = !data->tile->walls[data->side].planes[data->plane].hide;
+
+		
+	    }
 	    
 	    if(mouse.selectedType == mouseWallT && currentKeyStates[SDL_SCANCODE_LCTRL]){
 	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
@@ -3003,7 +2941,7 @@ int main(int argc, char* argv[]) {
 		  mouse.focusedThing = NULL;
 		  mouse.focusedType = 0;
 		}else if (mouse.focusedType == mousePlaneT) {
-		  Plane* panel = (Plane*)mouse.focusedThing;
+		  Picture* panel = (Picture*)mouse.focusedThing;
 		  int index = 0;
 
 		  // clear dialogs
@@ -3030,11 +2968,9 @@ int main(int argc, char* argv[]) {
 		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
 		WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 
-		free(data->tile->walls[data->side].txIndexes);
-		free(data->tile->walls[data->side].aabb);
+		free(data->tile->walls[data->side].planes);
+		data->tile->walls[data->side].planes = NULL;
 
-		data->tile->walls[data->side].aabb = NULL;
-		data->tile->walls[data->side].txIndexes = NULL;
 	      }else if (mouse.selectedType == mouseTileT) {
 		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
 		TileMouseData* data = (TileMouseData*)mouse.selectedThing;
@@ -3272,7 +3208,7 @@ int main(int argc, char* argv[]) {
 
 	      }
 	      else if (mouse.focusedType == mousePlaneT) {
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 	      }
 	      TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
@@ -3577,7 +3513,7 @@ int main(int argc, char* argv[]) {
       for(int i=0;i<createdPlanesSize;i++){
 	float intersectionDistance;
 
-	Plane plane = createdPlanes[i];
+	Picture plane = createdPlanes[i];
 	
 	float w = plane.w /2;
 	float h = plane.h /2;
@@ -3794,7 +3730,7 @@ int main(int argc, char* argv[]) {
 	  if(true){
 	    for(int side=0;side<basicSideCounter;side++){
 
-	      if(grid[y][z][x].walls[side].txIndexes != NULL) {
+	      if(grid[y][z][x].walls[side].planes!= NULL) {
 		// wall in/out camera
 		int in=0;
 
@@ -3812,16 +3748,17 @@ int main(int argc, char* argv[]) {
 	    
 		GLuint txIndex = valueIn(grid[y][z][x].wallsTx, side);
 		WallType type = grid[y][z][x].walls[side].type;
+		WallMouseData* data = malloc(sizeof(WallMouseData));
 	      
 		if(y >= curFloor){
 		  float intersectionDistance;
-
-		  WallMouseData* data = malloc(sizeof(WallMouseData));
-
 		  bool atLeastOneIntersect = false;
 		  
 		  for(int i=0;i<wallsVPairs[type].planesNum;i++){
-		    bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x].walls[side].aabb[i].lb, grid[y][z][x].walls[side].aabb[i].rt, NULL, &intersectionDistance);
+		    bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x].walls[side].planes[i].lb, grid[y][z][x].walls[side].planes[i].rt, NULL, &intersectionDistance);
+
+		    /*    printf("lb: %f %f %f \n", argVec3(grid[y][z][x].walls[side].aabb[i].lb));
+		    printf("rt: %f %f %f \n", argVec3(grid[y][z][x].walls[side].aabb[i].rt));*/
 		      
 		    if(isIntersect && minDistToCamera  > intersectionDistance){
 		      atLeastOneIntersect = true;
@@ -3842,25 +3779,48 @@ int main(int argc, char* argv[]) {
 		      
 		  }
 
-		  if(mouse.selectedType != mouseWallT){
+		  if(!atLeastOneIntersect){
 		    free(data);
+		    data = NULL;
 		  }
 		}
-
-		glBindVertexArray(customWallV.VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, customWallV.VBO);
 		
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x].walls[side].mat.m);
 
-		int txInn = 0;
+		// walls
 		for(int i=0;i<wallsVPairs[type].planesNum;i++){
-		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[txInn].tx);
+		  if(grid[y][z][x].walls[side].planes[i].hide == true){
+		    continue;
+		  }
+		  
+		  int tx = grid[y][z][x].walls[side].planes[i].txIndex;
+		  
+		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[tx].tx);
 		  
 		  glBindVertexArray(wallsVPairs[type].pairs[i].VAO);
 		  glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[type].pairs[i].VBO);
 
 		  glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[type].pairs[i].vertexNum);
-		  txInn++;
+		}
+
+		// joints
+
+		if(grid[y][z][x].walls[side].jointHide){
+		  for(int i=0;i<jointPlaneCounter;i++){
+		    if(grid[y][z][x].walls[side].joint[i].hide == true) {
+		      continue;
+		    }
+		  
+		    int tx = grid[y][z][x].walls[side].joint[i].txIndex;
+		  
+		    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[tx].tx);
+		  
+		    glBindVertexArray(wallsVPairs[wallJoint].pairs[i].VAO);
+		    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallJoint].pairs[i].VBO);
+
+		    glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[wallJoint].pairs[i].vertexNum);
+		    printf("Drawed %d vbo %d \n", wallsVPairs[wallJoint].pairs[i].vertexNum, wallsVPairs[wallJoint].pairs[i].VBO);
+		  }		
 		}
 
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -4182,6 +4142,10 @@ int main(int argc, char* argv[]) {
 
 	    wal.type = *type;
 	    wal.mat = IDENTITY_MATRIX;
+			
+		for (int i = 0; i < jointPlaneCounter; i++) {
+			wal.joint[i].hide = false;
+		}
 
 	    wal.mat.m[12] = tile.x;
 	    wal.mat.m[13] = tile.y;
@@ -4247,15 +4211,17 @@ int main(int argc, char* argv[]) {
 	  }
 
 	  if(mouse.clickR &&
-	     (!opTile || !opTile->walls[oppositeSide].txIndexes)){
-
-	    wal.txIndexes = calloc(wallsVPairs[wal.type].planesNum, sizeof(int));
-	    wal.aabb = calloc(wallsVPairs[wal.type].planesNum, sizeof(AABB));
+	     (!opTile || !opTile->walls[oppositeSide].planes)){
+	    
+	    wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
 	    
 	    for(int i=0;i<wallsVPairs[wal.type].planesNum;i++){
-	      calculateAABB(wal.mat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].planesNum, &wal.aabb[i].lb, &wal.aabb[i].rt);
+	      calculateAABB(wal.mat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, &wal.planes[i].lb, &wal.planes[i].rt);
 	    }
-	    
+
+	    for(int i=0;i<jointPlaneCounter;i++){
+	      calculateAABB(wal.mat, wallsVPairs[wallJoint].pairs[i].vBuf, wallsVPairs[wallJoint].pairs[i].vertexNum, &wal.joint[i].lb, &wal.joint[i].rt);
+	    }
 	    memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x].walls[selectedSide], &wal, sizeof(Wall));
 	  }
 	}
@@ -4470,7 +4436,22 @@ int main(int argc, char* argv[]) {
 	  if(mouse.selectedType == mouseWallT){
 	    WallMouseData* wallData = (WallMouseData*)mouse.selectedThing;
 
-	    setIn(wallData->tile->wallsTx, wallData->side, texture->index1D);
+	    if(wallData->type == windowT && wallData->plane <= winInnerBotPlane){
+	      const int winPlanePairs[6] = {
+		[winFrontCapPlane] = winFrontBotPlane,
+		[winFrontBotPlane] = winFrontCapPlane,
+	      
+		[winBackBotPlane] = winBackCapPlane,
+		[winBackCapPlane] = winBackBotPlane,
+	      
+		[winInnerTopPlane] = winInnerBotPlane,
+		[winInnerBotPlane] = winInnerTopPlane,
+	      };
+	      wallData->tile->walls[wallData->side].planes[winPlanePairs[wallData->plane]].txIndex = texture->index1D;
+	      
+	    }
+	    wallData->tile->walls[wallData->side].planes[wallData->plane].txIndex = texture->index1D;
+	    //	    setIn(wallData->tile->wallsTx, wallData->side, texture->index1D);
 	  }else if(mouse.selectedType == mouseTileT){
 	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 	    
@@ -4481,7 +4462,7 @@ int main(int argc, char* argv[]) {
 
 	    block->txIndex = texture->index1D;
 	  }else if(mouse.selectedType == mousePlaneT){
-	    Plane* plane = (Plane*)mouse.selectedThing;
+	    Picture* plane = (Picture*)mouse.selectedThing;
 
 	    plane->txIndex = texture->index1D;
 	  }
@@ -4516,7 +4497,7 @@ int main(int argc, char* argv[]) {
 	
 	break;
       }case(mousePlaneT):{
-	 Plane* data = (Plane*)mouse.focusedThing;
+	 Picture* data = (Picture*)mouse.focusedThing;
 	  
 	 sprintf(buf, "Focused plane id: [%d] Mode: [%s] Step: [%f]", data->id, manipulationModeStr[manipulationMode], manipulationStep);
 	
@@ -4538,8 +4519,23 @@ int main(int argc, char* argv[]) {
 	break;
       }case(mouseWallT):{
 	 WallMouseData* data = (WallMouseData*)mouse.selectedThing;
-	  
-	 sprintf(buf, "Selected wall: [%s] type: [%d] plane: [%d] with tx: [%s%s]", sidesToStr[data->side],data->type,data->plane, loadedTexturesNames[data->txIndex],data->tile->customWalls[data->side].txHidden ? "(Hidden)" : "");
+	 
+	 char* plane = "NULL";
+
+	 if(data->type == doorT){
+	   plane = doorPlanesStr[data->plane];
+	 }else if(data->type == wallT){
+	   plane = wallPlanesStr[data->plane];
+	 }else if(data->type == windowT){
+	   plane = windowPlanesStr[data->plane];
+	 }
+	 
+	 sprintf(buf, "Selected wall: [%s] type: [%s] plane: [%s] with tx: [%s%s]",
+sidesToStr[data->side],
+wallTypeStr[data->type],
+plane,
+loadedTexturesNames[data->txIndex],
+data->tile->customWalls[data->side].txHidden ? "(Hidden)" : "");
 	
 	 break;
        }case(mouseBlockT):{
@@ -4549,7 +4545,7 @@ int main(int argc, char* argv[]) {
 	
 	  break;
 	}case(mousePlaneT):{
-	   Plane* data = (Plane*)mouse.selectedThing;
+	   Picture* data = (Picture*)mouse.selectedThing;
 	  
 	   sprintf(buf, "Selected plane: [ID: %d] tx: [%s]", data->id, loadedTexturesNames[data->txIndex]);
 	
@@ -4947,7 +4943,7 @@ int main(int argc, char* argv[]) {
       
     }else if(curMenu && curMenu->type == planeCreatorT){
       if (!planeOnCreation) {
-	planeOnCreation = calloc(1, sizeof(Plane));
+	planeOnCreation = calloc(1, sizeof(Picture));
 
 	Matrix out = IDENTITY_MATRIX;
 
@@ -5043,12 +5039,12 @@ int main(int argc, char* argv[]) {
 	    planeOnCreation->h += 0.01f * selectedSign;
 	  }else if(selectedIndex == 3 && selectedSign == 2){
 	    if(!createdPlanes){
-	      createdPlanes = malloc(sizeof(Plane));
+	      createdPlanes = malloc(sizeof(Picture));
 	    }else{
-	      createdPlanes = realloc(createdPlanes, (createdPlanesSize+1) * sizeof(Plane));
+	      createdPlanes = realloc(createdPlanes, (createdPlanesSize+1) * sizeof(Picture));
 	    }
 
-	    memcpy(&createdPlanes[createdPlanesSize],planeOnCreation ,sizeof(Plane));
+	    memcpy(&createdPlanes[createdPlanesSize],planeOnCreation ,sizeof(Picture));
 
 	    createdPlanes[createdPlanesSize].id = createdPlanesSize;
 	    createdPlanes[createdPlanesSize].characterId = -1;
@@ -5108,7 +5104,7 @@ int main(int argc, char* argv[]) {
 
       }
       else if (mouse.focusedType == mousePlaneT) {
-	Plane* plane = (Plane*)mouse.focusedThing;
+	Picture* plane = (Picture*)mouse.focusedThing;
 	characterId = plane->characterId;
       }
 
@@ -5271,7 +5267,7 @@ int main(int argc, char* argv[]) {
 
       }
       else if (mouse.focusedType == mousePlaneT) {
-	Plane* plane = (Plane*)mouse.focusedThing;
+	Picture* plane = (Picture*)mouse.focusedThing;
 	characterId = plane->characterId;
       }
 
@@ -5381,7 +5377,7 @@ int main(int argc, char* argv[]) {
 
 		      }
 		      else if (mouse.focusedType == mousePlaneT) {
-			Plane* plane = (Plane*)mouse.focusedThing;
+			Picture* plane = (Picture*)mouse.focusedThing;
 			characterId = &plane->characterId;
 		      }
 
@@ -7468,10 +7464,135 @@ float* wallBySide(int* bufSize,Side side, float thick){
   // return wall; 
 }
 
+void assembleWallJointVBO(){  
+  float w = 1;
+  float h = 2;
+
+  float capRatio = 0.12f;
+  
+  float t = (float)1 / 8;
+
+  float d = t;
+
+  {
+    wallsVPairs[wallJoint].pairs = malloc(sizeof(VPair) * jointPlaneCounter);
+    wallsVPairs[wallJoint].planesNum = jointPlaneCounter;
+
+    // top
+    {
+      glGenBuffers(1, &wallsVPairs[wallJoint].pairs[jointTopPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallJoint].pairs[jointTopPlane].VAO);
+
+      glBindVertexArray(wallsVPairs[wallJoint].pairs[jointTopPlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallJoint].pairs[jointTopPlane].VBO);
+
+      wallsVPairs[wallJoint].pairs[jointTopPlane].vertexNum = 6;
+
+      float topPlane[] = {
+	w, h, -t,         0.0f, 0.0f,
+	w+t, h, -t,    capRatio, 0.0f,
+	w,h, 0.0f,          0.0f, capRatio,
+
+	w+t, h, -t,    capRatio, 0.0f,
+	w,h, 0.0f,           0.0f, capRatio,
+	w+t,h,0.0f,         capRatio, capRatio,
+      };
+
+      wallsVPairs[wallJoint].pairs[jointTopPlane].vBuf = malloc(sizeof(topPlane));
+      memcpy(wallsVPairs[wallJoint].pairs[jointTopPlane].vBuf, topPlane, sizeof(topPlane));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(topPlane), topPlane, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // front
+    {
+      glGenBuffers(1, &wallsVPairs[wallJoint].pairs[jointFrontPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallJoint].pairs[jointFrontPlane].VAO);
+
+      glBindVertexArray(wallsVPairs[wallJoint].pairs[jointFrontPlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallJoint].pairs[jointFrontPlane].VBO);
+
+      wallsVPairs[wallJoint].pairs[jointFrontPlane].vertexNum = 6;
+
+      float backPlane[] = {
+	w+t, h, -t,           0.0f, 1.0f - capRatio,
+	w, h, -t,         capRatio, 1.0f - capRatio,
+	w+t, 0.0f , -t,       0.0f, 0.0f,
+
+	w, h, -t,         capRatio, 1.0f - capRatio,
+	w+t, 0.0f , -t,       0.0f, 0.0f,
+	w, 0.0f , -t,     capRatio, 0.0f,
+      };
+
+      wallsVPairs[wallJoint].pairs[jointFrontPlane].vBuf = malloc(sizeof(backPlane));
+      memcpy(wallsVPairs[wallJoint].pairs[jointFrontPlane].vBuf, backPlane, sizeof(backPlane));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(backPlane), backPlane, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    //left
+    {
+      glGenBuffers(1, &wallsVPairs[wallJoint].pairs[jointSidePlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallJoint].pairs[jointSidePlane].VAO);
+
+      glBindVertexArray(wallsVPairs[wallJoint].pairs[jointSidePlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallJoint].pairs[jointSidePlane].VBO);
+
+      wallsVPairs[wallJoint].pairs[jointSidePlane].vertexNum = 6 * 2;
+
+      float e = w + t;
+      
+      float leftPlane[] = {
+	e, 0.0f, 0.0f,  0.0f, 0.0f,
+	e, h, 0.0f,     0.0f, 1.0f,
+	e, h , -t,     t, 1.0f,
+
+	e, h, -t,      t, 1.0f,
+	e, 0.0f, 0.0f,  0.0f, 0.0f,
+	e, 0.0f , -t,  t, 0.0f,
+      };
+
+      wallsVPairs[wallJoint].pairs[jointSidePlane].vBuf = malloc(sizeof(leftPlane));
+      memcpy(wallsVPairs[wallJoint].pairs[jointSidePlane].vBuf, leftPlane, sizeof(leftPlane));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(leftPlane), leftPlane, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+  }
+}
+
 void assembleWallBlockVBO() {  // wallBlock buf
   float w = 1;
   float h = 2;
 
+  float capRatio = 0.12f;
+  
   float t = (float)1 / 8;
 
   float d = t;
@@ -7488,16 +7609,16 @@ void assembleWallBlockVBO() {  // wallBlock buf
       glBindVertexArray(wallsVPairs[wallT].pairs[wTopPlane].VAO);
       glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallT].pairs[wTopPlane].VBO);
 
-      wallsVPairs[wallT].pairs[wTopPlane].vertexNum = 6 * 2;
+      wallsVPairs[wallT].pairs[wTopPlane].vertexNum = 6;
 
       float topPlane[] = {
 	0.0f, h, -t, 0.0f, 0.0f,
-	w, h, -t,    t, 0.0f,
-	0.0f,h, d,   0.0f, 1.0f,
+	w, h, -t,    1.0f, 0.0f,
+	0.0f,h, d,   0.0f, capRatio,
 
-	w, h, -t,    t, 0.0f,
-	0.0f,h,d,    0.0f, 1.0f,
-	w,h,d,       t, 1.0f,
+	w, h, -t,    1.0f, 0.0f,
+	0.0f,h,d,    0.0f, capRatio,
+	w,h,d,       1.0f, capRatio,
       };
 
       wallsVPairs[wallT].pairs[wTopPlane].vBuf = malloc(sizeof(topPlane));
@@ -7523,7 +7644,7 @@ void assembleWallBlockVBO() {  // wallBlock buf
       glBindVertexArray(wallsVPairs[wallT].pairs[wBackPlane].VAO);
       glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallT].pairs[wBackPlane].VBO);
 
-      wallsVPairs[wallT].pairs[wBackPlane].vertexNum = 6 * 2;
+      wallsVPairs[wallT].pairs[wBackPlane].vertexNum = 6;
 
       float backPlane[] = {
 	0.0f, h, -t,      0.0f, 1.0f,
@@ -7584,9 +7705,8 @@ void assembleWallBlockVBO() {  // wallBlock buf
 
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
-    }*/
+    }
 
-    /*
     // right
     {
       glGenBuffers(1, &wallsVPairs[wallT].pairs[wRightPlane].VBO);
@@ -7630,7 +7750,7 @@ void assembleWallBlockVBO() {  // wallBlock buf
       glBindVertexArray(wallsVPairs[wallT].pairs[wFrontPlane].VAO);
       glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallT].pairs[wFrontPlane].VBO);
 
-      wallsVPairs[wallT].pairs[wFrontPlane].vertexNum = 6 * 2;
+      wallsVPairs[wallT].pairs[wFrontPlane].vertexNum = 6;
 
       float frontPlane[] = {
 	0.0f, h, d,      0.0f, 1.0f,
@@ -7642,9 +7762,9 @@ void assembleWallBlockVBO() {  // wallBlock buf
 	w, 0.0f , d,     1.0f, 0.0f
       };
 
-      wallsVPairs[wallT].pairs[winFrontPlane].vBuf = malloc(sizeof(frontPlane));
-      memcpy(wallsVPairs[wallT].pairs[winFrontPlane].vBuf, frontPlane, sizeof(frontPlane));
-
+      wallsVPairs[wallT].pairs[wFrontPlane].vBuf = malloc(sizeof(frontPlane));
+      memcpy(wallsVPairs[wallT].pairs[wFrontPlane].vBuf, frontPlane, sizeof(frontPlane));
+	   
       glBufferData(GL_ARRAY_BUFFER, sizeof(frontPlane), frontPlane, GL_STATIC_DRAW);
 
       glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
@@ -7659,9 +7779,283 @@ void assembleWallBlockVBO() {  // wallBlock buf
   }
 }
 
+void assembleDoorBlockVBO() {  // wallBlock buf
+  float w = 1;
+  float h = 2;
+  
+  float capRatio = 0.12f;
+
+  float capH = h * capRatio;
+  //  float botH = h * 0.4f;
+
+  float t = (float)1 / 8;
+    
+  float d = t;
+
+  {
+    wallsVPairs[doorT].pairs = malloc(sizeof(VPair) * doorPlaneCounter);
+    wallsVPairs[doorT].planesNum = doorPlaneCounter;
+
+    // top
+    {
+      glGenBuffers(1, &wallsVPairs[doorT].pairs[doorTopPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[doorT].pairs[doorTopPlane].VAO);
+
+      glBindVertexArray(wallsVPairs[doorT].pairs[doorTopPlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[doorT].pairs[doorTopPlane].VBO);
+
+      wallsVPairs[doorT].pairs[doorTopPlane].vertexNum = 6;
+
+      float topPlane[] = {
+	0.0f, h, -t, 0.0f, 0.0f,
+	w, h, -t,    1.0f, 0.0f,
+	0.0f,h, d,   0.0f, capRatio,
+
+	w, h, -t,    1.0f, 0.0f,
+	0.0f,h,d,    0.0f, capRatio,
+	w,h,d,       1.0f, capRatio,
+      };
+
+      wallsVPairs[doorT].pairs[doorTopPlane].vBuf = malloc(sizeof(topPlane));
+      memcpy(wallsVPairs[doorT].pairs[doorTopPlane].vBuf, topPlane, sizeof(topPlane));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(topPlane), topPlane, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // back
+    {
+      glGenBuffers(1, &wallsVPairs[doorT].pairs[doorBackPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[doorT].pairs[doorBackPlane].VAO);
+
+      glBindVertexArray(wallsVPairs[doorT].pairs[doorBackPlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[doorT].pairs[doorBackPlane].VBO);
+
+      wallsVPairs[doorT].pairs[doorBackPlane].vertexNum = 6;
+
+      float backSide[] = {
+	// cap back
+	0.0f, h, -t,      0.0f, capRatio,
+	w, h, -t,         1.0f, capRatio,
+	0.0f, h -capH, -t,  0.0f, 0.0f,
+
+	w, h, -t,         1.0f, capRatio,
+	0.0f, h -capH, -t,  0.0f, 0.0f,
+	w, h -capH, -t,     1.0f, 0.0f,
+      };
+
+      wallsVPairs[doorT].pairs[doorBackPlane].vBuf = malloc(sizeof(backSide));
+      memcpy(wallsVPairs[doorT].pairs[doorBackPlane].vBuf, backSide, sizeof(backSide));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(backSide), backSide, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // inner top
+    {
+      glGenBuffers(1, &wallsVPairs[doorT].pairs[doorInnerTopPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[doorT].pairs[doorInnerTopPlane].VAO);
+
+      glBindVertexArray(wallsVPairs[doorT].pairs[doorInnerTopPlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[doorT].pairs[doorInnerTopPlane].VBO);
+
+      wallsVPairs[doorT].pairs[doorInnerTopPlane].vertexNum = 6;
+
+      float innerSide[] = {
+	// cap bot
+	0.0f, h-capH, -t, 0.0f, 0.0f,
+	w,  h-capH, -t,    1.0f, 0.0f,
+	0.0f, h-capH, d,   0.0f, capRatio,
+
+	w,  h-capH, -t,    1.0f, 0.0f,
+	0.0f, h-capH,d,    0.0f, capRatio,
+	w, h-capH,d,       1.0f, capRatio,
+      };
+      
+      wallsVPairs[doorT].pairs[doorInnerTopPlane].vBuf = malloc(sizeof(innerSide));
+      memcpy(wallsVPairs[doorT].pairs[doorInnerTopPlane].vBuf, innerSide, sizeof(innerSide));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(innerSide), innerSide, GL_STATIC_DRAW);
+		
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+      glEnableVertexAttribArray(0);
+		
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    /*
+    //left
+    {
+    glGenBuffers(1, &wallsVPairs[doorT].pairs[wLeftPlane].VBO);
+    glGenVertexArrays(1, &wallsVPairs[doorT].pairs[wLeftPlane].VAO);
+
+    glBindVertexArray(wallsVPairs[doorT].pairs[wLeftPlane].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[doorT].pairs[wLeftPlane].VBO);
+
+    wallsVPairs[doorT].pairs[wLeftPlane].vertexNum = 6 * 2;
+
+    float leftPlane[] = {
+    0.0f, 0.0f, -t,  0.0f, 0.0f,
+    0.0f, h, -t,     0.0f, 1.0f,
+    0.0f, h , d,     t, 1.0f,
+
+    0.0f, h, d,      t, 1.0f,
+    0.0f, 0.0f, -t,  0.0f, 0.0f,
+    0.0f, 0.0f , d,  t, 0.0f,
+    };
+
+    wallsVPairs[doorT].pairs[wLeftPlane].vBuf = malloc(sizeof(leftPlane));
+    memcpy(wallsVPairs[doorT].pairs[wLeftPlane].vBuf, leftPlane, sizeof(leftPlane));
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(leftPlane), leftPlane, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    }*/
+
+    /*
+    // right
+    {
+    glGenBuffers(1, &wallsVPairs[doorT].pairs[wRightPlane].VBO);
+    glGenVertexArrays(1, &wallsVPairs[doorT].pairs[wRightPlane].VAO);
+
+    glBindVertexArray(wallsVPairs[doorT].pairs[wRightPlane].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[doorT].pairs[wRightPlane].VBO);
+
+    wallsVPairs[doorT].pairs[wRightPlane].vertexNum = 6 * 2;
+
+    float rightPlane[] = {
+    w, 0.0f, -t,     0.0f, 0.0f,
+    w, h, -t,        0.0f, 1.0f,
+    w, h , d,        t, 1.0f,
+
+    w, h, d,         t, 1.0f,
+    w, 0.0f, -t,     0.0f, 0.0f,
+    w, 0.0f , d,     t, 0.0f,
+    };
+
+    wallsVPairs[doorT].pairs[wRightPlane].vBuf = malloc(sizeof(rightPlane));
+    memcpy(wallsVPairs[doorT].pairs[wRightPlane].vBuf, rightPlane, sizeof(rightPlane));
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(rightPlane), rightPlane, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    }*/
+
+    // front
+    {
+      glGenBuffers(1, &wallsVPairs[doorT].pairs[doorFrontPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[doorT].pairs[doorFrontPlane].VAO);
+
+      glBindVertexArray(wallsVPairs[doorT].pairs[doorFrontPlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[doorT].pairs[doorFrontPlane].VBO);
+
+      wallsVPairs[doorT].pairs[doorFrontPlane].vertexNum = 6;
+      
+      float frontPlane[] = {
+	// cap front
+	0.0f, h, d,      0.0f, capRatio,
+	w, h, d,         1.0f, capRatio,
+	0.0f, h -capH , d,  0.0f, 0.0f,
+
+	w, h, d,         1.0f, capRatio,
+	0.0f, h -capH , d,  0.0f, 0.0f,
+	w, h -capH , d,     1.0f, 0.0f,
+      };
+
+      wallsVPairs[doorT].pairs[doorFrontPlane].vBuf = malloc(sizeof(frontPlane));
+      memcpy(wallsVPairs[doorT].pairs[doorFrontPlane].vBuf, frontPlane, sizeof(frontPlane));
+	   
+      glBufferData(GL_ARRAY_BUFFER, sizeof(frontPlane), frontPlane, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+  }
+
+  // center
+    {
+      glGenBuffers(1, &wallsVPairs[doorT].pairs[doorCenterPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[doorT].pairs[doorCenterPlane].VAO);
+
+      glBindVertexArray(wallsVPairs[doorT].pairs[doorCenterPlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[doorT].pairs[doorCenterPlane].VBO);
+
+      wallsVPairs[doorT].pairs[doorCenterPlane].vertexNum = 6;
+      
+      float centerPlane[] = {
+	// cap front
+	0.0f, h -capH, 0.0f,      0.0f, 1.0f,
+	w, h -capH, 0.0f,         1.0f, 1.0f,
+	0.0f, 0.0f , 0.0f,  0.0f, 0.0f,
+
+	w, h -capH, 0.0f,         1.0f, 1.0f,
+	0.0f, 0.0f , 0.0f,  0.0f, 0.0f,
+	w, 0.0f , 0.0f,     1.0f, 0.0f,
+      };
+
+      wallsVPairs[doorT].pairs[doorCenterPlane].vBuf = malloc(sizeof(centerPlane));
+      memcpy(wallsVPairs[doorT].pairs[doorCenterPlane].vBuf, centerPlane, sizeof(centerPlane));
+	   
+      glBufferData(GL_ARRAY_BUFFER, sizeof(centerPlane), centerPlane, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+ // }
+}
+
 void assembleWindowBlockVBO(){
   float w = 1;
   float h = 2;
+
+  float botRatio = 0.4f;
+  float capRatio = 0.12f;
 
   float capH = h * 0.12f;
   float botH = h * 0.4f;
@@ -7672,39 +8066,30 @@ void assembleWindowBlockVBO(){
 
   wallsVPairs[windowT].pairs = malloc(sizeof(VPair) * winPlaneCounter);
   wallsVPairs[windowT].planesNum = winPlaneCounter;
-
-  // float
+  
+  // front bot
   {
-    glGenBuffers(1, &wallsVPairs[windowT].pairs[winFrontPlane].VBO);
-    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winFrontPlane].VAO);
+    glGenBuffers(1, &wallsVPairs[windowT].pairs[winFrontBotPlane].VBO);
+    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winFrontBotPlane].VAO);
     
-    glBindVertexArray(wallsVPairs[windowT].pairs[winFrontPlane].VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winFrontPlane].VBO);
+    glBindVertexArray(wallsVPairs[windowT].pairs[winFrontBotPlane].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winFrontBotPlane].VBO);
 
-    wallsVPairs[windowT].pairs[winFrontPlane].vertexNum = 6 * 2;
+    wallsVPairs[windowT].pairs[winFrontBotPlane].vertexNum = 6;
 
     float frontPlane[] = {
-      // cap front
-      0.0f, h, d,      0.0f, 1.0f,
-      w, h, d,         1.0f, 1.0f,
-      0.0f, h -capH , d,  0.0f, 0.0f,
-
-      w, h, d,         1.0f, 1.0f,
-      0.0f, h -capH , d,  0.0f, 0.0f,
-      w, h -capH , d,     1.0f, 0.0f,
-
       // bot front
-      0.0f, botH, d,      0.0f, 1.0f,
-      w, botH, d,         1.0f, 1.0f,
+      0.0f, botH, d,      0.0f, botRatio,
+      w, botH, d,         1.0f, botRatio,
       0.0f, 0.0f , d,  0.0f, 0.0f,
 
-      w, botH, d,         1.0f, 1.0f,
+      w, botH, d,         1.0f, botRatio,
       0.0f, 0.0f , d,  0.0f, 0.0f,
       w, 0.0f , d,     1.0f, 0.0f
     };
       
-    wallsVPairs[windowT].pairs[winFrontPlane].vBuf = malloc(sizeof(frontPlane));
-    memcpy(wallsVPairs[windowT].pairs[winFrontPlane].vBuf, frontPlane, sizeof(frontPlane));
+    wallsVPairs[windowT].pairs[winFrontBotPlane].vBuf = malloc(sizeof(frontPlane));
+    memcpy(wallsVPairs[windowT].pairs[winFrontBotPlane].vBuf, frontPlane, sizeof(frontPlane));
       
     glBufferData(GL_ARRAY_BUFFER, sizeof(frontPlane), frontPlane, GL_STATIC_DRAW);
 		
@@ -7718,39 +8103,102 @@ void assembleWindowBlockVBO(){
     glBindVertexArray(0);
   }
 
+  // front cap
+  {
+    glGenBuffers(1, &wallsVPairs[windowT].pairs[winFrontCapPlane].VBO);
+    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winFrontCapPlane].VAO);
+    
+    glBindVertexArray(wallsVPairs[windowT].pairs[winFrontCapPlane].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winFrontCapPlane].VBO);
+
+    wallsVPairs[windowT].pairs[winFrontCapPlane].vertexNum = 6;
+
+    float frontPlane[] = {
+      // cap front
+      0.0f, h, d,      0.0f, capRatio,
+      w, h, d,         1.0f, capRatio,
+      0.0f, h -capH , d,  0.0f, 0.0f,
+
+      w, h, d,         1.0f, capRatio,
+      0.0f, h -capH , d,  0.0f, 0.0f,
+      w, h -capH , d,     1.0f, 0.0f,
+    };
+      
+    wallsVPairs[windowT].pairs[winFrontCapPlane].vBuf = malloc(sizeof(frontPlane));
+    memcpy(wallsVPairs[windowT].pairs[winFrontCapPlane].vBuf, frontPlane, sizeof(frontPlane));
+      
+    glBufferData(GL_ARRAY_BUFFER, sizeof(frontPlane), frontPlane, GL_STATIC_DRAW);
+		
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+    glEnableVertexAttribArray(0);
+		
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  
   // back
   {
-    glGenBuffers(1, &wallsVPairs[windowT].pairs[winBackPlane].VBO);
-    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winBackPlane].VAO);
+    glGenBuffers(1, &wallsVPairs[windowT].pairs[winBackBotPlane].VBO);
+    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winBackBotPlane].VAO);
 
-    glBindVertexArray(wallsVPairs[windowT].pairs[winBackPlane].VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winBackPlane].VBO);
+    glBindVertexArray(wallsVPairs[windowT].pairs[winBackBotPlane].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winBackBotPlane].VBO);
 
-    wallsVPairs[windowT].pairs[winBackPlane].vertexNum = 6 * 2;
+    wallsVPairs[windowT].pairs[winBackBotPlane].vertexNum = 6;
+      
+    float backSide[] = {
+      // bot back
+      0.0f, botH, -t,      0.0f, botRatio,
+      w, botH, -t,         1.0f, botRatio,
+      0.0f, 0.0f , -t,  0.0f, 0.0f,
+
+      w, botH, -t,         1.0f, botRatio,
+      0.0f, 0.0f , -t,  0.0f, 0.0f,
+      w, 0.0f , -t,     1.0f, 0.0f,
+    };
+
+    wallsVPairs[windowT].pairs[winBackBotPlane].vBuf = malloc(sizeof(backSide));
+    memcpy(wallsVPairs[windowT].pairs[winBackBotPlane].vBuf, backSide, sizeof(backSide));
+      
+    glBufferData(GL_ARRAY_BUFFER, sizeof(backSide), backSide, GL_STATIC_DRAW);
+		
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+    glEnableVertexAttribArray(0);
+		
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // back cap
+  {
+    glGenBuffers(1, &wallsVPairs[windowT].pairs[winBackCapPlane].VBO);
+    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winBackCapPlane].VAO);
+
+    glBindVertexArray(wallsVPairs[windowT].pairs[winBackCapPlane].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winBackCapPlane].VBO);
+
+    wallsVPairs[windowT].pairs[winBackCapPlane].vertexNum = 6;
       
     float backSide[] = {
       // cap back
-      0.0f, h, -t,      0.0f, 1.0f,
-      w, h, -t,         1.0f, 1.0f,
+      0.0f, h, -t,      0.0f, capRatio,
+      w, h, -t,         1.0f, capRatio,
       0.0f, h -capH, -t,  0.0f, 0.0f,
 
-      w, h, -t,         1.0f, 1.0f,
+      w, h, -t,         1.0f, capRatio,
       0.0f, h -capH, -t,  0.0f, 0.0f,
       w, h -capH, -t,     1.0f, 0.0f,
-
-      // bot back
-      0.0f, botH, -t,      0.0f, 1.0f,
-      w, botH, -t,         1.0f, 1.0f,
-      0.0f, 0.0f , -t,  0.0f, 0.0f,
-
-      w, botH, -t,         1.0f, 1.0f,
-      0.0f, 0.0f , -t,  0.0f, 0.0f,
-      w, 0.0f , -t,     1.0f, 0.0f,
-
     };
 
-    wallsVPairs[windowT].pairs[winBackPlane].vBuf = malloc(sizeof(backSide));
-    memcpy(wallsVPairs[windowT].pairs[winBackPlane].vBuf, backSide, sizeof(backSide));
+    wallsVPairs[windowT].pairs[winBackCapPlane].vBuf = malloc(sizeof(backSide));
+    memcpy(wallsVPairs[windowT].pairs[winBackCapPlane].vBuf, backSide, sizeof(backSide));
       
     glBufferData(GL_ARRAY_BUFFER, sizeof(backSide), backSide, GL_STATIC_DRAW);
 		
@@ -7870,14 +8318,13 @@ void assembleWindowBlockVBO(){
     float topSide[] = {
       // cap top
       0.0f, h, -t, 0.0f, 0.0f,
-      w, h, -t,    t, 0.0f,
-      0.0f,h, d,   0.0f, 1.0f,
+      w, h, -t,    1.0f, 0.0f,
+      0.0f,h, d,   0.0f, capRatio,
 
-      w, h, -t,    t, 0.0f,
-      0.0f,h,d,    0.0f, 1.0f,
-      w,h,d,       t, 1.0f,
+      w, h, -t,    1.0f, 0.0f,
+      0.0f,h,d,    0.0f, capRatio,
+      w,h,d,       1.0f, capRatio,
     };
-
             
     wallsVPairs[windowT].pairs[winTopPlane].vBuf = malloc(sizeof(topSide));
     memcpy(wallsVPairs[windowT].pairs[winTopPlane].vBuf, topSide, sizeof(topSide));
@@ -7894,26 +8341,26 @@ void assembleWindowBlockVBO(){
     glBindVertexArray(0);
   }
 
-  // inner
+  // inner top
   {
-    glGenBuffers(1, &wallsVPairs[windowT].pairs[winInnerPlanes].VBO);
-    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winInnerPlanes].VAO);
+    glGenBuffers(1, &wallsVPairs[windowT].pairs[winInnerTopPlane].VBO);
+    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winInnerTopPlane].VAO);
 
-    glBindVertexArray(wallsVPairs[windowT].pairs[winInnerPlanes].VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winInnerPlanes].VBO);
+    glBindVertexArray(wallsVPairs[windowT].pairs[winInnerTopPlane].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winInnerTopPlane].VBO);
 
-    wallsVPairs[windowT].pairs[winInnerPlanes].vertexNum = 6 * 2;
+    wallsVPairs[windowT].pairs[winInnerTopPlane].vertexNum = 6;
 
     float innerSide[] = {
       // cap bot
-      0.0f, h-capH, -t, 0.0f, 0.0f,
-      w,  h-capH, -t,    t, 0.0f,
-      0.0f, h-capH, d,   0.0f, 1.0f,
+      0.0f, h-capH, -t,  0.0f, 0.0f,
+      w,  h-capH, -t,    1.0f, 0.0f,
+      0.0f, h-capH, d,   0.0f, capRatio,
 
-      w,  h-capH, -t,    t, 0.0f,
-      0.0f, h-capH,d,    0.0f, 1.0f,
-      w, h-capH,d,       t, 1.0f,
-
+      w,  h-capH, -t,    1.0f, 0.0f,
+      0.0f, h-capH,d,    0.0f, capRatio,
+      w, h-capH,d,       1.0f, capRatio,
+      /*
       // bot top
       0.0f, botH, -t, 0.0f, 0.0f,
       w, botH, -t,    t, 0.0f,
@@ -7921,12 +8368,50 @@ void assembleWindowBlockVBO(){
 
       w, botH, -t,    t, 0.0f,
       0.0f,botH,d,    0.0f, 1.0f,
-      w,botH,d,       t, 1.0f,
+      w,botH,d,       t, 1.0f,*/
 
     };
       
-    wallsVPairs[windowT].pairs[winInnerPlanes].vBuf = malloc(sizeof(innerSide));
-    memcpy(wallsVPairs[windowT].pairs[winInnerPlanes].vBuf, innerSide, sizeof(innerSide));
+    wallsVPairs[windowT].pairs[winInnerTopPlane].vBuf = malloc(sizeof(innerSide));
+    memcpy(wallsVPairs[windowT].pairs[winInnerTopPlane].vBuf, innerSide, sizeof(innerSide));
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(innerSide), innerSide, GL_STATIC_DRAW);
+		
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+    glEnableVertexAttribArray(0);
+		
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+  
+  // inner bot
+  {
+    glGenBuffers(1, &wallsVPairs[windowT].pairs[winInnerBotPlane].VBO);
+    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winInnerBotPlane].VAO);
+
+    glBindVertexArray(wallsVPairs[windowT].pairs[winInnerBotPlane].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winInnerBotPlane].VBO);
+
+    wallsVPairs[windowT].pairs[winInnerBotPlane].vertexNum = 6;
+
+    float innerSide[] = {
+      // bot top
+      0.0f, botH, -t, 0.0f, 0.0f,
+      w, botH, -t,    1.0f, 0.0f,
+      0.0f,botH, d,   0.0f, capRatio,
+      // with kamen2 1.5f looks also good 
+
+      w, botH, -t,    1.0f, 0.0f,
+      0.0f,botH,d,    0.0f, capRatio,
+      w,botH,d,       1.0f, capRatio,
+
+    };
+      
+    wallsVPairs[windowT].pairs[winInnerBotPlane].vBuf = malloc(sizeof(innerSide));
+    memcpy(wallsVPairs[windowT].pairs[winInnerBotPlane].vBuf, innerSide, sizeof(innerSide));
 
     glBufferData(GL_ARRAY_BUFFER, sizeof(innerSide), innerSide, GL_STATIC_DRAW);
 		
@@ -7951,21 +8436,123 @@ void assembleWindowBlockVBO(){
 
     wallsVPairs[windowT].pairs[winCenterPlane].vertexNum = 6;
 
-    float hT = t/2;
+    float v = 1.0f - (capRatio + botRatio);
       
     float windowPlane[] = {
       // cap bot
-      0.0f, h-capH, hT, 0.0f, 0.0f,
-      w,  h-capH, hT,    t, 0.0f,
-      0.0f, botH, hT,   0.0f, 1.0f,
+      0.0f, h-capH, 0.0f, 0.0f, 0.0f,
+      w,  h-capH, 0.0f,    1.0f, 0.0f,
+      0.0f, botH, 0.0f,   0.0f, v,
 
-      w,  h-capH, hT,    t, 0.0f,
-      0.0f, botH, hT,    0.0f, 1.0f,
-      w, botH, hT,       t, 1.0f,
+      w,  h-capH, 0.0f,    1.0f, 0.0f,
+      0.0f, botH, 0.0f,    0.0f, v,
+      w, botH, 0.0f,       1.0f, v,
     };
       
     wallsVPairs[windowT].pairs[winCenterPlane].vBuf = malloc(sizeof(windowPlane));
     memcpy(wallsVPairs[windowT].pairs[winCenterPlane].vBuf, windowPlane, sizeof(windowPlane));
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(windowPlane), windowPlane, GL_STATIC_DRAW);
+		
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+    glEnableVertexAttribArray(0);
+		
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  float padokonikRatio = 0.08f;
+  float padokonikD = bBlockH * padokonikRatio;
+
+  float padokonikMainH = bBlockH * 0.03f;
+
+  float padokonikDownThingRatio = 0.02f;
+  float padokonikDownThingH = bBlockH * padokonikDownThingRatio;
+      
+  // back podokonik
+  {
+    glGenBuffers(1, &wallsVPairs[windowT].pairs[winBackPodokonik].VBO);
+    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winBackPodokonik].VAO);
+
+    glBindVertexArray(wallsVPairs[windowT].pairs[winBackPodokonik].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winBackPodokonik].VBO);
+
+    wallsVPairs[windowT].pairs[winBackPodokonik].vertexNum = 6 * 2;
+
+    float v = 1.0f - (capRatio + botRatio);
+
+    float windowPlane[] = {
+      // main olane
+      0.0f, botH, -t,    0.0f, 0.0f,
+      w, botH, -t,       1.0f, 0.0f,
+      0.0f, botH - padokonikMainH, -padokonikD -t, 0.0f, padokonikRatio,
+
+      w, botH, -t,       1.0f, 0.0f,
+      0.0f, botH - padokonikMainH, -padokonikD -t, 0.0f, padokonikRatio,
+      w, botH - padokonikMainH, -padokonikD-t, 1.0f, padokonikRatio,
+
+      // down thing
+      0.0f, botH - padokonikMainH, -padokonikD -t,                       0.0f, padokonikDownThingRatio,
+      w, botH - padokonikMainH, -padokonikD -t,                          1.0f, padokonikDownThingRatio,
+      0.0f, botH - padokonikMainH - padokonikDownThingH, -padokonikD -t, 0.0f, 0.0f,
+
+      w, botH - padokonikMainH, -padokonikD -t,                          1.0f, padokonikDownThingRatio,
+      0.0f, botH - padokonikMainH - padokonikDownThingH, -padokonikD -t, 0.0f, 0.0f,
+      w, botH - padokonikMainH - padokonikDownThingH, -padokonikD -t,    1.0f, 0.0f,
+    };
+      
+    wallsVPairs[windowT].pairs[winBackPodokonik].vBuf = malloc(sizeof(windowPlane));
+    memcpy(wallsVPairs[windowT].pairs[winBackPodokonik].vBuf, windowPlane, sizeof(windowPlane));
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(windowPlane), windowPlane, GL_STATIC_DRAW);
+		
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL); 
+    glEnableVertexAttribArray(0);
+		
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // front podokonik
+  {
+    glGenBuffers(1, &wallsVPairs[windowT].pairs[winFrontPodokonik].VBO);
+    glGenVertexArrays(1, &wallsVPairs[windowT].pairs[winFrontPodokonik].VAO);
+
+    glBindVertexArray(wallsVPairs[windowT].pairs[winFrontPodokonik].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[windowT].pairs[winFrontPodokonik].VBO);
+
+    wallsVPairs[windowT].pairs[winFrontPodokonik].vertexNum = 6 * 2;
+
+    float v = 1.0f - (capRatio + botRatio);
+      
+    float windowPlane[] = {
+      // main olane
+      0.0f, botH, t,    0.0f, 0.0f,
+      w, botH, t,       1.0f, 0.0f,
+      0.0f, botH - padokonikMainH, padokonikD+t, 0.0f, padokonikRatio,
+
+      w, botH, t,       1.0f, 0.0f,
+      0.0f, botH - padokonikMainH, padokonikD+t, 0.0f, padokonikRatio,
+      w, botH - padokonikMainH, padokonikD+t, 1.0f, padokonikRatio,
+
+      // down thing
+      0.0f, botH - padokonikMainH, padokonikD+t,                       0.0f, padokonikDownThingRatio,
+      w, botH - padokonikMainH, padokonikD+t,                          1.0f, padokonikDownThingRatio,
+      0.0f, botH - padokonikMainH - padokonikDownThingH, padokonikD+t, 0.0f, 0.0f,
+
+      w, botH - padokonikMainH, padokonikD+t,                          1.0f, padokonikDownThingRatio,
+      0.0f, botH - padokonikMainH - padokonikDownThingH, padokonikD+t, 0.0f, 0.0f,
+      w, botH - padokonikMainH - padokonikDownThingH, padokonikD+t,    1.0f, 0.0f,
+    };
+      
+    wallsVPairs[windowT].pairs[winFrontPodokonik].vBuf = malloc(sizeof(windowPlane));
+    memcpy(wallsVPairs[windowT].pairs[winFrontPodokonik].vBuf, windowPlane, sizeof(windowPlane));
 
     glBufferData(GL_ARRAY_BUFFER, sizeof(windowPlane), windowPlane, GL_STATIC_DRAW);
 		
