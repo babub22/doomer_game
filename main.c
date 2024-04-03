@@ -98,13 +98,13 @@ Menu blocksMenu = { .type = blocksMenuT };
 Menu texturesMenu = { .type = texturesMenuT };
 Menu planeCreatorMenu = { .type = planeCreatorT };
 
-Plane* planeOnCreation;
+Picture* planeOnCreation;
 
 int texturesMenuCurCategoryIndex = 0;
 
 int curFloor;
 
-Plane* createdPlanes;
+Picture* createdPlanes;
 int createdPlanesSize;
 
 Menu* curMenu;
@@ -223,6 +223,7 @@ int main(int argc, char* argv[]) {
   assembleWallBlockVBO();
   assembleWindowBlockVBO();
   assembleDoorBlockVBO();
+  assembleWallJointVBO();
 
   // plane 3d
   {
@@ -1692,7 +1693,7 @@ int main(int argc, char* argv[]) {
 
 	    }
 	    else if (mouse.focusedType == mousePlaneT) {
-	      Plane* plane = (Plane*)mouse.focusedThing;
+	      Picture* plane = (Picture*)mouse.focusedThing;
 	      characterId = plane->characterId;
 	    }
 
@@ -1715,7 +1716,7 @@ int main(int argc, char* argv[]) {
 
 	    }
 	    else if (mouse.focusedType == mousePlaneT) {
-	      Plane* plane = (Plane*)mouse.focusedThing;
+	      Picture* plane = (Picture*)mouse.focusedThing;
 	      characterId = plane->characterId;
 	    }
 
@@ -1864,7 +1865,7 @@ int main(int argc, char* argv[]) {
 
 	      }
 	      else if (mouse.focusedType == mousePlaneT) {
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 		itPlane = true;
 	      }
@@ -1891,7 +1892,7 @@ int main(int argc, char* argv[]) {
 	      }
 	      case(SCALE): {
 		if(itPlane){
-		  Plane* plane = (Plane*)mouse.focusedThing;
+		  Picture* plane = (Picture*)mouse.focusedThing;
 		  plane->h += 0.01f;
 		  /*
 		    float xTemp = mat->m[12];
@@ -1976,7 +1977,7 @@ int main(int argc, char* argv[]) {
 	      }
 
 	      for(int i=0;i<wallsVPairs[data->type].planesNum;i++){
-		calculateAABB(*mat, wallsVPairs[data->type].pairs[i].vBuf, wallsVPairs[data->type].pairs[i].vertexNum, &data->tile->walls[data->side].aabb[i].lb, &data->tile->walls[data->side].aabb[i].rt);
+		calculateAABB(*mat, wallsVPairs[data->type].pairs[i].vBuf, wallsVPairs[data->type].pairs[i].vertexNum, &data->tile->walls[data->side].planes[i].lb, &data->tile->walls[data->side].planes[i].rt);
 	      }
 	    }else if (mouse.selectedType == mouseTileT) {
 	      TileMouseData* data = (TileMouseData*)mouse.selectedThing;
@@ -2020,7 +2021,7 @@ int main(int argc, char* argv[]) {
 
 	      }
 	      else if (mouse.focusedType == mousePlaneT) {
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 		isPlane = true;
 	      }
@@ -2046,7 +2047,7 @@ int main(int argc, char* argv[]) {
 	      }
 	      case(SCALE): {
 		if(isPlane){
-		  Plane* plane = (Plane*)mouse.focusedThing;
+		  Picture* plane = (Picture*)mouse.focusedThing;
 		  plane->h -= 0.01f;
 		}else{
 		  float xTemp = mat->m[12];
@@ -2110,7 +2111,7 @@ int main(int argc, char* argv[]) {
 	      }
 	      
 	    for(int i=0;i<wallsVPairs[data->type].planesNum;i++){
-	      calculateAABB(*mat, wallsVPairs[data->type].pairs[i].vBuf, wallsVPairs[data->type].pairs[i].vertexNum, &data->tile->walls[data->side].aabb[i].lb, &data->tile->walls[data->side].aabb[i].rt);
+	      calculateAABB(*mat, wallsVPairs[data->type].pairs[i].vBuf, wallsVPairs[data->type].pairs[i].vertexNum, &data->tile->walls[data->side].planes[i].lb, &data->tile->walls[data->side].planes[i].rt);
 	    }
 	    }else if (mouse.selectedType == mouseTileT) {
 	      TileMouseData* data = (TileMouseData*) mouse.selectedThing;
@@ -2205,7 +2206,7 @@ int main(int argc, char* argv[]) {
 
 	      }
 	      else if (mouse.focusedType == mousePlaneT) {
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 		isPlane = true;
 	      }
@@ -2237,7 +2238,7 @@ int main(int argc, char* argv[]) {
 		  calculateModelAABB(model);
 		}
 	      }else if(manipulationMode == SCALE && isPlane){
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		plane->w -= 0.01f;
 	      }else if (manipulationMode == TRANSFORM_XY) {
 		mat->m[14] = mat->m[14] + manipulationStep;
@@ -2301,7 +2302,7 @@ int main(int argc, char* argv[]) {
 
 	       }
 	       else if (mouse.focusedType == mousePlaneT) {
-		 Plane* plane = (Plane*)mouse.focusedThing;
+		 Picture* plane = (Picture*)mouse.focusedThing;
 		 mat = &plane->mat;
 		 isPlane = true;
 	       }
@@ -2333,7 +2334,7 @@ int main(int argc, char* argv[]) {
 		   calculateModelAABB(model);
 		 }
 	       }else if(manipulationMode == SCALE && isPlane){
-		 Plane* plane = (Plane*)mouse.focusedThing;
+		 Picture* plane = (Picture*)mouse.focusedThing;
 		 plane->w += 0.01f;
 	       }
 
@@ -2415,7 +2416,7 @@ int main(int argc, char* argv[]) {
 
 	       }
 	       else if (mouse.focusedType == mousePlaneT) {
-		 Plane* plane = (Plane*)mouse.focusedThing;
+		 Picture* plane = (Picture*)mouse.focusedThing;
 		 characterId = &plane->characterId;
 	       }
 
@@ -2684,9 +2685,25 @@ int main(int argc, char* argv[]) {
 	      }
 	     
 	      break;
+	    }case(SDL_SCANCODE_J):{
+	    if(mouse.selectedType == mouseWallT){
+	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
+
+	      data->tile->walls[data->side].jointHide = !data->tile->walls[data->side].jointHide;
+	    }
+	     
+	      break;
 	    }
 	  case(SDL_SCANCODE_H): {
 	    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+
+	    if(mouse.selectedType == mouseWallT){
+	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
+
+	      data->tile->walls[data->side].planes[data->plane].hide = !data->tile->walls[data->side].planes[data->plane].hide;
+
+		
+	    }
 	    
 	    if(mouse.selectedType == mouseWallT && currentKeyStates[SDL_SCANCODE_LCTRL]){
 	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
@@ -2924,7 +2941,7 @@ int main(int argc, char* argv[]) {
 		  mouse.focusedThing = NULL;
 		  mouse.focusedType = 0;
 		}else if (mouse.focusedType == mousePlaneT) {
-		  Plane* panel = (Plane*)mouse.focusedThing;
+		  Picture* panel = (Picture*)mouse.focusedThing;
 		  int index = 0;
 
 		  // clear dialogs
@@ -2951,11 +2968,9 @@ int main(int argc, char* argv[]) {
 		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
 		WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 
-		free(data->tile->walls[data->side].txIndexes);
-		free(data->tile->walls[data->side].aabb);
+		free(data->tile->walls[data->side].planes);
+		data->tile->walls[data->side].planes = NULL;
 
-		data->tile->walls[data->side].aabb = NULL;
-		data->tile->walls[data->side].txIndexes = NULL;
 	      }else if (mouse.selectedType == mouseTileT) {
 		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
 		TileMouseData* data = (TileMouseData*)mouse.selectedThing;
@@ -3193,7 +3208,7 @@ int main(int argc, char* argv[]) {
 
 	      }
 	      else if (mouse.focusedType == mousePlaneT) {
-		Plane* plane = (Plane*)mouse.focusedThing;
+		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 	      }
 	      TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
@@ -3498,7 +3513,7 @@ int main(int argc, char* argv[]) {
       for(int i=0;i<createdPlanesSize;i++){
 	float intersectionDistance;
 
-	Plane plane = createdPlanes[i];
+	Picture plane = createdPlanes[i];
 	
 	float w = plane.w /2;
 	float h = plane.h /2;
@@ -3715,7 +3730,7 @@ int main(int argc, char* argv[]) {
 	  if(true){
 	    for(int side=0;side<basicSideCounter;side++){
 
-	      if(grid[y][z][x].walls[side].txIndexes != NULL) {
+	      if(grid[y][z][x].walls[side].planes!= NULL) {
 		// wall in/out camera
 		int in=0;
 
@@ -3733,16 +3748,14 @@ int main(int argc, char* argv[]) {
 	    
 		GLuint txIndex = valueIn(grid[y][z][x].wallsTx, side);
 		WallType type = grid[y][z][x].walls[side].type;
+		WallMouseData* data = malloc(sizeof(WallMouseData));
 	      
 		if(y >= curFloor){
 		  float intersectionDistance;
-
-		  WallMouseData* data = malloc(sizeof(WallMouseData));
-
 		  bool atLeastOneIntersect = false;
 		  
 		  for(int i=0;i<wallsVPairs[type].planesNum;i++){
-		    bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x].walls[side].aabb[i].lb, grid[y][z][x].walls[side].aabb[i].rt, NULL, &intersectionDistance);
+		    bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x].walls[side].planes[i].lb, grid[y][z][x].walls[side].planes[i].rt, NULL, &intersectionDistance);
 
 		    /*    printf("lb: %f %f %f \n", argVec3(grid[y][z][x].walls[side].aabb[i].lb));
 		    printf("rt: %f %f %f \n", argVec3(grid[y][z][x].walls[side].aabb[i].rt));*/
@@ -3758,10 +3771,6 @@ int main(int argc, char* argv[]) {
 		      data->type = type;
 		      data->plane = i;
 
-		      if(type == windowT){
-			printf("%s \n",windowPlanesStr[i]);
-		      }
-
 		      mouse.selectedType = mouseWallT;
 		      mouse.selectedThing = data;
 
@@ -3770,18 +3779,21 @@ int main(int argc, char* argv[]) {
 		      
 		  }
 
-		  if(mouse.selectedType != mouseWallT){
+		  if(!atLeastOneIntersect){
 		    free(data);
+		    data = NULL;
 		  }
 		}
-
-		glBindVertexArray(customWallV.VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, customWallV.VBO);
 		
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x].walls[side].mat.m);
 
+		// walls
 		for(int i=0;i<wallsVPairs[type].planesNum;i++){
-		  int tx = grid[y][z][x].walls[side].txIndexes[i];
+		  if(grid[y][z][x].walls[side].planes[i].hide == true){
+		    continue;
+		  }
+		  
+		  int tx = grid[y][z][x].walls[side].planes[i].txIndex;
 		  
 		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[tx].tx);
 		  
@@ -3789,6 +3801,26 @@ int main(int argc, char* argv[]) {
 		  glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[type].pairs[i].VBO);
 
 		  glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[type].pairs[i].vertexNum);
+		}
+
+		// joints
+
+		if(grid[y][z][x].walls[side].jointHide){
+		  for(int i=0;i<jointPlaneCounter;i++){
+		    if(grid[y][z][x].walls[side].joint[i].hide == true) {
+		      continue;
+		    }
+		  
+		    int tx = grid[y][z][x].walls[side].joint[i].txIndex;
+		  
+		    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[tx].tx);
+		  
+		    glBindVertexArray(wallsVPairs[wallJoint].pairs[i].VAO);
+		    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallJoint].pairs[i].VBO);
+
+		    glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[wallJoint].pairs[i].vertexNum);
+		    printf("Drawed %d vbo %d \n", wallsVPairs[wallJoint].pairs[i].vertexNum, wallsVPairs[wallJoint].pairs[i].VBO);
+		  }		
 		}
 
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -4110,6 +4142,10 @@ int main(int argc, char* argv[]) {
 
 	    wal.type = *type;
 	    wal.mat = IDENTITY_MATRIX;
+			
+		for (int i = 0; i < jointPlaneCounter; i++) {
+			wal.joint[i].hide = false;
+		}
 
 	    wal.mat.m[12] = tile.x;
 	    wal.mat.m[13] = tile.y;
@@ -4175,15 +4211,17 @@ int main(int argc, char* argv[]) {
 	  }
 
 	  if(mouse.clickR &&
-	     (!opTile || !opTile->walls[oppositeSide].txIndexes)){
-
-	    wal.txIndexes = calloc(wallsVPairs[wal.type].planesNum, sizeof(int));
-	    wal.aabb = calloc(wallsVPairs[wal.type].planesNum, sizeof(AABB));
+	     (!opTile || !opTile->walls[oppositeSide].planes)){
+	    
+	    wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
 	    
 	    for(int i=0;i<wallsVPairs[wal.type].planesNum;i++){
-	      calculateAABB(wal.mat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, &wal.aabb[i].lb, &wal.aabb[i].rt);
+	      calculateAABB(wal.mat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, &wal.planes[i].lb, &wal.planes[i].rt);
 	    }
-	    
+
+	    for(int i=0;i<jointPlaneCounter;i++){
+	      calculateAABB(wal.mat, wallsVPairs[wallJoint].pairs[i].vBuf, wallsVPairs[wallJoint].pairs[i].vertexNum, &wal.joint[i].lb, &wal.joint[i].rt);
+	    }
 	    memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x].walls[selectedSide], &wal, sizeof(Wall));
 	  }
 	}
@@ -4409,10 +4447,10 @@ int main(int argc, char* argv[]) {
 		[winInnerTopPlane] = winInnerBotPlane,
 		[winInnerBotPlane] = winInnerTopPlane,
 	      };
-	      wallData->tile->walls[wallData->side].txIndexes[winPlanePairs[wallData->plane]] = texture->index1D;
+	      wallData->tile->walls[wallData->side].planes[winPlanePairs[wallData->plane]].txIndex = texture->index1D;
 	      
 	    }
-	    wallData->tile->walls[wallData->side].txIndexes[wallData->plane] = texture->index1D;
+	    wallData->tile->walls[wallData->side].planes[wallData->plane].txIndex = texture->index1D;
 	    //	    setIn(wallData->tile->wallsTx, wallData->side, texture->index1D);
 	  }else if(mouse.selectedType == mouseTileT){
 	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
@@ -4424,7 +4462,7 @@ int main(int argc, char* argv[]) {
 
 	    block->txIndex = texture->index1D;
 	  }else if(mouse.selectedType == mousePlaneT){
-	    Plane* plane = (Plane*)mouse.selectedThing;
+	    Picture* plane = (Picture*)mouse.selectedThing;
 
 	    plane->txIndex = texture->index1D;
 	  }
@@ -4459,7 +4497,7 @@ int main(int argc, char* argv[]) {
 	
 	break;
       }case(mousePlaneT):{
-	 Plane* data = (Plane*)mouse.focusedThing;
+	 Picture* data = (Picture*)mouse.focusedThing;
 	  
 	 sprintf(buf, "Focused plane id: [%d] Mode: [%s] Step: [%f]", data->id, manipulationModeStr[manipulationMode], manipulationStep);
 	
@@ -4507,7 +4545,7 @@ data->tile->customWalls[data->side].txHidden ? "(Hidden)" : "");
 	
 	  break;
 	}case(mousePlaneT):{
-	   Plane* data = (Plane*)mouse.selectedThing;
+	   Picture* data = (Picture*)mouse.selectedThing;
 	  
 	   sprintf(buf, "Selected plane: [ID: %d] tx: [%s]", data->id, loadedTexturesNames[data->txIndex]);
 	
@@ -4905,7 +4943,7 @@ data->tile->customWalls[data->side].txHidden ? "(Hidden)" : "");
       
     }else if(curMenu && curMenu->type == planeCreatorT){
       if (!planeOnCreation) {
-	planeOnCreation = calloc(1, sizeof(Plane));
+	planeOnCreation = calloc(1, sizeof(Picture));
 
 	Matrix out = IDENTITY_MATRIX;
 
@@ -5001,12 +5039,12 @@ data->tile->customWalls[data->side].txHidden ? "(Hidden)" : "");
 	    planeOnCreation->h += 0.01f * selectedSign;
 	  }else if(selectedIndex == 3 && selectedSign == 2){
 	    if(!createdPlanes){
-	      createdPlanes = malloc(sizeof(Plane));
+	      createdPlanes = malloc(sizeof(Picture));
 	    }else{
-	      createdPlanes = realloc(createdPlanes, (createdPlanesSize+1) * sizeof(Plane));
+	      createdPlanes = realloc(createdPlanes, (createdPlanesSize+1) * sizeof(Picture));
 	    }
 
-	    memcpy(&createdPlanes[createdPlanesSize],planeOnCreation ,sizeof(Plane));
+	    memcpy(&createdPlanes[createdPlanesSize],planeOnCreation ,sizeof(Picture));
 
 	    createdPlanes[createdPlanesSize].id = createdPlanesSize;
 	    createdPlanes[createdPlanesSize].characterId = -1;
@@ -5066,7 +5104,7 @@ data->tile->customWalls[data->side].txHidden ? "(Hidden)" : "");
 
       }
       else if (mouse.focusedType == mousePlaneT) {
-	Plane* plane = (Plane*)mouse.focusedThing;
+	Picture* plane = (Picture*)mouse.focusedThing;
 	characterId = plane->characterId;
       }
 
@@ -5229,7 +5267,7 @@ data->tile->customWalls[data->side].txHidden ? "(Hidden)" : "");
 
       }
       else if (mouse.focusedType == mousePlaneT) {
-	Plane* plane = (Plane*)mouse.focusedThing;
+	Picture* plane = (Picture*)mouse.focusedThing;
 	characterId = plane->characterId;
       }
 
@@ -5339,7 +5377,7 @@ data->tile->customWalls[data->side].txHidden ? "(Hidden)" : "");
 
 		      }
 		      else if (mouse.focusedType == mousePlaneT) {
-			Plane* plane = (Plane*)mouse.focusedThing;
+			Picture* plane = (Picture*)mouse.focusedThing;
 			characterId = &plane->characterId;
 		      }
 
@@ -7426,6 +7464,129 @@ float* wallBySide(int* bufSize,Side side, float thick){
   // return wall; 
 }
 
+void assembleWallJointVBO(){  
+  float w = 1;
+  float h = 2;
+
+  float capRatio = 0.12f;
+  
+  float t = (float)1 / 8;
+
+  float d = t;
+
+  {
+    wallsVPairs[wallJoint].pairs = malloc(sizeof(VPair) * jointPlaneCounter);
+    wallsVPairs[wallJoint].planesNum = jointPlaneCounter;
+
+    // top
+    {
+      glGenBuffers(1, &wallsVPairs[wallJoint].pairs[jointTopPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallJoint].pairs[jointTopPlane].VAO);
+
+      glBindVertexArray(wallsVPairs[wallJoint].pairs[jointTopPlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallJoint].pairs[jointTopPlane].VBO);
+
+      wallsVPairs[wallJoint].pairs[jointTopPlane].vertexNum = 6;
+
+      float topPlane[] = {
+	w, h, -t,         0.0f, 0.0f,
+	w+t, h, -t,    capRatio, 0.0f,
+	w,h, 0.0f,          0.0f, capRatio,
+
+	w+t, h, -t,    capRatio, 0.0f,
+	w,h, 0.0f,           0.0f, capRatio,
+	w+t,h,0.0f,         capRatio, capRatio,
+      };
+
+      wallsVPairs[wallJoint].pairs[jointTopPlane].vBuf = malloc(sizeof(topPlane));
+      memcpy(wallsVPairs[wallJoint].pairs[jointTopPlane].vBuf, topPlane, sizeof(topPlane));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(topPlane), topPlane, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    // front
+    {
+      glGenBuffers(1, &wallsVPairs[wallJoint].pairs[jointFrontPlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallJoint].pairs[jointFrontPlane].VAO);
+
+      glBindVertexArray(wallsVPairs[wallJoint].pairs[jointFrontPlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallJoint].pairs[jointFrontPlane].VBO);
+
+      wallsVPairs[wallJoint].pairs[jointFrontPlane].vertexNum = 6;
+
+      float backPlane[] = {
+	w+t, h, -t,           0.0f, 1.0f - capRatio,
+	w, h, -t,         capRatio, 1.0f - capRatio,
+	w+t, 0.0f , -t,       0.0f, 0.0f,
+
+	w, h, -t,         capRatio, 1.0f - capRatio,
+	w+t, 0.0f , -t,       0.0f, 0.0f,
+	w, 0.0f , -t,     capRatio, 0.0f,
+      };
+
+      wallsVPairs[wallJoint].pairs[jointFrontPlane].vBuf = malloc(sizeof(backPlane));
+      memcpy(wallsVPairs[wallJoint].pairs[jointFrontPlane].vBuf, backPlane, sizeof(backPlane));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(backPlane), backPlane, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
+    //left
+    {
+      glGenBuffers(1, &wallsVPairs[wallJoint].pairs[jointSidePlane].VBO);
+      glGenVertexArrays(1, &wallsVPairs[wallJoint].pairs[jointSidePlane].VAO);
+
+      glBindVertexArray(wallsVPairs[wallJoint].pairs[jointSidePlane].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallJoint].pairs[jointSidePlane].VBO);
+
+      wallsVPairs[wallJoint].pairs[jointSidePlane].vertexNum = 6 * 2;
+
+      float e = w + t;
+      
+      float leftPlane[] = {
+	e, 0.0f, 0.0f,  0.0f, 0.0f,
+	e, h, 0.0f,     0.0f, 1.0f,
+	e, h , -t,     t, 1.0f,
+
+	e, h, -t,      t, 1.0f,
+	e, 0.0f, 0.0f,  0.0f, 0.0f,
+	e, 0.0f , -t,  t, 0.0f,
+      };
+
+      wallsVPairs[wallJoint].pairs[jointSidePlane].vBuf = malloc(sizeof(leftPlane));
+      memcpy(wallsVPairs[wallJoint].pairs[jointSidePlane].vBuf, leftPlane, sizeof(leftPlane));
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(leftPlane), leftPlane, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 3 * sizeof(float));
+      glEnableVertexAttribArray(1);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+  }
+}
+
 void assembleWallBlockVBO() {  // wallBlock buf
   float w = 1;
   float h = 2;
@@ -7544,9 +7705,8 @@ void assembleWallBlockVBO() {  // wallBlock buf
 
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
-    }*/
+    }
 
-    /*
     // right
     {
       glGenBuffers(1, &wallsVPairs[wallT].pairs[wRightPlane].VBO);

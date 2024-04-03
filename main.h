@@ -12,6 +12,11 @@ typedef struct{
   int index2D; // where [from context][index2D]
 } Texture;
 
+/*typedef struct{
+
+} Planes;*/
+
+
 typedef struct{
   int index;
   char* name;
@@ -51,7 +56,10 @@ typedef enum{
 typedef struct{
   vec3 lb;
   vec3 rt;
-} AABB;
+  
+  int txIndex;
+  bool hide;
+} Plane;
 
 typedef struct {
   // use pos as min for AABB
@@ -62,7 +70,6 @@ typedef struct {
 
   float angle;
   Side side;
-
   
   // vec3 colBox;
   float w, h, d;
@@ -76,6 +83,7 @@ typedef enum{
   wallT,  
   doorT,
   windowT,
+  wallJoint,
 
   wallTypeCounter,
 } WallType;
@@ -133,7 +141,7 @@ typedef enum{
   winFrontCapPlane, winFrontBotPlane,
   winBackCapPlane, winBackBotPlane,
   winInnerTopPlane, winInnerBotPlane,
-  //  winLeftPlane, winRightPlane,
+  //winLeftPlane, winRightPlane,
   winTopPlane, winFrontPodokonik, winBackPodokonik,
   winCenterPlane, winPlaneCounter
 } WindowPlanes;
@@ -160,6 +168,12 @@ typedef enum{
   doorPlaneCounter
 } DoorPlanes;
 
+typedef enum{
+  jointTopPlane,
+  jointFrontPlane, jointSidePlane,
+  jointPlaneCounter
+} JointPlanes;
+
 const char* doorPlanesStr[] = {
   [winTopPlane]= "Top plane",
   [doorFrontPlane]= "Front plane",
@@ -168,9 +182,16 @@ const char* doorPlanesStr[] = {
 };
 
 typedef struct{
-  int* txIndexes; // by windowPlane enum or wallPlane
+  /* int* txIndexes; // by windowPlane enum or wallPlane
   AABB* aabb;
+  bool* hide; // info about hidden plans
+*/
 
+  Plane* planes;
+  
+  Plane joint[jointPlaneCounter];
+  bool jointHide; // whole joint
+  
   WallType type;
 
   Matrix mat;
@@ -345,6 +366,7 @@ struct Tile{
   int wallsTx;
   
   WallVertexBuffer customWalls[4];
+  //  Plane joints[4];//[jointPlaneCounter];
   
   TileBlock* block;
 
@@ -455,7 +477,7 @@ typedef struct{
 
   vec3 lb;
   vec3 rt;
-} Plane;
+} Picture;
 
 typedef struct{
   char* name;
@@ -668,6 +690,7 @@ TileBlock* constructNewBlock(int type, int angle);
 void assembleWindowBlockVBO();
 void assembleWallBlockVBO();
 void assembleDoorBlockVBO();
+void assembleWallJointVBO();
 
 #define resetMouse() mouse.selectedType = 0; mouse.selectedThing = NULL; mouse.focusedType = 0; mouse.focusedThing = NULL; mouse.brushType = 0; mouse.brushThing = NULL;
 
