@@ -4092,6 +4092,7 @@ int main(int argc, char* argv[]) {
     // render mouse.brush
     if(mouse.selectedType == mouseTileT)
       {
+	//	  const float borderArea = bBlockW/8;
 	TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
 
 	const vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
@@ -4099,10 +4100,17 @@ int main(int argc, char* argv[]) {
 	if(tileData->intersection.x < tile.x + borderArea && tileData->intersection.x >= tile.x - borderArea) {
 	  mouse.tileSide = left;
 	}
+	else if (tileData->intersection.x > tile.x + bBlockW - borderArea) {
+	  //	  mouse.tileSide = right;
+	}
 	else {
+	  //	  printf("%f \n", );
 	  if (tileData->intersection.z < tile.z + borderArea && tileData->intersection.z >= tile.z - borderArea) {
 	    mouse.tileSide = top;
 	  }
+	  //	  else if (tileData->intersection.z > tile.z + bBlockD - borderArea && tileData->intersection.z > tile.z + bBlockD + borderArea) {
+	    //	    mouse.tileSide = bot;
+	  //	  }
 	  else if (tileData->intersection.z > (tile.z + bBlockD / 2) - borderArea && tileData->intersection.z < (tile.z + bBlockD / 2) + borderArea && tileData->intersection.x >(tile.x + bBlockW / 2) - borderArea && tileData->intersection.x < (tile.x +bBlockW/2) + borderArea){
 	    mouse.tileSide = center;
 	  }else{
@@ -4111,6 +4119,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	const float selectionW = borderArea * 3;
+
+	//	  glBegin(GL_TRIANGLES);
 
 	if(mouse.tileSide != -1){
 	  glBindVertexArray(selectionRectVAO);
