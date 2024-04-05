@@ -12,6 +12,7 @@ typedef struct{
   int index2D; // where [from context][index2D]
 } Texture;
 
+
 /*typedef struct{
 
 } Planes;*/
@@ -40,10 +41,10 @@ typedef struct{
 
 
 typedef enum{
+  left,
   top,
   bot,
   right,
-  left,
   basicSideCounter,
   center,
   topLeft,
@@ -96,6 +97,7 @@ const char* wallTypeStr[] = {
 typedef enum{
   roofBlockT,
   stepsBlockT,
+  angledRoofT,
   
   tileBlocksCounter
 } TileBlocksTypes;
@@ -110,7 +112,7 @@ typedef enum{
   menuTypesCounter
 } MenuTypes;
 
-const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps" };
+const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps", [angledRoofT] = "Angle Roof" };
 
 typedef struct{
   bool opened;
@@ -130,7 +132,7 @@ typedef struct{
 
 typedef enum{
   wTopPlane, wFrontPlane, wBackPlane,
-  //  wLeftPlane, wRightPlane,
+  // wLeftPlane, wRightPlane,
   wPlaneCounter
 } WallPlanes;
 
@@ -392,8 +394,7 @@ struct Tile{
 
   Plane joint[4][jointPlaneCounter];
   bool jointExist[4];
-  Matrix mat[4];
-  
+  Matrix jointsMat[4];
 };
 
 typedef struct{
@@ -909,7 +910,6 @@ const int leftWallMap[2][6] = {
 };
 
 
-
   /*
     GL_QUADS order
 
@@ -918,3 +918,5 @@ const int leftWallMap[2][6] = {
   glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);S
   glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
    */
+
+void setupAABBAndMatForJoint(vec2i grid, Side side);
