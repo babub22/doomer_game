@@ -5,7 +5,17 @@
 GLuint textVBO;
 GLuint textVAO;
 
+VPair tileOver;
+
 bool hints = true;
+
+float* tiles;
+size_t tilesTris;
+size_t tileMatsBuf; // buf id
+
+int gTilesCounter;
+Wall2* walls;
+int gWallsCounter;
 
 char curSaveName[CONSOLE_BUF_CAP];
 
@@ -64,7 +74,7 @@ VPair stepsBlock;
 Model* curModels;
 size_t curModelsSize;
 
-Tile*** grid;
+Tile**** grid;
 int gridX = 120;
 int gridY = 15;
 int gridZ = 120;
@@ -1003,7 +1013,6 @@ int main(int argc, char* argv[]) {
       glGenBuffers(1, &tileMeshes[i-1].VBO);
       glBindBuffer(GL_ARRAY_BUFFER, tileMeshes[i-1].VBO);
 
-
       if(i == fromUnder){
 	float texturedTileVerts[] = {
 	  bBlockW, -wallD/2, bBlockD , 0.0f, 1.0f,
@@ -1060,19 +1069,18 @@ int main(int argc, char* argv[]) {
 
     glGenBuffers(1, &snowFlakesMeshVBO);
     glBindBuffer(GL_ARRAY_BUFFER, snowFlakesMeshVBO);
+    
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+  }
+  
+  // snowflakes
+  {
+    glGenVertexArrays(1, &tileOver.VAO);
+    glBindVertexArray(tileOver.VAO);
 
-
-    /*
-      float snowFlakesMeshVerts[] = {
-      0.0f, 0.0f, 0.0f, 
-      0.0f, 0.015f / 4.0f, 0.0f  };
-
-      glBufferData(GL_ARRAY_BUFFER, sizeof(snowFlakesMeshVerts)
-      ,snowFlakesMeshVerts, GL_STATIC_DRAW);
-
-      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);*/
-
-    //    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glGenBuffers(1, &tileOver.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, tileOver.VBO);
     
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
@@ -1528,37 +1536,15 @@ int main(int argc, char* argv[]) {
 
   float testFOV = editorFOV;
 
-  int textureOfGround = texture1DIndexByName("Zemlia1");
-
-  if (textureOfGround == -1) {
-    printf("Specify texture of ground");
-    exit(-1);
-  }
 
   // load or init grid
   if(!loadSave("map")){
-    grid = malloc(sizeof(Tile**) * (gridY));
-
-    for (int y = 0; y < gridY; y++) {
-      grid[y] = malloc(sizeof(Tile*) * (gridZ));
-
-      for (int z = 0; z < gridZ; z++) {
-	grid[y][z] = calloc(gridX, sizeof(Tile));
-
-	for (int x = 0; x < gridX; x++) {
-	  if (y == 0) {
-	    setIn(grid[y][z][x].ground, 0, texturedTile);
-	    setIn(grid[y][z][x].ground, 2, textureOfGround);
-	  }
-	  else {
-	    setIn(grid[y][z][x].ground, 0, netTile);
-	  }
-	}
-      }
-    }
+    initGrid(gridX, gridY, gridZ);
 
     printf("Map not found!\n");
   }
+
+  collectTilesMats();
 
   // set up camera
   GLint cameraPos = glGetUniformLocation(mainShader, "cameraPos");
@@ -2059,20 +2045,20 @@ int main(int argc, char* argv[]) {
 	      }
 	      
 	      /*
-		GroundType type = valueIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0);
+		GroundType type = valueIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, 0);
 
 		if (type != texturedTile) {
-		setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, texturedTile);
-		setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, 0);
+		setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, 0, texturedTile);
+		setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, mouse->groundInter, 0);
 		}
 		else {
-		Texture curTx = valueIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter);
+		Texture curTx = valueIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, mouse->groundInter);
 
 		if (curTx == texturesCounter - 1) {
-		setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, 0, netTile);
+		setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, 0, netTile);
 		}
 		else {
-		setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x].ground, mouse.groundInter, curTx + 1);
+		setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, mouse->groundInter, curTx + 1);
 		}
 		}
 	      */
@@ -2320,7 +2306,7 @@ int main(int argc, char* argv[]) {
 		}
 	      }
 	    }else if (mouse.selectedType == mouseWallT) { // + left W
-	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
+	      /*	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 	      
 	      bool index1S = data->side == right || data->side == left; // 1 - ctrl 0 - norm
 	      bool rightIsDefault = data->tile->customWalls[data->side].buf[rightWallMap[index1S][0]] <= 0;
@@ -2356,7 +2342,7 @@ int main(int argc, char* argv[]) {
 		    grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[leftWallMap[index1S][5]] += dUV;
 		  }
 		}
-	      }
+	      }*/
 	    }
 	    
 	    break;
@@ -2424,7 +2410,7 @@ int main(int argc, char* argv[]) {
 	       default: break;
 	       }
 	     }else if (mouse.selectedType == mouseWallT) { // + right W
-	       WallMouseData* data = (WallMouseData*)mouse.selectedThing;
+	       /*	       WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 	      
 	       bool index1S = data->side == right || data->side == left;
 	       bool leftIsDefault = data->tile->customWalls[data->side].buf[leftWallMap[index1S][0]] >= bBlockW;
@@ -2460,7 +2446,7 @@ int main(int argc, char* argv[]) {
 		     grid[data->grid.y][oppositeTile.z][oppositeTile.x].customWalls[oppositeSide].buf[rightWallMap[index1S][5]] += dUV;
 		   }
 		 }
-	       }
+		 }*/
 	     }
 
 	     break;
@@ -2775,215 +2761,14 @@ int main(int argc, char* argv[]) {
 	      }
 	    }
 	    
-	    if(mouse.selectedType == mouseWallT && currentKeyStates[SDL_SCANCODE_LCTRL]){
-	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
-
-	      Tile* oppositeGrid = NULL;
-
-	      TileBlock* block = data->tile->block;
-
-	      Side selSide = data->side;
-	      
-	      vec2i oppositeTile;
-	      Side oppositeSide;
-	  
-	      if (oppositeTileTo((vec2i) { data->grid.x, data->grid.z }, data->side, & oppositeTile, & oppositeSide)) {
-		oppositeGrid = &grid[data->grid.y][oppositeTile.z][oppositeTile.x];
-
-		if (!block) {
-		  selSide = oppositeSide;
-		  block = oppositeGrid->block;
-		}
-
-		if (block && block->type == roofBlockT) {
-		  const Side mappedSideToAngleAgainstClock[4][4] = {
-		    [top] = {
-		      [0] = top, [1] = left, [2] = bot, [3] = right
-		    },
-		    [bot] = {
-		      [0] = bot, [1] = left, [2] = top, [3] = right
-		    },
-		    [left] = {
-		      [0] = right, [1] = top, [2] = left, [3] = bot
-		    },
-		    [right] = {
-		      [0] = right, [1] = bot, [2] = left, [3] = top
-		    },
-		  };
-
-		  Side curSide = mappedSideToAngleAgainstClock[selSide][block->rotateAngle/90];
-
-		  if (!data->tile->customWalls[data->side].alligned && !data->tile->customWalls[data->side].alligned) {
-		    if (curSide == top) {
-		      float xLeft = 0.0f;
-		      float xRight = bBlockW;
-
-		      float newH = block->vertexes[1];
-
-		      float newV = map(newH, 0, 0.2, 0, 1);
-
-		      if(newH > 0.0f){
-			if (oppositeGrid) {
-			  oppositeGrid->customWalls[oppositeSide].buf[1] = newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[4] = newV;
-
-			  oppositeGrid->customWalls[oppositeSide].buf[6] = newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[9] = newV;
-
-			  oppositeGrid->customWalls[oppositeSide].buf[16] = newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[19] = newV;
-
-			  oppositeGrid->customWalls[oppositeSide].alligned = true; 
-			}
-
-			data->tile->customWalls[data->side].buf[1] = newH; 
-			data->tile->customWalls[data->side].buf[4] = newV;  
-
-			data->tile->customWalls[data->side].buf[6] = newH;
-			data->tile->customWalls[data->side].buf[9] = newV;
-
-			data->tile->customWalls[data->side].buf[16] = newH;
-			data->tile->customWalls[data->side].buf[19] = newV;
-
-			data->tile->customWalls[data->side].alligned = true;
-		      }
-		    }
-		    else if (curSide == bot) {
-		      float xLeft = 0.0f;
-		      float xRight = bBlockW;
-
-		      float newH = block->vertexes[11];
-
-		      if(newH > 0.0f){
-			float newV = map(newH, 0, 0.2, 0, 1);
-
-			if (oppositeGrid) {
-			  oppositeGrid->customWalls[oppositeSide].buf[1] = newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[4] = newV;
-
-			  oppositeGrid->customWalls[oppositeSide].buf[6] = newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[9] = newV;
-
-			  oppositeGrid->customWalls[oppositeSide].buf[16] = newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[19] = newV;
-
-			  oppositeGrid->customWalls[oppositeSide].alligned = true;
-			}
-
-			data->tile->customWalls[data->side].buf[1] = newH;
-			data->tile->customWalls[data->side].buf[4] = newV;
-
-			data->tile->customWalls[data->side].buf[6] = newH;
-			data->tile->customWalls[data->side].buf[9] = newV;
-
-			data->tile->customWalls[data->side].buf[16] = newH;
-			data->tile->customWalls[data->side].buf[19] = newV;
-
-			data->tile->customWalls[data->side].alligned = true;
-		      }
-		    }
-		    else if (curSide == right) {
-		      float newH = block->vertexes[1];
-		      float backH = block->vertexes[11];
-
-		      float newV = map(newH, 0, 0.2, 0, 1);
-		      float backV = map(backH, 0, 0.2, 0, 1);
-
-		      if(newH > 0.0f || backV > 0.0f){
-			if (oppositeGrid) {
-			  oppositeGrid->customWalls[oppositeSide].buf[1] = backH; //newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[4] = backV;//newV;
-
-			  oppositeGrid->customWalls[oppositeSide].buf[6] = newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[9] = newV;
-
-			  oppositeGrid->customWalls[oppositeSide].buf[16] = newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[19] = newV;
-
-			  oppositeGrid->customWalls[oppositeSide].alligned = true;
-			}
-
-			data->tile->customWalls[data->side].buf[1] = backH;
-			data->tile->customWalls[data->side].buf[4] = backV;
-
-			data->tile->customWalls[data->side].buf[6] = newH;
-			data->tile->customWalls[data->side].buf[9] = newV;
-
-			data->tile->customWalls[data->side].buf[16] = newH;
-			data->tile->customWalls[data->side].buf[19] = newV;
-
-			data->tile->customWalls[data->side].alligned = true;
-		      }
-		    }else if(curSide == left){
-		      float newH = block->vertexes[1];
-		      float backH = block->vertexes[11];
-
-		      float newV = map(newH, 0, 0.2, 0, 1);
-		      float backV = map(backH, 0, 0.2, 0, 1);
-
-		      if(newH > 0.0f || backV > 0.0f){
-			if (oppositeGrid) {
-			  oppositeGrid->customWalls[oppositeSide].buf[1] = newH; //newH;
-			  oppositeGrid->customWalls[oppositeSide].buf[4] = newV;//newV;
-
-			  oppositeGrid->customWalls[oppositeSide].buf[6] = backH;
-			  oppositeGrid->customWalls[oppositeSide].buf[9] = backV;
-
-			  oppositeGrid->customWalls[oppositeSide].buf[16] = backH;
-			  oppositeGrid->customWalls[oppositeSide].buf[19] = backV;
-
-			  oppositeGrid->customWalls[oppositeSide].alligned = true;
-			}
-
-			data->tile->customWalls[data->side].buf[1] = newH;
-			data->tile->customWalls[data->side].buf[4] = newV;
-
-			data->tile->customWalls[data->side].buf[6] = backH;
-			data->tile->customWalls[data->side].buf[9] = backV;
-
-			data->tile->customWalls[data->side].buf[16] = backH;
-			data->tile->customWalls[data->side].buf[19] = backV;
-
-			data->tile->customWalls[data->side].alligned = true;
-		      }
-		    }
-		  }
-		  else {
-		    // back to default
-		    memcpy(data->tile->customWalls[data->side].buf, customWallTemp[data->side], sizeof(float) * 6 * 5);
-		    data->tile->customWalls[data->side].bufSize = 6 * 5;
-		    data->tile->customWalls[data->side].alligned = false;
-
-		    if (oppositeGrid) {
-		      memcpy(oppositeGrid->customWalls[oppositeSide].buf, customWallTemp[oppositeSide], sizeof(float) * 6 * 5);
-		      oppositeGrid->customWalls[oppositeSide].bufSize = 6*5;
-		      oppositeGrid->customWalls[oppositeSide].alligned = false;
-		    }
-
-		  }
-		  
-		  // top -> x0 y1 z2
-		  //
-		}	      
-	      }
-
-	      
-	    }else{
-	      highlighting = !highlighting;
-	    }
+	    highlighting = !highlighting;
 	    
 	    break;
 	  }
 	  case(SDL_SCANCODE_DELETE): {
 	    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 	    
-	    if(mouse.brushType == mouseTextureBrushT && currentKeyStates[SDL_SCANCODE_LCTRL]){
-	      if(mouse.selectedType == mouseWallT){
-		WallMouseData* wallData = (WallMouseData*)mouse.selectedThing;
-
-		wallData->tile->customWalls[wallData->side].txHidden = !wallData->tile->customWalls[wallData->side].txHidden;
-	      }
-	    }else if(!currentKeyStates[SDL_SCANCODE_LCTRL]){
+	    if(!currentKeyStates[SDL_SCANCODE_LCTRL]){
 
 	      if(mouse.focusedThing){
 	      
@@ -3035,14 +2820,14 @@ int main(int argc, char* argv[]) {
 		  mouse.focusedType = 0;
 		}
 	      }else if (mouse.selectedType == mouseWallT) {
-		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
+		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
 		WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 
 		free(data->tile->walls[data->side].planes);
 		data->tile->walls[data->side].planes = NULL;
 
 	      }else if (mouse.selectedType == mouseTileT) {
-		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x].walls >> (mouse.wallSide * 8)) & 0xFF;
+		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
 		TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
 		setIn(data->tile->ground, data->groundInter, 0);
@@ -3160,9 +2945,9 @@ int main(int argc, char* argv[]) {
 
 	      bool isIntersect = false;
 
-	      if (grid[curFloor][(int)tile.z][(int)tile.x].walls != 0) {
+	      if (grid[curFloor][(int)tile.z][(int)tile.x]->walls != 0) {
 	      for (int side = 0; side < basicSideCounter; side++) {
-	      WallType type = (grid[curFloor][(int)tile.z][(int)tile.x].walls >> (side * 8)) & 0xFF;
+	      WallType type = (grid[curFloor][(int)tile.z][(int)tile.x]->walls >> (side * 8)) & 0xFF;
 	      vec3 pos = { (float)(int)tile.x * bBlockW, 0.0f,  (float)(int)tile.z * bBlockD };
 
 	      if (type == wallT) {
@@ -3386,41 +3171,16 @@ int main(int argc, char* argv[]) {
     out.m[14] = curCamera->pos.z;
 		
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m); 
-	  
+
+    if(curFloor != 0)
     {
       glBindBuffer(GL_ARRAY_BUFFER, netTileVBO);
       glBindVertexArray(netTileVAO);
       
       for (int x = 0; x < gridX; x++) {
 	for (int z = 0; z < gridZ; z++){
-
-	  GroundType type = valueIn(grid[curFloor][z][x].ground, 0);
-
-	  if(type == texturedTile){
-	    continue;
-	  }
-		
 	  vec3 tile = {(float)x * bBlockW, (float)curFloor * floorH, (float)z * bBlockD};
-
-	  /*
-	    const vec3 c0 = { tile.x, tile.y, tile.z };
-	    const vec3 c1 = { tile.x + bBlockW, tile.y, tile.z };
-	    const vec3 c2 = { tile.x, tile.y, tile.z + bBlockD };
-	    const vec3 c3 = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
-
-	    vec3 tileCornesrs[] = { c0, c1, c2, c3 };
-
-	    int in=0;
-
-	    for (int k = 0; k < 4 && in==0; k++) {
-	    if (radarCheck(tileCornesrs[k]))
-	    in++;
-	    }
-	    
-	    if(!in){
-	    continue;
-	    }*/
-		
+	
 	  Matrix out = IDENTITY_MATRIX;
 	
 	  // translate without mult
@@ -3670,21 +3430,13 @@ int main(int argc, char* argv[]) {
 
 	      vertexIndex += 6;
 		      
-	      //	      float snowFlakesMeshVerts[] = {
-	      //		0.0f, 0.0f, 0.0f, 
-	      //		0.0f, 0.015f / 4.0f, 0.0f  };
-
-	      //	      glDrawArrays(GL_LINES, 0, 2);
-	      //		}
-
-	      //		vec3i gridIndexes = xyz_indexesToCoords(x,y,z);
 	      vec3i gridIndexes = xyz_coordsToIndexes(x, y, z);
 
 	      GroundType type = -1;
 
-	      if (gridIndexes.y < gridY - 1) {
-		type = valueIn(grid[gridIndexes.y + 1][gridIndexes.z][gridIndexes.x].ground, 0);
-	      }
+	      //	      if (gridIndexes.y < gridY - 1) {
+		//		type = valueIn(grid[gridIndexes.y + 1][gridIndexes.z][gridIndexes.x]->ground, 0);
+	      //	      }
 
 	      if (snowParticle[loop].y < 0.0f || type == texturedTile) {
 		snowParticle[loop].life -= snowParticle[loop].fade / 10.0f; 
@@ -3735,25 +3487,26 @@ int main(int argc, char* argv[]) {
     //    ElementType minDistType = -1;
     //    float minIntersectionDist = 1000.0f;
     
-    for (int x = 0; x < gridX; x++) {
+    for (int x = 0; x < gridX && false; x++) {
       for (int y = 0; y < gridY; y++) {
-	for (int z = 0; z < gridZ; z++) {
+	for (int z = 0; z < gridZ; z++) { 
+	  if (grid[y][z][x]) {
 	  vec3 tile = xyz_indexesToCoords(x,y,z);
 
 	  // block
-	  if(grid[y][z][x].block != NULL){
+	  if(grid[y][z][x]->block != NULL){
 
 	    vec3 lb = { 1000,1000,1000 };
 	    vec3 rt = {0};
 
-	    for(int i3=0;i3<grid[y][z][x].block->vertexesSize*5;i3 += 5){
-	      lb.x= min(lb.x, grid[y][z][x].block->vertexes[i3]);
-	      lb.y= min(lb.y, grid[y][z][x].block->vertexes[i3+1]);
-	      lb.z= min(lb.z, grid[y][z][x].block->vertexes[i3+2]);
+	    for(int i3=0;i3<grid[y][z][x]->block->vertexesSize*5;i3 += 5){
+	      lb.x= min(lb.x, grid[y][z][x]->block->vertexes[i3]);
+	      lb.y= min(lb.y, grid[y][z][x]->block->vertexes[i3+1]);
+	      lb.z= min(lb.z, grid[y][z][x]->block->vertexes[i3+2]);
 
-	      rt.x= max(rt.x, grid[y][z][x].block->vertexes[i3]);
-	      rt.y= max(rt.y, grid[y][z][x].block->vertexes[i3+1]);
-	      rt.z= max(rt.z, grid[y][z][x].block->vertexes[i3+2]);
+	      rt.x= max(rt.x, grid[y][z][x]->block->vertexes[i3]);
+	      rt.y= max(rt.y, grid[y][z][x]->block->vertexes[i3+1]);
+	      rt.z= max(rt.z, grid[y][z][x]->block->vertexes[i3+2]);
 	    }
 
 	    lb.x += tile.x;
@@ -3768,21 +3521,21 @@ int main(int argc, char* argv[]) {
 	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, NULL, &intersectionDistance);
 	
 	    if(isIntersect && minDistToCamera > intersectionDistance){
-	      mouse.selectedThing = grid[y][z][x].block;
+	      mouse.selectedThing = grid[y][z][x]->block;
 	      mouse.selectedType = mouseBlockT;
 
 	      minDistToCamera = intersectionDistance;
 	    }
 	    
-	    glBindVertexArray(tileBlocksTempl[grid[y][z][x].block->type].vpair.VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, tileBlocksTempl[grid[y][z][x].block->type].vpair.VBO);
+	    glBindVertexArray(tileBlocksTempl[grid[y][z][x]->block->type].vpair.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, tileBlocksTempl[grid[y][z][x]->block->type].vpair.VBO);
 		
-	    glActiveTexture(loadedTextures1D[grid[y][z][x].block->txIndex].tx);
-	    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[grid[y][z][x].block->txIndex].tx);
+	    glActiveTexture(loadedTextures1D[grid[y][z][x]->block->txIndex].tx);
+	    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[grid[y][z][x]->block->txIndex].tx);
 		
-	    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x].block->mat.m);
+	    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x]->block->mat.m);
 
-	    glBufferData(GL_ARRAY_BUFFER, grid[y][z][x].block->vertexesSize * sizeof(float) * 5, grid[y][z][x].block->vertexes, GL_STATIC_DRAW);
+	    glBufferData(GL_ARRAY_BUFFER, grid[y][z][x]->block->vertexesSize * sizeof(float) * 5, grid[y][z][x]->block->vertexes, GL_STATIC_DRAW);
 
 	    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
 	    glEnableVertexAttribArray(0);
@@ -3790,7 +3543,7 @@ int main(int argc, char* argv[]) {
 	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	    glEnableVertexAttribArray(1);
 
-	    glDrawArrays(GL_TRIANGLES, 0, grid[y][z][x].block->vertexesSize); 
+	    glDrawArrays(GL_TRIANGLES, 0, grid[y][z][x]->block->vertexesSize); 
 	  
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
 	    glBindVertexArray(0);
@@ -3802,7 +3555,7 @@ int main(int argc, char* argv[]) {
 	    
 	    for(int side=0;side<basicSideCounter;side++){
 
-	      if(grid[y][z][x].walls[side].planes != NULL) {
+	      if(grid[y][z][x]->walls[side].planes != NULL) {
 		atLeastOneWall = true;
 		// wall in/out camera
 		int in=0;
@@ -3819,8 +3572,8 @@ int main(int argc, char* argv[]) {
 
 		// wall drawing
 	    
-		GLuint txIndex = valueIn(grid[y][z][x].wallsTx, side);
-		WallType type = grid[y][z][x].walls[side].type;
+		//GLuint txIndex = valueIn(grid[y][z][x]->wallsTx, side);
+		WallType type = grid[y][z][x]->walls[side].type;
 		WallMouseData* data = malloc(sizeof(WallMouseData));
 	      
 		if(y >= curFloor){
@@ -3828,15 +3581,18 @@ int main(int argc, char* argv[]) {
 		  bool atLeastOneIntersect = false; 
 		  
 		  for(int i=0;i<wallsVPairs[type].planesNum;i++){ 
-		    bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x].walls[side].planes[i].lb, grid[y][z][x].walls[side].planes[i].rt, NULL, &intersectionDistance);
+		    bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x]->walls[side].planes[i].lb, grid[y][z][x]->walls[side].planes[i].rt, NULL, &intersectionDistance);
  
 		    if(isIntersect && minDistToCamera  > intersectionDistance){
 		      atLeastOneIntersect = true;
 			
 		      data->side = side;
 		      data->grid = (vec3i){x,y,z};
-		      data->txIndex = txIndex;
-		      data->tile = &grid[y][z][x];
+
+			  int tx = grid[y][z][x]->walls[side].planes[i].txIndex;
+
+		      data->txIndex = tx;
+		      data->tile = grid[y][z][x];
 
 		      data->type = type;
 		      data->plane = i;
@@ -3855,15 +3611,15 @@ int main(int argc, char* argv[]) {
 		  }
 		}
 		
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x].walls[side].mat.m);
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x]->walls[side].mat.m);
 
 		// walls
 		for(int i=0;i<wallsVPairs[type].planesNum;i++){
-		  if(grid[y][z][x].walls[side].planes[i].hide == true){
+		  if(grid[y][z][x]->walls[side].planes[i].hide == true){
 		    continue;
 		  }
 		  
-		  int tx = grid[y][z][x].walls[side].planes[i].txIndex;
+		  int tx = grid[y][z][x]->walls[side].planes[i].txIndex;
 		  
 		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[tx].tx);
 		  
@@ -3888,16 +3644,20 @@ int main(int argc, char* argv[]) {
 		WallMouseData* data = malloc(sizeof(WallMouseData));
 		  
 		for(int i2=0;i2<4;i2++){
+		  if(grid[y][z][x]->jointExist[i2] == false){
+		    continue;
+		  }
+
 		  for(int i=0;i<jointPlaneCounter;i++){	      
-		    bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x].joint[i2][i].lb, grid[y][z][x].joint[i2][i].rt, NULL, &intersectionDistance);
+		    bool isIntersect =  rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x]->joint[i2][i].lb, grid[y][z][x]->joint[i2][i].rt, NULL, &intersectionDistance);
  
 		    if(isIntersect && minDistToCamera  > intersectionDistance){
 		      atLeastOneIntersect = true;
 			
 		      data->side = i2;
 		      data->grid = (vec3i){x,y,z};
-		      data->txIndex = grid[y][z][x].joint[i2][i].txIndex;
-		      data->tile = &grid[y][z][x];
+		      data->txIndex = grid[y][z][x]->joint[i2][i].txIndex;
+		      data->tile = grid[y][z][x];
 
 		      data->type = wallJointT;
 		      data->plane = i;
@@ -3918,18 +3678,18 @@ int main(int argc, char* argv[]) {
 	      }
 	    
 	      for(int i2=0;i2<4;i2++){
-		if(grid[y][z][x].jointExist[i2] == false){
+		if(grid[y][z][x]->jointExist[i2] == false){
 		  continue;
 		}
 		
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x].jointsMat[i2].m);
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x]->jointsMat[i2].m);
 	    
 		for(int i=0;i<jointPlaneCounter;i++){	      
-		  if(grid[y][z][x].joint[i2][i].hide == true) {
+		  if(grid[y][z][x]->joint[i2][i].hide == true) {
 		      //  continue;
 		  }
 		  
-		  int tx = grid[y][z][x].joint[i2][i].txIndex;
+		  int tx = grid[y][z][x]->joint[i2][i].txIndex;
 		  
 		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[tx].tx);
 		  
@@ -3941,9 +3701,9 @@ int main(int argc, char* argv[]) {
 	      }
 	  }
 
+	  }
 	  // tile inter
 	  {
-	    GroundType type = valueIn(grid[y][z][x].ground, 0);
 
 	    // skip netTile on not cur curFloor
 	    //if(y != curFloor){
@@ -3976,13 +3736,12 @@ int main(int argc, char* argv[]) {
 	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir,lb,rt, &intersection, &intersectionDistance);
 
 	    if(isIntersect && minDistToCamera  > intersectionDistance){
-
 	      if (y == curFloor) {
 		mouse.selectedType = mouseTileT;
 		
 		TileMouseData* data = malloc(sizeof(TileMouseData));
 
-		data->tile = &grid[y][z][x];
+		data->tile = grid[y][z][x];
 		
 		data->grid = (vec2i){x,z};
 		data->intersection = intersection;
@@ -4001,10 +3760,10 @@ int main(int argc, char* argv[]) {
 	      if (y == curFloor) {
 	      minIntersectionDist = intersectionDistance;
 		
-	      mouse.selectedTile = &grid[y][z][x];
+	      mouse.selectedTile = grid[y][z][x];
 	      mouse.gridIntersect = (vec2i){x,z};
 	      mouse.intersection = intersection;
-	      mouse.groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
+	      mouse->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 		 
 	      minDistType = TileEl;
 	      }
@@ -4012,45 +3771,63 @@ int main(int argc, char* argv[]) {
 	    */
 
 	    // tile rendering
-	    if(type == texturedTile){
-	      const vec3 tile = xyz_indexesToCoords(x,y,z);
+	    /*	    if(grid[y][z][x]){
+	      GroundType type = valueIn(grid[y][z][x]->ground, 0);
+	      
+	      if(type == texturedTile){
+		const vec3 tile = xyz_indexesToCoords(x,y,z);
 
-	      for(int i=1;i<=2;i++){
-		if(y==0 && i == fromUnder){
-		  continue;
+		for(int i=1;i<=2;i++){
+		  if(y==0 && i == fromUnder){
+		    continue;
+		  }
+		
+		  int txIndex = valueIn(grid[y][z][x]->ground, i);
+		  float lift = grid[y][z][x]->groundLift;
+		  
+		  glActiveTexture(loadedTextures1D[txIndex].tx);
+		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[txIndex].tx);
+
+		  glBindBuffer(GL_ARRAY_BUFFER, tileMeshes[i-1].VBO);
+		  glBindVertexArray(tileMeshes[i-1].VAO);
+
+		  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x]->groundMat.m);
+
+		  glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		  glBindTexture(GL_TEXTURE_2D, 0);
+		  glBindBuffer(GL_ARRAY_BUFFER, 0);
+		  glBindVertexArray(0);
+
 		}
 		
-		int txIndex = valueIn(grid[y][z][x].ground, i);
-		float lift = grid[y][z][x].groundLift;
-		  
-		glActiveTexture(loadedTextures1D[txIndex].tx);
-		glBindTexture(GL_TEXTURE_2D, loadedTextures1D[txIndex].tx);
-
-		glBindBuffer(GL_ARRAY_BUFFER, tileMeshes[i-1].VBO);
-		glBindVertexArray(tileMeshes[i-1].VAO);
-
-		Matrix out = IDENTITY_MATRIX;
-		//	  translate(&out, argVec3(tile));
-
-		// translate without mult
-		out.m[12] = tile.x;
-		out.m[13] = tile.y + lift;
-		out.m[14] = tile.z;
-
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
-
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		glBindTexture(GL_TEXTURE_2D, 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-
 	      }
-		
-	    }
+	    }*/
+
 	  }
 	}
       }
+    }
+
+    for(int i=0;i<loadedTexturesCounter;i++){
+      glBindTexture(GL_TEXTURE_2D, loadedTextures1D[i].tx);
+
+      glBindBuffer(GL_ARRAY_BUFFER, geometry[i].pairs.VBO);
+      glBindVertexArray(geometry[i].pairs.VAO);
+
+      Matrix out2 = IDENTITY_MATRIX;
+
+      out2.m[12] = 0.0;
+      out2.m[13] = 0.0;
+      out2.m[14] = 0.0f;
+		
+      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out2.m);
+
+      glDrawArrays(GL_TRIANGLES, 0, geometry[i].tris);
+
+      glBindTexture(GL_TEXTURE_2D, 0);
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
     }
 
 
@@ -4074,18 +3851,18 @@ int main(int argc, char* argv[]) {
       }else if(mouse.selectedThing){
 	switch(mouse.selectedType){
 	case(mouseWallT):{
-	  WallMouseData* data = (WallMouseData*) mouse.selectedThing;
-
+	  //WallMouseData* data = (WallMouseData*) mouse.selectedThing;
+	  /*
 	  bool itHasBlock = data->tile->block;
 	  vec2i oppositeTile;
 	  
 	  if (!itHasBlock && oppositeTileTo((vec2i) { data->grid.x, data->grid.z }, data->side, &oppositeTile, NULL)) {
-	    Tile* tile = &grid[curFloor][oppositeTile.z][oppositeTile.x];
+	    Tile* tile = grid[curFloor][oppositeTile.z][oppositeTile.x];
 	    itHasBlock = tile->block;
-	  }
+	  }*/
 
-	  sprintf(contextBelowText, selectedWallContextText, itHasBlock ? "[LCtrl + H] aling to block" : "");
-	  contextBelowTextH = 1;
+	  //sprintf(contextBelowText, selectedWallContextText, itHasBlock ? "[LCtrl + H] aling to block" : "");
+	  //contextBelowTextH = 1;
 	  
 	  break;
 	}case(mouseTileT):{
@@ -4113,7 +3890,7 @@ int main(int argc, char* argv[]) {
       mouse.gridIntersect = (vec2i){ -1,-1 };
 
       mouse.intersection = (vec3){ -1,-1 };
-      mouse.groundInter = -1;
+      mouse->groundInter = -1;
       }else if(minDistType == TileEl){
       mouse.wallSide = -1;
       mouse.wallTile = (vec3i){ -1,-1,-1 };
@@ -4205,7 +3982,7 @@ int main(int argc, char* argv[]) {
 	  prevTile.z = tile.z;  
 
 	  glBindVertexArray(block->vpair.VAO); 
-	  glBindBuffer(GL_ARRAY_BUFFER, block->vpair.VBO); 
+	  glBindBuffer(GL_ARRAY_BUFFER, block->vpair.VBO);  
 
 	  glActiveTexture(loadedTextures1D[block->txIndex].tx); 
 	  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[block->txIndex].tx);
@@ -4245,8 +4022,6 @@ int main(int argc, char* argv[]) {
 	    wal.mat.m[12] = tile.x;
 	    wal.mat.m[13] = tile.y;
 	    wal.mat.m[14] = tile.z;
-
-
 	  }
 	  
 	  static const int rotationPad[4][3] = {
@@ -4303,13 +4078,18 @@ int main(int argc, char* argv[]) {
 	  vec2i oppositeTile = {0};  
 	  
 	  if(oppositeTileTo(tileData->grid, mouse.tileSide,&oppositeTile,&oppositeSide)){
-	    opTile = &grid[curFloor][oppositeTile.z][oppositeTile.x];
+	    opTile = grid[curFloor][oppositeTile.z][oppositeTile.x];
 	  }
 
 	  if(mouse.clickR &&
 	     (!opTile || !opTile->walls[oppositeSide].planes)){ 
 	    
 	    wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
+
+	    if(!tileData->tile){
+	      grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
+	      tileData->tile = grid[curFloor][tileData->grid.z][tileData->grid.x];
+	    }
 	    
 	    for(int i=0;i<wallsVPairs[wal.type].planesNum;i++){
 	      calculateAABB(wal.mat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, &wal.planes[i].lb, &wal.planes[i].rt);
@@ -4317,71 +4097,87 @@ int main(int argc, char* argv[]) {
 
 	    if(selectedSide == left){
 	      bool botInner = tileData->tile->walls[top].planes;
-	      
-	      bool botOuter = tileData->grid.x - 1 >= 0 ? grid[curFloor][tileData->grid.z][tileData->grid.x - 1].walls[top].planes : false;
 
-	      bool botPar = tileData->grid.x + 1 < gridZ ? grid[curFloor][tileData->grid.z + 1][tileData->grid.x].walls[left].planes : false;
+	      bool botOuter = tileData->grid.x - 1 >= 0 && grid[curFloor][tileData->grid.z][tileData->grid.x - 1] && grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->walls[top].planes;
+
+	      bool botPar = tileData->grid.z + 1 < gridZ && grid[curFloor][tileData->grid.z + 1][tileData->grid.x] && grid[curFloor][tileData->grid.z + 1][tileData->grid.x]->walls[left].planes;
 
 	      if(botPar){
-		grid[curFloor][tileData->grid.z + 1][tileData->grid.x].jointExist[top] = false;
-		grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1].jointExist[right] = false;
+		grid[curFloor][tileData->grid.z + 1][tileData->grid.x]->jointExist[top] = false;
+
+		if (grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1]) {
+		grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1]->jointExist[right] = false;
+		}
 	      }
 
-	      bool topPar = tileData->grid.x - 1 >= 0 ? grid[curFloor][tileData->grid.z - 1][tileData->grid.x].walls[left].planes : false;
+	      bool topPar = tileData->grid.x - 1 >= 0 && grid[curFloor][tileData->grid.z - 1][tileData->grid.x] && grid[curFloor][tileData->grid.z - 1][tileData->grid.x]->walls[left].planes;
 	      
 	      if(topPar){
-		grid[curFloor][tileData->grid.z - 1][tileData->grid.x-1].jointExist[left] = false;
-		grid[curFloor][tileData->grid.z][tileData->grid.x].jointExist[bot] = false;
+			  if (grid[curFloor][tileData->grid.z - 1][tileData->grid.x - 1]) {
+		grid[curFloor][tileData->grid.z - 1][tileData->grid.x-1]->jointExist[left] = false;
+			  }
+		grid[curFloor][tileData->grid.z][tileData->grid.x]->jointExist[bot] = false;
 	      }
 
 	      if((!botInner || !botOuter) && !topPar){
 		if(botInner){
-		  printf("Bot iner\n");
 		  tileData->tile->jointExist[top] = true;
 		  setupAABBAndMatForJoint(tileData->grid, top);
 		}
 
 		if(botOuter){
-		  printf("Bot outer\n");
-		  grid[curFloor][tileData->grid.z][tileData->grid.x - 1].jointExist[right] = true;
+		  if(!grid[curFloor][tileData->grid.z][tileData->grid.x - 1]){
+		    grid[curFloor][tileData->grid.z][tileData->grid.x - 1] = calloc(1, sizeof(Tile));
+		  }
+		  
+		  grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->jointExist[right] = true;
 		  setupAABBAndMatForJoint((vec2i){ tileData->grid.x - 1, tileData->grid.z }, right);
 		}
 	      }
 
-	      bool topOuter = tileData->grid.z + 1 < gridZ ? grid[curFloor][tileData->grid.z + 1][tileData->grid.x].walls[top].planes  : false;
+	      bool topOuter = tileData->grid.z + 1 < gridZ && grid[curFloor][tileData->grid.z + 1][tileData->grid.x] && grid[curFloor][tileData->grid.z + 1][tileData->grid.x]->walls[top].planes;
 	      
-	      bool topInner = (tileData->grid.z + 1 < gridZ) && (tileData->grid.x - 1 >= 0) ? grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1].walls[top].planes  : false;
+	      bool topInner = (tileData->grid.z + 1 < gridZ) && (tileData->grid.x - 1 >= 0) && grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1] && grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1]->walls[top].planes;
 	      
 	      if((!topInner || !topOuter) && !botPar){
 		if(topInner){
-		  printf("Top inner\n");
-		  grid[curFloor][tileData->grid.z][tileData->grid.x-1].jointExist[left] = true;
+		  if(!grid[curFloor][tileData->grid.z][tileData->grid.x-1]){
+		    grid[curFloor][tileData->grid.z][tileData->grid.x-1] = calloc(1, sizeof(Tile));
+		  }
+
+		  grid[curFloor][tileData->grid.z][tileData->grid.x-1]->jointExist[left] = true;
 		  setupAABBAndMatForJoint((vec2i){ tileData->grid.x - 1, tileData->grid.z }, left);
 		}
 
 		if(topOuter){
-		  printf("Top outer\n");
-		  grid[curFloor][tileData->grid.z+1][tileData->grid.x].jointExist[bot] = true;
+		  if(!grid[curFloor][tileData->grid.z+1][tileData->grid.x]){
+		    grid[curFloor][tileData->grid.z+1][tileData->grid.x] = calloc(1, sizeof(Tile));
+		  }
+		  
+		  grid[curFloor][tileData->grid.z+1][tileData->grid.x]->jointExist[bot] = true;
 		  setupAABBAndMatForJoint((vec2i){ tileData->grid.x, tileData->grid.z + 1 }, bot);
 		}
 	      } 
 	    }else if(selectedSide == top){
 	      bool leftInner = tileData->tile->walls[left].planes;
 	      
-	      bool leftOuter = tileData->grid.z - 1 >= 0 ? grid[curFloor][tileData->grid.z - 1][tileData->grid.x].walls[left].planes  : false;
+	      bool leftOuter = tileData->grid.z - 1 >= 0 && grid[curFloor][tileData->grid.z - 1][tileData->grid.x] && grid[curFloor][tileData->grid.z - 1][tileData->grid.x]->walls[left].planes;
 
-	      bool leftPar = tileData->grid.x - 1 >= 0 ? grid[curFloor][tileData->grid.z][tileData->grid.x - 1].walls[top].planes  : false;
+	      bool leftPar = tileData->grid.x - 1 >= 0 && grid[curFloor][tileData->grid.z][tileData->grid.x - 1] && grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->walls[top].planes;
 
 	      if(leftPar){
-		grid[curFloor][tileData->grid.z][tileData->grid.x - 1].jointExist[right] = false;
-		grid[curFloor][tileData->grid.z-1][tileData->grid.x-1].jointExist[left] = false;
+		grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->jointExist[right] = false;
+
+		if (grid[curFloor][tileData->grid.z - 1][tileData->grid.x - 1]) {
+		grid[curFloor][tileData->grid.z-1][tileData->grid.x-1]->jointExist[left] = false; 
+		}
 	      }
 
-	      bool rightPar = tileData->grid.x + 1 < gridX ? grid[curFloor][tileData->grid.z][tileData->grid.x + 1].walls[top].planes  : false;
+	      bool rightPar = tileData->grid.x + 1 < gridX && grid[curFloor][tileData->grid.z][tileData->grid.x + 1] && grid[curFloor][tileData->grid.z][tileData->grid.x + 1]->walls[top].planes;
 
 	      if(rightPar){
-		grid[curFloor][tileData->grid.z][tileData->grid.x + 1].jointExist[bot] = false;
-		grid[curFloor][tileData->grid.z][tileData->grid.x + 1].jointExist[top] = false;
+		grid[curFloor][tileData->grid.z][tileData->grid.x + 1]->jointExist[bot] = false;
+		grid[curFloor][tileData->grid.z][tileData->grid.x + 1]->jointExist[top] = false;
 	      }
 
 	      if((!leftInner || !leftOuter) && !leftPar){
@@ -4398,26 +4194,28 @@ int main(int argc, char* argv[]) {
 		}
 	      }
 
-	      bool rightInner = tileData->grid.x + 1 < gridX ? grid[curFloor][tileData->grid.z][tileData->grid.x +1].walls[left].planes  : false;
+	      bool rightInner = tileData->grid.x + 1 < gridX && grid[curFloor][tileData->grid.z][tileData->grid.x +1] && grid[curFloor][tileData->grid.z][tileData->grid.x +1]->walls[left].planes;
 	      
-	      bool rightOuter = (tileData->grid.z - 1 >= 0) && (tileData->grid.x + 1 < gridX) ? grid[curFloor][tileData->grid.z - 1][tileData->grid.x + 1].walls[left].planes  : false;
+	      bool rightOuter = (tileData->grid.z - 1 >= 0) && (tileData->grid.x + 1 < gridX) && grid[curFloor][tileData->grid.z - 1][tileData->grid.x + 1] && grid[curFloor][tileData->grid.z - 1][tileData->grid.x + 1]->walls[left].planes;
 
 	      if((!rightInner || !rightOuter) && !rightPar){
 		if(rightInner){
-		  printf("R inn\n");
 		  tileData->tile->jointExist[right] = true;
 		  setupAABBAndMatForJoint(tileData->grid, right);
 		}
 
 		if(rightOuter){
-		  printf("R out\n");
-		  grid[curFloor][tileData->grid.z - 1][tileData->grid.x].jointExist[left] = true;
+		  if(!grid[curFloor][tileData->grid.z - 1][tileData->grid.x]){
+		    grid[curFloor][tileData->grid.z - 1][tileData->grid.x] = calloc(1, sizeof(Tile));
+		  }
+		  
+		  grid[curFloor][tileData->grid.z - 1][tileData->grid.x]->jointExist[left] = true;
 		  setupAABBAndMatForJoint((vec2i){ tileData->grid.x, tileData->grid.z - 1 }, left);
 		}
 	      } 
 	    }
 
-	    memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x].walls[selectedSide], &wal, sizeof(Wall));
+	    memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x]->walls[selectedSide], &wal, sizeof(Wall));
 	  }
 	}
       }
@@ -4458,8 +4256,6 @@ int main(int argc, char* argv[]) {
   
       if(highlighting && mouse.selectedType == mouseTileT){
 	TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
-
-	GroundType type = valueIn(tileData->tile->ground, 0);
 
 	vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
 
@@ -4643,7 +4439,7 @@ int main(int argc, char* argv[]) {
 		[winInnerBotPlane] = winInnerTopPlane, 
 	      };
 
-	      wallData->tile->walls[wallData->side].planes[winPlanePairs[wallData->plane]].txIndex = texture->index1D;
+	      wallData->tile->walls[wallData->side].planes[winPlanePairs[wallData->plane]].txIndex = texture->index1D;  
 	    }
 	    
 	    if(wallData->type == wallJointT){
@@ -4653,7 +4449,7 @@ int main(int argc, char* argv[]) {
 	    }
 	    //	    setIn(wallData->tile->wallsTx, wallData->side, texture->index1D);
 	  }else if(mouse.selectedType == mouseTileT){
-	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
+	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing; 
 	    
 	    setIn(tileData->tile->ground, 0, texturedTile);
 	    setIn(tileData->tile->ground, tileData->groundInter, texture->index1D);
@@ -4732,12 +4528,11 @@ int main(int argc, char* argv[]) {
 	   plane = wallJointPlanesStr[data->plane];
 	 }
 	 
-	 sprintf(buf, "Selected wall: [%s] type: [%s] plane: [%s] with tx: [%s%s]",
+	 sprintf(buf, "Selected wall: [%s] type: [%s] plane: [%s] with tx: [%s]",
 		 sidesToStr[data->side],
 		 wallTypeStr[data->type],
 		 plane,
-		 loadedTexturesNames[data->txIndex],
-		 data->tile->customWalls[data->side].txHidden ? "(Hidden)" : "");
+		 loadedTexturesNames[data->txIndex]);
 	
 	 break;
        }case(mouseBlockT):{
@@ -4755,14 +4550,12 @@ int main(int argc, char* argv[]) {
 	 }case(mouseTileT):{
 	    TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
-	    int tileTx = valueIn(data->tile->ground, data->groundInter);
-
-	    if (tileTx == 35) {
-	      bool a = true;
+	    if(data->tile){
+	      int tileTx = valueIn(data->tile->ground, data->groundInter);
+	      sprintf(buf, "Selected tile tx: [%s]", loadedTexturesNames[tileTx]);
+	    }else{
+	      sprintf(buf, "Selected tile (NULL)");  
 	    }
-
-	  
-	    sprintf(buf, "Selected tile tx: [%s]", loadedTexturesNames[tileTx]);  
 	
 	    break; 
 	  }
@@ -6101,7 +5894,7 @@ bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfI
   float t5 = (lb.z - origin.z)*dirfrac.z;
   float t6 = (rt.z - origin.z)*dirfrac.z;
 
-  float tmin = max(max(min(t1, t2), min(t3, t4)), min(t5, t6));
+  float tmin = max(max(min(t1, t2), min(t3, t4)), min(t5, t6)); 
   float tmax = min(min(max(t1, t2), max(t3, t4)), max(t5, t6));
   
   bool res = false;
@@ -6627,6 +6420,10 @@ bool loadSave(char* saveName){
   if(grid){
     for (int y = 0; y < gridY; y++) {
       for (int z = 0; z < gridZ; z++) {
+	for (int x = 0; x < gridX; x++) {
+	  free(grid[y][z][x]);
+	}
+
 	free(grid[y][z]);
       }
       
@@ -6645,10 +6442,8 @@ bool loadSave(char* saveName){
       curModelsSize = 0;
     }
   }
-
   
   fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
-
       
   int textureOfGround = texture1DIndexByName("Zemlia1");
 
@@ -6657,34 +6452,89 @@ bool loadSave(char* saveName){
     exit(-1);
   }
 
-  grid = malloc(sizeof(Tile**) * (gridY));
+  int blockCounter,jointsCounter,wallCounter,tileCounter;
+  int wallsCounter = -1;
+  
+  fscanf(map, "Walls used: %d b:%d j:%d w:%d t:%d", &wallsCounter, &blockCounter,&jointsCounter,&wallCounter,&tileCounter);
 
-  for (int y = 0; y < gridY; y++) {
-    grid[y] = malloc(sizeof(Tile*) * (gridZ));
-    for (int z = 0; z < gridZ; z++) {
-      grid[y][z] = calloc(gridX, sizeof(Tile));
+  initGrid(gridZ, gridY, gridZ);
+
+  
+
+	/*	{
+	  float texturedTileVerts[] = {
+	    bBlockW, 0.0f, bBlockD , 0.0f, 1.0f,
+	    0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
+	    bBlockW, 0.0f, 0.0f , 0.0f, 0.0f, 
       
-      for (int x = 0; y==0 && x < gridX; x++) {
-	setIn(grid[y][z][x].ground, 0, texturedTile);
-	setIn(grid[y][z][x].ground, 2, textureOfGround);
-      }
+	    0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
+	    bBlockW, 0.0f, 0.0f , 0.0f, 0.0f,
+	    0.0f, 0.0f, 0.0f , 1.0f, 0.0f, 
+	  };
+
+	  glGenVertexArrays(1, grid[y][z][x]->groundPair.VAO);
+	  glBindVertexArray(grid[y][z][x]->groundPair.VAO);
+
+	  glGenBuffers(1, grid[y][z][x]->groundPair.VBO);
+	  glBindBuffer(GL_ARRAY_BUFFER, grid[y][z][x]->groundPair.VBO);
+
+	  glBufferData(GL_ARRAY_BUFFER, sizeof(texturedTileVerts), texturedTileVerts, GL_STATIC_DRAW);
+
+	  size_t s = 5 * sizeof(float) + sizeof(vec4) * 4;
 	  
-    }
-  } 
-   
-  int wallsCounter = -1; 
-  fscanf(map, "Walls used: %d", &wallsCounter);  
+	  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, s, NULL);
+	  glEnableVertexAttribArray(0);
+
+
+	  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, s, (void*)(3 * sizeof(float)));
+	  glEnableVertexAttribArray(1);
+
+
+	  glEnableVertexAttribArray(2); 
+	  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, s, s);
+	  glEnableVertexAttribArray(3); 
+	  glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, s, s + (1 * vec4Size));
+	  glEnableVertexAttribArray(4); 
+	  glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, s, s + (2 * vec4Size));
+	  glEnableVertexAttribArray(5); 
+	  glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, s, s + (3 * vec4Size));
+
+	  glVertexAttribDivisor(2, 1);
+	  glVertexAttribDivisor(3, 1);
+	  glVertexAttribDivisor(4, 1);
+	  glVertexAttribDivisor(5, 1);
+
+	  glBindVertexArray(0);
+	  }
+
+	grid[y][z][x]->groundPair.VAO = tileMeshes[i-1].VAO;
+	grid[y][z][x]->groundPair.VBO = tileMeshes[i-1].VBO;
+	
+	glBindBuffer(GL_ARRAY_BUFFER, tileMeshes[i-1].VBO);
+	glBindVertexArray(tileMeshes[i-1].VAO); 
+
+	glGenBuffers(1, grid[y][z][x]->groundVAO);
+	  */
    
   for (int i = 0; i < wallsCounter; i++) {
     int x = -1,y = -1,z = -1;
     
-    fscanf(map, "\n%d %d %d ",&x,&y,&z);
-
+    fscanf(map, "\n%d %d %d ",&x,&y,&z); 
+	 
     int sidesCounter = 0;
-    
-    Tile* tile = &grid[y][z][x];
-      
-    fscanf(map, "%d %d %f %d ", &tile->wallsTx, &tile->ground, &tile->groundLift, &sidesCounter);
+
+    grid[y][z][x] = calloc(1, sizeof(Tile));
+    Tile* tile = grid[y][z][x]; 
+
+    fscanf(map, "%d %f %d ", &tile->ground, &tile->groundLift, &sidesCounter);
+
+    tile->groundMat = IDENTITY_MATRIX;
+
+    vec3 grid = xyz_indexesToCoords(x,y,z);
+	
+    tile->groundMat.m[12] = grid.x;
+	tile->groundMat.m[13] = grid.y;
+    tile->groundMat.m[14] = grid.z;
 
     GroundType type = valueIn(tile->ground, 0);
 
@@ -6695,29 +6545,55 @@ bool loadSave(char* saveName){
       setIn(tile->ground, 2, textureOfGround);
     }
 
-
     Side side = -1; 
     int bufSize;
 
     int alligned = 0;
     int txHidden = 0;
+	  
+    WallType wType = -1;
 
-    float pad = 0;
+    // walls
+    for(int i2=0;i2<sidesCounter;i2++){  
+      fscanf(map, "%d %d ", &side, &wType);
 
-    for(int i2=0;i2<sidesCounter;i2++){
-      fscanf(map, "%d %f %d %d %d ", &side, &pad, &bufSize, &alligned, &txHidden);
+      tile->walls[side].type = wType;       
+		  tile->walls[side].planes = calloc(planesInfo[tile->walls[side].type], sizeof(Plane));
 
-      tile->wallsPad[side] = pad;
+      for(int i2=0;i2<wallsVPairs[wType].planesNum;i2++){
+	fscanf(map, "%d %d ", &tile->walls[side].planes[i2].txIndex, &tile->walls[side].planes[i2].hide);
+      }
+
+      for(int mat=0;mat<16;mat++){
+	fscanf(map, "%f ", &tile->walls[side].mat.m[mat]);
+      }
+
+      for (int i = 0; i < wallsVPairs[wType].planesNum; i++) {
+	calculateAABB(tile->walls[side].mat, wallsVPairs[wType].pairs[i].vBuf, wallsVPairs[wType].pairs[i].vertexNum, &tile->walls[side].planes[i].lb, &tile->walls[side].planes[i].rt);
+      }
+    }
+
+    // joints
+    for(int i2=0;i2<basicSideCounter;i2++){
+      int jointSide = -1;
+      int exist = -1;
       
-      tile->customWalls[side].alligned = alligned;
-      tile->customWalls[side].txHidden = txHidden;
+      fscanf(map, "%d %d ", &jointSide, &exist);
 
-      tile->customWalls[side].bufSize = bufSize;
-       
-      tile->customWalls[side].buf = malloc(sizeof(float) * tile->customWalls[side].bufSize);  
+      tile->jointExist[jointSide] = exist;
 
-      for(int i2=0;i2< tile->customWalls[side].bufSize;i2++){
-	fscanf(map, "%f ", &tile->customWalls[side].buf[i2]);
+      if(exist){
+	for(int i2=0;i2<jointPlaneCounter;i2++){
+	  fscanf(map, "%d %d ", &tile->joint[jointSide][i2].txIndex, &tile->joint[jointSide][i2].hide);
+	}
+
+	for(int mat=0;mat<16;mat++){
+	  fscanf(map, "%f ", &tile->jointsMat[jointSide].m[mat]);
+	}
+	
+	for (int i = 0; i < wallsVPairs[wallJointT].planesNum; i++) {
+	  calculateAABB(tile->jointsMat[jointSide], wallsVPairs[wallJointT].pairs[i].vBuf, wallsVPairs[wallJointT].pairs[i].vertexNum, &tile->joint[jointSide][i].lb, &tile->joint[jointSide][i].rt);
+	}
       }
     }
 
@@ -6763,7 +6639,7 @@ bool loadSave(char* saveName){
     curModels = malloc(curModelsSize * sizeof(Model));
 
     for (int i = 0; i < curModelsSize; i++) {
-      int name = -1;
+      int name = -1; 
       fscanf(map, "%d ", &name);
 
       if (name >= loadedModelsSize || name < 0) {
@@ -6919,32 +6795,46 @@ bool saveMap(char *saveName){
     exit(-1);
   }
 
+  int blockCounter = 0;
+  int jointsCounter = 0;
+  int wallCounter = 0;
+  int tileCounter = 0;
+
   for (int y = 0; y < gridY; y++) {
     for (int z = 0; z < gridZ; z++) {
       for (int x = 0; x < gridX; x++) {
-	Tile tile = grid[y][z][x];
-	GroundType type = valueIn(tile.ground, 0);
-	int tx1 = valueIn(tile.ground, 1);
-	int tx2 = valueIn(tile.ground, 2);
+	Tile* tile = grid[y][z][x];
 
-	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || tile.groundLift > 0 || (y != 0 && type == texturedTile);
+	if (!tile) continue;
 
-	if(tile.customWalls[0].buf || tile.customWalls[1].buf || tile.customWalls[2].buf || tile.customWalls[3].buf){
+	GroundType type = valueIn(tile->ground, 0);
+	int tx1 = valueIn(tile->ground, 1);
+	int tx2 = valueIn(tile->ground, 2);
+
+	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || tile->groundLift > 0 || (y != 0 && type == texturedTile);
+
+	if(tile->walls[0].planes || tile->walls[1].planes || tile->walls[2].planes || tile->walls[3].planes){
 	  wallsIndexes[wallsCounter] = (vec3i){x,y,z};
 	  wallsCounter++;
+	  wallCounter++;
+	}else if (tile->jointExist[0] || tile->jointExist[1] || tile->jointExist[2] || tile->jointExist[3]) {
+	  wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
+	  wallsCounter++;
+	  jointsCounter++;
 	}else if (acceptTile) {
 	  wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
 	  wallsCounter++;
-	}else if (tile.block) {
+	  tileCounter++;
+	}else if (tile->block) {
 	  wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
 	  wallsCounter++;
+	  blockCounter++;
 	}
-
       }
     }
   }
 
-  fprintf(map, "Walls used: %d", wallsCounter);
+  fprintf(map, "Walls used: %d b:%d j:%d w:%d t:%d", blockCounter+jointsCounter+wallCounter+tileCounter, blockCounter,jointsCounter,wallCounter,tileCounter);
   
   for (int i = 0; i < wallsCounter; i++) {
     fprintf(map, "\n");
@@ -6953,49 +6843,72 @@ bool saveMap(char *saveName){
     int y = wallsIndexes[i].y; 
     int z = wallsIndexes[i].z;
     
-    Tile tile = grid[y][z][x];
+    Tile* tile = grid[y][z][x];
 
     int sidesAvaible = 0;
     
-    if(tile.customWalls[0].buf){
+    if(tile->walls[0].planes){
       sidesAvaible++;
     }
 
-    if(tile.customWalls[1].buf){
+    if(tile->walls[1].planes){
       sidesAvaible++;
     }
 
-    if(tile.customWalls[2].buf){
+    if(tile->walls[2].planes){
       sidesAvaible++;
     }
 
-    if(tile.customWalls[3].buf){
+    if(tile->walls[3].planes){
       sidesAvaible++;
     }
 
-    fprintf(map, "%d %d %d %d %d %f %d ",x,y,z, grid[y][z][x].wallsTx, grid[y][z][x].ground, grid[y][z][x].groundLift, sidesAvaible);
+    fprintf(map, "%d %d %d %d %f %d ",x,y,z, grid[y][z][x]->ground, grid[y][z][x]->groundLift, sidesAvaible);
 
+    // walls
     for(int i1=0;i1<basicSideCounter;i1++){
-      if(tile.customWalls[i1].buf){
-	//	printf()
-	fprintf(map, "%d %f %d %d %d ",i1,tile.wallsPad[i1],tile.customWalls[i1].bufSize, tile.customWalls[i1].alligned, tile.customWalls[i1].txHidden);
+      if(tile->walls[i1].planes){
+	fprintf(map, "%d %d ",i1,tile->walls[i1].type);
 
-	for(int i2=0;i2<tile.customWalls[i1].bufSize;i2++){
-	  fprintf(map, "%f ",tile.customWalls[i1].buf[i2]);
+	// plane data save
+	for(int i2=0;i2<planesInfo[tile->walls[i1].type];i2++){
+	  fprintf(map, "%d %d ", tile->walls[i1].planes[i2].txIndex,
+		  tile->walls[i1].planes[i2].hide);
+	}
+
+	for(int mat=0;mat<16;mat++){
+	  fprintf(map, "%f ", tile->walls[i1].mat.m[mat]);
 	}
       }
     }
 
-    if(tile.block){
-      fprintf(map, "%d ", 1); // block exists
-      fprintf(map, "%d %d %d %d ",tile.block->type, tile.block->rotateAngle, tile.block->txIndex, tile.block->vertexesSize * 5);
+    // joints
+    for(int i1=0;i1<basicSideCounter;i1++){
+      fprintf(map, "%d %d ",i1, tile->jointExist[i1]);
+      
+      if(tile->jointExist[i1]){
+	// plane data save
+	for(int i2=0;i2<jointPlaneCounter;i2++){
+	  fprintf(map, "%d %d ",tile->joint[i1][i2].txIndex,
+		  tile->joint[i1][i2].hide);
+	}
 
-      for(int i2=0;i2<tile.block->vertexesSize*5;i2++){
-	fprintf(map, "%f ",tile.block->vertexes[i2]);
+	for(int mat=0;mat<16;mat++){
+	  fprintf(map, "%f ", tile->jointsMat[i1].m[mat]);
+	}
+      }
+    }
+
+    if(tile->block){
+      fprintf(map, "%d ", 1); // block exists
+      fprintf(map, "%d %d %d %d ",tile->block->type, tile->block->rotateAngle, tile->block->txIndex, tile->block->vertexesSize * 5);
+
+      for(int i2=0;i2<tile->block->vertexesSize*5;i2++){
+	fprintf(map, "%f ",tile->block->vertexes[i2]);
       }
 
       for(int mat=0;mat<16;mat++){
-	fprintf(map, "%f ", tile.block->mat.m[mat]);
+	fprintf(map, "%f ", tile->block->mat.m[mat]);
       }
     }else{
       fprintf(map, "%d ", 0); // block doesnt exists
@@ -7074,11 +6987,16 @@ bool createMap(int newX, int newY, int newZ){
   if(grid){
     for (int y = 0; y < gridY; y++) {
       for (int z = 0; z < gridZ; z++) {
+	for (int x = 0; x < gridX; x++) {
+	  free(grid[y][z][x]);
+	}
+	
 	free(grid[y][z]);
       }
        
       free(grid[y]);
     }
+    
     free(grid);
     grid = NULL;
 
@@ -7095,32 +7013,16 @@ bool createMap(int newX, int newY, int newZ){
     printf("Specify texture of ground");
     exit(-1);
   }
-    
-  grid = malloc(sizeof(Tile**) * (newY));
-
-  for (int y = 0; y < newY; y++) {
-    grid[y] = malloc(sizeof(Tile*) * (newZ));
-
-    for (int z = 0; z < newZ; z++) {
-      grid[y][z] = calloc(newX, sizeof(Tile));
-
-      for (int x = 0; x < newX; x++) {
-	if (y == 0) {
-	  setIn(grid[y][z][x].ground, 0, texturedTile);
-	  setIn(grid[y][z][x].ground, 2, textureOfGround);
-	}
-	else {
-	  setIn(grid[y][z][x].ground, 0, netTile);
-	}
-      }
-    }
-  }
 
   gridX = newX;
   gridY = newY;
   gridZ = newZ;
   
+  initGrid(gridZ, gridY, gridZ);
+  
   initSnowParticles();
+
+  collectTilesMats();
 
   return true;
 }
@@ -8779,23 +8681,163 @@ void setupAABBAndMatForJoint(vec2i vec, Side side){
     [left] = { 270, 1, 0 }
   };
 
-  grid[curFloor][vec.z][vec.x].jointsMat[side] = IDENTITY_MATRIX;
+  grid[curFloor][vec.z][vec.x]->jointsMat[side] = IDENTITY_MATRIX;
 
-  grid[curFloor][vec.z][vec.x].jointsMat[side].m[12] = vec.x + pad[side][1];
-  grid[curFloor][vec.z][vec.x].jointsMat[side].m[13] = curFloor;
-  grid[curFloor][vec.z][vec.x].jointsMat[side].m[14] = vec.z + pad[side][2];
+  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[12] = vec.x + pad[side][1];
+  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[13] = curFloor;
+  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[14] = vec.z + pad[side][2];
 
-  float xTemp = grid[curFloor][vec.z][vec.x].jointsMat[side].m[12];
-  float yTemp = grid[curFloor][vec.z][vec.x].jointsMat[side].m[13];
-  float zTemp = grid[curFloor][vec.z][vec.x].jointsMat[side].m[14];
+  float xTemp = grid[curFloor][vec.z][vec.x]->jointsMat[side].m[12];
+  float yTemp = grid[curFloor][vec.z][vec.x]->jointsMat[side].m[13];
+  float zTemp = grid[curFloor][vec.z][vec.x]->jointsMat[side].m[14];
 
-  rotateY(grid[curFloor][vec.z][vec.x].jointsMat[side].m, rad(pad[side][0]));
+  rotateY(grid[curFloor][vec.z][vec.x]->jointsMat[side].m, rad(pad[side][0]));
 
-  grid[curFloor][vec.z][vec.x].jointsMat[side].m[12] = xTemp;
-  grid[curFloor][vec.z][vec.x].jointsMat[side].m[13] = yTemp;
-  grid[curFloor][vec.z][vec.x].jointsMat[side].m[14] = zTemp;
+  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[12] = xTemp;
+  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[13] = yTemp;
+  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[14] = zTemp;
 
   for (int i = 0; i < jointPlaneCounter; i++) {
-    calculateAABB(grid[curFloor][vec.z][vec.x].jointsMat[side], wallsVPairs[wallJointT].pairs[i].vBuf, wallsVPairs[wallJointT].pairs[i].vertexNum, &grid[curFloor][vec.z][vec.x].joint[side][i].lb, &grid[curFloor][vec.z][vec.x].joint[side][i].rt); 
+    calculateAABB(grid[curFloor][vec.z][vec.x]->jointsMat[side], wallsVPairs[wallJointT].pairs[i].vBuf, wallsVPairs[wallJointT].pairs[i].vertexNum, &grid[curFloor][vec.z][vec.x]->joint[side][i].lb, &grid[curFloor][vec.z][vec.x]->joint[side][i].rt); 
   }
 };
+
+void initGrid(int sx, int sy, int sz){
+  int textureOfGround = texture1DIndexByName("Zemlia1");
+
+  if (textureOfGround == -1) {
+    printf("Specify texture of ground");
+    exit(-1);
+  }
+
+  grid = malloc(sizeof(Tile***) * (sy));
+
+  for (int y = 0; y < sy; y++) {
+    grid[y] = malloc(sizeof(Tile**) * (sz));
+
+    for (int z = 0; z < sz; z++) {
+      grid[y][z] = calloc(gridX, sizeof(Tile*));
+
+      for (int x = 0; x < sx; x++) {
+	if (y == 0) {
+	  grid[y][z][x] = calloc(1, sizeof(Tile));
+	  
+	  setIn(grid[y][z][x]->ground, 0, texturedTile);
+	  setIn(grid[y][z][x]->ground, 2, textureOfGround);
+	  
+	  grid[y][z][x]->groundMat = IDENTITY_MATRIX;
+
+	  vec3 tile = xyz_indexesToCoords(x,y,z);
+	
+	  grid[y][z][x]->groundMat.m[12] = tile.x;
+	  grid[y][z][x]->groundMat.m[13] = tile.y;
+	  grid[y][z][x]->groundMat.m[14] = tile.z;
+	}
+      }
+    }
+  }
+}
+
+void collectTilesMats(){
+  int* geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(int));
+  
+  for (int y = 0; y < gridY; y++) {
+    for (int z = 0; z < gridZ; z++) {
+      for (int x = 0; x < gridX; x++) {
+	if(grid[y][z][x]){
+	  GroundType type = valueIn(grid[y][z][x]->ground, 0);
+
+	  if(type == texturedTile){
+	    int txIndex = valueIn(grid[y][z][x]->ground, 2);
+	    
+	    geomentyByTxCounter[txIndex]++;
+	  }
+	}
+      }
+    }
+  }
+
+  if(geometry){
+    free(geometry);
+  }
+
+  float texturedTileVerts[] = {
+    bBlockW, 0.0f, bBlockD , 0.0f, 1.0f,
+    0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
+    bBlockW, 0.0f, 0.0f , 0.0f, 0.0f, 
+      
+    0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
+    bBlockW, 0.0f, 0.0f , 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f , 1.0f, 0.0f, 
+  };
+  
+  geometry = malloc(sizeof(Geometry) * loadedTexturesCounter);
+
+  // snowflakes
+  for(int i=0;i<loadedTexturesCounter;i++){
+    glGenVertexArrays(1, &geometry[i].pairs.VAO);
+    glBindVertexArray(geometry[i].pairs.VAO);
+
+    glGenBuffers(1, &geometry[i].pairs.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, geometry[i].pairs.VBO);
+    
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+  
+    if(geomentyByTxCounter[i] != 0){
+      geometry[i].size = sizeof(texturedTileVerts) * geomentyByTxCounter[i];
+      geometry[i].verts = malloc(sizeof(texturedTileVerts) * geomentyByTxCounter[i]);
+    }else{
+      geometry[i].size = 0;
+    }
+
+    geometry[i].tris = geomentyByTxCounter[i] * 6;
+  }
+
+  free(geomentyByTxCounter);
+  geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(int));
+
+  for (int y = 0; y < gridY; y++) {
+    for (int z = 0; z < gridZ; z++) {
+      for (int x = 0; x < gridX; x++) {
+	if (grid[y][z][x]) {
+	  GroundType type = valueIn(grid[y][z][x]->ground, 0);
+
+	  if (type == texturedTile) {
+	    vec3 tile = xyz_indexesToCoords(x,y,z);
+	    int txIndex = valueIn(grid[y][z][x]->ground, 2);
+
+	    for(int i=0;i<6*5;i+=5){
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i] = texturedTileVerts[i] + tile.x;
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+1] = texturedTileVerts[i+1] + tile.y;
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+2] = texturedTileVerts[i+2] + tile.z;
+
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+3] = texturedTileVerts[i+3];
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+4] = texturedTileVerts[i+4];
+	    }
+
+	    geomentyByTxCounter[txIndex]+=6*5;
+	  }
+	}
+      }
+    }
+  }
+
+  for(int i=0;i<loadedTexturesCounter;i++){
+    glBindVertexArray(geometry[i].pairs.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, geometry[i].pairs.VBO);
+  
+    glBufferData(GL_ARRAY_BUFFER, geometry[i].size, geometry[i].verts, GL_STATIC_DRAW);
+  
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  free(geomentyByTxCounter);
+}

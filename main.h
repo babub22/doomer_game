@@ -179,6 +179,13 @@ typedef enum{
   jointPlaneCounter
 } JointPlanes;
 
+const int planesInfo[wallTypeCounter] = {
+  [wallT] = wPlaneCounter,
+  [windowT] = winPlaneCounter,
+  [doorT] = doorPlaneCounter,
+  [wallJointT] = jointPlaneCounter,
+};
+
 const char* wallJointPlanesStr[] = {
   [jointTopPlane] = "Top",
   [jointFrontPlane] = "Front",
@@ -207,7 +214,7 @@ typedef struct{
 
   Matrix mat;
 
-  Side side; // where placed
+  //  Side side; // where placed
 } Wall;
 
 void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, vec3* lb, vec3* rt);
@@ -366,6 +373,25 @@ typedef struct {
 } TileBlock;
 
 typedef struct{
+  Matrix mat;
+  int tx;
+
+  WallType type;
+  Side side;
+  
+  vec3 rt;
+  vec3 lb;
+} Wall2;
+
+typedef struct{
+  Matrix mat;
+  int tx;
+
+  vec3 rt;
+  vec3 lb;
+} Tile2;
+
+typedef struct{
   float* buf;
   int bufSize;
   
@@ -373,12 +399,10 @@ typedef struct{
   bool txHidden;
 } WallVertexBuffer;
 
+#define spreadMat4(mat) mat[0], mat[1], mat[2], mat[0];
+
+
 struct Tile{
-  int wallsTx;
-  
-  WallVertexBuffer customWalls[4];
-  //  Plane joints[4];//[jointPlaneCounter];
-  
   TileBlock* block;
 
   // 1 byte - empty/net/textured
@@ -387,7 +411,10 @@ struct Tile{
   // 4 byte - empty // maybe store H here
   int ground;
 
-  float wallsPad[4];
+  VPair groundPair;
+  Matrix groundMat;
+
+  //  float wallsPad[4];
   float groundLift;
 
   Wall walls[4];
@@ -920,3 +947,14 @@ const int leftWallMap[2][6] = {
    */
 
 void setupAABBAndMatForJoint(vec2i grid, Side side);
+void collectTilesMats();
+void initGrid(int sx, int sy, int sz);
+
+typedef struct{
+  float* verts;
+  VPair pairs;
+  size_t tris;
+  size_t size;
+} Geometry;
+
+Geometry* geometry;
