@@ -214,6 +214,8 @@ typedef struct{
 
   Matrix mat;
 
+  size_t geomIndex;
+
   //  Side side; // where placed
 } Wall;
 
@@ -952,9 +954,9 @@ void initGrid(int sx, int sy, int sz);
 
 typedef struct{
   float* verts;
-  VPair pairs;
   size_t tris;
   size_t size;
+  VPair pairs;
 } Geometry;
 
 Geometry* geometry;

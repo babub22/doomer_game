@@ -17,6 +17,8 @@ int gTilesCounter;
 Wall2* walls;
 int gWallsCounter;
 
+VPair* batchTextures;
+
 char curSaveName[CONSOLE_BUF_CAP];
 
 Texture* loadedTextures1D;
@@ -281,37 +283,7 @@ int main(int argc, char* argv[]) {
     glBindVertexArray(0);
   }
 
-  // setup nettile buffer
   {
-    // center mouse selection
-    /*    glGenVertexArrays(1, &netTileVAO);
-	  glBindVertexArray(netTileVAO);
-
-	  glGenBuffers(1, &netTileVBO);
-	  glBindBuffer(GL_ARRAY_BUFFER, netTileVBO);
-
-    
-	  float centerMouseSel[] = {
-	  0.0f,0.0f,0.0f, 
-	  borderArea * 2,0.0f,0.0f, 
-	  borderArea * 2, 0.0f, borderArea * 2,
-
-	  0.0f,0.0f,0.0f,
-	  0.0f,0.0f,borderArea * 2,
-	  borderArea * 2, 0.0f, borderArea * 2,
-	  };
-    
-	  glBufferData(GL_ARRAY_BUFFER, sizeof(centerMouseSel), centerMouseSel, GL_STATIC_DRAW);
-
-	  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-	  glEnableVertexAttribArray(0);
-
-	  glBindBuffer(GL_ARRAY_BUFFER, 0);
-	  glBindVertexArray(0); */
-    
-    // left/right mouse
-
-
     // dialog editor
     {
       glGenVertexArrays(1, &dialogEditor.VAO);
@@ -856,7 +828,6 @@ int main(int argc, char* argv[]) {
       tileBlocksTempl[0].vertexesSize = 6 + 6;
       tileBlocksTempl[0].type = roofBlockT;
 
-
       // steps
       glGenVertexArrays(1, &tileBlocksTempl[1].vpair.VAO);
       glBindVertexArray(tileBlocksTempl[1].vpair.VAO);
@@ -1084,8 +1055,7 @@ int main(int argc, char* argv[]) {
     
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
-  } 
-    
+  }
 
   // load shaders and apply it
   {
@@ -1379,42 +1349,19 @@ int main(int argc, char* argv[]) {
     free(indexesTrackerFor2DTex);
   }
 
+  geometry = calloc(loadedTexturesCounter, sizeof(Geometry));
 
-  /*
-    GLuint carTx;
+  for(int i=0;i<loadedTexturesCounter;i++){
+    glGenVertexArrays(1, &geometry[i].pairs.VAO);
+    glBindVertexArray(geometry[i].pairs.VAO);
 
-    {
-    glGenTextures(1, &carTx);
+    glGenBuffers(1, &geometry[i].pairs.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, geometry[i].pairs.VBO);
+    
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+  }
 
-    // -1 because of solidColorTx
-    SDL_Surface* texture = IMG_Load("./assets/objs/car.png");
-
-    if (!texture) {
-    printf("Loading of texture .png\" failed");
-    exit(0);
-    }
-
-    glBindTexture(GL_TEXTURE_2D, carTx);
-      
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->w,
-    texture->h, 0, GL_RGBA,
-    GL_UNSIGNED_BYTE, texture->pixels);
-
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR) {
-    printf("OpenGL error: %d\n", err);
-    // Handle OpenGL error
-    // Optionally return or perform other error handling
-    }
-  
-    SDL_FreeSurface(texture);
-      
-    glBindTexture(GL_TEXTURE_2D, 0);
-    }
-  */ 
   {
     glGenTextures(1, &fontAtlas);
 
@@ -1559,7 +1506,7 @@ int main(int argc, char* argv[]) {
   
   // set draw distance to gridX/2
   GLint radius = glGetUniformLocation(mainShader, "radius");
-  drawDistance = gridX/2 * 0.2;
+  drawDistance = 10;
   glUniform1f(radius, drawDistance);
 
   ManipulationMode manipulationMode = 0;
@@ -1583,7 +1530,7 @@ int main(int argc, char* argv[]) {
   clock_t lastFrame = clock();
   float deltaTime;
 
-  float cameraSpeed = speed;
+  float cameraSpeed = speed; 
 
   while (!quit) {
     uint32_t starttime = GetTickCount();
@@ -2751,14 +2698,12 @@ int main(int argc, char* argv[]) {
 	      WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 
 	      if(data->type == wallJointT){
-		//		if(data->tile->jointExist[data->side]){
-		//		  data->tile->joint[data->side][data->plane].hide = !data->tile->joint[data->side][data->plane].hide;
-		  //		}else{
-		  data->tile->jointExist[data->side] = !data->tile->jointExist[data->side];
-		  //		}
+		data->tile->jointExist[data->side] = !data->tile->jointExist[data->side];
 	      }else{
 		data->tile->walls[data->side].planes[data->plane].hide = !data->tile->walls[data->side].planes[data->plane].hide;
 	      }
+
+	      collectTilesMats();
 	    }
 	    
 	    highlighting = !highlighting;
@@ -2795,6 +2740,8 @@ int main(int argc, char* argv[]) {
 	    
 		  mouse.focusedThing = NULL;
 		  mouse.focusedType = 0;
+
+		  collectTilesMats();
 		}else if (mouse.focusedType == mousePlaneT) {
 		  Picture* panel = (Picture*)mouse.focusedThing;
 		  int index = 0;
@@ -2818,6 +2765,8 @@ int main(int argc, char* argv[]) {
 	    
 		  mouse.focusedThing = NULL;
 		  mouse.focusedType = 0;
+
+		  collectTilesMats();
 		}
 	      }else if (mouse.selectedType == mouseWallT) {
 		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
@@ -2826,12 +2775,15 @@ int main(int argc, char* argv[]) {
 		free(data->tile->walls[data->side].planes);
 		data->tile->walls[data->side].planes = NULL;
 
+		collectTilesMats();
 	      }else if (mouse.selectedType == mouseTileT) {
 		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
 		TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
 		setIn(data->tile->ground, data->groundInter, 0);
 		setIn(data->tile->ground, 0, netTile);
+
+		collectTilesMats();
 	      }else if (mouse.selectedType == mouseBlockT) {
 		TileBlock* data = (TileBlock*)mouse.selectedThing;
 
@@ -2839,6 +2791,8 @@ int main(int argc, char* argv[]) {
 	
 		free(data->vertexes);
 		free(data);
+
+		collectTilesMats();
 	      }
 	    }
 			      
@@ -3486,8 +3440,8 @@ int main(int argc, char* argv[]) {
     // main loop of rendering wall/tiles and intersection detecting
     //    ElementType minDistType = -1;
     //    float minIntersectionDist = 1000.0f;
-    
-    for (int x = 0; x < gridX && false; x++) {
+
+    for (int x = 0; x < gridX; x++) {
       for (int y = 0; y < gridY; y++) {
 	for (int z = 0; z < gridZ; z++) { 
 	  if (grid[y][z][x]) {
@@ -3526,27 +3480,6 @@ int main(int argc, char* argv[]) {
 
 	      minDistToCamera = intersectionDistance;
 	    }
-	    
-	    glBindVertexArray(tileBlocksTempl[grid[y][z][x]->block->type].vpair.VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, tileBlocksTempl[grid[y][z][x]->block->type].vpair.VBO);
-		
-	    glActiveTexture(loadedTextures1D[grid[y][z][x]->block->txIndex].tx);
-	    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[grid[y][z][x]->block->txIndex].tx);
-		
-	    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x]->block->mat.m);
-
-	    glBufferData(GL_ARRAY_BUFFER, grid[y][z][x]->block->vertexesSize * sizeof(float) * 5, grid[y][z][x]->block->vertexes, GL_STATIC_DRAW);
-
-	    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
-	    glEnableVertexAttribArray(0);
-
-	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-	    glEnableVertexAttribArray(1);
-
-	    glDrawArrays(GL_TRIANGLES, 0, grid[y][z][x]->block->vertexesSize); 
-	  
-	    glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    glBindVertexArray(0);
 	  }
 	  
 	  // walls
@@ -3610,29 +3543,6 @@ int main(int argc, char* argv[]) {
 		    data = NULL;
 		  }
 		}
-		
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x]->walls[side].mat.m);
-
-		// walls
-		for(int i=0;i<wallsVPairs[type].planesNum;i++){
-		  if(grid[y][z][x]->walls[side].planes[i].hide == true){
-		    continue;
-		  }
-		  
-		  int tx = grid[y][z][x]->walls[side].planes[i].txIndex;
-		  
-		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[tx].tx);
-		  
-		  glBindVertexArray(wallsVPairs[type].pairs[i].VAO);
-		  glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[type].pairs[i].VBO);
-
-		  glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[type].pairs[i].vertexNum);
-		}
-
-		glBindTexture(GL_TEXTURE_2D, 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-		
 	      }
 	    }
 
@@ -3674,29 +3584,6 @@ int main(int argc, char* argv[]) {
 		if(!atLeastOneIntersect){
 		  free(data);
 		  data = NULL;
-		}
-	      }
-	    
-	      for(int i2=0;i2<4;i2++){
-		if(grid[y][z][x]->jointExist[i2] == false){
-		  continue;
-		}
-		
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, grid[y][z][x]->jointsMat[i2].m);
-	    
-		for(int i=0;i<jointPlaneCounter;i++){	      
-		  if(grid[y][z][x]->joint[i2][i].hide == true) {
-		      //  continue;
-		  }
-		  
-		  int tx = grid[y][z][x]->joint[i2][i].txIndex;
-		  
-		  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[tx].tx);
-		  
-		  glBindVertexArray(wallsVPairs[wallJointT].pairs[i].VAO);
-		  glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wallJointT].pairs[i].VBO);
-
-		  glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[wallJointT].pairs[i].vertexNum);
 		}
 	      }
 	  }
@@ -4216,6 +4103,8 @@ int main(int argc, char* argv[]) {
 	    }
 
 	    memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x]->walls[selectedSide], &wal, sizeof(Wall));
+
+	    collectTilesMats();
 	  }
 	}
       }
@@ -4447,20 +4336,24 @@ int main(int argc, char* argv[]) {
 	    }else{
 	      wallData->tile->walls[wallData->side].planes[wallData->plane].txIndex = texture->index1D;
 	    }
-	    //	    setIn(wallData->tile->wallsTx, wallData->side, texture->index1D);
+
+	    collectTilesMats();
 	  }else if(mouse.selectedType == mouseTileT){
 	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing; 
 	    
 	    setIn(tileData->tile->ground, 0, texturedTile);
 	    setIn(tileData->tile->ground, tileData->groundInter, texture->index1D);
+	    collectTilesMats();
 	  }else if(mouse.selectedType == mouseBlockT){
 	    TileBlock* block = (TileBlock*)mouse.selectedThing;
 
 	    block->txIndex = texture->index1D;
+	    collectTilesMats();
 	  }else if(mouse.selectedType == mousePlaneT){
 	    Picture* plane = (Picture*)mouse.selectedThing;
 
 	    plane->txIndex = texture->index1D;
+	    collectTilesMats();
 	  }
 	}
 	  
@@ -4473,6 +4366,7 @@ int main(int argc, char* argv[]) {
 	   tileData->tile->block = block;
 		 
 	   mouse.brushThing = constructNewBlock(block->type, block->rotateAngle);
+	   collectTilesMats();
 	 }
 	       
 	 break;
@@ -8739,6 +8633,16 @@ void initGrid(int sx, int sy, int sz){
 }
 
 void collectTilesMats(){
+  float texturedTileVerts[] = {
+    bBlockW, 0.0f, bBlockD , 0.0f, 1.0f,
+    0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
+    bBlockW, 0.0f, 0.0f , 0.0f, 0.0f, 
+      
+    0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
+    bBlockW, 0.0f, 0.0f , 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f , 1.0f, 0.0f, 
+  };
+  
   int* geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(int));
   
   for (int y = 0; y < gridY; y++) {
@@ -8750,48 +8654,61 @@ void collectTilesMats(){
 	  if(type == texturedTile){
 	    int txIndex = valueIn(grid[y][z][x]->ground, 2);
 	    
-	    geomentyByTxCounter[txIndex]++;
+	    geomentyByTxCounter[txIndex] += sizeof(texturedTileVerts);
 	  }
+
+	  // block
+	  if(grid[y][z][x]->block){
+	    TileBlocksTypes type = grid[y][z][x]->block->type;
+		int txIndex = grid[y][z][x]->block->txIndex;
+
+	    geomentyByTxCounter[txIndex] += tileBlocksTempl[type].vertexesSize * sizeof(float) * 5;
+	  }
+
+	  // walls
+	  for(int i=0;i<4;i++){
+	    if(grid[y][z][x]->walls[i].planes){
+	      WallType type = grid[y][z][x]->walls[i].type;
+	      
+	      for(int i2=0;i2<wallsVPairs[type].planesNum;i2++){
+		if(!grid[y][z][x]->walls[i].planes[i2].hide){
+		  int txIndex = grid[y][z][x]->walls[i].planes[i2].txIndex;
+		  geomentyByTxCounter[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * sizeof(float) * 5;
+		}
+	      }
+	    }
+
+	    if(grid[y][z][x]->jointExist[i]){
+	      for(int i2=0;i2<wallsVPairs[wallJointT].planesNum;i2++){
+		int txIndex = grid[y][z][x]->joint[i][i2].txIndex;
+		geomentyByTxCounter[txIndex] += wallsVPairs[wallJointT].pairs[i2].vertexNum * sizeof(float) * 5;
+	      }
+	    }
+	  }
+
+	  //	  int txIndex = valueIn(grid[y][z][x]->ground, 2);
+	    
+	  //	  geomentyByTxCounter[txIndex] += sizeof(texturedTileVerts);
 	}
       }
     }
   }
 
-  if(geometry){
-    free(geometry);
-  }
-
-  float texturedTileVerts[] = {
-    bBlockW, 0.0f, bBlockD , 0.0f, 1.0f,
-    0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
-    bBlockW, 0.0f, 0.0f , 0.0f, 0.0f, 
-      
-    0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
-    bBlockW, 0.0f, 0.0f , 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f , 1.0f, 0.0f, 
-  };
-  
-  geometry = malloc(sizeof(Geometry) * loadedTexturesCounter);
-
-  // snowflakes
-  for(int i=0;i<loadedTexturesCounter;i++){
-    glGenVertexArrays(1, &geometry[i].pairs.VAO);
-    glBindVertexArray(geometry[i].pairs.VAO);
-
-    glGenBuffers(1, &geometry[i].pairs.VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, geometry[i].pairs.VBO);
-    
-    glEnableVertexAttribArray(0);
-    glBindVertexArray(0);
-  
+  for(int i=0;i<loadedTexturesCounter;i++){  
     if(geomentyByTxCounter[i] != 0){
-      geometry[i].size = sizeof(texturedTileVerts) * geomentyByTxCounter[i];
-      geometry[i].verts = malloc(sizeof(texturedTileVerts) * geomentyByTxCounter[i]);
+      geometry[i].size = geomentyByTxCounter[i];
+
+      if(geometry[i].verts){
+	geometry[i].verts = realloc(geometry[i].verts, geomentyByTxCounter[i]);
+      }else{
+	geometry[i].verts = malloc(geomentyByTxCounter[i]);
+      }
     }else{
       geometry[i].size = 0;
     }
 
-    geometry[i].tris = geomentyByTxCounter[i] * 6;
+    geometry[i].tris = geomentyByTxCounter[i] / 5 / sizeof(float);
+    printf("Tris: %d Size %d \n", geometry[i].tris, geometry[i].size);
   }
 
   free(geomentyByTxCounter);
@@ -8808,7 +8725,7 @@ void collectTilesMats(){
 	    int txIndex = valueIn(grid[y][z][x]->ground, 2);
 
 	    for(int i=0;i<6*5;i+=5){
-	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i] = texturedTileVerts[i] + tile.x;
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i] = texturedTileVerts[i] + tile.x; 
 	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+1] = texturedTileVerts[i+1] + tile.y;
 	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+2] = texturedTileVerts[i+2] + tile.z;
 
@@ -8817,6 +8734,76 @@ void collectTilesMats(){
 	    }
 
 	    geomentyByTxCounter[txIndex]+=6*5;
+	  }
+	  
+	  // block
+	  if(grid[y][z][x]->block){
+	    TileBlocksTypes type = grid[y][z][x]->block->type;
+	    int txIndex = grid[y][z][x]->block->txIndex;
+
+	    for(int i=0;i<tileBlocksTempl[type].vertexesSize * 5;i+=5){
+	      vec4 vert = { tileBlocksTempl[type].vertexes[i], tileBlocksTempl[type].vertexes[i+1], tileBlocksTempl[type].vertexes[i+2], 1.0f };
+
+	      vec4 transf = mulmatvec4(grid[y][z][x]->block->mat, vert);
+
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i] = transf.x; 
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+1] = transf.y;
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+2] = transf.z;
+
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+3] = tileBlocksTempl[type].vertexes[i+3];
+	      geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+4] = tileBlocksTempl[type].vertexes[i+4];
+	    }
+	    
+	    geomentyByTxCounter[txIndex] += tileBlocksTempl[type].vertexesSize * 5;
+	  }
+
+	  // walls
+	  for(int i3=0;i3<4;i3++){
+	    if(grid[y][z][x]->walls[i3].planes){
+	      WallType type = grid[y][z][x]->walls[i3].type;
+	      
+	      for(int i2=0;i2<wallsVPairs[type].planesNum;i2++){
+		if(!grid[y][z][x]->walls[i3].planes[i2].hide){
+		  int txIndex = grid[y][z][x]->walls[i3].planes[i2].txIndex;
+		  
+		  for(int i=0;i<wallsVPairs[type].pairs[i2].vertexNum * 5;i+=5){
+		    vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i], wallsVPairs[type].pairs[i2].vBuf[i+1], wallsVPairs[type].pairs[i2].vBuf[i+2], 1.0f };
+
+		    vec4 transf = mulmatvec4(grid[y][z][x]->walls[i3].mat, vert);
+
+		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i] = transf.x; 
+		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+1] = transf.y;
+		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+2] = transf.z;
+
+		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+3] = wallsVPairs[type].pairs[i2].vBuf[i+3];
+		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+4] = wallsVPairs[type].pairs[i2].vBuf[i+4];
+		  }
+
+		  geomentyByTxCounter[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * 5;
+		}
+	      }
+	    }
+
+	    if(grid[y][z][x]->jointExist[i3]){
+	      for(int i2=0;i2<wallsVPairs[wallJointT].planesNum;i2++){
+		int txIndex = grid[y][z][x]->joint[i3][i2].txIndex;
+		
+		for(int i=0;i<wallsVPairs[wallJointT].pairs[i2].vertexNum * 5;i+=5){
+		  vec4 vert = { wallsVPairs[wallJointT].pairs[i2].vBuf[i], wallsVPairs[wallJointT].pairs[i2].vBuf[i+1], wallsVPairs[wallJointT].pairs[i2].vBuf[i+2], 1.0f };
+
+		  vec4 transf = mulmatvec4(grid[y][z][x]->jointsMat[i3], vert);
+
+		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i] = transf.x; 
+		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+1] = transf.y;
+		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+2] = transf.z;
+
+		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+3] = wallsVPairs[wallJointT].pairs[i2].vBuf[i+3];
+		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+4] = wallsVPairs[wallJointT].pairs[i2].vBuf[i+4];
+		}
+		
+		geomentyByTxCounter[txIndex] += wallsVPairs[wallJointT].pairs[i2].vertexNum * 5;
+	      }
+	    }
 	  }
 	}
       }
