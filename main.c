@@ -5,6 +5,9 @@
 GLuint textVBO;
 GLuint textVAO;
 
+int modelLoc;
+int lightModelLoc;
+
 VPair tileOver;
 
 bool hints = true;
@@ -83,6 +86,8 @@ float fov;
 
 float borderArea;
 
+VPair cube;
+
 GLuint objectsMenuTypeRectVBO;
 GLuint objectsMenuTypeRectVAO;
 
@@ -152,6 +157,7 @@ MeshBuffer* tileHighlight;
 
 GLuint mainShader;
 GLuint hudShader;
+GLuint lightSourceShader;
   
 GLuint cursorVBO;
 GLuint cursorVAO;
@@ -210,6 +216,15 @@ int main(int argc, char* argv[]) {
     glGenBuffers(1, &hudRect.VBO);
     glGenVertexArrays(1, &hudRect.VAO);
 
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // for cubes
+  {
+    glGenBuffers(1, &cube.VBO);
+    glGenVertexArrays(1, &cube.VAO);
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -1057,9 +1072,12 @@ int main(int argc, char* argv[]) {
 
   }
 
-  int modelLoc = glGetUniformLocation(mainShader, "model");
+  modelLoc = glGetUniformLocation(mainShader, "model");
   int projUni = glGetUniformLocation(mainShader, "proj");
   int viewLoc = glGetUniformLocation(mainShader, "view");
+
+  int lightColor = glGetUniformLocation(mainShader, "lightColor");
+  //  glUniform3f(lightColor, 1.0f, 1.0f, 1.0f);
 
   // load shaders and apply it
   {
@@ -1086,6 +1104,37 @@ int main(int argc, char* argv[]) {
       return 1;
     }
   }
+
+
+    // load shaders and apply it
+  {
+    GLuint vertexShader = loadShader(GL_VERTEX_SHADER, "lightSource.vert");
+    GLuint fragmentShader = loadShader(GL_FRAGMENT_SHADER, "lightSource.frag");
+
+    lightSourceShader = glCreateProgram();
+    glAttachShader(lightSourceShader, fragmentShader);
+    glAttachShader(lightSourceShader, vertexShader);
+
+    // Link the shader lightSourceShaderram
+    glLinkProgram(lightSourceShader);
+
+    // Check for linking errors
+    GLint linkStatus;
+    glGetProgramiv(lightSourceShader, GL_LINK_STATUS, &linkStatus);
+    if (linkStatus != GL_TRUE) {
+      GLint logLength;
+      glGetProgramiv(lightSourceShader, GL_INFO_LOG_LENGTH, &logLength);
+      char* log = (char*)malloc(logLength);
+      glGetProgramInfoLog(lightSourceShader, logLength, NULL, log);
+      fprintf(stderr, "Failed to link hudShaderram: %s\n", log);
+      free(log);
+      return 1;
+    }
+  }
+
+  lightModelLoc = glGetUniformLocation(lightSourceShader, "model");
+  int lightProjUni = glGetUniformLocation(lightSourceShader, "proj");
+  int lightViewLoc = glGetUniformLocation(lightSourceShader, "view");
 
   int orthoLoc = glGetUniformLocation(hudShader, "ortho");
   int hudColorLoc = glGetUniformLocation(hudShader, "u_Color");
@@ -1473,7 +1522,7 @@ int main(int argc, char* argv[]) {
     camera2.pos = (vec3)xyz_indexesToCoords(gridX/2, 2, gridZ/2);
     camera1.up = (vec3){ 0.0f, 1.0f, 0.0f };
     camera2.up = (vec3){ 0.0f, 1.0f, 0.0f };
-    
+
     glUniform3f(cameraPos, camera1.pos.x, camera1.pos.y, camera1.pos.z);
   }
   
@@ -3040,7 +3089,6 @@ int main(int argc, char* argv[]) {
     // send proj and view mat to shader
     {
       Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 100.0f);
-      glUniformMatrix4fv(projUni, 1, GL_FALSE, proj.m);
 
       Matrix view =  IDENTITY_MATRIX;
       vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
@@ -3048,6 +3096,13 @@ int main(int argc, char* argv[]) {
       translate(&view, argVec3(negPos));
       rotateY(&view, rad(curCamera->yaw));
       rotateX(&view, rad(curCamera->pitch));
+
+      glUseProgram(lightSourceShader);
+      glUniformMatrix4fv(lightProjUni, 1, GL_FALSE, proj.m);
+      glUniformMatrix4fv(lightViewLoc, 1, GL_FALSE, view.m);
+
+      glUseProgram(mainShader);
+      glUniformMatrix4fv(projUni, 1, GL_FALSE, proj.m);
       glUniformMatrix4fv(viewLoc, 1, GL_FALSE, view.m);
 
       // modif camera pos to shader
@@ -3669,6 +3724,15 @@ int main(int argc, char* argv[]) {
       }
     }
 
+
+    glUseProgram(lightSourceShader);
+    
+    renderCube(0.5f, 0.5f, 0.5f);
+    
+    glUseProgram(mainShader);
+
+    glUniform3f(lightColor, 1.0f, 1.0f, 1.0f);
+    
     for(int i=0;i<loadedTexturesCounter;i++){
       glBindTexture(GL_TEXTURE_2D, loadedTextures1D[i].tx);
 
@@ -3676,11 +3740,16 @@ int main(int argc, char* argv[]) {
       glBindVertexArray(geometry[i].pairs.VAO);
 
       Matrix out2 = IDENTITY_MATRIX;
-
+      
       out2.m[12] = 0.0;
       out2.m[13] = 0.0;
       out2.m[14] = 0.0f;
-		
+
+      //      printf("%f %f %f \n", (float)(rand() % 10) / 10.0f, (float)(rand() % 10) / 10.0f, (float)(rand() % 10) / 10.0f);
+      //glUniform3f(lightColor, 1.0f, 1.0f, 1.0f);
+      
+      //      glUniform3f(lightColor, (float)(rand() % 10) / 10.0f, (float)(rand() % 10) / 10.0f, (float)(rand() % 10) / 10.0f);
+      
       glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out2.m);
 
       glDrawArrays(GL_TRIANGLES, 0, geometry[i].tris);
@@ -5709,46 +5778,90 @@ vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tile
   return wallPos;
 }
 
-void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b){
-  float verts[] = { 0.0f, 0.0f , 0.0f,
-    0.0f, 0.0f + h, 0.0f,
+void renderCube(float w, float h, float d){
+  glActiveTexture(solidColorTx);
+  glBindTexture(GL_TEXTURE_2D, solidColorTx);
+  setSolidColorTx(1.0f,1.0f,1.0f, 1.0f);
 
-    0.0f ,0.0f , 0.0f,
-    0.0f + w,0.0f , 0.0f,
+  glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
+  glBindVertexArray(cube.VAO);
 
-    0.0f ,0.0f , 0.0f,
-    0.0f ,0.0f , 0.0f + d,
+  float verts[] = {
+    // bot
+    0.0f, 0.0f, 0.0f,
+    w, 0.0f, 0.0f,
+    w, 0.0f, d,
 
-    0.0f ,0.0f + h, 0.0f,
-    0.0f + w,0.0f + h, 0.0f,
+    0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, d,
+    w, 0.0f, d,
 
-    0.0f ,0.0f + h, 0.0f,
-    0.0f ,0.0f + h, 0.0f + d,
+    // top
+    0.0f, h, 0.0f,
+    w, h, 0.0f,
+    w, h, d,
 
-    0.0f + w,0.0f + h, 0.0f,
-    0.0f + w,0.0f , 0.0f,
+    0.0f, h, 0.0f,
+    0.0f, h, d,
+    w, h, d,
 
-    0.0f ,0.0f + h, 0.0f + d,
-    0.0f ,0.0f , 0.0f + d,
+    // left
+    0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, d,
+    0.0f, h, 0.0f,
 
-    0.0f ,0.0f + h, 0.0f + d,
-    0.0f + w,0.0f + h, 0.0f + d,
+    0.0f, h, 0.0f,
+    0.0f, 0.0f, d,
+    0.0f, h, d,
 
-    0.0f + w,0.0f + h, 0.0f,
-    0.0f + w,0.0f + h, 0.0f + d,
+    // right
+    w, 0.0f, 0.0f,
+    w, 0.0f, d,
+    w, h, 0.0f,
 
-    0.0f + w,0.0f + h, 0.0f + d,
-    0.0f + w,0.0f , 0.0f + d,
+    w, h, 0.0f,
+    w, 0.0f, d,
+    w, h, d,
 
-    0.0f + w,0.0f + h, 0.0f,
-    0.0f + w,0.0f + h, 0.0f + d,
+    // front
+    0.0f, 0.0f, 0.0f,
+    w, 0.0f, 0.0f,
+    w, h, 0.0f,
 
-    0.0f ,0.0f , 0.0f + d,
-    0.0f + w,0.0f , 0.0f + d,
+    0.0f, 0.0f, 0.0f,
+    w, h, 0.0f,
+    0.0f, h, 0.0f,
 
-    0.0f + w,0.0f , 0.0f,
-    0.0f + w,0.0f , 0.0f + d
+    // back
+    0.0f, 0.0f, d,
+    w, 0.0f, d,
+    w, h, d,
+
+    0.0f, 0.0f, d,
+    w, h, d,
+    0.0f, h, d,
   };
+
+  Matrix out2 = IDENTITY_MATRIX;
+      
+  out2.m[12] = gridX / 2;
+  out2.m[13] = gridY / 2;
+  out2.m[14] = gridZ / 2;
+
+  //  glUniform3f(lightColor, (float)(rand() % 10) / 10.0f, (float)(rand() % 10) / 10.0f, (float)(rand() % 10) / 10.0f);
+  
+  glUniformMatrix4fv(lightModelLoc, 1, GL_FALSE, out2.m);
+
+  glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+  
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+  glEnableVertexAttribArray(0);
+
+  glDrawArrays(GL_TRIANGLES, 0, sizeof(verts) / sizeof(float) / 3);
+
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
 }
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist) {

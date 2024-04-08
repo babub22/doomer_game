@@ -647,7 +647,7 @@ typedef enum{
 
 #define distToCamera(point) sqrtf(powf(point.x - camera.pos.x, 2) + powf(point.y - camera.pos.y, 2) + powf(point.z - camera.pos.z, 2))
 
-void renderCube(vec3 pos, float w, float h, float d, float r, float g, float b);
+void renderCube(float w, float h, float d);
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist);
 

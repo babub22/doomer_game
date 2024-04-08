@@ -6,11 +6,18 @@ uniform float radius;
 
 varying vec3 vertexToPlayer;
 
+uniform vec3 lightColor;
+
 in vec2 TexCoord;
 
 void main(void)
 {
 vec4 diffuseTexel = texture2D(colorMap, TexCoord);
+vec3 ambient = 0.1 * lightColor;
+
+gl_FragColor = vec4(diffuseTexel.xyz * ambient ,1.0f);
+
+/*
 float dist = length(vertexToPlayer);
 float attenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
@@ -23,5 +30,5 @@ vec4 diffuseTerm  = diffuseTexel * attenuation + (.5 * (1.0-attenuation));
 diffuseTerm.a = diffuseTexel.a; 
 
 gl_FragColor = diffuseTerm;
-//gl_FragColor = vec4(vec3(gl_FragCoord.z), 1.0);
+*/
 }
