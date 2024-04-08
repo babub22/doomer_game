@@ -9,16 +9,6 @@ VPair tileOver;
 
 bool hints = true;
 
-float* tiles;
-size_t tilesTris;
-size_t tileMatsBuf; // buf id
-
-int gTilesCounter;
-Wall2* walls;
-int gWallsCounter;
-
-VPair* batchTextures;
-
 char curSaveName[CONSOLE_BUF_CAP];
 
 Texture* loadedTextures1D;
@@ -64,13 +54,6 @@ char tempTextInputStorage[512];
 int tempTextInputStorageCursor;
 
 TextInput dialogEditorNameInput;
-
-VPair roofBlock;
-
-VPair customWallV;
-float* customWallTemp[4];
-
-VPair stepsBlock;
 
 // placed/created models
 Model* curModels;
@@ -241,16 +224,6 @@ int main(int argc, char* argv[]) {
   {
     glGenBuffers(1, &planePairs.VBO);
     glGenVertexArrays(1, &planePairs.VAO);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-  }
-
-  // custom walls
-  {
-    glGenBuffers(1, &customWallV.VBO);
-    glGenVertexArrays(1, &customWallV.VAO);
-
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
