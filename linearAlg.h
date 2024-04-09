@@ -75,6 +75,7 @@ vec4 cross4(vec4 v1, vec4 v2);
 vec3 normalize3(const vec3 vec);
 
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
+void mat4transpose(float *M, const float *N);
 
 vec3 cross3(const vec3 v1, const vec3 v2);
 void rotateX(const Matrix* m, float angle);

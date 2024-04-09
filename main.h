@@ -146,9 +146,9 @@ typedef enum{
   winFrontCapPlane, winFrontBotPlane,
   winBackCapPlane, winBackBotPlane,
   winInnerTopPlane, winInnerBotPlane,
-  //winLeftPlane, winRightPlane,
   winTopPlane, winFrontPodokonik, winBackPodokonik,
   winCenterPlane, winPlaneCounter
+  //winLeftPlane, winRightPlane,
 } WindowPlanes;
 
 const char* windowPlanesStr[] = {
@@ -554,6 +554,7 @@ typedef enum {
   mouseBlockT,
   mousePlaneT,
   mouseTileT,
+  mouseLightT,
 } MouseSelectionType;
 
 typedef enum {
@@ -952,6 +953,8 @@ void setupAABBAndMatForJoint(vec2i grid, Side side);
 void collectTilesMats();
 void initGrid(int sx, int sy, int sz);
 
+vec3 calculateNormal(vec3 a, vec3 b, vec3 c);
+
 typedef struct{
   float* verts;
   size_t tris;
@@ -960,3 +963,5 @@ typedef struct{
 } Geometry;
 
 Geometry* geometry;
+
+void writeToWallsPairs(WallType type, int plane, int bufSize, float* buf);

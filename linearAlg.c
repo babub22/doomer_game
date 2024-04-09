@@ -276,3 +276,13 @@ void inverse(float M[], float T[]) {
     T[14] = (-M[12] * s[3] + M[13] * s[1] - M[14] * s[0]) * idet;
     T[15] = ( M[8] * s[3] - M[9] * s[1] + M[10] * s[0]) * idet;
 }
+
+void mat4transpose(float *M, const float *N)
+{
+    int i, j;
+    for (j = 0; j < 4; ++j) {
+        for (i = 0; i < 4; ++i) {
+            M[i * 4 + j] = N[j * 4 + i];
+        }
+    }
+}
