@@ -11,6 +11,7 @@ int lightModelLoc;
 VPair tileOver;
 
 vec3 lightSourcePos;
+vec3 lightSourceDir = { 0, -1, 0};
 
 bool hints = true;
 
@@ -174,6 +175,8 @@ int texture1DIndexByName(char* txName){
   return -1;
 };
 
+bool fullScreen = 0;
+
 int main(int argc, char* argv[]) {
   borderArea = (float)bBlockW/8;
   
@@ -187,6 +190,7 @@ int main(int argc, char* argv[]) {
 					SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
 					);
   // | SDL_WINDOW_RESIZABLE
+  //  SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 
   SDL_WarpMouseInWindow(window, windowW/2.0f, windowH/2.0f);
   SDL_SetRelativeMouseMode(SDL_TRUE);
@@ -1078,8 +1082,15 @@ int main(int argc, char* argv[]) {
   int projUni = glGetUniformLocation(mainShader, "proj");
   int viewLoc = glGetUniformLocation(mainShader, "view");
 
-  int lightColor = glGetUniformLocation(mainShader, "lightColor");
-  int lightPos = glGetUniformLocation(mainShader, "lightPos");
+  int lightColor = glGetUniformLocation(mainShader, "light.color");
+  int lightPos = glGetUniformLocation(mainShader, "light.pos");
+  int lightDir = glGetUniformLocation(mainShader, "light.dir");
+  int lightRad = glGetUniformLocation(mainShader, "light.rad");
+  int lightCutOff = glGetUniformLocation(mainShader, "light.cutOff");
+  
+  int lightConstant = glGetUniformLocation(mainShader, "light.constant");
+  int lightLinear = glGetUniformLocation(mainShader, "light.linear");
+  int lightQuadratic = glGetUniformLocation(mainShader, "light.quadratic");
   //  glUniform3f(lightColor, 1.0f, 1.0f, 1.0f);
 
   // load shaders and apply it
@@ -1168,6 +1179,9 @@ int main(int argc, char* argv[]) {
     glEnable(GL_DEPTH_TEST);  
     glDepthFunc(GL_LEQUAL);
     //  glDepthMask(GL_FALSE);
+
+    //    glfwWindowHint(GLFW_SAMPLES, 4);
+    glEnable(GL_MULTISAMPLE);  
     
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
@@ -1525,8 +1539,6 @@ int main(int argc, char* argv[]) {
     camera2.pos = (vec3)xyz_indexesToCoords(gridX/2, 2, gridZ/2);
     camera1.up = (vec3){ 0.0f, 1.0f, 0.0f };
     camera2.up = (vec3){ 0.0f, 1.0f, 0.0f };
-
-    glUniform3f(cameraPos, camera1.pos.x, camera1.pos.y, camera1.pos.z);
   }
   
   // set draw distance to gridX/2
@@ -1873,7 +1885,18 @@ int main(int argc, char* argv[]) {
 	    console.open = true;
 	  
 	    break;
-	  }	 case(SDL_SCANCODE_F2):{
+	  }case(SDL_SCANCODE_F11): {
+	      fullScreen = !fullScreen;
+	      
+	      if(fullScreen){
+	        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+
+	      }else{
+	        SDL_SetWindowFullscreen(window, 0);
+	      }
+		break;
+	    }
+	  case(SDL_SCANCODE_F2):{
 		   hints = !hints;
 	  
 		   break;
@@ -2334,22 +2357,22 @@ int main(int argc, char* argv[]) {
 		  }
 		}
 	      }*/
-	    }
+	    } 
 	    
 	    break;
-	  }case(SDL_SCANCODE_RIGHT): {
-	     const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-
-	     if(mouse.focusedType == mouseLightT){
-			 lightSourcePos.x += .1f;
-	     }else if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
+	  }case(SDL_SCANCODE_RIGHT): { 
+	     const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);    
+		   
+	     if(mouse.focusedType == mouseLightT){ 
+			 lightSourcePos.x += .1f;  
+	     }else if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){ 
 	       Matrix* mat = -1;
 	       bool isPlane = false;
-	       Model* model = NULL;
+	       Model* model = NULL; 
 		  
-	       if (mouse.focusedType == mouseModelT) {
-		 model = (Model*)mouse.focusedThing;
-		 mat = &model->mat;
+	       if (mouse.focusedType == mouseModelT) {      
+		 model = (Model*)mouse.focusedThing;   
+		 mat = &model->mat;  
 
 	       }
 	       else if (mouse.focusedType == mousePlaneT) {
@@ -3014,7 +3037,7 @@ int main(int argc, char* argv[]) {
 	    curCamera->pos.y += cameraSpeed * normFront.y;
 	    curCamera->pos.z += cameraSpeed * normFront.z;
 
-	    //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
+	    //	    glUniform3f(cameraPos, argVec3(curCamera->pos));
 	  }
 	  else {
 	    player.pos.x -= speed * sin(rad(player.angle));
@@ -3027,7 +3050,7 @@ int main(int argc, char* argv[]) {
 	    curCamera->pos.x += cameraSpeed * curCamera->front.x;
 	    curCamera->pos.z += cameraSpeed * curCamera->front.z;
 
-	    //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
+	    //	    glUniform3f(cameraPos, argVec3(curCamera->pos));
 	  }
 	}
       else if (currentKeyStates[SDL_SCANCODE_A])
@@ -3038,7 +3061,7 @@ int main(int argc, char* argv[]) {
 	    curCamera->pos.x -= cameraSpeed * curCamera->front.x;
 	    //			  curCamera->pos.y -= cameraSpeed * curCamera->front.y;
 	    curCamera->pos.z -= cameraSpeed * curCamera->front.z;
-	    //	  glUniform3f(cameraPos, argVec3(curCamera->pos));
+	    //glUniform3f(cameraPos, argVec3(curCamera->pos));
 	  }
 	}
 
@@ -3112,7 +3135,7 @@ int main(int argc, char* argv[]) {
 
     // send proj and view mat to shader
     {
-      Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 100.0f);
+      Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
 
       Matrix view =  IDENTITY_MATRIX;
       vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
@@ -3754,9 +3777,22 @@ int main(int argc, char* argv[]) {
     
     glUseProgram(mainShader);
 
-    glUniform3f(lightColor, 1.0f, 1.0f, 1.0f);
-    glUniform3f(lightPos, argVec3(lightSourcePos));
+    glUniform3f(cameraPos, argVec3(curCamera->pos));
+
+    //    glUniform3f(lightColor, 1.0f, 1.0f, 1.0f);
+    glUniform3f(lightColor,253.0f/255.0f, 244.0f/255.0f, 220.0f/255.0f);
+    printf("%f %f %f \n", 253.0f/255.0f, 244.0f/255.0f, 220.0f/255.0f);
     
+    glUniform3f(lightPos, argVec3(lightSourcePos));
+    glUniform3f(lightDir, argVec3(lightSourceDir));
+    
+    glUniform1f(lightRad, cosf(rad(12.5f)));
+    glUniform1f(lightCutOff, cosf(rad(17.5f)));
+
+    glUniform1f(lightConstant, 1.0f);
+    glUniform1f(lightLinear, .09f);
+    glUniform1f(lightQuadratic, .032f);
+
     for(int i=0;i<loadedTexturesCounter;i++){
       glBindTexture(GL_TEXTURE_2D, loadedTextures1D[i].tx);
 
@@ -6234,7 +6270,10 @@ ModelInfo* loadOBJ(char* path, char* texturePath){
 
     glBindTexture(GL_TEXTURE_2D, loadedModel->tx);
       
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texture->w,
@@ -7617,13 +7656,13 @@ void assembleWallJointVBO(){
   };
   
   float topPlane[] = {
-    w,h, 0.0f,          0.0f, capRatio,
     w+t, h, -t,    capRatio, 0.0f,
+    w,h, 0.0f,          0.0f, capRatio,
     w, h, -t,         0.0f, 0.0f,
 
-    w,h, 0.0f,           0.0f, capRatio,
-    w+t,h,0.0f,         capRatio, capRatio,
     w+t, h, -t,    capRatio, 0.0f,
+    w+t,h,0.0f,         capRatio, capRatio,
+    w,h, 0.0f,           0.0f, capRatio,
   };
 
   float e = w + t;
@@ -7671,13 +7710,13 @@ void assembleWallBlockVBO() {  // wallBlock buf
   };
 
   float topPlane[] = {
-    0.0f,h, d,   0.0f, capRatio, // 1
     w, h, -t,    1.0f, 0.0f,
+    0.0f,h, d,   0.0f, capRatio, // 1
     0.0f, h, -t, 0.0f, 0.0f,
 
-    0.0f,h,d,    0.0f, capRatio, // 1
-    w,h,d,       1.0f, capRatio,
     w, h, -t,    1.0f, 0.0f,
+    w,h,d,       1.0f, capRatio,
+    0.0f,h,d,    0.0f, capRatio, // 1
   };
 
   float backPlane[] = {
