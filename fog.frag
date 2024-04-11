@@ -3,22 +3,11 @@ uniform vec3 cameraPos;
 uniform sampler2D colorMap;
 uniform float radius;
 
-//varying vec3 vertexToPlayer;
-
-//uniform vec3 lightColor;
-//uniform vec3 lightPos;	
-
 in vec2 TexCoord;
 in vec3 Normal;
 in vec3 FragPos;
 
-/*struct Material {
-vec3 ambient;
-vec3 diffuse;
-vec3 specular;
-float shininess;
-};*/
-
+/*
 struct Light {
 vec3  pos;
 vec3  dir;
@@ -28,55 +17,61 @@ float rad;
 float constant;
 float linear;
 float quadratic;
+};*/
+
+struct PointLight{
+vec3  pos;
+vec3 color;
+
+float constant;
+float linear;
+float quadratic;
 };
 
-uniform Light light;
+#define MAX_LIGHTS 50
+uniform int pointLightsSize;  
+uniform PointLight pointLights[MAX_LIGHTS];
 
-//uniform Material material;
+//uniform Light light;
 
-void main(void)
-{
-
-vec4 diffuseTexel = texture2D(colorMap, TexCoord);
-
-// vec3 lightDir = normalize(light.pos - FragPos);
-    
-
-// ambient 
-vec3 ambient = 0.05 * light.color;
-
-// diffuse
-vec3 norm = normalize(Normal);
+vec3 pointLight(PointLight light, vec3 norm, vec3 viewDir){
 vec3 lightDir = normalize(light.pos - FragPos);
-//vec3 lightDir = normalize(-light.dir);
-
-
+// diffuse shading
 float diff = max(dot(norm, lightDir), 0.0);
-vec3 diffuse = diff * light.color;
+// specular shading
 
-// specular
-float specularStrength = 0.2;
-
-vec3 viewDir = normalize(cameraPos - FragPos);
 vec3 reflectDir = reflect(-lightDir, norm);
-
 float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-vec3 specular = specularStrength * spec * light.color;  
-
-//float theta = dot(lightDir, normalize(-light.dir));
 
 // attenuation
 float distance    = length(light.pos - FragPos);
 float attenuation = 1.0 / (light.constant + light.linear * distance + 
-light.quadratic * (distance * distance));
+light.quadratic * (distance * distance));    
 
-ambient  *= attenuation; 
+// combine results
+vec3 ambient  = .05f  * light.color;
+vec3 diffuse  = diff * light.color;
+vec3 specular = 0.2f * spec * light.color;
+
+ambient  *= attenuation;
 diffuse  *= attenuation;
-specular *= attenuation;   
-    
-//if(theta > light.rad){
-	 gl_FragColor = vec4((ambient + diffuse + specular) * diffuseTexel.xyz, 1.0);
-//}
+specular *= attenuation;
+return (ambient + diffuse + specular);
+} 
+
+void main(void){
+vec3 viewDir = normalize(cameraPos - FragPos);
+vec3 norm = normalize(Normal);
+
+vec3 res;
+vec3 tex = texture2D(colorMap, TexCoord).rgb;
+
+for(int i=0;i<pointLightsSize;i++){
+res+= pointLight(pointLights[i], norm, viewDir);
+}
+
+gl_FragColor = vec4(res * tex,1.0f);
+}
 
 /*
 float dist = length(vertexToPlayer);
@@ -92,4 +87,3 @@ diffuseTerm.a = diffuseTexel.a;
 
 gl_FragColor = diffuseTerm;
 */
-}

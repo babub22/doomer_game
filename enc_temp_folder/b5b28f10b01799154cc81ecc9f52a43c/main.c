@@ -3686,7 +3686,7 @@ int main(int argc, char* argv[]) {
 	  uniformFloat(mainShader, buf, pointLights[i].constant);
 
 	  sprintf(buf, "pointLights[%i].linear", i);
-	  uniformFloat(mainShader, buf, pointLights[i].linear); 
+	  uniformFloat(mainShader, buf, pointLights[i].linear);
 
 	  sprintf(buf, "pointLights[%i].qaudratic", i);   
 	  uniformFloat(mainShader, buf, pointLights[i].quadratic);      

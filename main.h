@@ -109,10 +109,18 @@ typedef enum{
   dialogViewerT,
   planeCreatorT,
   texturesMenuT,
+  lightMenuT,
   menuTypesCounter
 } MenuTypes;
 
+typedef enum{
+  pointLightT, dirLightT,
+  lightsTypeCounter
+} MenuTypes;
+
 const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps", [angledRoofT] = "Angle Roof" };
+
+const char* lightTypesStr[] = { [dirLightT] = "Dir light", [pointLightT] = "Point light" };
 
 typedef struct{
   bool opened;
@@ -554,7 +562,8 @@ typedef enum {
   mouseBlockT,
   mousePlaneT,
   mouseTileT,
-  mouseLightT,
+  mousePointLightT,
+  mouseDirLightT,
 } MouseSelectionType;
 
 typedef enum {
@@ -648,7 +657,17 @@ typedef enum{
 
 #define distToCamera(point) sqrtf(powf(point.x - camera.pos.x, 2) + powf(point.y - camera.pos.y, 2) + powf(point.z - camera.pos.z, 2))
 
-void renderCube(float w, float h, float d);
+typedef struct{
+  int id;
+  vec3 pos;
+  vec3 color;
+  
+  float constant;
+  float linear;
+  float quadratic;
+} PointLight;
+
+void renderCube(vec3 pos);
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist);
 
@@ -782,6 +801,13 @@ void assembleWallJointVBO();
 float* wallBySide(int* bufSize, Side side, float thick);
 
 #define dialogEditorCharNameTitle "Char name: "
+
+typedef enum{
+  lightSourceShader, hudShader, mainShader, borderShader, screenShader, shadersCounter
+} Shaders;
+
+const char* shadersFileNames[] = {"lightSource", "hud", "fog", "borderShader", "screenShader"};
+GLuint shadersId[shadersCounter];
 
 const char sdlScancodesToACII[] = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', [55]='.'
@@ -965,3 +991,10 @@ typedef struct{
 Geometry* geometry;
 
 void writeToWallsPairs(WallType type, int plane, int bufSize, float* buf);
+void createTexture(int* tx,int w,int h, void*px);
+
+#define rgbToGl(r,g,b) r/255.0f, g/255.0f, b/255.0f
+
+void uniformVec3(int shader, char* var, vec3 value);
+void uniformFloat(int shader, char* var, float value);
+void uniformInt(int shader, char* var, int value);
