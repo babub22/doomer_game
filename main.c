@@ -8,12 +8,13 @@ GLuint textVAO;
 unsigned int screenTexture;
 unsigned int textureColorBufferMultiSampled;
 
-PointLight* pointLights;
-int pointLightsSize;
-const PointLight pointLightsDef = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .constant = 1.0f, .linear = .09f, .quadratic = .032f };
+Light* lightsStore;
+int lightsStoreSize;
+int lightsStoreSizeByType[lightsTypeCounter];
+Light lightDef = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .constant = 1.0f, .linear = .09f, .quadratic = .032f, .dir = {0,-1, 0} };
 
-float dofPercent = 1.0f;
-
+float dofPercent = 1.0f;  
+ 
 int modelLoc;
 int lightModelLoc;
 
@@ -21,10 +22,10 @@ VPair quad;
 
 VPair tileOver;
 
-GLuint fbo;
-GLuint intermediateFBO;
-
-vec3 lightSourcePos;
+GLuint fbo; 
+GLuint intermediateFBO;  
+    
+vec3 lightSourcePos; 
 vec3 lightSourceDir = { 0, -1, 0};
 
 bool hints = true;
@@ -190,6 +191,9 @@ int texture1DIndexByName(char* txName){
 bool fullScreen = 0;
 
 int main(int argc, char* argv[]) {
+  lightDef.rad=cosf(rad(12.5f));
+  lightDef.cutOff=cosf(rad(17.5f));
+    
   borderArea = (float)bBlockW/8;
   
   SDL_Init(SDL_INIT_VIDEO);
@@ -1653,7 +1657,7 @@ int main(int argc, char* argv[]) {
     printf("Map not found!\n");
   }
 
-  collectTilesMats();
+  batchGeometry();
 
   // set up camera
   GLint cameraPos = glGetUniformLocation(shadersId[mainShader], "cameraPos");
@@ -2029,33 +2033,35 @@ int main(int argc, char* argv[]) {
 			    break;
 			  }
 	  case(SDL_SCANCODE_UP): {
-	    if(mouse.focusedType == mousePointLightT){
+	    /*	    if(manipulationMode != 0 && mouse.focusedType == mouseLightT){
 	      const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
-	      PointLight* light = (PointLight*)mouse.focusedThing;
+	      Light* light = (Light*)mouse.focusedThing;
 
 	      if (!currentKeyStates[SDL_SCANCODE_LCTRL]){
 		light->pos.z += .1f;
 	      }else{
 		light->pos.y += .1f;
 	      }
-	    }else if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
+	    }else*/
+	      if(manipulationMode != 0 && (mouse.focusedType == mouseLightT || mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
 	      Matrix* mat = -1;
 	      bool itPlane = false;
-
+		   
 	      Model* model = NULL;
 	      
 	      if (mouse.focusedType == mouseModelT) { 
 		model = (Model*)mouse.focusedThing; 
-		mat = &model->mat;
-
+		mat = &model->mat; 
 	      }
 	      else if (mouse.focusedType == mousePlaneT) {
 		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 		itPlane = true;
+	      }else if(mouse.focusedType == mouseLightT){
+		Light* light = (Light*)mouse.focusedThing;
+		mat = &light->mat; 
 	      }
-
 
 	      switch(manipulationMode){
 	      case(TRANSFORM_Z):{
@@ -2094,7 +2100,7 @@ int main(int argc, char* argv[]) {
 		    mat->m[12] = xTemp;
 		    mat->m[13] = yTemp;
 		    mat->m[14] = zTemp;*/
-		}else{
+		}else if(mouse.focusedType != mouseLightT){
 		  float xTemp = mat->m[12];
 		  float yTemp = mat->m[13];
 		  float zTemp = mat->m[14];
@@ -2196,10 +2202,10 @@ int main(int argc, char* argv[]) {
 	  }
 	  case(SDL_SCANCODE_DOWN): {
 	    // TODO: if intersected tile + wall will work only tile changer
-	    if(mouse.focusedType == mousePointLightT){
+	    /*	    if(mouse.focusedType == mouseLightT){
 	      const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
-	      PointLight* light = (PointLight*)mouse.focusedThing;
+	      Light* light = (Light*)mouse.focusedThing;
 
 	      if (!currentKeyStates[SDL_SCANCODE_LCTRL]){
 		light->pos.z -= .1f;
@@ -2207,7 +2213,8 @@ int main(int argc, char* argv[]) {
 		light->pos.y -= .1f;
 	      }
 	    }
-	    else if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
+	    else*/
+	    if(manipulationMode != 0 && (mouse.focusedType == mouseLightT || mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
 	      Matrix* mat = -1;
 	      bool isPlane = false;
 		Model* model = NULL;
@@ -2221,6 +2228,10 @@ int main(int argc, char* argv[]) {
 		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 		isPlane = true;
+	      }
+	      else if(mouse.focusedType == mouseLightT){
+		Light* light = (Light*)mouse.focusedThing;
+		mat = &light->mat; 
 	      }
 
 	      switch(manipulationMode){ 
@@ -2246,7 +2257,7 @@ int main(int argc, char* argv[]) {
 		if(isPlane){
 		  Picture* plane = (Picture*)mouse.focusedThing;
 		  plane->h -= 0.01f;
-		}else{
+		}else if(mouse.focusedType != mouseLightT){
 		  float xTemp = mat->m[12];
 		  float yTemp = mat->m[13];
 		  float zTemp = mat->m[14];
@@ -2273,7 +2284,6 @@ int main(int argc, char* argv[]) {
 	      }
 	    }else if(mouse.brushType == mouseBlockBrushT){
 	      TileBlock* block = (TileBlock*) mouse.brushThing;
-	      
 
 	      if(block->type == roofBlockT) {
 		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
@@ -2327,7 +2337,7 @@ int main(int argc, char* argv[]) {
 	  }
 	  case(SDL_SCANCODE_F): {
 	    if(!mouse.focusedThing){
-	      if(mouse.selectedType == mousePointLightT || mouse.selectedType == mousePlaneT || mouse.selectedType == mouseModelT){
+	      if(mouse.selectedType == mouseLightT || mouse.selectedType == mousePlaneT || mouse.selectedType == mouseModelT){
 		mouse.focusedThing = mouse.selectedThing;
 		mouse.focusedType = mouse.selectedType;
 	      }
@@ -2392,14 +2402,17 @@ int main(int argc, char* argv[]) {
 	  case(SDL_SCANCODE_LEFT): {
 	    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
-	    PointLight* light = (PointLight*)mouse.focusedThing;
+	    Light* light = (Light*)mouse.focusedThing;
 	    
-	    if(mouse.focusedType == mousePointLightT){
+	    /*	    if(mouse.focusedType == mouseLightT){
 			light->pos.x -= .1f;
-	    }else if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){  
+	    }else*/
+	      if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT || mouse.focusedType == mouseLightT)){  
 	      Matrix* mat = -1; 
 	      bool isPlane = false;
+	      
 	      Model* model = NULL;
+	      Light* light = NULL;
 
 	      if (mouse.focusedType == mouseModelT) {
 		model = (Model*)mouse.focusedThing;
@@ -2410,6 +2423,10 @@ int main(int argc, char* argv[]) {
 		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 		isPlane = true;
+	      }else if(mouse.focusedType == mouseLightT){
+		light = (Light*)mouse.focusedThing;
+		mat = &light->mat;
+		//		light->dir = (vec3){0.0f, -1.0f, 0.0f};
 	      }
 
 	      float xTemp = mat->m[12];
@@ -2419,16 +2436,28 @@ int main(int argc, char* argv[]) {
 	      if (manipulationMode == ROTATE_Y || manipulationMode == ROTATE_X || manipulationMode == ROTATE_Z) {
 		mat->m[12] = 0;
 		mat->m[13] = 0;
-		mat->m[14] = -zTemp;
+		mat->m[14] = 0;
+
+		float step = 1.0f;
 
 		if (manipulationMode == ROTATE_Y) {
-		  rotateY(mat->m, -rad(1.0f));
+		  rotateY(mat->m, rad(-step));
 		}
 		else if (manipulationMode == ROTATE_X) {
-		  rotateX(mat->m, -rad(1.0f));
+		  rotateX(mat->m, rad(-step));
 		}
 		else if (manipulationMode == ROTATE_Z) {
-		  rotateZ(mat->m, -rad(1.0f));
+		  rotateZ(mat->m, rad(-step));
+		}
+
+		if(light){
+		  light->dir = (vec3){0.0f, -1.0f, 0.0f};
+		  
+		  vec4 trasfDir = mulmatvec4(light->mat, (vec4){light->dir.x, light->dir.y, light->dir.z, 0.0f});
+
+		  light->dir.x = trasfDir.x;
+		  light->dir.y = trasfDir.y;
+		  light->dir.z = trasfDir.z;
 		}
 
 		mat->m[12] = xTemp;
@@ -2441,9 +2470,9 @@ int main(int argc, char* argv[]) {
 	      }else if(manipulationMode == SCALE && isPlane){
 		Picture* plane = (Picture*)mouse.focusedThing;
 		plane->w -= 0.01f;
-	      }else if (manipulationMode == TRANSFORM_XY) {
-		mat->m[14] = mat->m[14] + manipulationStep;
-		
+	      }else if (manipulationMode == TRANSFORM_XY) {   
+		mat->m[14] = mat->m[14] + manipulationStep;  
+		 
 		if(model){
 		  calculateModelAABB(model);
 		}
@@ -2492,13 +2521,16 @@ int main(int argc, char* argv[]) {
 	  }case(SDL_SCANCODE_RIGHT): {  
 	     const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL); 
 
-	     PointLight* light = (PointLight*)mouse.focusedThing;  
+	     Light* light = (Light*)mouse.focusedThing;  
 		   
-	     if(mouse.focusedType == mousePointLightT){ 
+	     /*if(mouse.focusedType == mouseLightT){ 
 			 light->pos.x += .1f;  
-	     }else if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){ 
+	     }else*/
+	     if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT || mouse.focusedType == mouseLightT)){  
 	       Matrix* mat = -1;
 	       bool isPlane = false;
+
+	       Light* light = NULL;
 	       Model* model = NULL; 
 		  
 	       if (mouse.focusedType == mouseModelT) {      
@@ -2511,6 +2543,11 @@ int main(int argc, char* argv[]) {
 		 mat = &plane->mat;
 		 isPlane = true;
 	       }
+	       else if(mouse.focusedType == mouseLightT){
+		light = (Light*)mouse.focusedThing;
+		mat = &light->mat;
+		//		light->dir = (vec3){0.0f, -1.0f, 0.0f};
+	      }
 
 	       float xTemp = mat->m[12];
 	       float yTemp = mat->m[13];
@@ -2521,15 +2558,27 @@ int main(int argc, char* argv[]) {
 		 mat->m[13] = 0;
 		 mat->m[14] = -zTemp;
 
+		 float step = 1.0f;
+
 		 if (manipulationMode == ROTATE_Y) {
-		   rotateY(mat->m, rad(1.0f));
+		   rotateY(mat->m, rad(step));
 		 }
 		 else if (manipulationMode == ROTATE_X) {
-		   rotateX(mat->m, rad(1.0f));
+		   rotateX(mat->m, rad(step));
 		 }
 		 else if (manipulationMode == ROTATE_Z) {
-		   rotateZ(mat->m, rad(1.0f));
+		   rotateZ(mat->m, rad(step));
 		 }
+
+		if(light){
+		  light->dir = (vec3){0.0f, -1.0f, 0.0f};
+		  
+		  vec4 trasfDir = mulmatvec4(light->mat, (vec4){light->dir.x, light->dir.y, light->dir.z, 0.0f});
+
+		  light->dir.x = trasfDir.x;
+		  light->dir.y = trasfDir.y;
+		  light->dir.z = trasfDir.z;
+		}
 
 		 mat->m[12] = xTemp;
 		 mat->m[13] = yTemp;
@@ -2924,7 +2973,7 @@ int main(int argc, char* argv[]) {
 		data->tile->walls[data->side].planes[data->plane].hide = !data->tile->walls[data->side].planes[data->plane].hide;
 	      }
 
-	      collectTilesMats();
+	      batchGeometry();
 	    }
 	    
 	    highlighting = !highlighting;
@@ -2962,7 +3011,7 @@ int main(int argc, char* argv[]) {
 		  mouse.focusedThing = NULL;
 		  mouse.focusedType = 0;
 
-		  collectTilesMats();
+		  batchGeometry();
 		}else if (mouse.focusedType == mousePlaneT) {
 		  Picture* panel = (Picture*)mouse.focusedThing;
 		  int index = 0;
@@ -2987,7 +3036,7 @@ int main(int argc, char* argv[]) {
 		  mouse.focusedThing = NULL;
 		  mouse.focusedType = 0;
 
-		  collectTilesMats();
+		  batchGeometry();
 		}
 	      }else if (mouse.selectedType == mouseWallT) {
 		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
@@ -2996,7 +3045,7 @@ int main(int argc, char* argv[]) {
 		free(data->tile->walls[data->side].planes);
 		data->tile->walls[data->side].planes = NULL;
 
-		collectTilesMats();
+		batchGeometry();
 	      }else if (mouse.selectedType == mouseTileT) {
 		// WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
 		TileMouseData* data = (TileMouseData*)mouse.selectedThing;
@@ -3004,7 +3053,7 @@ int main(int argc, char* argv[]) {
 		setIn(data->tile->ground, data->groundInter, 0);
 		setIn(data->tile->ground, 0, netTile);
 
-		collectTilesMats();
+		batchGeometry();
 	      }else if (mouse.selectedType == mouseBlockT) {
 		TileBlock* data = (TileBlock*)mouse.selectedThing;
 
@@ -3013,7 +3062,7 @@ int main(int argc, char* argv[]) {
 		free(data->vertexes);
 		free(data);
 
-		collectTilesMats();
+		batchGeometry();
 	      }
 	    }
 			      
@@ -3225,7 +3274,7 @@ int main(int argc, char* argv[]) {
 	//manipulationMode = -1;
 	//}
       
-	if ((mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT) && currentKeyStates[SDL_SCANCODE_LCTRL]) {
+	if ((mouse.focusedType == mouseLightT || mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT) && currentKeyStates[SDL_SCANCODE_LCTRL]) {
 
 	  if(currentKeyStates[SDL_SCANCODE_P]){
 	    if(mouse.selectedType == mouseTileT){
@@ -3241,16 +3290,21 @@ int main(int argc, char* argv[]) {
 		Picture* plane = (Picture*)mouse.focusedThing;
 		mat = &plane->mat;
 	      }
+	      else if (mouse.focusedType == mousePlaneT) {
+		Light* light = (Light*)mouse.focusedThing;
+		mat = &light->mat;
+	      }
+	      
 	      TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
 	      vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
 
 	      mat->m[12] = tile.x;
-	      mat->m[13] = tile.y;
-	      mat->m[14] = tile.z;
-
-	      if(model){
-		calculateModelAABB(model);
-	      }
+	      mat->m[13] = tile.y; 
+	      mat->m[14] = tile.z; 
+		    
+	      if(model){  
+		calculateModelAABB(model);     
+	      } 
 	    }
 	  
 	  }else if(currentKeyStates[SDL_SCANCODE_R]){
@@ -3664,34 +3718,70 @@ int main(int argc, char* argv[]) {
       {
 	glUseProgram(shadersId[lightSourceShader]);
 
-	for(int i=0;i<pointLightsSize;i++){
-	  renderCube(pointLights[i].pos);
+	for(int i=0;i<lightsStoreSize;i++){
+	  renderCube(lightsStore[i].pos, lightsStore[i].id);
 	}
     
-	glUseProgram(shadersId[mainShader]);
+	glUseProgram(shadersId[mainShader]); 
 
 	char buf[64];
 
-	uniformInt(mainShader, "pointLightsSize", pointLightsSize);
+	static const char* shaderVarSufixStr[] = {
+	  [pointLightT] = "point",
+	  [dirLightT] = "dir" 
+	};
 
-	for(int i=0;i<pointLightsSize;i++){
-	  //	  printf("%f %f %f,);
-	  sprintf(buf, "pointLights[%i].pos", i);
-	  uniformVec3(mainShader, buf, pointLights[i].pos); 
+	//	uniformVec3(mainShader, "mapCenter", (vec3){gridX/2.0f,0.0f,gridZ/2.0f});
+	uniformFloat(mainShader, "radius", max(gridX/2.0f, gridZ/2.0f));
 
-	  sprintf(buf, "pointLights[%i].color", i);
-	  uniformVec3(mainShader, buf, pointLights[i].color);
-
-	  sprintf(buf, "pointLights[%i].constant", i);
-	  uniformFloat(mainShader, buf, pointLights[i].constant);
-
-	  sprintf(buf, "pointLights[%i].linear", i);
-	  uniformFloat(mainShader, buf, pointLights[i].linear); 
-
-	  sprintf(buf, "pointLights[%i].qaudratic", i);   
-	  uniformFloat(mainShader, buf, pointLights[i].quadratic);      
+	for(int i=0;i<lightsTypeCounter;i++){
+	  sprintf(buf, "%sLightsSize",
+		  shaderVarSufixStr[i]);
+	  uniformInt(mainShader, buf, lightsStoreSizeByType[i]);
 	}
+	 
+	int localLightsCounter[lightsTypeCounter] = { 0 }; 
+	     
+	for(int i=0;i<lightsStoreSize;i++){ 
+	  int index = localLightsCounter[lightsStore[i].type];   
+	   
+	  if(lightsStore[i].type == dirLightT){
+	    sprintf(buf, "%sLights[%i].dir",
+		    shaderVarSufixStr[lightsStore[i].type], index);
+	    uniformVec3(mainShader, buf, lightsStore[i].dir);
 
+	    sprintf(buf, "%sLights[%i].cutOff",
+		    shaderVarSufixStr[lightsStore[i].type], index);
+	    uniformFloat(mainShader, buf, lightsStore[i].cutOff);
+
+	    sprintf(buf, "%sLights[%i].rad",
+		    shaderVarSufixStr[lightsStore[i].type], index);
+	    uniformFloat(mainShader, buf, lightsStore[i].rad); 
+	  }
+	  
+	  sprintf(buf, "%sLights[%i].pos",
+		  shaderVarSufixStr[lightsStore[i].type], index);
+	  //	  uniformVec3(mainShader, buf, (vec3){lightsStore[i].pos});
+	  uniformVec3(mainShader, buf, (vec3){lightsStore[i].mat.m[12],lightsStore[i].mat.m[13], lightsStore[i].mat.m[14],});  
+
+	  sprintf(buf, "%sLights[%i].color",
+		  shaderVarSufixStr[lightsStore[i].type], index);
+	  uniformVec3(mainShader, buf, lightsStore[i].color);
+
+	  sprintf(buf, "%sLights[%i].constant",
+		  shaderVarSufixStr[lightsStore[i].type], index);
+	  uniformFloat(mainShader, buf, lightsStore[i].constant);
+
+	  sprintf(buf, "%sLights[%i].linear",
+		  shaderVarSufixStr[lightsStore[i].type], index); 
+	  uniformFloat(mainShader, buf, lightsStore[i].linear); 
+
+	  sprintf(buf, "%sLights[%i].qaudratic",
+		  shaderVarSufixStr[lightsStore[i].type], index);   
+	  uniformFloat(mainShader, buf, lightsStore[i].quadratic);
+	  
+	  localLightsCounter[lightsStore[i].type]++;
+	}
       }
 
       glUniform3f(cameraPos, argVec3(curCamera->pos));
@@ -3818,268 +3908,9 @@ int main(int argc, char* argv[]) {
 
       glBindTexture(GL_TEXTURE_2D, 0);
     }
-
-    // snowParticles rendering
-    if(enviromental.snow)
-      {
-	glActiveTexture(solidColorTx);
-	glBindTexture(GL_TEXTURE_2D, solidColorTx);
-
-	setSolidColorTx(whiteColor, 1.0f);
-
-	glBindVertexArray(snowFlakesMeshVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, snowFlakesMeshVBO); 
-
-	int vertexIndex=0;
-	for (int loop = 0; loop < snowAmount; loop++)
-	  {
-	    if (snowParticle[loop].active) {
-	      float x = snowParticle[loop].x;
-	      float y = snowParticle[loop].y;
-	      float z = snowParticle[loop].z;
-
-	      snowMeshVertixes[vertexIndex] = x;
-	      snowMeshVertixes[vertexIndex+1] = y;
-	      snowMeshVertixes[vertexIndex+2] = z;
-	      
-	      snowMeshVertixes[vertexIndex+3] = x;
-	      snowMeshVertixes[vertexIndex+4] = y - 0.015f / 4.0f;
-	      snowMeshVertixes[vertexIndex+5] = z;
-
-	      vertexIndex += 6;
-		      
-	      vec3i gridIndexes = xyz_coordsToIndexes(x, y, z);
-
-	      GroundType type = -1;
-
-	      //	      if (gridIndexes.y < gridY - 1) {
-		//		type = valueIn(grid[gridIndexes.y + 1][gridIndexes.z][gridIndexes.x]->ground, 0);
-	      //	      }
-
-	      if (snowParticle[loop].y < 0.0f || type == texturedTile) {
-		snowParticle[loop].life -= snowParticle[loop].fade / 10.0f; 
-
-		if (snowParticle[loop].life < 0.0f) {
-		  snowParticle[loop].active = true;
-		  snowParticle[loop].life = 1.0f;
-		  snowParticle[loop].fade = (float)(rand() % 100) / 1000.0f + 0.003f;
-
-		  snowParticle[loop].x = (float)(rand() % gridX) + (float)(rand() % 100 / 1000.0f);
-		  snowParticle[loop].y = (gridY - 1) * floorH;
-		  snowParticle[loop].z = (float)(rand() % gridZ) + (float)(rand() % 100 / 1000.0f);
-		}
-	      }
-	      else {
-		snowParticle[loop].y += snowSpeed / (1000 / 2.0f);
-	      }
-	    }
-	  }
-	/*
-	  float x = snowParticle[loop].x;
-	  float y = snowParticle[loop].y;
-	  float z = snowParticle[loop].z;
-	*/
-	Matrix out = IDENTITY_MATRIX;
-
-	out.m[12] = 0.0;
-	out.m[13] = 0.0;
-	out.m[14] = 0.0f;
-		
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
-	
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 2 * 3 * snowAmount
-		     , snowMeshVertixes, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-	glEnableVertexAttribArray(0);
-	
-	glDrawArrays(GL_LINES, 0, 2 * snowAmount);
-
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    
-	glBindTexture(GL_TEXTURE_2D, 0);
-      }
-
-    for(int i=0;i<curModelsSize;i++){
-      float intersectionDistance = 0.0f;
-
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i].lb, curModels[i].rt, NULL, &intersectionDistance);
-
-      int name = curModels[i].name;
-
-      if(isIntersect && minDistToCamera > intersectionDistance){
-	glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-	glStencilMask(0x00);
-	glDisable(GL_DEPTH_TEST);
-
-	mouse.selectedThing = &curModels[i];
-	mouse.selectedType = mouseModelT;
-
-	minDistToCamera = intersectionDistance;
-	
-	glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
-
-	glBindVertexArray(loadedModels1D[name].VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
-
-	Matrix borderMat;
-	memcpy(borderMat.m, curModels[i].mat.m, sizeof(float) * 16);
-
-	float xTemp = borderMat.m[12];
-	float yTemp = borderMat.m[13];
-	float zTemp = borderMat.m[14];
-
-	borderMat.m[12] = 0;
-	borderMat.m[13] = 0;
-	borderMat.m[14] = 0;
-	
-	//	scale(borderMat.m, 1.05f, 1.05f, 1.05f);
-
-	borderMat.m[12] = xTemp;
-	borderMat.m[13] = yTemp;
-	borderMat.m[14] = zTemp;
-
-	glUseProgram(shadersId[borderShader]);
-	
-	glUniform3f(borderColor, redColor);
-	
-	glUniformMatrix4fv(borderModelLoc, 1, GL_FALSE, borderMat.m);     
-	 
-	glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size); 
-
-	glStencilMask(0xFF);
-	glStencilFunc(GL_ALWAYS, 1, 0xFF);   
-	glEnable(GL_DEPTH_TEST);
-	  
-	glUseProgram(shadersId[mainShader]);
-	glStencilMask(0x00);
-	
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-	break;
-      }
-    }
-
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);  
-    glStencilFunc(GL_ALWAYS, 1, 0xFF); // all fragments should pass the stencil test
-    glStencilMask(0xFF);
     
-     for(int i=0;i<curModelsSize;i++){
-       
-	int name = curModels[i].name;
-	glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
-
-	glStencilFunc(GL_ALWAYS, 1, 0xFF);
-	glStencilMask(0xFF);
-	
-	glBindVertexArray(loadedModels1D[name].VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
-	
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, curModels[i].mat.m);
-	
-	glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	glBindTexture(GL_TEXTURE_2D, 0);   
-     }  
-    } 
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
-    glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
-    // render to fbo 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
-    glClear(GL_COLOR_BUFFER_BIT);     
-    glDisable(GL_DEPTH_TEST);
-     
-    glUseProgram(shadersId[screenShader]);
-    glUniform1f(screenShaderDof, -(dofPercent - 1.0f));
-
-    float seed = (float)(rand() % 1000 + 1) / 1000.0f;
-
-    glUniform1f(screenShaderTime, seed); 
-    
-    glBindVertexArray(quad.VAO); 
-    glBindTexture(GL_TEXTURE_2D, screenTexture);    
-    glDrawArrays(GL_TRIANGLES, 0, 6);    
-	 
-
-    // setup context text
-    {
-      if(mouse.focusedThing){         
-	switch(mouse.focusedType){             
-	case(mouseModelT):{  
-	  sprintf(contextBelowText, modelContextText);      
-	  contextBelowTextH = 2;
-	   
-	  break;
-	} case(mousePlaneT):{
-	    sprintf(contextBelowText, planeContextText);
-	    contextBelowTextH = 2;
-	   
-	    break;
-	  }
-	default: break;
-	}
-      }else if(mouse.selectedThing){
-	switch(mouse.selectedType){
-	case(mouseWallT):{
-	  //WallMouseData* data = (WallMouseData*) mouse.selectedThing;
-	  /*
-	  bool itHasBlock = data->tile->block;
-	  vec2i oppositeTile;
-	  
-	  if (!itHasBlock && oppositeTileTo((vec2i) { data->grid.x, data->grid.z }, data->side, &oppositeTile, NULL)) {
-	    Tile* tile = grid[curFloor][oppositeTile.z][oppositeTile.x];
-	    itHasBlock = tile->block;
-	  }*/
-
-	  //sprintf(contextBelowText, selectedWallContextText, itHasBlock ? "[LCtrl + H] aling to block" : "");
-	  //contextBelowTextH = 1;
-	  
-	  break;
-	}case(mouseTileT):{
-	   sprintf(contextBelowText, tileContextText);
-	   contextBelowTextH = 1;
-	  
-	   break;
-	 }case(mouseBlockT):{
-	    sprintf(contextBelowText, blockContextText);
-	    contextBelowTextH = 1;
-	  
-	    break;
-	  }
-	default: break;
-	}
-      }else{
-	sprintf(contextBelowText, generalContextText);
-	contextBelowTextH = 1; 
-      }
-    }
-
-    /*
-      if(minDistType == WallEl){
-      mouse.selectedTile = NULL;
-      mouse.gridIntersect = (vec2i){ -1,-1 };
-
-      mouse.intersection = (vec3){ -1,-1 };
-      mouse->groundInter = -1;
-      }else if(minDistType == TileEl){
-      mouse.wallSide = -1;
-      mouse.wallTile = (vec3i){ -1,-1,-1 };
-      mouse.wallType = -1;
-      mouse.wallTx = mouse.wallTx = -1;
-      }*/
-
     // render mouse.brush
-    if(mouse.selectedType == mouseTileT)
-      {
+    if(mouse.selectedType == mouseTileT){
 	TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
 
 	const vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
@@ -4396,80 +4227,255 @@ int main(int argc, char* argv[]) {
 
 	    memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x]->walls[selectedSide], &wal, sizeof(Wall));
 
-	    collectTilesMats();
+	    batchGeometry();
 	  }
 	}
       }
 
-    // higlight drawing
-    {
-      glActiveTexture(solidColorTx);
-      glBindTexture(GL_TEXTURE_2D, solidColorTx);
-      setSolidColorTx(redColor, 1.0f);
 
-      // higlight intersected wall with min dist
-      if(highlighting && mouse.selectedType == mouseWallT)
-	{
-	  WallMouseData* data = (WallMouseData*) mouse.selectedThing;
-	  //mouse.interDist = minIntersectionDist;
-      
-	  vec3 pos = xyz_indexesToCoords(data->grid.x, data->grid.y, data->grid.z);
-		
-	  Matrix out = IDENTITY_MATRIX;
+    // snowParticles rendering
+    if(enviromental.snow)
+      {
+	glActiveTexture(solidColorTx);
+	glBindTexture(GL_TEXTURE_2D, solidColorTx);
 
-	  // translate without mult
-	  out.m[12] = pos.x;
-	  out.m[13] = pos.y;
-	  out.m[14] = pos.z;
-		
-	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+	setSolidColorTx(whiteColor, 1.0f);
 
-	  glBindVertexArray(wallHighlight[data->side].VAO);
-	  glBindBuffer(GL_ARRAY_BUFFER, wallHighlight[data->side].VBO);
-	  glDrawArrays(GL_TRIANGLES, 0, wallHighlight[data->side].VBOsize);
-	  //vec3* wallPos = wallPosBySide(pos, mouse.wallSide, bBlockH, wallD, bBlockD, bBlockW);
-	  //  renderWallBorder(wallPos,mouse.wallSide, selBorderT, redColor);
-	}else{
-	mouse.interDist = 0.0f;
-      }
+	glBindVertexArray(snowFlakesMeshVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, snowFlakesMeshVBO); 
 
-      //highlight intersected tile
-  
-      if(highlighting && mouse.selectedType == mouseTileT){
-	TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
+	int vertexIndex=0;
+	for (int loop = 0; loop < snowAmount; loop++)
+	  {
+	    if (snowParticle[loop].active) {
+	      float x = snowParticle[loop].x;
+	      float y = snowParticle[loop].y;
+	      float z = snowParticle[loop].z;
 
-	vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
+	      snowMeshVertixes[vertexIndex] = x;
+	      snowMeshVertixes[vertexIndex+1] = y;
+	      snowMeshVertixes[vertexIndex+2] = z;
+	      
+	      snowMeshVertixes[vertexIndex+3] = x;
+	      snowMeshVertixes[vertexIndex+4] = y - 0.015f / 4.0f;
+	      snowMeshVertixes[vertexIndex+5] = z;
 
-	glBindVertexArray(tileHighlight[tileData->groundInter - 1].VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, tileHighlight[tileData->groundInter-1].VBO);
-		
+	      vertexIndex += 6;
+		      
+	      vec3i gridIndexes = xyz_coordsToIndexes(x, y, z);
+
+	      GroundType type = -1;
+
+	      //	      if (gridIndexes.y < gridY - 1) {
+		//		type = valueIn(grid[gridIndexes.y + 1][gridIndexes.z][gridIndexes.x]->ground, 0);
+	      //	      }
+
+	      if (snowParticle[loop].y < 0.0f || type == texturedTile) {
+		snowParticle[loop].life -= snowParticle[loop].fade / 10.0f; 
+
+		if (snowParticle[loop].life < 0.0f) {
+		  snowParticle[loop].active = true;
+		  snowParticle[loop].life = 1.0f;
+		  snowParticle[loop].fade = (float)(rand() % 100) / 1000.0f + 0.003f;
+
+		  snowParticle[loop].x = (float)(rand() % gridX) + (float)(rand() % 100 / 1000.0f);
+		  snowParticle[loop].y = (gridY - 1) * floorH;
+		  snowParticle[loop].z = (float)(rand() % gridZ) + (float)(rand() % 100 / 1000.0f);
+		}
+	      }
+	      else {
+		snowParticle[loop].y += snowSpeed / (1000 / 2.0f);
+	      }
+	    }
+	  }
+	/*
+	  float x = snowParticle[loop].x;
+	  float y = snowParticle[loop].y;
+	  float z = snowParticle[loop].z;
+	*/
 	Matrix out = IDENTITY_MATRIX;
 
-	// translate without mult
-	out.m[12] = tile.x;
-	out.m[13] = tile.y;
-	out.m[14] = tile.z;
+	out.m[12] = 0.0;
+	out.m[13] = 0.0;
+	out.m[14] = 0.0f;
 		
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+	
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 2 * 3 * snowAmount
+		     , snowMeshVertixes, GL_STATIC_DRAW);
 
-	glDrawArrays(GL_TRIANGLES, 0, tileHighlight[tileData->groundInter-1].VBOsize);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+	
+	glDrawArrays(GL_LINES, 0, 2 * snowAmount);
 
-	//}
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	    
+	glBindTexture(GL_TEXTURE_2D, 0);
       }
+
+    for(int i=0;i<curModelsSize;i++){
+      float intersectionDistance = 0.0f;
+
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i].lb, curModels[i].rt, NULL, &intersectionDistance);
+
+      int name = curModels[i].name;
+
+      if(isIntersect && minDistToCamera > intersectionDistance){
+	glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+	glStencilMask(0x00);
+	glDisable(GL_DEPTH_TEST);
+
+	mouse.selectedThing = &curModels[i];
+	mouse.selectedType = mouseModelT;
+
+	minDistToCamera = intersectionDistance;
+	
+	glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
+
+	glBindVertexArray(loadedModels1D[name].VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
+
+	Matrix borderMat;
+	memcpy(borderMat.m, curModels[i].mat.m, sizeof(float) * 16);
+
+	float xTemp = borderMat.m[12];
+	float yTemp = borderMat.m[13];
+	float zTemp = borderMat.m[14];
+
+	borderMat.m[12] = 0;
+	borderMat.m[13] = 0;
+	borderMat.m[14] = 0;
+	
+	//	scale(borderMat.m, 1.05f, 1.05f, 1.05f);
+
+	borderMat.m[12] = xTemp;
+	borderMat.m[13] = yTemp;
+	borderMat.m[14] = zTemp;
+
+	glUseProgram(shadersId[borderShader]);
+	
+	glUniform3f(borderColor, redColor);
+	
+	glUniformMatrix4fv(borderModelLoc, 1, GL_FALSE, borderMat.m);     
+	 
+	glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size); 
+
+	glStencilMask(0xFF);
+	glStencilFunc(GL_ALWAYS, 1, 0xFF);   
+	glEnable(GL_DEPTH_TEST);
+	  
+	glUseProgram(shadersId[mainShader]);
+	glStencilMask(0x00);
+	
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	break;
+      }
+    }
+
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);  
+    glStencilFunc(GL_ALWAYS, 1, 0xFF); // all fragments should pass the stencil test
+    glStencilMask(0xFF);
     
-      glBindTexture(GL_TEXTURE_2D, 0);
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glBindVertexArray(0);
-    }
+     for(int i=0;i<curModelsSize;i++){
+       
+	int name = curModels[i].name;
+	glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
 
-    // process logic of objs
-    for(int i=0;i<objsStoreSize;i++){
-      Object* obj = objsStore[i];
+	glStencilFunc(GL_ALWAYS, 1, 0xFF);
+	glStencilMask(0xFF);
+	
+	glBindVertexArray(loadedModels1D[name].VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
+	
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, curModels[i].mat.m);
+	
+	glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
 
-      if(obj->anim.frames != 0){
-	obj->anim.frames--;
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);   
+     }  
+    } 
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
+    glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    // render to fbo 
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
+    glClear(GL_COLOR_BUFFER_BIT);     
+    glDisable(GL_DEPTH_TEST);
+     
+    glUseProgram(shadersId[screenShader]);
+    glUniform1f(screenShaderDof, -(dofPercent - 1.0f));
+
+    float seed = (float)(rand() % 1000 + 1) / 1000.0f;
+
+    glUniform1f(screenShaderTime, seed); 
+    
+    glBindVertexArray(quad.VAO); 
+    glBindTexture(GL_TEXTURE_2D, screenTexture);    
+    glDrawArrays(GL_TRIANGLES, 0, 6);    
+	 
+
+    // setup context text
+    {
+      if(mouse.focusedThing){         
+	switch(mouse.focusedType){             
+	case(mouseModelT):{  
+	  sprintf(contextBelowText, modelContextText);      
+	  contextBelowTextH = 2;
+	   
+	  break;
+	} case(mousePlaneT):{
+	    sprintf(contextBelowText, planeContextText);
+	    contextBelowTextH = 2;
+	   
+	    break;
+	  }
+	default: break;
+	}
+      }else if(mouse.selectedThing){
+	switch(mouse.selectedType){
+	case(mouseTileT):{
+	   sprintf(contextBelowText, tileContextText);
+	   contextBelowTextH = 1;
+	  
+	   break;
+	 }case(mouseBlockT):{
+	    sprintf(contextBelowText, blockContextText);
+	    contextBelowTextH = 1;
+	  
+	    break;
+	  }
+	default: break;
+	}
+      }else{
+	sprintf(contextBelowText, generalContextText);
+	contextBelowTextH = 1; 
       }
     }
+
+    /*
+      if(minDistType == WallEl){
+      mouse.selectedTile = NULL;
+      mouse.gridIntersect = (vec2i){ -1,-1 };
+
+      mouse.intersection = (vec3){ -1,-1 };
+      mouse->groundInter = -1;
+      }else if(minDistType == TileEl){
+      mouse.wallSide = -1;
+      mouse.wallTile = (vec3i){ -1,-1,-1 };
+      mouse.wallType = -1;
+      mouse.wallTx = mouse.wallTx = -1;
+      }*/
+
     
     /*
     // render player
@@ -4629,23 +4635,25 @@ int main(int argc, char* argv[]) {
 	      wallData->tile->walls[wallData->side].planes[wallData->plane].txIndex = texture->index1D;
 	    }
 
-	    collectTilesMats();
+	    batchGeometry();
 	  }else if(mouse.selectedType == mouseTileT){
 	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing; 
+
+		grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1, sizeof(Tile));
 	    
-	    setIn(tileData->tile->ground, 0, texturedTile);
-	    setIn(tileData->tile->ground, tileData->groundInter, texture->index1D);
-	    collectTilesMats();
+	    setIn(grid[curFloor][tileData->grid.z][tileData->grid.x]->ground, 0, texturedTile);
+		setIn(grid[curFloor][tileData->grid.z][tileData->grid.x]->ground, tileData->groundInter, texture->index1D);
+	    batchGeometry();
 	  }else if(mouse.selectedType == mouseBlockT){
 	    TileBlock* block = (TileBlock*)mouse.selectedThing; 
 
 	    block->txIndex = texture->index1D;
-	    collectTilesMats();
+	    batchGeometry();
 	  }else if(mouse.selectedType == mousePlaneT){
 	    Picture* plane = (Picture*)mouse.selectedThing;
 
 	    plane->txIndex = texture->index1D;
-	    collectTilesMats();
+	    batchGeometry();
 	  }
 	}
 	  
@@ -4658,7 +4666,7 @@ int main(int argc, char* argv[]) {
 	   tileData->tile->block = block;
 		 
 	   mouse.brushThing = constructNewBlock(block->type, block->rotateAngle);
-	   collectTilesMats();
+	   batchGeometry();
 	 }
 	       
 	 break;
@@ -4684,9 +4692,9 @@ int main(int argc, char* argv[]) {
 	 sprintf(buf, "Focused plane id: [%d] Mode: [%s] Step: [%f]", data->id, manipulationModeStr[manipulationMode], manipulationStep);
 	
 	 break;
-       }case(mousePointLightT):{
-	  PointLight* light = (PointLight*)mouse.focusedThing;
-	  sprintf(buf, "Focused point light: [%d]", light->id);
+       }case(mouseLightT):{
+	  Light* light = (Light*)mouse.focusedThing;
+	  sprintf(buf, "Focused light [%s:%d] Mode: [%s] Step: [%f]", lightTypesStr[light->type],light->id, manipulationModeStr[manipulationMode], manipulationStep);
 	
 	  break;
 	}
@@ -4694,12 +4702,14 @@ int main(int argc, char* argv[]) {
       }
 
       renderText(buf, -1.0f, 1.0f - baseYPad, 1.0f);
-    }else if(mouse.selectedThing && !curMenu && hints){
-      char buf[164];
+    }else if(mouse.selectedThing && !curMenu && hints){ 
+      char buf[164]; 
 
       switch(mouse.selectedType){
-      case(mousePointLightT):{
-	sprintf(buf, "Selected light: [0]");
+      case(mouseLightT):{
+		  Light* light = (Light*)mouse.selectedThing;  
+
+	sprintf(buf, "Selected light [%s:%d]",lightTypesStr[light->type],light->id);
 	
 	break;
       }
@@ -5010,24 +5020,27 @@ int main(int argc, char* argv[]) {
       if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= lightsTypeCounter){
 	if(mouse.clickL){
 
-	  if(selectedIndex-1 == pointLightT){
-	    pointLightsSize++;
+	  lightsStoreSize++;
 
-	    if(!pointLights){
-	      pointLights = malloc(sizeof(PointLight));
-	    }else{
-	      pointLights = realloc(pointLights, sizeof(PointLight) * pointLightsSize);
-	    }
+	  if(!lightsStore){
+	    lightsStore = malloc(sizeof(Light));
+	  }else{
+	    lightsStore = realloc(lightsStore, sizeof(Light) * lightsStoreSize);
+	  }
 	    
-	    memcpy(&pointLights[pointLightsSize-1], &pointLightsDef, sizeof(PointLight));
-	    pointLights[pointLightsSize-1].pos = curCamera->pos;
-	    pointLights[pointLightsSize-1].id = pointLightsSize-1;
+	  memcpy(&lightsStore[lightsStoreSize-1], &lightDef, sizeof(Light));
+	  lightsStore[lightsStoreSize-1].pos = curCamera->pos;
+	  lightsStore[lightsStoreSize-1].id = lightsStoreSize-1;
+	  lightsStore[lightsStoreSize-1].type = selectedIndex-1;
+	  lightsStoreSizeByType[selectedIndex-1]++;
+	  
+	  lightsStore[lightsStoreSize-1].mat = IDENTITY_MATRIX;
+	  lightsStore[lightsStoreSize-1].mat.m[12] = curCamera->pos.x;
+	  lightsStore[lightsStoreSize-1].mat.m[13] = curCamera->pos.y;
+	  lightsStore[lightsStoreSize-1].mat.m[14] = curCamera->pos.z;
 	    
-	    mouse.focusedType = mousePointLightT;
-	    mouse.focusedThing = &pointLights[pointLightsSize-1];
-	  }else if(selectedIndex-1 == dirLightT){
-	    // ....
-	  } 
+	  mouse.focusedType = mouseLightT;
+	  mouse.focusedThing = &lightsStore[lightsStoreSize-1];
 	  
 	  curMenu->open = false; 
 	  curMenu = NULL;
@@ -6116,7 +6129,7 @@ vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tile
   return wallPos;
 }
 
-void renderCube(vec3 pos){
+void renderCube(vec3 pos, int lightId){
   glActiveTexture(solidColorTx);
   glBindTexture(GL_TEXTURE_2D, solidColorTx);
   setSolidColorTx(1.0f,1.0f,1.0f, 1.0f);
@@ -6124,12 +6137,13 @@ void renderCube(vec3 pos){
   glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
   glBindVertexArray(cube.VAO);
 
-  Matrix out2 = IDENTITY_MATRIX;
+  //  Matrix out2 = IDENTITY_MATRIX;
       
-  out2.m[12] = pos.x;
-  out2.m[13] = pos.y;
-  out2.m[14] = pos.z;
+  //  out2.m[12] = pos.x;
+  //  out2.m[13] = pos.y;
+  //  out2.m[14] = pos.z;
 
+  /*
   float w = .1f;
   float h = .1f;
   float d = .1f;
@@ -6137,19 +6151,20 @@ void renderCube(vec3 pos){
   float hW = w/2;
   float hH = h/2;
   float hD = d/2;
+  */
   
-  vec3 rt = { out2.m[12] + hW, out2.m[13] + hH, out2.m[14] + hD };
+  //  vec3 rt = { out2.m[12] + hW, out2.m[13] + hH, out2.m[14] + hD };
 
   // light inter
-  bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir,(vec3){    -hW, -hH, -hD},rt, NULL, NULL);
+  //  bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir,(vec3){    -hW, -hH, -hD},rt, NULL, NULL);
 
-  if(isIntersect){
-      mouse.selectedType = mousePointLightT;
-      mouse.selectedThing = NULL;
+  //  if(isIntersect){
+  //      mouse.selectedType = mouseLightT;
+      //  mouse.selectedThing = &lightsStore[lightId];
       //      printf("LB %f %f %f RT %f %f %f \n", argVec3(lightSourcePos), argVec3(rt));
-  }
+  //  }
   
-  glUniformMatrix4fv(lightModelLoc, 1, GL_FALSE, out2.m);
+  glUniformMatrix4fv(lightModelLoc, 1, GL_FALSE, lightsStore[lightId].mat.m);
 
   glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
 
@@ -6236,7 +6251,7 @@ GLuint loadShader(GLenum shaderType, const char* filename) {
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
     char* log = (char*)malloc(logLength);
     glGetShaderInfoLog(shader, logLength, NULL, log);
-    fprintf(stderr, "Failed to compile shader: %s\n", log);
+    fprintf(stderr, "Failed to compile \"%s\" shader: %s\n",filename, log);
     free(log);
     glDeleteShader(shader);
     return 0;
@@ -7286,7 +7301,7 @@ bool createMap(int newX, int newY, int newZ){
   
   initSnowParticles();
 
-  collectTilesMats();
+  batchGeometry();
 
   return true;
 }
@@ -8409,7 +8424,7 @@ void initGrid(int sx, int sy, int sz){
   }
 }
 
-void collectTilesMats(){
+void batchGeometry(){
   float texturedTileVerts[] = {
     bBlockW, 0.0f, bBlockD , 0.0f, 1.0f, -0.000000, 1.000000, -0.000000,
     0.0f, 0.0f, bBlockD , 1.0f, 1.0f, -0.000000, 1.000000, -0.000000, 
@@ -8815,11 +8830,11 @@ void uniformVec3(int shader, char* var, vec3 value){
 };
 
 void uniformFloat(int shader, char* var, float value) {
-	int uni = glGetUniformLocation(shadersId[shader], var);
-	glUniform1f(uni, value);
+  int uni = glGetUniformLocation(shadersId[shader], var);
+  glUniform1f(uni, value);
 };
 
 void uniformInt(int shader, char* var, int value) {
-	int uni = glGetUniformLocation(shadersId[shader], var);
-	glUniform1i(uni,value);
+  int uni = glGetUniformLocation(shadersId[shader], var);
+  glUniform1i(uni,value);
 };

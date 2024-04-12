@@ -116,7 +116,7 @@ typedef enum{
 typedef enum{
   pointLightT, dirLightT,
   lightsTypeCounter
-} MenuTypes;
+} LightType;
 
 const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps", [angledRoofT] = "Angle Roof" };
 
@@ -562,8 +562,7 @@ typedef enum {
   mouseBlockT,
   mousePlaneT,
   mouseTileT,
-  mousePointLightT,
-  mouseDirLightT,
+  mouseLightT,
 } MouseSelectionType;
 
 typedef enum {
@@ -662,12 +661,20 @@ typedef struct{
   vec3 pos;
   vec3 color;
   
+  vec3 dir;
+  LightType type;
+
+  Matrix mat;
+  
   float constant;
   float linear;
   float quadratic;
-} PointLight;
 
-void renderCube(vec3 pos);
+  float rad;
+  float cutOff;
+} Light;
+
+void renderCube(vec3 pos, int lightId);
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist);
 
@@ -976,7 +983,7 @@ const int leftWallMap[2][6] = {
    */
 
 void setupAABBAndMatForJoint(vec2i grid, Side side);
-void collectTilesMats();
+void batchGeometry();
 void initGrid(int sx, int sy, int sz);
 
 vec3 calculateNormal(vec3 a, vec3 b, vec3 c);

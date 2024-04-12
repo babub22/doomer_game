@@ -17,6 +17,8 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
 
+//uniform vec3 mapCenter;
+
 void main(void)
 {
 TexCoord= aTexCoord;
@@ -25,5 +27,5 @@ Normal = aNormal;
 FragPos = vec3(model * vec4(aPos, 1.0));
 gl_Position = proj * view  * model * vec4(aPos, 1.0);
 
-vertexToPlayer = cameraPos - vec3(gl_Position[0], gl_Position[1], gl_Position[2]);
+vertexToPlayer = cameraPos - FragPos;
 }
