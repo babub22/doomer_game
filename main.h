@@ -312,6 +312,8 @@ typedef struct{
   
   int vertexNum;
   float* vBuf; // with size vertexNum * 5
+  
+  int attrSize; // 8 - for normals 5 - just vert + tx
 } VPair;
 
 typedef struct {
@@ -377,9 +379,9 @@ typedef struct {
   int rotateAngle;
   
   int txIndex;
-
-  float* vertexes;
-  int vertexesSize;
+  
+  vec3 lb;
+  vec3 rt;
 } TileBlock;
 
 typedef struct{
@@ -452,7 +454,7 @@ typedef struct{
 } TileMouseData;
 
 typedef enum{
-  netTile = 1,
+  netTileT = 1,
   texturedTile,
 } GroundType;
 
@@ -610,8 +612,6 @@ typedef struct{
   vec2 cursor;
 } Mouse;
 
- TileBlock* tileBlocksTempl;
-int tileBlocksTemplSize;
 
 typedef struct{
   float w, h, d;
@@ -672,6 +672,11 @@ typedef struct{
 
   float rad;
   float cutOff;
+
+  bool off; // on/off light
+
+  vec3 lb;
+  vec3 rt;
 } Light;
 
 void renderCube(vec3 pos, int lightId);
@@ -777,7 +782,8 @@ void assembleWallJointVBO();
 
 #define blueColor 0.0f, 0.0f, 1.0f
 
-#define whiteColor 1.0f, 1.0f, 1.0f, 1.0f
+#define whiteColor 1.0f, 1.0f, 1.0f
+#define greyColor 0.5f, 0.5f, 0.5f
 
 #define darkPurple 0.1f, 0.0f, 0.1f
 
@@ -997,7 +1003,7 @@ typedef struct{
 
 Geometry* geometry;
 
-void writeToWallsPairs(WallType type, int plane, int bufSize, float* buf);
+void attachNormalsToBuf(VPair* VPairBuf, int plane, int bufSize, float* buf);
 void createTexture(int* tx,int w,int h, void*px);
 
 #define rgbToGl(r,g,b) r/255.0f, g/255.0f, b/255.0f
@@ -1005,3 +1011,6 @@ void createTexture(int* tx,int w,int h, void*px);
 void uniformVec3(int shader, char* var, vec3 value);
 void uniformFloat(int shader, char* var, float value);
 void uniformInt(int shader, char* var, int value);
+
+
+void assembleBlocks();

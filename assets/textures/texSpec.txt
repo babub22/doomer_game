@@ -7,8 +7,7 @@ Zemlia1.png Tex
 Beton.png Tex
 Kamen2.png Tex
 Sifer1.png Tex
-Okno+Kamen2.png Tex
-DoorFrame.png Tex
-Dver.png Tex
+Door.png Tex
+Okno.png Tex
 Ikona.png Vyveski
 Bratok.png Vyveski

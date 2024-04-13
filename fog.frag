@@ -101,11 +101,17 @@ return (ambient + diffuse + specular);
 }  
 
 void main(void){
+vec4 tex = texture2D(colorMap, TexCoord);
+vec3 color = tex.rgb;	
+
+if(tex.a == 0.0){
+		  discard;
+}
+
 vec3 viewDir = normalize(cameraPos - FragPos);
 vec3 norm = normalize(Normal);
 
 vec3 res;
-vec3 tex = texture2D(colorMap, TexCoord).rgb;
 
 for(int i=0;i<dirLightsSize;i++){
 res+= dirLightCalc(dirLights[i], norm, viewDir);
@@ -120,7 +126,7 @@ res+= pointLightCalc(pointLights[i], norm, viewDir);
 float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
-gl_FragColor = vec4(res * tex * fogAttenuation + (.5 * (1.0-fogAttenuation)),1.0f);
+gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
 }
 /*
 
