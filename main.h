@@ -153,9 +153,10 @@ const char* wallPlanesStr[] = {
 typedef enum{
   winFrontCapPlane, winFrontBotPlane,
   winBackCapPlane, winBackBotPlane,
+  winCenterFrontPlane, winCenterBackPlane,
   winInnerTopPlane, winInnerBotPlane,
   winTopPlane, winFrontPodokonik, winBackPodokonik,
-  winCenterPlane, winPlaneCounter
+  winPlaneCounter
   //winLeftPlane, winRightPlane,
 } WindowPlanes;
 
@@ -165,7 +166,8 @@ const char* windowPlanesStr[] = {
   [winFrontBotPlane]= "Front-bot plane",
   [winBackCapPlane]= "Back-cap plane",
   [winBackBotPlane]= "Back-bot plane",
-  [winCenterPlane]= "Center plane" ,
+  [winCenterBackPlane]= "Center-back plane" ,
+  [winCenterFrontPlane] = "Center-front plane" ,
   [winInnerBotPlane]= "Inner-bot plane",
   [winInnerTopPlane]= "Inner-top plane",
   
@@ -174,9 +176,9 @@ const char* windowPlanesStr[] = {
 };
 
 typedef enum{
+  doorCenterFrontPlane, doorCenterBackPlane,
   doorTopPlane,
   doorFrontPlane, doorBackPlane,
-  doorCenterPlane,
   doorInnerTopPlane,
   doorPlaneCounter
 } DoorPlanes;
@@ -204,7 +206,8 @@ const char* doorPlanesStr[] = {
   [winTopPlane]= "Top plane",
   [doorFrontPlane]= "Front plane",
   [doorBackPlane]= "Back plane",
-  [doorCenterPlane]= "Center plane" ,
+  [doorCenterBackPlane]= "Center-back plane" ,
+  [doorCenterFrontPlane]= "Center-front plane" ,
 };
 
 typedef struct{
@@ -690,7 +693,6 @@ bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSid);
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
 Object* doorConstructor(vec3 pos, bool opened);
-
 
 vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tileW);
 
