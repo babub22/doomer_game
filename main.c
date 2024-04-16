@@ -2535,17 +2535,18 @@ int main(int argc, char* argv[]) {
 		    block->mat.m[13] = yTemp;
 		    block->mat.m[14] = zTemp;
 
-		    if(block->rotateAngle == 90){
-		      block->mat.m[14] += bBlockW;
-		    }else if(block->rotateAngle == 180){
-		      block->mat.m[12] += bBlockW;
-		    }else if(block->rotateAngle == 270){
-		      block->mat.m[14] -= bBlockD;
-		    }else{
-		      block->mat.m[12] -= bBlockW;
-		    }
+		    static const float increaseData[4][2] = {
+		      { -bBlockW, 0.0f }, // [12] [14]
+		      { 0.0f, bBlockW },
+		      { bBlockW, 0.0f },
+		      { 0.0f, -bBlockD }
+		    };
+
+		    int index = block->rotateAngle / 90;
+		    block->mat.m[12] += increaseData[index][0];
+		    block->mat.m[14] += increaseData[index][1];
 		
-	      calculateAABB(block->mat, blocksVPairs[block->type].pairs[0].vBuf, blocksVPairs[block->type].pairs[0].vertexNum, blocksVPairs[block->type].pairs[0].attrSize, &block->lb, &block->rt);
+		    calculateAABB(block->mat, blocksVPairs[block->type].pairs[0].vBuf, blocksVPairs[block->type].pairs[0].vertexNum, blocksVPairs[block->type].pairs[0].attrSize, &block->lb, &block->rt);
 		}
 
 	      }
@@ -2650,15 +2651,15 @@ int main(int argc, char* argv[]) {
 	     break; 
 	   }
 	  case(SDL_SCANCODE_MINUS): {
-	    	     const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-	     if(currentKeyStates[SDL_SCANCODE_LCTRL] && dofPercent > 0.0f){
-	       dofPercent -= 0.01f;
-	     }else{
+	    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+	    if(currentKeyStates[SDL_SCANCODE_LCTRL] && dofPercent > 0.0f){
+	      dofPercent -= 0.01f;
+	    }else{
 
-	    if (curFloor != 0) {
-	      curFloor--;
+	      if (curFloor != 0) {
+		curFloor--;
+	      }
 	    }
-	     }
 
 	    break;
 	  }
