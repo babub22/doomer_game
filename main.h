@@ -232,6 +232,10 @@ typedef struct{
 
 void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, vec3* lb, vec3* rt);
 
+typedef enum{
+  editorCameraT, gameCameraT  
+} CameraType;
+
 typedef struct{
   vec3 pos;
   vec3 target;
@@ -247,6 +251,8 @@ typedef struct{
   vec3 X;
   vec3 Y;
   vec3 Z;
+
+  CameraType type; 
 } Camera;
 
 typedef enum{

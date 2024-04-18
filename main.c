@@ -97,7 +97,7 @@ const float letterW = .04f / 1.9f;
 const float letterH = .07f;
 
 Camera camera1 = { .target={ 0.0f, 0.0f, 0.0f }, .yaw = -90.0f };
-Camera camera2 = { .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f };
+Camera camera2 = { .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f, .type=gameCameraT };
 
 Camera* curCamera = &camera1;
 Mouse mouse;
@@ -528,7 +528,7 @@ int main(int argc, char* argv[]) {
     }
 
     dialogViewer.buttons = malloc(sizeof(UIRect) * dialogEditorButtonsCounter);
-    //    dialogViewer.buttonsPairs = malloc(sizeof(UIRect) * dialogEditorButtonsCounter);
+    //    dialogViewer.buttonsPairs = malloc(sizeof(UIRect) * dialogEditorButtonsCounter);
     
     // dialog viewer background
 
@@ -3113,13 +3113,19 @@ int main(int argc, char* argv[]) {
     {
       Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
 
-      Matrix view =  IDENTITY_MATRIX;
+      Matrix view = IDENTITY_MATRIX;
       vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
 
       translate(&view, argVec3(negPos));
-      rotateY(&view, rad(curCamera->yaw));
-      rotateX(&view, rad(curCamera->pitch));
-
+      
+      if(curCamera->type == gameCameraT){
+	rotateY(&view, rad(-45.0f));
+	rotateX(&view, rad(-45.0f));
+      }else{
+	rotateY(&view, rad(curCamera->yaw));
+	rotateX(&view, rad(curCamera->pitch));
+      }
+      
       glUseProgram(shadersId[lightSourceShader]);
       glUniformMatrix4fv(lightProjUni, 1, GL_FALSE, proj.m);
       glUniformMatrix4fv(lightViewLoc, 1, GL_FALSE, view.m);
@@ -3701,24 +3707,24 @@ int main(int argc, char* argv[]) {
 
 	  vec2i curTile = tileData->grid;
 	  Side selectedSide = mouse.tileSide;
-
+	   
 	  WallType* type = mouse.brushThing;
 
 	  Wall wal = {0};
 
-	  // setup wall
+	  // setup wall 
 	  {
 	    memset(&wal, 0, sizeof(Wall));
 
 	    wal.type = *type;
 	    wal.mat = IDENTITY_MATRIX;
 
-	    wal.mat.m[12] = tile.x;
+	    wal.mat.m[12] = tile.x; 
 	    wal.mat.m[13] = tile.y;
 	    wal.mat.m[14] = tile.z;
 	  }
 	  
-	  static const int rotationPad[4][3] = {
+	  static const int rotationPad[4][3] = { 
 	    [bot]= { 180, 1, 1 },
 	    [top]= { 0, 0, 0  },
 	    [left]= { 270, 0, 0 }, 
@@ -8491,17 +8497,18 @@ void attachNormalsToBuf(VPair* VPairBuf, int plane, int bufSize, float* buf){
 
 void createTexture(int* tx,int w,int h, void*px){
   glGenTextures(1, tx);
+
   glBindTexture(GL_TEXTURE_2D, *tx);
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w,
 	       h, 0, GL_RGBA,
 	       GL_UNSIGNED_BYTE, px);
 
-  // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *tx, 0);  
+  glGenerateMipmap(GL_TEXTURE_2D);
 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+ 
   glBindTexture(GL_TEXTURE_2D, 0);
 }; 
 
