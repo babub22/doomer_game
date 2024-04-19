@@ -1,8 +1,5 @@
 #pragma once
 
-#define FAST_OBJ_IMPLEMENTATION
-#include "fast_obj.h"
-
 typedef struct{
   GLuint tx;
   
@@ -11,12 +8,6 @@ typedef struct{
   int index1D;
   int index2D; // where [from context][index2D]
 } Texture;
-
-
-/*typedef struct{
-
-} Planes;*/
-
 
 typedef struct{
   int index;
@@ -89,10 +80,10 @@ typedef enum{
   wallTypeCounter,
 } WallType;
 
-const char* wallTypeStr[] = {
+const char* wallTypeStr[];/*= {
   [wallT] = "Wall", [windowT] = "Window", [doorT] = "Door",
   [wallJointT] = "Joint"
-};
+  };*/
 
 typedef enum{
   roofBlockT,
@@ -118,9 +109,10 @@ typedef enum{
   lightsTypeCounter
 } LightType;
 
-const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps", [angledRoofT] = "Angle Roof" };
+const char* tileBlocksStr[];
+/*= { [roofBlockT] = "Roof",[stepsBlockT] = "Steps", [angledRoofT] = "Angle Roof" };*/
 
-const char* lightTypesStr[] = { [dirLightT] = "Dir light", [pointLightT] = "Point light" };
+const char* lightTypesStr[];// = { [dirLightT] = "Dir light", [pointLightT] = "Point light" };
 
 typedef struct{
   bool opened;
@@ -144,11 +136,11 @@ typedef enum{
   wPlaneCounter
 } WallPlanes;
 
-const char* wallPlanesStr[] = {
+const char* wallPlanesStr[];/* = {
   [wTopPlane]= "Top plane",
   [wFrontPlane]= "Front plane",
   [wBackPlane]= "Back plane",
-};
+  };*/
 
 typedef enum{
   winFrontCapPlane, winFrontBotPlane,
@@ -160,7 +152,7 @@ typedef enum{
   //winLeftPlane, winRightPlane,
 } WindowPlanes;
 
-const char* windowPlanesStr[] = {
+const char* windowPlanesStr[];/* = {
   [winTopPlane]= "Top plane",
   [winFrontCapPlane]= "Front-cap plane",
   [winFrontBotPlane]= "Front-bot plane",
@@ -173,7 +165,7 @@ const char* windowPlanesStr[] = {
   
   [winFrontPodokonik]= "Front-padokonik",
   [winBackPodokonik]= "Back-padokonik",
-};
+  };*/
 
 typedef enum{
   doorCenterFrontPlane, doorCenterBackPlane,
@@ -189,45 +181,18 @@ typedef enum{
   jointPlaneCounter
 } JointPlanes;
 
-const int planesInfo[wallTypeCounter] = {
-  [wallT] = wPlaneCounter,
-  [windowT] = winPlaneCounter,
-  [doorT] = doorPlaneCounter,
-  [wallJointT] = jointPlaneCounter,
-};
-
-const char* wallJointPlanesStr[] = {
-  [jointTopPlane] = "Top",
-  [jointFrontPlane] = "Front",
-  [jointSidePlane] = "Side"
-};
-
-const char* doorPlanesStr[] = {
-  [winTopPlane]= "Top plane",
-  [doorFrontPlane]= "Front plane",
-  [doorBackPlane]= "Back plane",
-  [doorCenterBackPlane]= "Center-back plane" ,
-  [doorCenterFrontPlane]= "Center-front plane" ,
-};
+const int planesInfo[wallTypeCounter];
+const char* wallJointPlanesStr[];
+const char* doorPlanesStr[];
 
 typedef struct{
-  /* int* txIndexes; // by windowPlane enum or wallPlane
-  AABB* aabb;
-  bool* hide; // info about hidden plans
-*/
-
   Plane* planes;
-  
-  //  Plane joint[jointPlaneCounter];
-  //  bool jointHide; // whole joint
   
   WallType type;
 
   Matrix mat;
 
   size_t geomIndex;
-
-  //  Side side; // where placed
 } Wall;
 
 void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, vec3* lb, vec3* rt);
@@ -478,10 +443,10 @@ typedef struct{
   int counter;
 } ModelsTypesInfo;
 
-ModelsTypesInfo modelsTypesInfo[] = {
+ModelsTypesInfo modelsTypesInfo[];/* = {
   [objectModelType] = {"Obj",0},
   [characterModelType] = {"Char", 0}
-};
+  };*/
 
 typedef struct Dialog Dialog;
 
@@ -584,13 +549,13 @@ typedef enum {
   mouseBlockBrushT,
 } MouseBrushType;
 
-const char* mouseBrushTypeStr[] = {
+const char* mouseBrushTypeStr[];/* = {
   [mouseModelBrushT] = "Model",
   [mouseWallBrushT] = "Wall",
   [mouseTextureBrushT] = "Texture",
   [mouseTileBrushT] = "Tile",
   [mouseBlockBrushT] = "Block",
-};
+  };*/
 
 typedef struct{
   // ray of cursor
@@ -803,9 +768,9 @@ void assembleWallJointVBO();
 
 #define speed 100.0f
 
-#define bBlockW (1)
-#define bBlockD (1)
-#define bBlockH (2)
+#define bBlockW (1.0f)
+#define bBlockD (1.0f)
+#define bBlockH (2.0f)
 
 #define floorH bBlockH / 2
 
@@ -823,21 +788,38 @@ float* wallBySide(int* bufSize, Side side, float thick);
 
 #define dialogEditorCharNameTitle "Char name: "
 
+
+typedef enum{
+  editorInstance,
+  gameInstance,
+  instancesCounter,
+} EngineInstance;
+
+typedef enum{
+  render2DFunc,
+  render3DFunc,
+  preFrameFunc,
+  preLoopFunc,
+  eventFunc,
+  funcsCounter,
+} EngineInstanceFunc;
+
 typedef enum{
   lightSourceShader, hudShader, mainShader, borderShader, screenShader, shadersCounter
 } Shaders;
 
-const char* shadersFileNames[] = {"lightSource", "hud", "fog", "borderShader", "screenShader"};
+const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
+const char* instancesStr[];
 GLuint shadersId[shadersCounter];
 
-const char sdlScancodesToACII[] = {
+const char sdlScancodesToACII[];/* = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', [55]='.'
-};
+};*/
 
-const char* manipulationModeStr[] = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };
+const char* manipulationModeStr[];/* = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };*/
 
 // from '!' to 'z' in ASCII
-const vec2i englLettersMap[] = {
+const vec2i englLettersMap[];/* = {
   { 14, 13}, // '!'
   { 13, 13}, // '"'
   { 12, 13}, // '#'
@@ -937,64 +919,9 @@ const vec2i englLettersMap[] = {
   { 3, 8}, // '|'
   { 2, 8}, // '}'
   { 1, 8}, // '~'
-};
+};*/
 
-const char* sidesToStr[] = { "Top", "Bot", "Right", "Left"};
-
-// Walls gaps concating things
-const int values[2][2][4] = {
-  [0]={ // bot / top
-    [0] = { 5, 15, 20, 1 }, // right 
-    [1] = { 0, 10, 25, -1 } // left
-  },
-  [1]= { // right / left
-    [0] = { 7, 17, 22, -1 }, // top
-    [1] = { 2, 12, 27, 1 } // bot
-  }
-};
-
-const int valuesOpposite[4][4] = {
-  [top] = { 2, 12, 27, 1 }, 
-  [bot] = { 7, 17, 22, -1 } ,
-  [right] = { 0, 10, 25, -1 }, 
-  [left] = { 5, 15, 20, 1 }, 
-};
-
-const Side mappedSideToAngleAgainstClock[4][4] = {
-  [top] = {
-    [0] = top, [1] = left, [2] = bot, [3] = right
-  },
-  [bot] = {
-    [0] = bot, [1] = left, [2] = top, [3] = right
-  },
-  [left] = {
-    [0] = right, [1] = top, [2] = left, [3] = bot
-  },
-  [right] = {
-    [0] = right, [1] = bot, [2] = left, [3] = top
-  },
-};
-
-// Width of wall on Right/Left
-const int rightWallMap[2][6] = {
-  [0] = { 0,10,25, 3,13,28 }, // bot-top // first 3 buf index next 3 - uv last sign of value
-  [1] = { 7,17,22, 8,18,23 } // left-right
-};
-
-const int leftWallMap[2][6] = {
-  [0] = { 5,15,20, 8,18,23 }, // bot-top // first 3 buf index next 3 - uv last sign of value
-  [1] = { 2,12,27, 3,13,28 } // left-right
-};
-
-
-  /*
-    GL_QUADS order
-
-  glTexCoord2f(0.0f, 1.0f); glVertex3d(pos[0].x, pos[0].y, pos[0].z);
-  glTexCoord2f(1.0f, 1.0f); glVertex3d(pos[1].x, pos[1].y, pos[1].z);
-  glTexCoord2f(1.0f, 0.0f); glVertex3d(pos[2].x, pos[2].y, pos[2].z);S
-  glTexCoord2f(0.0f, 0.0f); glVertex3d(pos[3].x, pos[3].y, pos[3].z);
-   */
+const char* sidesToStr[];// = { [top]= "Top", [bot]="Bot", [right]="Right", [left]"Left"};
 
 void setupAABBAndMatForJoint(vec2i grid, Side side);
 void batchGeometry();
@@ -1022,3 +949,97 @@ void uniformInt(int shader, char* var, int value);
 
 
 void assembleBlocks();
+
+char curSaveName[CONSOLE_BUF_CAP];
+
+Menu* curMenu;
+Menu dialogViewer;//= { .type = dialogViewerT };
+Menu dialogEditor;// = { .type = dialogEditorT };
+
+GLuint fontAtlas;
+
+int curFloor;
+
+Light* lightsStore;
+int lightsStoreSize;
+int lightsStoreSizeByType[lightsTypeCounter];
+Light lightDef;/* = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .constant = 1.0f, .linear = .09f, .quadratic = .032f, .dir = {0,-1, 0} };*/
+
+Picture* createdPlanes;
+int createdPlanesSize;
+
+Model* curModels;
+size_t curModelsSize;
+
+Character* characters;
+size_t charactersSize;
+
+Camera camera1;// = { .target={ 0.0f, 0.0f, 0.0f }, .yaw = -90.0f };
+//Camera camera2 = { .target={ 0.0f, 0.0f, 0.0f }, .pitch = -14.0f, .yaw = -130.0f, .type=gameCameraT };
+
+BlockInfo wallsVPairs[wallTypeCounter];
+BlockInfo blocksVPairs[tileBlocksCounter];
+
+char tempTextInputStorage[512];
+int tempTextInputStorageCursor;
+
+Camera* curCamera;// = &camera1;
+bool fullScreen;
+SDL_Window* window;
+Mouse mouse;
+float drawDistance;
+
+const float windowW;// = 1280.0f;
+const float windowH;// = 720.0f;
+
+//EnviromentalConfig enviromental = { true, true };
+
+int consoleBufferCursor;
+char consoleBuffer[CONSOLE_BUF_CAP];
+bool consoleHasResponse;
+char consoleResponse[CONSOLE_BUF_CAP * 5];
+Menu console;
+#define consoleH (1.0f - (1.0f * .05f))
+
+float dofPercent;
+
+Tile**** grid;
+int gridX;// = 120;
+int gridY;// = 15;
+int gridZ;// = 120;
+
+Picture* planeOnCreation;
+Uint8* currentKeyStates;// = SDL_GetKeyboardState(NULL);
+
+Texture* loadedTextures1D;
+Texture** loadedTextures2D;
+char** loadedTexturesNames; // iter same as tex1D
+int loadedTexturesCategoryCounter;
+Category* loadedTexturesCategories; 
+int loadedTexturesCounter;
+int longestTextureNameLen;
+int longestTextureCategoryLen;
+
+// avaible/loaded models
+ModelInfo* loadedModels1D;
+ModelInfo** loadedModels2D;
+size_t loadedModelsSize;
+
+GLuint solidColorTx;
+GLuint errorTx;
+GLuint emptyTx;
+
+VPair hudRect;
+
+float fov;
+
+#define letterW (.04f / 1.9f)
+#define letterH (.07f)
+
+#define letterCellW .04f
+#define letterCellH .07f
+
+#define objectsMenuWidth (-1.0f + 1.0f / 4.0f)
+
+void uniformMat4(int shader, char* var, float* mat);
+void uniformVec2(int shader, char* var, vec2 value);
