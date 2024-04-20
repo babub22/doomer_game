@@ -37,6 +37,13 @@ float contextBelowTextH;
 
 float borderArea = (bBlockW / 8);
 
+void editorOnSetInstance(){
+  printf("Now editor");
+
+  renderCapYLayer = gridY;
+  batchGeometry();
+}
+
 void editorPreLoop(){
   // obj menu    
   {
@@ -253,17 +260,7 @@ void editorEvents(SDL_Event event){
 	console.open = true;
 	  
 	break;
-      }case(SDL_SCANCODE_F11): {
-	 fullScreen = !fullScreen;
-	      
-	 if(fullScreen){
-	   SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-
-	 }else{
-	   SDL_SetWindowFullscreen(window, 0);
-	 }
-	 break;
-       }
+      }
       case(SDL_SCANCODE_F2):{
 	hints = !hints;
 	  
@@ -2124,9 +2121,6 @@ void editor2dRender(){
       
       glBindVertexArray(hudRect.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-	
-      float cursorH = 0.06f;
-      float cursorW = 0.02f;
 	  
       float  selectionRect[] = {
 	-1.0f, 1.0f - (selectedIndex-1) * letterH, 1.0f, 0.0f,
@@ -2155,9 +2149,6 @@ void editor2dRender(){
     {
       glActiveTexture(solidColorTx);
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
-	
-      float cursorH = 0.06f;
-      float cursorW = 0.02f;
 
       float typeButtonW = (1.0f + objectsMenuWidth) / 2;
 
@@ -2256,10 +2247,7 @@ void editor2dRender(){
       
       glBindVertexArray(hudRect.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-	
-      float cursorH = 0.06f;
-      float cursorW = 0.02f;
-	  
+
       float  selectionRect[] = {
 	-1.0f, 1.0f - (selectedIndex-1) * letterH, 1.0f, 0.0f,
 	objectsMenuWidth, 1.0f - (selectedIndex-1) * letterH, 1.0f, 1.0f,
@@ -2341,9 +2329,6 @@ void editor2dRender(){
       
       glBindVertexArray(hudRect.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-	
-      float cursorH = 0.06f;
-      float cursorW = 0.02f;
 	  
       float  selectionRect[] = {
 	-1.0f, 1.0f - (selectedIndex-1) * letterH, 1.0f, 0.0f,
@@ -2464,10 +2449,7 @@ void editor2dRender(){
       
 	glBindVertexArray(hudRect.VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-	
-	float cursorH = 0.06f;
-	float cursorW = 0.02f;
-	  
+
 	float  selectionRect[] = {
 	  xStart, 1.0f - selectedIndex * letterH, 1.0f, 0.0f,
 	  xEnd, 1.0f - selectedIndex * letterH, 1.0f, 1.0f,
@@ -3275,22 +3257,13 @@ void editor2dRender(){
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
       setSolidColorTx(whiteColor, 1.0f);
       
-      glBindVertexArray(hudRect.VAO);
-      glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-	
-      float cursorH = 0.06f;
-      float cursorW = 0.02f;
+      glBindVertexArray(cursor.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, cursor.VBO);
 	
       float cursorPoint[] = {
 	mouse.cursor.x + cursorW * 0.05f, mouse.cursor.z + cursorH, 0.0f, 0.0f,
 	mouse.cursor.x + cursorW, mouse.cursor.z + cursorH/2.0f, 0.0f, 0.0f,
 	mouse.cursor.x, mouse.cursor.z + cursorH / 4.0f, 0.0f, 0.0f, 
-
-	// TODO: If i try to render TRIANGLE with 3 in glDrawArrays instead of 6 + 0.0... here
-	// it causes artifacts
-	//	  0.0f,0.0f,0.0f,0.0f,
-	//  0.0f,0.0f,0.0f,0.0f,
-	// 0.0f,0.0f,0.0f,0.0f,
       };
 
       glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);

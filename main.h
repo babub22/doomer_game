@@ -572,7 +572,7 @@ typedef struct{
 
   float interDist;
   
-  float w, h; // of cursor
+  //  float w, h; // of cursor
 
   MouseBrushType brushType;
   void* brushThing;
@@ -583,9 +583,14 @@ typedef struct{
   MouseSelectionType selectedType;
   void* selectedThing;
 
-  vec2 cursor;
+  vec2 cursor; // pos
 } Mouse;
 
+	 
+#define cursorH 0.06f
+#define cursorW 0.02f
+
+VPair cursor;
 
 typedef struct{
   float w, h, d;
@@ -801,6 +806,7 @@ typedef enum{
   preFrameFunc,
   preLoopFunc,
   eventFunc,
+  onSetFunc,
   funcsCounter,
 } EngineInstanceFunc;
 
@@ -810,6 +816,7 @@ typedef enum{
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
 const char* instancesStr[];
+
 GLuint shadersId[shadersCounter];
 
 const char sdlScancodesToACII[];/* = {
@@ -1043,3 +1050,8 @@ float fov;
 
 void uniformMat4(int shader, char* var, float* mat);
 void uniformVec2(int shader, char* var, vec2 value);
+
+
+int renderCapYLayer;
+
+EngineInstance curInstance;

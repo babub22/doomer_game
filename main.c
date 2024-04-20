@@ -7,6 +7,7 @@
 #define FAST_OBJ_IMPLEMENTATION
 #include "fast_obj.h"
 
+int renderCapYLayer;
 EngineInstance curInstance = editorInstance;
 
 const void(*instances[instancesCounter][funcsCounter])() = {
@@ -16,6 +17,7 @@ const void(*instances[instancesCounter][funcsCounter])() = {
     [preLoopFunc] = editorPreLoop,
     [preFrameFunc] = editorPreFrame,
     [eventFunc] = editorEvents,
+    [onSetFunc] = editorOnSetInstance,
   },
   [gameInstance] = {
     [render2DFunc] = game2dRender,
@@ -23,6 +25,7 @@ const void(*instances[instancesCounter][funcsCounter])() = {
     [preLoopFunc] = gamePreLoop,
     [preFrameFunc] = gamePreFrame,
     [eventFunc] = gameEvents,
+    [onSetFunc] = gameOnSetInstance,
   }
 };
 
@@ -237,8 +240,6 @@ VPair quad;
 
 VPair tileOver;
 
-VPair cursor;
-
 GLuint fbo;
 GLuint intermediateFBO;
 
@@ -309,11 +310,31 @@ int main(int argc, char* argv[]) {
 
     // cursor buffers
     {
-        glGenBuffers(1, &cursor.VBO);
-        glGenVertexArrays(1, &cursor.VAO);
+      glGenBuffers(1, &cursor.VBO);
+      glGenVertexArrays(1, &cursor.VAO);
+	
+      /*      glBindVertexArray(cursor.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, cursor.VBO);
+	
+      float cursorH = 0.06f;
+      float cursorW = 0.02f;
+	
+      float cursorPoint[] = {
+        cursorW * 0.05f, cursorH,   0.0f, 0.0f,
+        cursorW, cursorH/2.0f,      0.0f, 0.0f,
+	0.0f, cursorH / 4.0f,       0.0f, 0.0f, 
+      };
 
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+      glEnableVertexAttribArray(1);*/
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
     }
 
     // 2d free rect
@@ -1257,7 +1278,7 @@ int main(int argc, char* argv[]) {
     fov = editorFOV;
     // tangFOV = tanf(rad(fov) * 0.5);
 
-    mouse = (Mouse){ .h = 0.005f, .w = 0.005f, .interDist = 1000.0f };
+    mouse = (Mouse){ .interDist = 1000.0f };
 
     float dist = sqrt(1 / 3.0);
     bool cameraMode = true;
@@ -1272,6 +1293,7 @@ int main(int argc, char* argv[]) {
         printf("Map not found!\n");
     }
 
+    renderCapYLayer = gridY;
     batchGeometry();
 
     // set up camera
@@ -1329,7 +1351,21 @@ int main(int argc, char* argv[]) {
                 quit = true;
             }
 
+            
+
             if (event.type == SDL_KEYDOWN && !console.open) {
+                if (event.key.keysym.scancode == SDL_SCANCODE_F11){
+                    fullScreen = !fullScreen;
+
+                    if (fullScreen) {
+                        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+
+                    }
+                    else {
+                        SDL_SetWindowFullscreen(window, 0);
+                    }
+                }
+
                 if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
                     if (curInstance >= instancesCounter-1) {
                         curInstance = 0;
@@ -1338,7 +1374,7 @@ int main(int argc, char* argv[]) {
                         curInstance++;
                     }
 
-		    printf("curInstance %d\n",curInstance);
+		    ((void (*)(void))instances[curInstance][onSetFunc])();
                 }
             }
 
@@ -1506,7 +1542,7 @@ int main(int argc, char* argv[]) {
         float minDistToCamera = 1000.0f;
 
         for (int x = 0; x < gridX && false; x++) {
-            for (int y = 0; y < gridY; y++) {
+            for (int y = 0; y < renderCapYLayer; y++) {
                 for (int z = 0; z < gridZ; z++) {
                     if (grid[y][z][x]) {
                         vec3 tile = xyz_indexesToCoords(x, y, z);
@@ -1514,7 +1550,7 @@ int main(int argc, char* argv[]) {
                         // block
                         if (grid[y][z][x]->block != NULL) {
                             float intersectionDistance;
-                            bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x]->block->lb, grid[y][z][x]->block->rt, NULL, &intersectionDistance);
+                            bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, grid[y][z][x]->block->lb, grid[y][z][x]->block->rt, NULL, &intersectionDistance); 
 
                             if (isIntersect && minDistToCamera > intersectionDistance) {
                                 mouse.selectedThing = grid[y][z][x]->block;
@@ -1525,12 +1561,9 @@ int main(int argc, char* argv[]) {
                         }
 
                         // walls
-                        bool atLeastOneWall = false;
-
                         for (int side = 0; side < basicSideCounter; side++) {
 
                             if (grid[y][z][x]->walls[side].planes != NULL) {
-                                atLeastOneWall = true;
                                 // wall in/out camera
                                 int in = 0; 
 
@@ -1614,9 +1647,9 @@ int main(int argc, char* argv[]) {
                                 }
                             }
                         }
-
                     }
                     // tile inter
+		    //		    if(false)
                     {
                         const vec3 tile = xyz_indexesToCoords(x, curFloor, z);
 
@@ -1986,6 +2019,8 @@ int main(int argc, char* argv[]) {
             glBindTexture(GL_TEXTURE_2D, 0);
         }
 
+	minDistToCamera = 1000.0f;
+
         for (int i = 0; i < curModelsSize; i++) {
             float intersectionDistance = 0.0f;
 
@@ -2045,7 +2080,7 @@ int main(int argc, char* argv[]) {
                 glBindVertexArray(0);
 
                 glBindTexture(GL_TEXTURE_2D, 0);
-                break;
+		break;
             }
         }
 
@@ -4415,7 +4450,7 @@ int main(int argc, char* argv[]) {
     int* geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(int));
     const int vertexSize = 8;
   
-    for (int y = 0; y < gridY; y++) {
+    for (int y = 0; y < renderCapYLayer; y++) {
       for (int z = 0; z < gridZ; z++) {
 	for (int x = 0; x < gridX; x++) {
 	  if(grid[y][z][x]){
@@ -4490,7 +4525,7 @@ int main(int argc, char* argv[]) {
     geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(int));
 
 
-    for (int y = 0; y < gridY; y++) {
+    for (int y = 0; y < renderCapYLayer; y++) {
       for (int z = 0; z < gridZ; z++) {
 	for (int x = 0; x < gridX; x++) {
 	  if (grid[y][z][x]) {
