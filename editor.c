@@ -37,6 +37,20 @@ float contextBelowTextH;
 
 float borderArea = (bBlockW / 8);
 
+/*const int rotationBlock[4][2] = {
+  {-bBlockW, 0.0f},
+  [1]= { 0,        bBlockW }, // 12 14
+  { bBlockW,  bBlockW },
+  { bBlockD,  0 }, 
+};*/
+
+const int rotationBlock[4][2] = {
+  {-bBlockW, 0.0f},
+  { 0,        bBlockW }, // 12 14
+  { bBlockW,  0 },
+  { 0,-bBlockD }, 
+};
+
 void editorOnSetInstance(){
   printf("Now editor");
 
@@ -913,21 +927,22 @@ void editorEvents(SDL_Event event){
 	      float zTemp = block->mat.m[14];
 			
 	      rotateY(block->mat.m, rad(90.0f));
+	      printf("Sosi hui zivotrnoe\n");
 			
 	      block->mat.m[12] = xTemp;
 	      block->mat.m[13] = yTemp;
 	      block->mat.m[14] = zTemp;
 
-	      static const float increaseData[4][2] = {
+	      /*	      static const float increaseData[4][2] = {
 		{ -bBlockW, 0.0f }, // [12] [14]
 		{ 0.0f, bBlockW },
 		{ bBlockW, 0.0f },
 		{ 0.0f, -bBlockD }
-	      };
+	      };*/
 
 	      int index = block->rotateAngle / 90;
-	      block->mat.m[12] += increaseData[index][0];
-	      block->mat.m[14] += increaseData[index][1];
+	      block->mat.m[12] += rotationBlock[index][0];
+	      block->mat.m[14] += rotationBlock[index][1];
 		
 	      calculateAABB(block->mat, blocksVPairs[block->type].pairs[0].vBuf, blocksVPairs[block->type].pairs[0].vertexNum, blocksVPairs[block->type].pairs[0].attrSize, &block->lb, &block->rt);
 	    }
@@ -1499,7 +1514,7 @@ void editor3dRender() {
 	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
 	}*/
 
-	printf("%d \n", mouse.tileSide);
+	//	printf("%d \n", mouse.tileSide);
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1513,6 +1528,7 @@ void editor3dRender() {
 
 	  vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
 
+	  
 	  if((prevTile.x != -1 && prevTile.y != -1 && prevTile.z != -1)
 	     && (prevTile.x != tile.x || prevTile.y != tile.y || prevTile.z != tile.z)){   
 	    block->mat = IDENTITY_MATRIX; 
@@ -1524,11 +1540,15 @@ void editor3dRender() {
 	    block->mat.m[14] = tile.z;
 
 	    block->tile = tileData->tile;
-		
-	    bool itWalRotatedAround = false;
-		
-	    if(block->rotateAngle == 90){
-	      block->mat.m[14] += bBlockW;
+	    
+	    int index = (block->rotateAngle) / 90;
+
+	    block->mat.m[12] += rotationBlock[index][0];
+	    block->mat.m[14] += rotationBlock[index][1];
+	    
+	    //	    
+	    /*	    if(block->rotateAngle == 90){
+		    block->mat.m[14] += bBlockW;
 	    }
 	    else if (block->rotateAngle == 180) {
 	      block->mat.m[12] += bBlockW;
@@ -1538,11 +1558,13 @@ void editor3dRender() {
 	      block->mat.m[12] += bBlockD;
 		  
 	      itWalRotatedAround = true;
-	    }
-	    else if(itWalRotatedAround){
-	      block->mat.m[12] -= bBlockW;
-	      itWalRotatedAround = false;
-	   }
+	    }*/
+	    //	    else if(itWalRotatedAround){
+	      //	      block->mat.m[12] -= bBlockW;
+	      //	      printf("QQQQ");
+	      //	      itWalRotatedAround = false;
+	      //	   }
+//	    
 	  }
 
 	  prevTile.x = tile.x;
@@ -1559,8 +1581,7 @@ void editor3dRender() {
 
 	  glBindBuffer(GL_ARRAY_BUFFER, 0); 
 	  glBindVertexArray(0);
-		}
-	else if(mouse.brushType == mouseWallBrushT && mouse.tileSide != -1 && mouse.tileSide != center){
+	}else if(mouse.brushType == mouseWallBrushT && mouse.tileSide != -1 && mouse.tileSide != center){
 	  TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 
 	  vec2i curTile = tileData->grid;
@@ -1583,7 +1604,7 @@ void editor3dRender() {
 	  }
 	  
 	  static const int rotationPad[4][3] = { 
-	    [bot]= { 180, 1, 1 },
+	    [bot] = { 180, 1, 1 },
 	    [top]= { 0, 0, 0  },
 	    [left]= { 270, 0, 0 }, 
 	    [right]= { 90, 1, 1}//{ 180, 14, 1, 12, 1 }
@@ -1639,9 +1660,7 @@ void editor3dRender() {
 	  //	    opTile = grid[curFloor][oppositeTile.z][oppositeTile.x];
 	  //	  }
 
-	  if(mouse.clickR &&
-	     (!opTile || !opTile->walls[oppositeSide].planes)){ 
-	    
+	  if(mouse.clickR){ 
 	    wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
 
 	    if(!tileData->tile){
@@ -1944,11 +1963,38 @@ void editor2dRender(){
 	 if (!tileData->tile) {
 	   grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1, sizeof(Tile));
 	   printf("Calloc TIle Block\n");
+	 }else{
+	   printf("%d \n", tileData->tile->block);
 	 }
 
-	 grid[curFloor][tileData->grid.z][tileData->grid.x]->block = block;
-		 
-	 mouse.brushThing = constructNewBlock(block->type, block->rotateAngle);
+	 grid[curFloor][tileData->grid.z][tileData->grid.x]->block = malloc(sizeof(TileBlock));
+	 memcpy(grid[curFloor][tileData->grid.z][tileData->grid.x]->block, block, sizeof(TileBlock));
+
+	 TileBlock* newBlock = grid[curFloor][tileData->grid.z][tileData->grid.x]->block;
+	 //	 newBlock->mat = IDENTITY_MATRIX;
+
+	 vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
+
+	 int index = (block->rotateAngle) / 90;
+
+	 newBlock->mat = IDENTITY_MATRIX;
+	 memcpy(newBlock->mat.m, block->mat.m, sizeof(float) * 16);
+	 //	 memcpy(newBlock->mat.m,)
+
+	 //	 newBlock->mat.m[12] = tile.x + rotationBlock[index][0];
+	 //	 newBlock->mat.m[13] = tile.y;
+	 //	 newBlock->mat.m[14] = tile.z + rotationBlock[index][1];
+
+	 newBlock->tile = tileData->tile;
+
+	 printf("new tile %f %f %f \n", tile.x, tile.y, tile.z);
+
+	 calculateAABB(newBlock->mat, blocksVPairs[newBlock->type].pairs[0].vBuf, blocksVPairs[newBlock->type].pairs[0].vertexNum, blocksVPairs[newBlock->type].pairs[0].attrSize, &newBlock->lb, &newBlock->rt);
+
+	 printf("new lb %f %f %f \n", argVec3(newBlock->lb));
+	 printf("new rt %f %f %f \n\n", argVec3(newBlock->rt));
+	 
+	 //mouse.brushThing = constructNewBlock(block->type, block->rotateAngle);
 	 batchGeometry(); 
        }
 	       
@@ -2232,9 +2278,9 @@ void editor2dRender(){
 	  mouse.brushThing = NULL;
 	}
 
-	if(mouse.brushType == mouseBlockBrushT){
-	  free(mouse.brushThing);
-	}
+	//	if(mouse.brushType == mouseBlockBrushT){
+	//	  free(mouse.brushThing);
+	//	}
 
 	mouse.brushThing = constructNewBlock(selectedIndex-1, 0);
 	mouse.brushType = mouseBlockBrushT;

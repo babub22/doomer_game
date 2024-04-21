@@ -261,6 +261,9 @@ VPair cube;
 GLuint objectsMenuTypeRectVBO;
 GLuint objectsMenuTypeRectVAO;
 
+vec3i* batchedGeometryIndexes;
+int batchedGeometryIndexesSize;
+
 //Picture* planeOnCreation;
 
 int texture1DIndexByName(char* txName) {
@@ -1334,6 +1337,8 @@ int main(int argc, char* argv[]) {
     float cameraSpeed = speed;
     SDL_Event event;
 
+    ((void (*)(void))instances[curInstance][preLoopFunc])();
+
     while (!quit) {
         uint32_t starttime = GetTickCount();
 
@@ -1540,6 +1545,64 @@ int main(int argc, char* argv[]) {
         mouse.selectedType = 0;
 
         float minDistToCamera = 1000.0f;
+	
+	for(int i=0;i<batchedGeometryIndexesSize;i++){
+	  vec3i ind = batchedGeometryIndexes[i];
+	  vec3 tile = vec3_indexesToCoords(ind);
+	  Tile* bBlock = grid[ind.y][ind.z][ind.x];
+
+	  // block
+	  if (bBlock->block != NULL) {
+	    float intersectionDistance;
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->block->lb, bBlock->block->rt, NULL, &intersectionDistance);
+
+	    //	    printf("%f %f %f lb \n", argVec3(bBlock->block->lb));
+	    //	    printf("%f %f %f rt \n", argVec3(bBlock->block->rt));
+
+	    if (isIntersect && minDistToCamera > intersectionDistance) {
+	      mouse.selectedThing = bBlock->block;
+	      mouse.selectedType = mouseBlockT;
+
+	      minDistToCamera = intersectionDistance;
+	    }
+	  }
+
+	  // tiles
+	  if(ind.y == curFloor){
+	    const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
+	    const vec3 lb = { tile.x, tile.y, tile.z };
+
+	    float intersectionDistance;
+	    vec3 intersection;
+
+	    bool atLeastOneIntersect = false;
+	    TileMouseData* data = malloc(sizeof(TileMouseData));
+
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
+
+	    if (isIntersect && minDistToCamera > intersectionDistance) {
+		mouse.selectedType = mouseTileT;
+
+		atLeastOneIntersect = true;
+
+		data->tile = bBlock;
+
+		data->grid = (vec2i){ ind.x,ind.z };
+		data->intersection = intersection;
+		data->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
+
+		mouse.selectedThing = data;
+
+		minDistToCamera = intersectionDistance;
+	    }
+			
+	    if (!atLeastOneIntersect) {
+	      free(data);
+	      data = NULL;
+	    }
+	  }
+	  
+	}
 
         for (int x = 0; x < gridX && false; x++) {
             for (int y = 0; y < renderCapYLayer; y++) {
@@ -3586,6 +3649,8 @@ int main(int argc, char* argv[]) {
       newBlock->mat.m[12] = tile.x;
       newBlock->mat.m[13] = tile.y;
       newBlock->mat.m[14] = tile.z;
+
+      printf("newBlock %f %f %f \n", argVec3(tile));
 	 
       newBlock->tile = tileData->tile;
     }
@@ -4237,8 +4302,8 @@ int main(int argc, char* argv[]) {
       
     float topSide[] = {
       // cap top
-      0.0f,h, d,   0.0f, capRatio,
       w, h, -t,    1.0f, 0.0f,
+      0.0f,h, d,   0.0f, capRatio,
       0.0f, h, -t, 0.0f, 0.0f,
 
       w, h, -t,    1.0f, 0.0f,
@@ -4454,29 +4519,45 @@ int main(int argc, char* argv[]) {
       for (int z = 0; z < gridZ; z++) {
 	for (int x = 0; x < gridX; x++) {
 	  if(grid[y][z][x]){
+	    bool batchedIndexWasAssigned = false;
+	    
 	    GroundType type = valueIn(grid[y][z][x]->ground, 0);
 
 	    if(type == texturedTile){
 	      int txIndex = valueIn(grid[y][z][x]->ground, 2);
 	    
 	      geomentyByTxCounter[txIndex] += sizeof(texturedTileVerts);
+
+	      if(!batchedIndexWasAssigned){
+		batchedGeometryIndexesSize++;
+		batchedIndexWasAssigned= true;
+	      }
 	    }
 
 	    // block
 	    if(grid[y][z][x]->block){
+	      if(!batchedIndexWasAssigned){
+		batchedGeometryIndexesSize++;
+		batchedIndexWasAssigned= true;
+	      }
+	      
 	      TileBlocksTypes type = grid[y][z][x]->block->type;
 	      int txIndex = grid[y][z][x]->block->txIndex;
 	    
 	      for(int i2=0;i2<blocksVPairs[type].planesNum;i2++){
 		//if(!grid[y][z][x]->blockplanes[i2].hide){
 		geomentyByTxCounter[txIndex] += blocksVPairs[type].pairs[i2].vertexNum * sizeof(float) * vertexSize;
-		//}
 	      }
 	    }
 
 	    // walls
 	    for(int i=0;i<4;i++){
 	      if(grid[y][z][x]->walls[i].planes){
+		if(!batchedIndexWasAssigned){
+		  batchedGeometryIndexesSize++;
+		  batchedIndexWasAssigned= true;
+		}
+		
 		WallType type = grid[y][z][x]->walls[i].type;
 	      
 		for(int i2=0;i2<wallsVPairs[type].planesNum;i2++){
@@ -4488,6 +4569,11 @@ int main(int argc, char* argv[]) {
 	      }
 
 	      if(grid[y][z][x]->jointExist[i]){
+		if(!batchedIndexWasAssigned){
+		  batchedGeometryIndexesSize++;
+		  batchedIndexWasAssigned= true;
+		}
+		
 		for(int i2=0;i2<wallsVPairs[wallJointT].planesNum;i2++){
 		  int txIndex = grid[y][z][x]->joint[i][i2].txIndex;
 		  geomentyByTxCounter[txIndex] += wallsVPairs[wallJointT].pairs[i2].vertexNum * sizeof(float) * vertexSize;
@@ -4502,6 +4588,16 @@ int main(int argc, char* argv[]) {
 	}
       }
     }
+
+    printf("pre batchedGeometryIndexes: %d \n", batchedGeometryIndexesSize);
+
+    if(!batchedGeometryIndexes){
+      batchedGeometryIndexes = malloc(sizeof(vec3i) * batchedGeometryIndexesSize);
+    }else{
+      batchedGeometryIndexes = realloc(batchedGeometryIndexes, sizeof(vec3i) * batchedGeometryIndexesSize);
+    }
+
+    batchedGeometryIndexesSize = 0;
   
 
     for(int i=0;i<loadedTexturesCounter;i++){  
@@ -4524,14 +4620,21 @@ int main(int argc, char* argv[]) {
     free(geomentyByTxCounter);
     geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(int));
 
-
     for (int y = 0; y < renderCapYLayer; y++) {
       for (int z = 0; z < gridZ; z++) {
 	for (int x = 0; x < gridX; x++) {
 	  if (grid[y][z][x]) {
+	    bool batchedIndexWasAssigned = false;
+	  
 	    GroundType type = valueIn(grid[y][z][x]->ground, 0);
 
 	    if (type == texturedTile) {
+	      if(!batchedIndexWasAssigned){
+		batchedIndexWasAssigned = true;
+		batchedGeometryIndexes[batchedGeometryIndexesSize] = (vec3i){x,y,z}; 
+		batchedGeometryIndexesSize++;
+	      }
+	      
 	      vec3 tile = xyz_indexesToCoords(x,y,z);
 	      int txIndex = valueIn(grid[y][z][x]->ground, 2); 
 
@@ -4553,6 +4656,12 @@ int main(int argc, char* argv[]) {
 	  
 	    // block
 	    if(grid[y][z][x]->block){
+	      if(!batchedIndexWasAssigned){
+		batchedIndexWasAssigned = true;
+		batchedGeometryIndexes[batchedGeometryIndexesSize] = (vec3i){x,y,z}; 
+		batchedGeometryIndexesSize++;
+	      }
+	      
 	      TileBlocksTypes type = grid[y][z][x]->block->type;
 	      int txIndex = grid[y][z][x]->block->txIndex;
 
@@ -4595,12 +4704,18 @@ int main(int argc, char* argv[]) {
 	    // walls
 	    for(int i3=0;i3<4;i3++){
 	      if(grid[y][z][x]->walls[i3].planes){
+		if(!batchedIndexWasAssigned){
+		  batchedIndexWasAssigned = true;
+		  batchedGeometryIndexes[batchedGeometryIndexesSize] = (vec3i){x,y,z}; 
+		  batchedGeometryIndexesSize++;
+		}
+		
 		WallType type = grid[y][z][x]->walls[i3].type;
 	      
 		for(int i2=0;i2<wallsVPairs[type].planesNum;i2++){
 		  if(!grid[y][z][x]->walls[i3].planes[i2].hide){
 		    int txIndex = grid[y][z][x]->walls[i3].planes[i2].txIndex;
-		  
+		  		
 		    for(int i=0;i<wallsVPairs[type].pairs[i2].vertexNum * vertexSize;i+=vertexSize){
 		      vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i], wallsVPairs[type].pairs[i2].vBuf[i+1], wallsVPairs[type].pairs[i2].vBuf[i+2], 1.0f };
 
@@ -4634,6 +4749,12 @@ int main(int argc, char* argv[]) {
 	      }
 
 	      if(grid[y][z][x]->jointExist[i3]){
+		if(!batchedIndexWasAssigned){
+		  batchedIndexWasAssigned = true;
+		  batchedGeometryIndexes[batchedGeometryIndexesSize] = (vec3i){x,y,z}; 
+		  batchedGeometryIndexesSize++;
+		}
+		
 		for(int i2=0;i2<wallsVPairs[wallJointT].planesNum;i2++){
 		  int txIndex = grid[y][z][x]->joint[i3][i2].txIndex;
 		
@@ -4692,6 +4813,12 @@ int main(int argc, char* argv[]) {
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
     }
+
+    printf("post batchedGeometryIndexesSize: %d \n", batchedGeometryIndexesSize);
+    
+    //    for(int i=0;i<batchedGeometryIndexesSize;i++){
+      //      printf("%d %d %d \n",argVec3(batchedGeometryIndexes[i]));
+      //   }
 
     free(geomentyByTxCounter);
   }

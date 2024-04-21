@@ -342,17 +342,15 @@ typedef struct{
 typedef struct Tile Tile;
 
 typedef struct {
-  VPair vpair;
-
-  TileBlocksTypes type;
-  
-  Tile* tile;
-  
-  Matrix mat;
-  
+  // copy from brush
+  //  VPair vpair;
+  TileBlocksTypes type; 
   int rotateAngle;
-  
   int txIndex;
+
+  // assign
+  Tile* tile;
+  Matrix mat;
   
   vec3 lb;
   vec3 rt;
