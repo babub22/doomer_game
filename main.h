@@ -701,6 +701,8 @@ void renderText(char* text, float x, float y, float scale);
 // it also assigns lb, rt to model
 void calculateModelAABB(Model* model);
 
+void renderScene();
+
 bool loadSave(char* saveName);
 
 bool saveMap(char *saveName);
