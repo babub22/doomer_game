@@ -805,6 +805,7 @@ typedef enum{
   render3DFunc,
   preFrameFunc,
   preLoopFunc,
+  matsSetup,
   eventFunc,
   onSetFunc,
   funcsCounter,

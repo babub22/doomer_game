@@ -12,5 +12,4 @@ Lamppost.obj Lamppost.png Obj
 Table.obj Wood.png Obj
 Sigi.obj Sigi.png Obj
 Book.obj Books.png Obj
-lamp.obj atlas.png Obj
 Bookshelf.obj Bookshelves.png Obj

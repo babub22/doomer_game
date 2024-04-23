@@ -49,6 +49,9 @@ void game3dRender(){
 };
 
 void gamePreFrame(float deltaTime){
+};
+
+void gameMatsSetup(){
     Matrix proj = perspective(rad(gameFov), windowW / windowH, 0.01f, 1000.0f);
 
     Matrix view = IDENTITY_MATRIX;

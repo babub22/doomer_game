@@ -1839,7 +1839,7 @@ int main(int argc, char* argv[]) {
         }
 
 	
-	instances[curInstance][matsSetup]();
+	//instances[curInstance][matsSetup]();
 	renderScene();
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
