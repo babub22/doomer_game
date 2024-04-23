@@ -1,7 +1,12 @@
 #version 330
 uniform vec3 cameraPos;
+
 uniform sampler2D colorMap;
+uniform samplerCube depthMap;
+
 uniform float radius;
+
+uniform vec3 lightPoss;	
 
 in vec2 TexCoord;
 in vec3 Normal;
@@ -39,7 +44,25 @@ uniform DirLight dirLights[MAX_LIGHTS];
 in vec3 vertexToPlayer;
 
 float ambientC = .05f;
-float specularC = .2f;	
+float specularC = .2f;
+
+uniform float far_plane;
+
+float shadowCalc(vec3 lightDir, vec3 lightPos){
+
+vec3 fragToLight = FragPos - lightPos;
+
+float closestDepth = texture(depthMap, fragToLight).r;
+closestDepth *= far_plane;
+
+float currentDepth = length(fragToLight);
+
+float bias = 0.05; // we use a much larger bias since depth is now in [near_plane, far_plane] range
+
+float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;        
+
+return shadow;
+}
 
 vec3 pointLightCalc(PointLight light, vec3 norm, vec3 viewDir){
 vec3 lightDir = normalize(light.pos - FragPos);
@@ -64,7 +87,11 @@ ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
-return (ambient + diffuse + specular);
+float shadow = shadowCalc(lightDir, light.pos);
+
+//ambient += (1.0 - shadow);
+
+return (ambient + (diffuse + specular) * (1.0 - shadow));
 }
 
 vec3 dirLightCalc(DirLight light, vec3 norm, vec3 viewDir){
@@ -96,6 +123,10 @@ ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
+float shadow = shadowCalc(lightDir, light.pos);
+
+//ambient += (1.0 - shadow);
+
 return (ambient + diffuse + specular);
 
 }  
@@ -125,9 +156,18 @@ res+= pointLightCalc(pointLights[i], norm, viewDir);
 
 float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
+vec3 fragToLight = FragPos - lightPoss;
 
-gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
+float closestDepth = texture(depthMap, fragToLight).r;
+closestDepth *= far_plane;
+
+gl_FragColor = vec4(vec3(closestDepth / far_plane), 1.0);  
+
+//gl_FragColor = vec4(res * color,tex.a);
+
+//gl_FragColor = vec4(res * color * fogAttenuation + (.5 * //(1.0-fogAttenuation)),tex.a);
 }
+
 /*
 
 

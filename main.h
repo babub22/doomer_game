@@ -701,7 +701,7 @@ void renderText(char* text, float x, float y, float scale);
 // it also assigns lb, rt to model
 void calculateModelAABB(Model* model);
 
-void renderScene();
+void renderScene(int curShader);
 
 bool loadSave(char* saveName);
 
@@ -812,7 +812,7 @@ typedef enum{
 } EngineInstanceFunc;
 
 typedef enum{
-  lightSourceShader, hudShader, mainShader, borderShader, screenShader, shadersCounter
+  lightSourceShader, hudShader, mainShader, borderShader, screenShader, pointShadowShader, shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
@@ -1051,7 +1051,6 @@ float fov;
 
 void uniformMat4(int shader, char* var, float* mat);
 void uniformVec2(int shader, char* var, vec2 value);
-
 
 int renderCapYLayer;
 
