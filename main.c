@@ -920,20 +920,29 @@ int main(int argc, char* argv[]) {
         //  glEnable(GL_MULTISAMPLE);  
 
         glEnable(GL_TEXTURE_2D);
+	//	   glEnable(GL_TEXTURE_2D);
         //    glShadeModel(GL_SMOOTH);
         //glClearDepth(1.0f);
         glEnable(GL_DEPTH_TEST);
+	//	glEnable(GL_CULL_FACE);
+	    
 
-        glDepthFunc(GL_LEQUAL);
+	//        glDepthFunc(GL_LEQUAL);
+
+	//	glDepthFunc(GL_LESS);
         //  glDepthMask(GL_FALSE);
 
         //    glfwWindowHint(GLFW_SAMPLES, 4);
         glEnable(GL_MULTISAMPLE);
 
-        glEnable(GL_STENCIL_TEST);
-        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-        glStencilMask(0x00);
+	//	glEnable(GL_CULL_FACE);
+	//	glCullFace(GL_FRONT);
+	//	glFrontFace(GL_CCW);
+
+	//        glEnable(GL_STENCIL_TEST);
+	//        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+	//        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+	//        glStencilMask(0x00);
 
         //    glStencilMask(0xFF);
         //    glStencilMask(0x00);
@@ -952,15 +961,25 @@ int main(int argc, char* argv[]) {
       {
 	glGenFramebuffers(1, &depthMapFBO);
 	// create depth cubemap texture
+	//	glActiveTexture(GL_TEXTURE1);
 	glGenTextures(1, &depthCubemap);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
-	for (unsigned int i = 0; i < 6; ++i)
-	  glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	
+	for (unsigned int i = 0; i < 6; ++i){
+	  glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT24, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	}
+	
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	///	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+
+	
 	// attach depth texture as FBO's depth buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
@@ -974,7 +993,8 @@ int main(int argc, char* argv[]) {
         }
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	//	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	//	glActiveTexture(GL_TEXTURE0);
       }
 
       
@@ -1155,7 +1175,9 @@ int main(int argc, char* argv[]) {
 
             GLuint txId;
 
-            createTexture(&txId, texture->w, texture->h, texture->pixels);
+
+            createTexture(&txId, texture->w, texture->h, texture->pixels); 
+	    printf("%s -  %d \n", fullPath,txId);
             SDL_FreeSurface(texture);
             /*
               glGenTextures(1, &txId);
@@ -1344,7 +1366,7 @@ int main(int argc, char* argv[]) {
         printf("Map not found!\n");
     }
 
-    lightPos = (vec3){gridX /2.0f,5.0f,gridZ/2.0f};
+    //    lightPos = (vec3){gridX /2.0f,2.0f,gridZ/2.0f};
 
     renderCapYLayer = gridY;
     batchGeometry();
@@ -1809,7 +1831,8 @@ int main(int argc, char* argv[]) {
         // light things
         {
             // render light sources
-            {
+          /*
+  {
 	      //                glUseProgram(shadersId[lightSourceShader]);
 
 
@@ -1877,118 +1900,188 @@ int main(int argc, char* argv[]) {
                     uniformInt(mainShader, buf, localLightsCounter[i]);
                 }
             }
+*/
         }
+
+	//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+	//	vec3 fogColor = { 0.5f, 0.5f, 0.5f };
+	glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, 1.0f);
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	
-	float near_plane = 1.0f;
-	float far_plane  = 25.0f;
+	float near_plane = 0.01f;
+	float far_plane  = 70.0f;
 	
 	// render to depth cubemap
-	{
-	  glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-	  glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-	  glClear(GL_DEPTH_BUFFER_BIT);
-
-	  glUseProgram(shadersId[pointShadowShader]);
-
-	  // setup mats for rendering to cubemaps
-	  //	  if(lightsStore)
-	    //	    {
+	if(lightsStore)
+	  {
+	    //	  glCullFace(GL_FRONT);
+	  
+	    glUseProgram(shadersId[pointShadowShader]);
+	  
+	    glEnable(GL_DEPTH_TEST);
+	    glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	    glClear(GL_DEPTH_BUFFER_BIT);
+	  
+	    vec3 sidesVecs[6][2] = {
+	      {{ 1.0f, 0.0f, 0.0f},{0.0f, -1.0f, 0.0f}},
+	      {{ -1.0f, 0.0f, 0.0f},{0.0f, -1.0f, 0.0f}},
+        
+	      {{ 0.0f, 1.0f, 0.0f},{0.0f, 0.0f, 1.0f}},
+	      {{ 0.0f, -1.0f, 0.0f},{0.0f, 0.0f, -1.0f}},
+        
+	      {{ 0.0f, 0.0f, 1.0f},{0.0f, -1.0f, 0.0f}},
+	      {{ 0.0f, 0.0f, -1.0f},{0.0f, -1.0f, 0.0f}},
+	    };
       
-	      vec3 sidesVecs[6][2] = {
-		{{ 1.0f, 0.0f, 0.0f},{0.0f, -1.0f, 0.0f}},
-		{{ -1.0f, 0.0f, 0.0f},{0.0f, -1.0f, 0.0f}},
-        
-		{{ 0.0f, -1.0f, 0.0f},{0.0f, 0.0f, 1.0f}},
-		{{ 0.0f, 1.0f, 0.0f},{0.0f, 0.0f, -1.0f}},
-        
-		{{ 0.0f, 0.0f, 1.0f},{0.0f, -1.0f, 0.0f}},
-		{{ 0.0f, 0.0f, -1.0f},{0.0f, -1.0f, 0.0f}},
-	      };
-      
-	      Matrix shadowProj = perspective(rad(90.0f), (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, near_plane, far_plane);
+	    Matrix shadowProj = perspective(rad(90.0f), (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, near_plane, far_plane); 
 
-	      for (int i = 0; i < 6; ++i){
-		Matrix viewMat = lookAt(lightPos,
-					(vec3){ lightPos.x + sidesVecs[i][0].x, lightPos.y + sidesVecs[i][0].y,  lightPos.z + sidesVecs[i][0].z}, sidesVecs[i][1]);
-        
-		Matrix shadowTransforms = multiplymat4(shadowProj, viewMat);
+	    for (int i = 0; i < 6; ++i){
+	      vec3 transfLightPos = { lightsStore[0].pos.x + sidesVecs[i][0].x, lightsStore[0].pos.y + sidesVecs[i][0].y, lightsStore[0].pos.z + sidesVecs[i][0].z };
 
-		char buf[128];
+	      printf(" %f %f %f \n", argVec3(transfLightPos));
+	      
+	      Matrix viewMat = lookAt(lightsStore[0].pos,
+		transfLightPos, sidesVecs[i][1]);
 
-		sprintf(buf, "shadowMatrices[%d]", i);
+	      //	      Matrix shadowTransforms = multiplymat4(shadowProj, viewMat);
+	      Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
 
-		uniformMat4(pointShadowShader, buf, shadowTransforms.m);  
-	      }
+	      char buf[128];
 
-	      uniformFloat(pointShadowShader, "far_plane", far_plane);
-	      uniformVec3(pointShadowShader, "lightPos", lightPos);
-	      //	    }
+	      sprintf(buf, "shadowMatrices[%d]", i);
 
-	  renderScene(pointShadowShader);
+	      uniformMat4(pointShadowShader, buf, shadowTransforms.m);
+	    }
+
+	    uniformFloat(pointShadowShader, "far_plane", far_plane);
+	    uniformVec3(pointShadowShader, "lightPos", lightsStore[0].pos);
+
+	    renderScene(pointShadowShader);
+
+	    glBindFramebuffer(GL_FRAMEBUFFER, 0);   
+	  }
+
+	vec3 fogColor = { 0.5f, 0.5f, 0.5f };
+	glClearColor(argVec3(fogColor), 1.0f);
     
-	  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
+	if (lightsStore)
+	  {
+	    //	  glCullFace(GL_BACK);
 
-	{
-	  glUseProgram(shadersId[mainShader]);
-		  
-	  glViewport(0, 0, windowW, windowH);
-	  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	  glEnable(GL_DEPTH_TEST);
+	    glUseProgram(shadersId[mainShader]);
 
-	  glUniform3f(cameraPos, argVec3(curCamera->pos));
-	  uniformFloat(mainShader,"far_plane", far_plane);
-	  uniformVec3(mainShader, "lightPoss", lightPos);
+	    glViewport(0, 0, windowW, windowH);
+	    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
 		  
 		
-	  instances[curInstance][matsSetup]();
+	  //	  instances[curInstance][matsSetup]();
 
-	  glActiveTexture(GL_TEXTURE0);
-	  glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
+	//	  ((void (*)(int))instances[curInstance][matsSetup])(mainShader);
+
+	{
+	  Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
+
+	  Matrix view = IDENTITY_MATRIX;
+	  vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
+
+	  translate(&view, argVec3(negPos));
+      
+	  rotateY(&view, rad(curCamera->yaw));
+	  rotateX(&view, rad(curCamera->pitch));
+
+	  uniformMat4(mainShader, "proj", proj.m);
+	  uniformMat4(mainShader, "view", view.m);
+
+	  vec3 front  = ((vec3){ view.m[8], view.m[9], view.m[10] });
+
+	  curCamera->Z = normalize3((vec3) { front.x * -1.0f, front.y * 1.0f, front.z * 1.0f });
+	  curCamera->X = normalize3(cross3(curCamera->Z, curCamera->up));
+	  curCamera->Y = (vec3){ 0,dotf3(curCamera->X, curCamera->Z),0 };
+
+	  // cursor things
+	  {
+	    float x = (2.0f * mouse.screenPos.x) / windowW - 1.0f;
+	    float y = 1.0f - (2.0f * mouse.screenPos.z) / windowH;
+	    float z = 1.0f;
+	    vec4 rayClip = { x, y, -1.0, 1.0 };
+
+	    Matrix inversedProj = IDENTITY_MATRIX;
+      
+	    inverse(proj.m, inversedProj.m);
+	    vec4 ray_eye = mulmatvec4(inversedProj, rayClip);
+
+	    ray_eye.z = -1.0f;
+	    ray_eye.w = 0.0f;
+
+	    Matrix inversedView = IDENTITY_MATRIX;
+
+	    inverse(view.m, inversedView.m);
+
+	    vec4 ray_wor = mulmatvec4(inversedView, ray_eye);
+	    mouse.rayDir = normalize3((vec3) { argVec3(ray_wor) });
+
+	    //normalize4(&ray_wor);
+
+	  }
+	}
+
+        glUniform3f(cameraPos, argVec3(curCamera->pos));
+        uniformFloat(mainShader, "far_plane", far_plane);
+        uniformVec3(mainShader, "lightPoss", lightsStore[0].pos);
+
+	glActiveTexture(GL_TEXTURE0 + 2);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 	
-	  renderScene(mainShader);
+	renderScene(mainShader);
 
-	  //	  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	//	glActiveTexture(GL_TEXTURE0);
 
-	  glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
-	  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
-	  glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	//	  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 
-	  // render to fbo 
-	  glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
-	  glClear(GL_COLOR_BUFFER_BIT);
-	  glDisable(GL_DEPTH_TEST);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
+	glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-	  glUseProgram(shadersId[screenShader]);
+	// render to fbo 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
+	//glClear(GL_COLOR_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
+
+	glUseProgram(shadersId[screenShader]);
 	  
-	  uniformFloat(screenShader, "dof", -(dofPercent - 1.0f));
+	uniformFloat(screenShader, "dof", -(dofPercent - 1.0f));
 
-	  float seed = (float)(rand() % 1000 + 1) / 1000.0f;
-	  uniformFloat(screenShader, "time", seed);
+	float seed = (float)(rand() % 1000 + 1) / 1000.0f;
+	uniformFloat(screenShader, "time", seed);
 
 
-	  glBindVertexArray(quad.VAO);
-	  glBindTexture(GL_TEXTURE_2D, screenTexture);
-	  glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(quad.VAO);
+	glBindTexture(GL_TEXTURE_2D, screenTexture);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
 
 
-		// 2d ui drawing
+
+	// 2d ui drawing
 		glDisable(GL_DEPTH_TEST);
-		glUseProgram(shadersId[hudShader]);
+	glUseProgram(shadersId[hudShader]);
 
-		instances[curInstance][render2DFunc]();
-		//      editor2dRender();
+	instances[curInstance][render2DFunc]();
+	//      editor2dRender();
 
-		mouse.clickL = false;
-		mouse.clickR = false;
+	mouse.clickL = false;
+	mouse.clickR = false;
 
-      glFlush();
+	//	glFlush();
   
-      SDL_GL_SwapWindow(window);
+	SDL_GL_SwapWindow(window);
 
       uint32_t endtime = GetTickCount();
       uint32_t deltatime = endtime - starttime;
@@ -1998,7 +2091,7 @@ int main(int argc, char* argv[]) {
       }
     
       if (deltatime != 0) {
-	sprintf(windowTitle, game" BazoMetr: %d%% Save: %s.doomer", 1000 / deltatime, curSaveName);
+	sprintf(windowTitle, game" BazoMetr: %d%% Save: %s.doomer", 1000 / deltatime, curSaveName); 
 	SDL_SetWindowTitle(window, windowTitle);
       }
     }
@@ -2011,18 +2104,18 @@ int main(int argc, char* argv[]) {
   }
 
   void renderCube(vec3 pos, int lightId){
-    glActiveTexture(solidColorTx);
+    //    glActiveTexture(solidColorTx);
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
     setSolidColorTx(1.0f,1.0f,1.0f, 1.0f);
 
-    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO); 
     glBindVertexArray(cube.VAO);
 
   //  glUniformMatrix4fv(lightModelLoc, 1, GL_FALSE, lightsStore[lightId].mat.m);
 
 
 
-
+     
     glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
 
     glBindTexture(GL_TEXTURE_2D, 0); 
@@ -2031,7 +2124,7 @@ int main(int argc, char* argv[]) {
   }
 
   bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist) {
-    vec3 dirfrac = { 1.0f / dir.x, 1.0f / dir.y, 1.0f / dir.z};
+    vec3 dirfrac = { 1.0f / dir.x, 1.0f / dir.y, 1.0f / dir.z}; 
 
     float t1 = (lb.x - origin.x)*dirfrac.x;
     float t2 = (rt.x - origin.x)*dirfrac.x;
@@ -4916,7 +5009,7 @@ int main(int argc, char* argv[]) {
 
 
   void renderScene(int curShader){
-    glUseProgram(shadersId[lightSourceShader]);
+    /*    glUseProgram(shadersId[lightSourceShader]);
 
     for (int i = 0; i < lightsStoreSize; i++) {
       //	  renderCube(lightsStore[i].pos, lightsStore[i].id);
@@ -4955,22 +5048,45 @@ int main(int argc, char* argv[]) {
       
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
+      }
+
+      glUseProgram(shadersId[curShader]);
+
+      glStencilMask(0x00);*/
+
+    
+    for (int i = 0; i < curModelsSize; i++) {
+
+      int name = curModels[i].name;
+
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
+
+      // glStencilFunc(GL_ALWAYS, 1, 0xFF);
+      //      glStencilMask(0xFF);
+
+      glBindVertexArray(loadedModels1D[name].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
+
+      //	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, curModels[i].mat.m);
+      uniformMat4(curShader, "model", curModels[i].mat.m);
+
+      glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+
+      glBindTexture(GL_TEXTURE_2D, 0);
     }
-
-    glUseProgram(shadersId[curShader]);
-
-    glStencilMask(0x00);
-
+    
     Matrix out2 = IDENTITY_MATRIX;
 
-    out2.m[12] = 0.0;
-    out2.m[13] = 0.0;
-    out2.m[14] = 0.0f;
-
+   
     uniformMat4(curShader, "model", out2.m);
     // glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out2.m);
 
     for (int i = 0; i < loadedTexturesCounter; i++) {
+      if(loadedTextures1D[i].tx == 13 && curShader == 5) continue; // 12 - zemlia
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, loadedTextures1D[i].tx);
 
@@ -4983,6 +5099,10 @@ int main(int argc, char* argv[]) {
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
     }
+
+
+    
+    /*
 
     {
       // plane things
@@ -5150,11 +5270,7 @@ int main(int argc, char* argv[]) {
 	      }
 	    }
 	  }
-	/*
-	  float x = snowParticle[loop].x;
-	  float y = snowParticle[loop].y;
-	  float z = snowParticle[loop].z;
-	*/
+
 	Matrix out = IDENTITY_MATRIX;
 
 	out.m[12] = 0.0;
@@ -5248,28 +5364,5 @@ int main(int argc, char* argv[]) {
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     glStencilFunc(GL_ALWAYS, 1, 0xFF); // all fragments should pass the stencil test
     glStencilMask(0xFF);
-
-    for (int i = 0; i < curModelsSize; i++) {
-
-      int name = curModels[i].name;
-
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
-
-      glStencilFunc(GL_ALWAYS, 1, 0xFF);
-      glStencilMask(0xFF);
-
-      glBindVertexArray(loadedModels1D[name].VAO);
-      glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
-
-      //	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, curModels[i].mat.m);
-      uniformMat4(curShader, "model", curModels[i].mat.m);
-
-      glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
-
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glBindVertexArray(0);
-
-      glBindTexture(GL_TEXTURE_2D, 0);
-    }
+*/
   }

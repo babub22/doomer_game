@@ -4,4 +4,4 @@ void editorPreFrame(float deltaTime);
 void editorPreLoop();
 void editorEvents(SDL_Event event);
 void editorOnSetInstance();
-void editorMatsSetup();
+void editorMatsSetup(int curShader);

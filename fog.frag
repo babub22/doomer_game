@@ -59,7 +59,9 @@ float currentDepth = length(fragToLight);
 
 float bias = 0.05; // we use a much larger bias since depth is now in [near_plane, far_plane] range
 
-float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;        
+float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;
+
+//gl_FragColor = vec4(res * color,tex.a);
 
 return shadow;
 }
@@ -135,9 +137,9 @@ void main(void){
 vec4 tex = texture2D(colorMap, TexCoord);
 vec3 color = tex.rgb;	
 
-if(tex.a == 0.0){
-		  discard;
-}
+//if(tex.a == 0.0){
+//		  discard;
+//}
 
 vec3 viewDir = normalize(cameraPos - FragPos);
 vec3 norm = normalize(Normal);
@@ -161,7 +163,7 @@ vec3 fragToLight = FragPos - lightPoss;
 float closestDepth = texture(depthMap, fragToLight).r;
 closestDepth *= far_plane;
 
-gl_FragColor = vec4(vec3(closestDepth / far_plane), 1.0);  
+gl_FragColor =  vec4(vec3(closestDepth / far_plane), 1.0);  
 
 //gl_FragColor = vec4(res * color,tex.a);
 

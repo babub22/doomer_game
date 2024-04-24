@@ -1315,7 +1315,7 @@ void editorEvents(SDL_Event event){
 }
 }
 
-void editorMatsSetup(){
+void editorMatsSetup(int curShader){
   
     {
     Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
@@ -1335,10 +1335,14 @@ void editorMatsSetup(){
       
 
 	for (int i = 0; i < shadersCounter; i++) {
+	  if(i==pointShadowShader) continue;
+	  
 		glUseProgram(shadersId[i]);
 		uniformMat4(i, "proj", proj.m);
 		uniformMat4(i, "view", view.m);
 	}
+
+	glUseProgram(shadersId[curShader]);
 
     vec3 front  = ((vec3){ view.m[8], view.m[9], view.m[10] });
 
@@ -1852,7 +1856,7 @@ void editor2dRender(){
     glBindVertexArray(hudRect.VAO);
     glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
 
-    glActiveTexture(solidColorTx);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
     setSolidColorTx(blackColor, 1.0f);
 
@@ -2107,7 +2111,7 @@ void editor2dRender(){
     
   // render objects menu
   if(curMenu && curMenu->type == objectsMenuT){
-    glActiveTexture(solidColorTx);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
     setSolidColorTx(blackColor, 1.0f);
       
@@ -2198,7 +2202,7 @@ void editor2dRender(){
 
     // types of models
     {
-      glActiveTexture(solidColorTx);
+    glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
 
       float typeButtonW = (1.0f + objectsMenuWidth) / 2;
@@ -2256,7 +2260,7 @@ void editor2dRender(){
       renderText(loadedModels2D[objectsMenuSelectedType][i].name, -1.0f, 1.0f - (i * letterH), 1);
     }
   }else if(curMenu && curMenu->type == blocksMenuT){
-    glActiveTexture(solidColorTx);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
     setSolidColorTx(blackColor, 1.0f);
       
@@ -2326,7 +2330,7 @@ void editor2dRender(){
       renderText(tileBlocksStr[i], -1.0f, 1.0f - (i * letterH), 1);
     }
   }else if(curMenu && curMenu->type == lightMenuT){
-    glActiveTexture(solidColorTx);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
     setSolidColorTx(blackColor, 1.0f);
       
@@ -2408,7 +2412,7 @@ void editor2dRender(){
       renderText(lightTypesStr[i], -1.0f, 1.0f - (i * letterH), 1);
     }
   }else if(curMenu && curMenu->type == texturesMenuT){
-    glActiveTexture(solidColorTx);
+    glActiveTexture(GL_TEXTURE0);;
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
     setSolidColorTx(blackColor, 1.0f);
 
@@ -2569,7 +2573,7 @@ void editor2dRender(){
       planeOnCreation->mat = out; 
     }
 
-    glActiveTexture(solidColorTx);
+    glActiveTexture(GL_TEXTURE0);;
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
     setSolidColorTx(blackColor, 1.0f);
 
@@ -2880,7 +2884,7 @@ void editor2dRender(){
     Character* editedCharacter = &characters[characterId];
     Dialog* curDialog = editedCharacter->curDialog;
       
-    glActiveTexture(solidColorTx);
+    glActiveTexture(GL_TEXTURE0);;
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
 
     // dialog editor background
@@ -3267,7 +3271,7 @@ void editor2dRender(){
   if(!curMenu && hints){
     // black backGround drawins
     {
-      glActiveTexture(solidColorTx);
+      glActiveTexture(GL_TEXTURE0);;
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
       setSolidColorTx(blackColor, 1.0f);
 	
@@ -3304,7 +3308,7 @@ void editor2dRender(){
   // render cursor
   if(curMenu)
     {
-      glActiveTexture(solidColorTx);
+      glActiveTexture(GL_TEXTURE0);;
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
       setSolidColorTx(whiteColor, 1.0f);
       
@@ -3333,7 +3337,7 @@ void editor2dRender(){
 
 
   if(console.open){
-    glActiveTexture(solidColorTx);
+    glActiveTexture(GL_TEXTURE0);;
     glBindTexture(GL_TEXTURE_2D, solidColorTx);
     setSolidColorTx(blackColor, 1.0f);
       

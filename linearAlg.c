@@ -211,7 +211,7 @@ Matrix lookAt(vec3 eye, vec3 center, vec3 up) {
   vec3 s = normalize3(cross3(f, up));
   vec3 u = cross3(s, f);
 
-  Matrix mat;
+  Matrix mat = IDENTITY_MATRIX;
   mat.m[0] = s.x;
   mat.m[1] = u.x;
   mat.m[2] = -f.x;
