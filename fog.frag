@@ -137,9 +137,9 @@ void main(void){
 vec4 tex = texture2D(colorMap, TexCoord);
 vec3 color = tex.rgb;	
 
-//if(tex.a == 0.0){
-//		  discard;
-//}
+if(tex.a == 0.0){
+		  discard;
+}
 
 vec3 viewDir = normalize(cameraPos - FragPos);
 vec3 norm = normalize(Normal);

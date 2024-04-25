@@ -1959,7 +1959,7 @@ int main(int argc, char* argv[]) {
 
 	      printf(" %f %f %f \n", argVec3(transfLightPos));
 	      
-	      Matrix viewMat = lookAt(lightsStore[0].pos, transfLightPos, sidesVecs[i][1]);
+	      Matrix viewMat = lookAt((vec3){argVec3(lightsStore[0].pos)},transfLightPos, sidesVecs[i][1]);
 
 	      //Matrix shadowTransforms = multiplymat4(shadowProj, viewMat);
 	      Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
