@@ -186,13 +186,13 @@ vec3 cross3(const vec3 v1, const vec3 v2) {
 }
 
 vec3 normalize3(const vec3 vec) {
-	float vecLen = sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
+	float vecLen = sqrtf(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
 	vec3 norm = { 0 };
 
 	if (vecLen != 0.0f) {
 		norm.x = vec.x / vecLen;
 		norm.y = vec.y / vecLen;
-		norm.z = vec.z / vecLen;
+		norm.z = vec.z / vecLen; 
 	}
 
 	return norm;
@@ -208,24 +208,25 @@ vec3 subtract(vec3 a, vec3 b) {
 
 Matrix lookAt(vec3 eye, vec3 center, vec3 up) {
   vec3 f = normalize3(subtract(center, eye));
-  vec3 s = normalize3(cross3(f, up));
-  vec3 u = cross3(s, f);
+  vec3 u = normalize3(up);
+  vec3 s = normalize3(cross3(f, u));
+  u = cross3(s,f);
 
   Matrix mat = IDENTITY_MATRIX;
   mat.m[0] = s.x;
   mat.m[1] = u.x;
   mat.m[2] = -f.x;
-  mat.m[3] = 0.0f;
+  //mat.m[3] = 0.0f;
 
   mat.m[4] = s.y;
   mat.m[5] = u.y;
   mat.m[6] = -f.y;
-  mat.m[7] = 0.0f;
+  //mat.m[7] = 0.0f;
 
   mat.m[8] = s.z;
   mat.m[9] = u.z;
   mat.m[10] = -f.z;
-  mat.m[11] = 0.0f;
+  //mat.m[11] = 0.0f;
 
   mat.m[12] = -dotf3(s, eye);
   mat.m[13] = -dotf3(u, eye);

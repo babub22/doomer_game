@@ -920,7 +920,7 @@ int main(int argc, char* argv[]) {
         //  glEnable(GL_MULTISAMPLE);  
 
         glEnable(GL_TEXTURE_2D);
-	glEnable(GL_CULL_FACE);
+	//	glEnable(GL_CULL_FACE);
 
 	//	   glEnable(GL_TEXTURE_2D);
         //    glShadeModel(GL_SMOOTH);
@@ -968,7 +968,7 @@ int main(int argc, char* argv[]) {
 	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 	
 	for (unsigned int i = 0; i < 6; ++i){
-	  glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT24, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	  glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 	}
 	
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1829,9 +1829,13 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, 1.0f);
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
 
         // light things
-        {
+        {	  
             // render light sources
           /*
   {
@@ -1908,12 +1912,9 @@ int main(int argc, char* argv[]) {
 	//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	//	vec3 fogColor = { 0.5f, 0.5f, 0.5f };
-	glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, 1.0f);
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	
-	float near_plane = 0.01f;
-	float far_plane  = 70.0f;
+	float near_plane = 0.1f;
+	float far_plane  = 120.0f;
 	
 	// render to depth cubemap
 	if(lightsStore)
@@ -1928,14 +1929,26 @@ int main(int argc, char* argv[]) {
 	    glClear(GL_DEPTH_BUFFER_BIT);
 	  
 	    vec3 sidesVecs[6][2] = {
-	      {{ 1.0f, 0.0f, 0.0f},{0.0f, -1.0f, 0.0f}},
+	      {{ 1.0f, 0.0f, 0.0f},{0.0f, 0.0f, 0.0f}},
+	      {{ -1.0f, 0.0f, 0.0f},{0.0f, 0.0f, 0.0f}},
+        
+	      {{ 0.0f, 1.0f, 0.0f},{0.0f, 0.0f, 0.0f}},
+	      {{ 0.0f, -1.0f, 0.0f},{0.0f, 0.0f, 0.0f}},
+
+	      {{ 0.0f, 0.0f, 1.0f},{0.0f, 0.0f, 0.0f}},
+	      {{ 0.0f, 0.0f, -1.0f},{ 0.0f, 1.0f, 0.0f}}
+        
+
+	      /*
+
 	      {{ -1.0f, 0.0f, 0.0f},{0.0f, -1.0f, 0.0f}},
+	      {{ 1.0f, 0.0f, 0.0f},{0.0f, -1.0f, 0.0f}},
         
-	      {{ 0.0f, 1.0f, 0.0f},{0.0f, 0.0f, 1.0f}},
-	      {{ 0.0f, -1.0f, 0.0f},{0.0f, 0.0f, -1.0f}},
-        
-	      {{ 0.0f, 0.0f, 1.0f},{0.0f, -1.0f, 0.0f}},
-	      {{ 0.0f, 0.0f, -1.0f},{0.0f, -1.0f, 0.0f}},
+	      {{ 0.0f, -1.0f, 0.0f},{0.0f, 0.0f, 1.0f}},
+	      {{ 0.0f, 1.0f, 0.0f},{0.0f, 0.0f, -1.0f}},
+
+	      {{ 0.0f, 0.0f, -1.0f},{0.0f, 1.0f, 0.0f}},
+	      {{ 0.0f, 0.0f, 1.0f},{0.0f, 1.0f, 0.0f}},*/
 	    };
 
 	    /*	    vec3 sidesVecs[6][2] = {
@@ -1945,21 +1958,22 @@ int main(int argc, char* argv[]) {
 	      {{ 0.0f, 1.0f, 0.0f},{0.0f, 1.0f, 0.0f}},
 	      {{ 0.0f, -1.0f, 0.0f},{0.0f, 1.0f, 0.0f}},
         
-	      {{ 0.0f, 0.0f, 1.0f},{0.0f, 1.0f, 0.0f}},
+	       {{ 0.0f, 0.0f, 1.0f},{0.0f, 1.0f, 0.0f}},
 	      {{ 0.0f, 0.0f, -1.0f},{0.0f, 1.0f, 0.0f}},
-	    };*/
-      
-	    Matrix shadowProj = perspective(rad(90.0f), (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, near_plane, far_plane); 
+	    };*/   
+       
+	    //	    Matrix shadowProj = perspective(rad(90.0f), (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, near_plane, far_plane);
 
+	    Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
+
+	    vec3 modelXLight = { lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14] };// (vec4){argVec3(lightsStore[0].pos),1.0f});
+	    
 	    for (int i = 0; i < 6; ++i){
-	      vec4 modelXLight = mulmatvec4(lightsStore[0].mat, (vec4){argVec3(lightsStore[0].pos),1.0f});
-			  
-	      
-	      vec3 transfLightPos = { lightsStore[0].pos.x + sidesVecs[i][0].x, lightsStore[0].pos.y + sidesVecs[i][0].y, lightsStore[0].pos.z + sidesVecs[i][0].z };
+	      vec3 transfLightPos = { modelXLight.x + sidesVecs[i][0].x, modelXLight.y + sidesVecs[i][0].y, modelXLight.z + sidesVecs[i][0].z };
 
-	      printf(" %f %f %f \n", argVec3(transfLightPos));
+	      //   printf(" %f %f %f \n", argVec3(transfLightPos));
 	      
-	      Matrix viewMat = lookAt(lightsStore[0].pos, transfLightPos, sidesVecs[i][1]);
+	      Matrix viewMat = lookAt(modelXLight, transfLightPos, sidesVecs[i][1]);
 
 	      //Matrix shadowTransforms = multiplymat4(shadowProj, viewMat);
 	      Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
@@ -1972,7 +1986,8 @@ int main(int argc, char* argv[]) {
 	    }
 
 	    uniformFloat(pointShadowShader, "far_plane", far_plane);
-	    uniformVec3(pointShadowShader, "lightPos", lightsStore[0].pos);
+	    //   uniformVec3(pointShadowShader, "lightPos", lightsStore[0].pos);
+	    uniformVec3(pointShadowShader, "lightPos", modelXLight);
 
 	    renderScene(pointShadowShader);
 
@@ -1986,69 +2001,53 @@ int main(int argc, char* argv[]) {
 	  {
 	    //	  glCullFace(GL_BACK);
 
-	    glUseProgram(shadersId[mainShader]);
 
 	    glViewport(0, 0, windowW, windowH);
 	    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
-		  
-		
-	  //	  instances[curInstance][matsSetup]();
+	
+	((void (*)(int))instances[curInstance][matsSetup])(mainShader);
+	
+	glUseProgram(shadersId[lightSourceShader]);
 
-	//	  ((void (*)(int))instances[curInstance][matsSetup])(mainShader);
+	for (int i = 0; i < lightsStoreSize; i++) {
+	  //	  renderCube(lightsStore[i].pos, lightsStore[i].id);
+	  float intersectionDistance;
 
-	{
-	  Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
+	  bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightsStore[i].lb, lightsStore[i].rt, NULL, &intersectionDistance);
 
-	  Matrix view = IDENTITY_MATRIX;
-	  vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
-
-	  translate(&view, argVec3(negPos));
-      
-	  rotateY(&view, rad(curCamera->yaw));
-	  rotateX(&view, rad(curCamera->pitch));
-
-	  uniformMat4(mainShader, "proj", proj.m);
-	  uniformMat4(mainShader, "view", view.m);
-
-	  vec3 front  = ((vec3){ view.m[8], view.m[9], view.m[10] });
-
-	  curCamera->Z = normalize3((vec3) { front.x * -1.0f, front.y * 1.0f, front.z * 1.0f });
-	  curCamera->X = normalize3(cross3(curCamera->Z, curCamera->up));
-	  curCamera->Y = (vec3){ 0,dotf3(curCamera->X, curCamera->Z),0 };
-
-	  // cursor things
-	  {
-	    float x = (2.0f * mouse.screenPos.x) / windowW - 1.0f;
-	    float y = 1.0f - (2.0f * mouse.screenPos.z) / windowH;
-	    float z = 1.0f;
-	    vec4 rayClip = { x, y, -1.0, 1.0 };
-
-	    Matrix inversedProj = IDENTITY_MATRIX;
-      
-	    inverse(proj.m, inversedProj.m);
-	    vec4 ray_eye = mulmatvec4(inversedProj, rayClip);
-
-	    ray_eye.z = -1.0f;
-	    ray_eye.w = 0.0f;
-
-	    Matrix inversedView = IDENTITY_MATRIX;
-
-	    inverse(view.m, inversedView.m);
-
-	    vec4 ray_wor = mulmatvec4(inversedView, ray_eye);
-	    mouse.rayDir = normalize3((vec3) { argVec3(ray_wor) });
-
-	    //normalize4(&ray_wor);
-
+	  if (isIntersect// && minDistToCamera > intersectionDistance
+	      ) {
+	    mouse.selectedThing = &lightsStore[i];
+	    mouse.selectedType = mouseLightT;
 	  }
+
+	  uniformVec3(lightSourceShader, "color", (vec3) { redColor });
+
+	  glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
+	  glBindVertexArray(cube.VAO);
+
+	  uniformMat4(lightSourceShader, "model", lightsStore[i].mat.m);
+
+	  glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
+
+	  glActiveTexture(GL_TEXTURE0);
+	  glBindTexture(GL_TEXTURE_2D, 0);
+      
+	  glBindBuffer(GL_ARRAY_BUFFER, 0); 
+	  glBindVertexArray(0); 
 	}
 
+	glUseProgram(shadersId[mainShader]); 
+	
         glUniform3f(cameraPos, argVec3(curCamera->pos));
         uniformFloat(mainShader, "far_plane", far_plane);
-        uniformVec3(mainShader, "lightPoss", lightsStore[0].pos);
+
+	vec3 modelXLight = {lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14]};// (vec4){argVec3(lightsStore[0].pos),1.0f});
+	
+        uniformVec3(mainShader, "lightPoss", modelXLight);
 
 	//glActiveTexture(GL_TEXTURE0 + 2);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);

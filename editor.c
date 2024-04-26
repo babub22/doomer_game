@@ -1333,16 +1333,15 @@ void editorMatsSetup(int curShader){
       rotateX(&view, rad(curCamera->pitch));
     }
       
-
-	for (int i = 0; i < shadersCounter; i++) {
-	  if(i==pointShadowShader) continue;
+    for (int i = 0; i < shadersCounter; i++) {
+      if(i==pointShadowShader) continue;
 	  
-		glUseProgram(shadersId[i]);
-		uniformMat4(i, "proj", proj.m);
-		uniformMat4(i, "view", view.m);
-	}
+      glUseProgram(shadersId[i]);
+      uniformMat4(i, "proj", proj.m);
+      uniformMat4(i, "view", view.m);
+    }
 
-	glUseProgram(shadersId[curShader]);
+    glUseProgram(shadersId[curShader]);
 
     vec3 front  = ((vec3){ view.m[8], view.m[9], view.m[10] });
 
