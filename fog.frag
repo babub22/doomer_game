@@ -159,14 +159,15 @@ res+= pointLightCalc(pointLights[i], norm, viewDir);
 float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
-vec3 fragToLight = lightPoss - FragPos;
+//vec3 fragToLight = lightPoss - FragPos;
+vec3 fragToLight = FragPos - lightPoss;	
 
 float closestDepth = texture(depthMap, fragToLight).r;
 //closestDepth *= far_plane;
 
-gl_FragColor =  vec4(vec3(closestDepth), 1.0);  
+//gl_FragColor =  vec4(vec3(closestDepth), 1.0);  
 
-//gl_FragColor = vec4(res * color,tex.a);
+gl_FragColor = vec4(res * color,tex.a);
 
 //gl_FragColor = vec4(res * color * fogAttenuation + (.5 * //(1.0-fogAttenuation)),tex.a);
 }

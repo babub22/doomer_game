@@ -10,7 +10,7 @@
 int renderCapYLayer;
 EngineInstance curInstance = editorInstance;
 
-const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+const int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 unsigned int depthMapFBO;
 unsigned int depthCubemap;
 
@@ -920,6 +920,8 @@ int main(int argc, char* argv[]) {
         //  glEnable(GL_MULTISAMPLE);  
 
         glEnable(GL_TEXTURE_2D);
+
+	
 	//	glEnable(GL_CULL_FACE);
 
 	//	   glEnable(GL_TEXTURE_2D);
@@ -1837,7 +1839,7 @@ int main(int argc, char* argv[]) {
         // light things
         {	  
             // render light sources
-          /*
+
   {
 	      //                glUseProgram(shadersId[lightSourceShader]);
 
@@ -1882,7 +1884,8 @@ int main(int argc, char* argv[]) {
 
                     sprintf(buf, "%sLights[%i].color",
                         shaderVarSufixStr[lightsStore[i].type], index);
-                    uniformVec3(mainShader, buf, lightsStore[i].color);
+		    uniformVec3(mainShader, buf, lightsStore[i].color);
+		    
 
                     sprintf(buf, "%sLights[%i].constant",
                         shaderVarSufixStr[lightsStore[i].type], index);
@@ -1906,7 +1909,7 @@ int main(int argc, char* argv[]) {
                     uniformInt(mainShader, buf, localLightsCounter[i]);
                 }
             }
-*/
+
         }
 
 	//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -1924,31 +1927,21 @@ int main(int argc, char* argv[]) {
 	    glUseProgram(shadersId[pointShadowShader]);
 	  
 	    glEnable(GL_DEPTH_TEST);
+	    
 	    glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	    
 	    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	    glClear(GL_DEPTH_BUFFER_BIT);
 	  
 	    vec3 sidesVecs[6][2] = {
-	      {{ 1.0f, 0.0f, 0.0f},{0.0f, 0.0f, 0.0f}},
-	      {{ -1.0f, 0.0f, 0.0f},{0.0f, 0.0f, 0.0f}},
-        
-	      {{ 0.0f, 1.0f, 0.0f},{0.0f, 0.0f, 0.0f}},
-	      {{ 0.0f, -1.0f, 0.0f},{0.0f, 0.0f, 0.0f}},
-
-	      {{ 0.0f, 0.0f, 1.0f},{0.0f, 0.0f, 0.0f}},
-	      {{ 0.0f, 0.0f, -1.0f},{ 0.0f, 1.0f, 0.0f}}
-        
-
-	      /*
-
-	      {{ -1.0f, 0.0f, 0.0f},{0.0f, -1.0f, 0.0f}},
-	      {{ 1.0f, 0.0f, 0.0f},{0.0f, -1.0f, 0.0f}},
-        
-	      {{ 0.0f, -1.0f, 0.0f},{0.0f, 0.0f, 1.0f}},
-	      {{ 0.0f, 1.0f, 0.0f},{0.0f, 0.0f, -1.0f}},
-
-	      {{ 0.0f, 0.0f, -1.0f},{0.0f, 1.0f, 0.0f}},
-	      {{ 0.0f, 0.0f, 1.0f},{0.0f, 1.0f, 0.0f}},*/
+	      {{ 1.0f, 0.0f, 0.0f},{ 0.0f, -1.0f, 0.0f}},
+	      {{ -1.0f, 0.0f, 0.0f},{ 0.0f, -1.0f, 0.0f}},
+	      
+	      {{ 0.0f, 1.0f, 0.0f},{0.0f, 0.0f, 1.0f}},
+	      {{ 0.0f, -1.0f, 0.0f},{0.0f, 0.0f, -1.0f}},
+	      
+	      {{ 0.0f, 0.0f, .1f},{0.0f, -1.0f, 0.0f}},
+	      {{ 0.0f, 0.0f, -.1f},{ 0.0f, -1.0f, 0.0f}},
 	    };
 
 	    /*	    vec3 sidesVecs[6][2] = {
@@ -1974,9 +1967,31 @@ int main(int argc, char* argv[]) {
 	      //   printf(" %f %f %f \n", argVec3(transfLightPos));
 	      
 	      Matrix viewMat = lookAt(modelXLight, transfLightPos, sidesVecs[i][1]);
+	      
+	      if(i <= 1){
+		//	viewMat.m[8] *= -1.0f;
+		//	viewMat.m[8] = -(1.0f - 1/viewMat.m[8]);
+	      }
+
+	      
+	       //	       viewMat.m[10] *= -1.0f;
+	       //	       viewMat.m[9] *= -1.0f;
+
+	      //	      viewMat.m[12] = -viewMat.m[12];
+	      //	      viewMat.m[13] = -viewMat.m[13];
+	      //	      viewMat.m[14] = -viewMat.m[14];
 
 	      //Matrix shadowTransforms = multiplymat4(shadowProj, viewMat);
+
+	      //	      shadowProj.m[8] *= -1.0f;
+	      //	      shadowProj.m[8] *= -1.0f;
+	      //	      shadowProj.m[0] *= -1.0f;
 	      Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
+
+	      //   shadowTransforms.m[8] *= -1.0f;
+	      //	      shadowTransforms.m[0] *= -1.0f;
+	      // shadowTransforms.m[4] *= -1.0f;
+	      //	      shadowTransforms.m[12] *= -1.0f;
 
 	      char buf[128];
 

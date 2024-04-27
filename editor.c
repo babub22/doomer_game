@@ -1098,6 +1098,21 @@ void editorEvents(SDL_Event event){
 	}
 				  
 	break;
+      }      case(SDL_SCANCODE_M): {
+	Light* light = NULL;
+	    
+	if(mouse.focusedType == mouseLightT){
+	  light = (Light*) mouse.focusedThing;
+	}else if(mouse.selectedType == mouseLightT){
+	  light = (Light*) mouse.selectedThing;
+	}
+
+	if(light){
+	  light->color = (vec3){ (float)(rand() % 1000 + 1.0f) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f};
+	  printf("%f %f %f \n", argVec3(light->color));
+	}
+				  
+	break;
       }case(SDL_SCANCODE_P): {
 	 const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 			      
@@ -1332,7 +1347,9 @@ void editorMatsSetup(int curShader){
       rotateY(&view, rad(curCamera->yaw));
       rotateX(&view, rad(curCamera->pitch));
     }
-      
+
+     //    view.m[8] *= -1.0f;
+    
     for (int i = 0; i < shadersCounter; i++) {
       if(i==pointShadowShader) continue;
 	  
