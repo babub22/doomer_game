@@ -701,7 +701,7 @@ void renderText(char* text, float x, float y, float scale);
 // it also assigns lb, rt to model
 void calculateModelAABB(Model* model);
 
-void renderScene(int curShader);
+void renderScene(GLuint curShader);
 
 bool loadSave(char* saveName);
 
