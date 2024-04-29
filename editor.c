@@ -10,6 +10,9 @@ int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
 
+bool cursorMode;
+bool cursorShouldBeCentered;
+
 
 int texturesMenuCurCategoryIndex = 0;
 ModelType objectsMenuSelectedType = objectModelType;
@@ -1286,18 +1289,18 @@ void editorEvents(SDL_Event event){
   }
       
   if (event.type == SDL_MOUSEMOTION) {
-    if(curMenu){
-      float x = -1.0 + 2.0 * (event.motion.x / windowW);
-      float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
+    if(curMenu || cursorMode){
+	float x = -1.0 + 2.0 * (event.motion.x / windowW);
+	float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
 
-      mouse.cursor.x = x;
-      mouse.cursor.z = y;  
+	mouse.cursor.x = x;
+	mouse.cursor.z = y;  
     }
 
-    if (curCamera && !curMenu) { 
-      mouse.screenPos.x = windowW / 2;
-      mouse.screenPos.z = windowH / 2; 
-
+    if (curCamera && !curMenu && !cursorMode) { 
+      mouse.cursor.x = 0.0f;//-1.0 + 2.0 * (windowW / 2);
+      mouse.cursor.z = 0.0f;//-(-1.0 + 2.0 * (windowH));
+      
       float xoffset = event.motion.xrel;
       float yoffset = -event.motion.yrel;
 
@@ -1368,8 +1371,17 @@ void editorMatsSetup(int curShader){
 
     // cursor things
     {
-      float x = (2.0f * mouse.screenPos.x) / windowW - 1.0f;
-      float y = 1.0f - (2.0f * mouse.screenPos.z) / windowH;
+      //      float x = (2.0f * mouse.cursor.x) / windowW - 1.0f;
+      //      float y = 1.0f - (2.0f * mouse.cursor.z) / windowH;
+
+      float x = 0.0f;
+      float y = 0.0f;
+
+      if(!curMenu){
+	x = mouse.cursor.x;
+	y = mouse.cursor.z;
+      }
+      
       float z = 1.0f;
       vec4 rayClip = { x, y, -1.0, 1.0 };
 
@@ -1397,10 +1409,16 @@ void editorMatsSetup(int curShader){
 void editorPreFrame(float deltaTime){
   if(!console.open && !curMenu){
 	float cameraSpeed = 10.0f * deltaTime;
-    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
-    if (currentKeyStates[SDL_SCANCODE_W])
-      {
+	if(!cursorMode && currentKeyStates[SDL_SCANCODE_LCTRL]){
+	  cursorShouldBeCentered = true;
+	}
+    
+    cursorMode = currentKeyStates[SDL_SCANCODE_LCTRL];
+    printf("cursor %d \n", cursorMode);
+
+    if (currentKeyStates[SDL_SCANCODE_W]){
 	if (curCamera) {//cameraMode){
 	  vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
 		    
@@ -3284,7 +3302,7 @@ void editor2dRender(){
   }
 
   // render context text
-  if(!curMenu && hints){
+  /*  if(!curMenu && hints){
     // black backGround drawins
     {
       glActiveTexture(GL_TEXTURE0);;
@@ -3320,9 +3338,10 @@ void editor2dRender(){
 
     renderText(contextBelowText, -1.0f, -1.0f + letterH * contextBelowTextH, 1.0f); 
   }
+*/
 
   // render cursor
-  if(curMenu)
+  if(curMenu || cursorMode)
     {
       glActiveTexture(GL_TEXTURE0);;
       glBindTexture(GL_TEXTURE_2D, solidColorTx);

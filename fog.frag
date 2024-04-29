@@ -43,7 +43,7 @@ uniform DirLight dirLights[MAX_LIGHTS];
 
 in vec3 vertexToPlayer;
 
-float ambientC = .05f;
+float ambientC = .25f;
 float specularC = .2f;
 
 uniform float far_plane;

@@ -234,8 +234,12 @@ Menu dialogViewer = { .type = dialogViewerT };
 Menu dialogEditor = { .type = dialogEditorT };
 
 
-const float windowW = 1280.0f;
-const float windowH = 720.0f;
+//const float windowW = 1280.0f;
+//const float windowH = 720.0f;
+
+float windowW = 1920.0f;
+float windowH = 1080.0f;
+
 
 float dofPercent = 1.0f;
 
@@ -299,6 +303,22 @@ int main(int argc, char* argv[]) {
     lightDef.cutOff = cosf(rad(17.5f));
 
     SDL_Init(SDL_INIT_VIDEO);
+
+    
+    SDL_DisplayMode DM;
+    SDL_GetCurrentDisplayMode(0, &DM);
+
+    SDL_Rect r1;
+
+    SDL_GetDisplayUsableBounds(0, &r1);
+
+    windowW = DM.w;
+    windowH = DM.h;
+
+    printf("def %d %d \n", windowH, windowW);
+    //    printf(" %d %d \n",);
+    printf("Usable %d %d \n", r1.h, r1.w);
+    
 
     char windowTitle[100] = game;
     window = SDL_CreateWindow(windowTitle,
@@ -1422,8 +1442,7 @@ int main(int argc, char* argv[]) {
     float cameraSpeed = speed;
     SDL_Event event;
     
-    ((void (*)(void))instances[curInstance][preLoopFunc])();
-    
+    ((void (*)(void))instances[curInstance][preLoopFunc])();    
 
     glUseProgram(shadersId[mainShader]);
     uniformInt(mainShader, "colorMap", 0); 
@@ -1452,7 +1471,7 @@ int main(int argc, char* argv[]) {
             
 
             if (event.type == SDL_KEYDOWN && !console.open) {
-                if (event.key.keysym.scancode == SDL_SCANCODE_F11){
+	      /*                if (event.key.keysym.scancode == SDL_SCANCODE_F11){
                     fullScreen = !fullScreen;
 
                     if (fullScreen) {
@@ -1462,7 +1481,11 @@ int main(int argc, char* argv[]) {
                     else {
                         SDL_SetWindowFullscreen(window, 0);
                     }
-                }
+                }*/
+
+	      if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+		exit(1);
+	      }
 
                 if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
                     if (curInstance >= instancesCounter-1) {
@@ -1471,7 +1494,7 @@ int main(int argc, char* argv[]) {
                     else {
                         curInstance++;
                     }
-
+                     
 		    ((void (*)(void))instances[curInstance][onSetFunc])();
                 }
             }
@@ -1846,7 +1869,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, 1.0f);
+	//        glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, 1.0f);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -4770,7 +4793,7 @@ int main(int argc, char* argv[]) {
       glBindVertexArray(0);
     }
 
-    printf("post batchedGeometryIndexesSize: %d \n", batchedGeometryIndexesSize);
+    printf("post batchedGeometryIndexesSize: %d (%d(%d) bytes) \n", batchedGeometryIndexesSize, batchedGeometryIndexesSize * sizeof(Tile), sizeof(Tile));
     
     //    for(int i=0;i<batchedGeometryIndexesSize;i++){
       //      printf("%d %d %d \n",argVec3(batchedGeometryIndexes[i]));

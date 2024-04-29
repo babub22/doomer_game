@@ -997,8 +997,8 @@ SDL_Window* window;
 Mouse mouse;
 float drawDistance;
 
-const float windowW;// = 1280.0f;
-const float windowH;// = 720.0f;
+float windowW;// = 1280.0f;
+float windowH;// = 720.0f;
 
 //EnviromentalConfig enviromental = { true, true };
 
