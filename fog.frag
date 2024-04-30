@@ -81,7 +81,7 @@ float attenuation = 1.0 / (light.constant + light.linear * distance +
 light.quadratic * (distance * distance));    
 
 // combine results
-vec3 ambient  = ambientC  * light.color;
+vec3 ambient  = ambientC * light.color;
 vec3 diffuse  = diff * light.color;
 vec3 specular = specularC * spec * light.color;
 
@@ -105,7 +105,7 @@ vec3 reflectDir = reflect(-lightDir, norm);
 float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
 
 // combine results
-vec3 ambient  = ambientC  * light.color;
+vec3 ambient  = ambientC * light.color;
 vec3 diffuse  = diff * light.color;
 vec3 specular = specularC * spec * light.color;
 
