@@ -341,7 +341,7 @@ int main(int argc, char* argv[]) {
   SDL_WarpMouseInWindow(window, windowW / 2.0f, windowH / 2.0f);
   SDL_SetRelativeMouseMode(SDL_TRUE);
 
-  SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 1);
+  //  SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 1);
 
 
   SDL_GLContext context = SDL_GL_CreateContext(window);
@@ -1648,243 +1648,17 @@ int main(int argc, char* argv[]) {
 	  }
 	}
       }
-
+      
       ((void (*)(SDL_Event))instances[curInstance][eventFunc])(event);
-
-      //	editorEvents(event);
     }
 
     ((void (*)(float))instances[curInstance][preFrameFunc])(deltaTime);
 
     mouse.tileSide = -1;
+    checkMouseVSEntities();
 
-    //if ((mouse.focusedType != mouseWallT && mouse.brushType != mouseBlockBrushT && mouse.selectedType == mouseWallT) || (mouse.focusedType != mouseTileT && mouse.selectedType == mouseTileT) || (mouse.selectedType == mouseTileT)) {
-    //}
-
-    if (mouse.selectedType == mouseWallT || mouse.selectedType == mouseTileT) {
-      free(mouse.selectedThing);
-    }
-
-    mouse.selectedThing = NULL;
-    mouse.selectedType = 0;
-
-    float minDistToCamera = 1000.0f;
-	
-    for(int i=0;i<batchedGeometryIndexesSize;i++){
-      vec3i ind = batchedGeometryIndexes[i].indx;
-      vec3 tile = vec3_indexesToCoords(ind);
-      Tile* bBlock = grid[ind.y][ind.z][ind.x];
-
-      // block
-      if (bBlock->block != NULL) {
-	float intersectionDistance;
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->block->lb, bBlock->block->rt, NULL, &intersectionDistance);
-
-	if (isIntersect && minDistToCamera > intersectionDistance) {
-	  mouse.selectedThing = bBlock->block;
-	  mouse.selectedType = mouseBlockT;
-
-	  minDistToCamera = intersectionDistance;
-	}
-      }
-
-      // tiles
-      if(ind.y == curFloor){
-	const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
-	const vec3 lb = { tile.x, tile.y, tile.z };
-
-	float intersectionDistance;
-	vec3 intersection;
-
-	bool atLeastOneIntersect = false;
-	TileMouseData* data = malloc(sizeof(TileMouseData));
-
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
-
-	if (isIntersect && minDistToCamera > intersectionDistance) {
-	  mouse.selectedType = mouseTileT;
-
-	  atLeastOneIntersect = true;
-
-	  data->tile = bBlock;
-
-	  data->grid = (vec2i){ ind.x,ind.z };
-	  data->intersection = intersection;
-	  data->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
-
-	  mouse.selectedThing = data;
-
-	  minDistToCamera = intersectionDistance;
-	}
-			
-	if (!atLeastOneIntersect) {
-	  free(data);
-	  data = NULL;
-	}
-      }
-
-      if (ind.y >= curFloor) {
-	WallMouseData* data = malloc(sizeof(WallMouseData));
-	bool atLeastOneIntersect = false;
-	
-	// walls
-	{
-	  for(int i2=0;i2<batchedGeometryIndexes[i].wallsSize;i2++){
-	    int wallIndex = batchedGeometryIndexes[i].wallsIndexes[i2];
-	  
-	    WallType type = bBlock->walls[wallIndex].type;
-	  
-	    float intersectionDistance;
-
-	    for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-	      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->walls[wallIndex].planes[i3].lb, bBlock->walls[wallIndex].planes[i3].rt, NULL, &intersectionDistance);
-
-	      if (isIntersect && minDistToCamera > intersectionDistance) {
-		atLeastOneIntersect = true; 
-
-		data->side = wallIndex;
-		data->grid = ind;
-
-		int tx = bBlock->walls[wallIndex].planes[i3].txIndex;
-
-		data->txIndex = tx;
-		data->tile = bBlock;
-
-		data->type = type;
-		data->plane = i3;
-	      
-		if(mouse.selectedType == mouseTileT){
-		  free(mouse.selectedThing);
-		}
-
-		mouse.selectedType = mouseWallT;
-		mouse.selectedThing = data;
-
-		minDistToCamera = intersectionDistance;
-	      }
-	    }
-	  }
-	}
-
-	// joints
-	{
-	  for (int i2 = 0; i2 < batchedGeometryIndexes[i].jointsSize; i2++) {
-	    int jointIndex = batchedGeometryIndexes[i].jointsIndexes[i2];
-	    float intersectionDistance;
-	    
-	    for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-	      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex][i3].lb, bBlock->joint[jointIndex][i3].rt, NULL, &intersectionDistance);
-
-	      if (isIntersect && minDistToCamera > intersectionDistance) {
-		atLeastOneIntersect = true;
-
-		data->side = jointIndex;
-		data->grid = ind;
-		data->txIndex = bBlock->joint[jointIndex][i3].txIndex;
-		data->tile = bBlock;
-
-		data->type = wallJointT;
-		data->plane = i3;
-
-		if(mouse.selectedType == mouseTileT){
-		  free(mouse.selectedThing);
-		}
-
-		mouse.selectedType = mouseWallT;
-		mouse.selectedThing = data;
-
-		minDistToCamera = intersectionDistance;
-	      }
-
-	    }
-	  }
-	  
-	}
-	
-	if (!atLeastOneIntersect) {
-	  free(data);
-	}
-      }
-    }
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    // light things
-
-    {	  
-      // render light sources
-
-      {
-	glUseProgram(shadersId[mainShader]);
-
-	char buf[64];
-
-	static const char* shaderVarSufixStr[] = {
-	  [pointLightT] = "point",
-	  [dirLightT] = "dir"
-	};
-
-	uniformFloat(mainShader, "radius", max(gridX / 2.0f, gridZ / 2.0f));
-
-	int localLightsCounter[lightsTypeCounter] = { 0 };
-
-	for (int i = 0; i < lightsStoreSize; i++) {
-	  if (lightsStore[i].off) {
-	    continue;
-	  }
-
-	  int index = localLightsCounter[lightsStore[i].type];
-
-	  if (lightsStore[i].type == dirLightT) {
-	    sprintf(buf, "%sLights[%i].dir",
-		    shaderVarSufixStr[lightsStore[i].type], index);
-	    uniformVec3(mainShader, buf, lightsStore[i].dir);
-
-	    sprintf(buf, "%sLights[%i].cutOff",
-		    shaderVarSufixStr[lightsStore[i].type], index);
-	    uniformFloat(mainShader, buf, lightsStore[i].cutOff);
-
-	    sprintf(buf, "%sLights[%i].rad",
-		    shaderVarSufixStr[lightsStore[i].type], index);
-	    uniformFloat(mainShader, buf, lightsStore[i].rad);
-	  }
-
-	  sprintf(buf, "%sLights[%i].pos",
-		  shaderVarSufixStr[lightsStore[i].type], index);
-	  uniformVec3(mainShader, buf, (vec3) { lightsStore[i].mat.m[12], lightsStore[i].mat.m[13], lightsStore[i].mat.m[14], });
-
-	  sprintf(buf, "%sLights[%i].color",
-		  shaderVarSufixStr[lightsStore[i].type], index);
-	  uniformVec3(mainShader, buf, lightsStore[i].color);
-		    
-
-	  sprintf(buf, "%sLights[%i].constant",
-		  shaderVarSufixStr[lightsStore[i].type], index);
-	  uniformFloat(mainShader, buf, lightsStore[i].constant);
-
-	  sprintf(buf, "%sLights[%i].linear",
-		  shaderVarSufixStr[lightsStore[i].type], index);
-	  uniformFloat(mainShader, buf, lightsStore[i].linear);
-
-	  sprintf(buf, "%sLights[%i].qaudratic",
-		  shaderVarSufixStr[lightsStore[i].type], index);
-	  uniformFloat(mainShader, buf, lightsStore[i].quadratic);
-
-	  localLightsCounter[lightsStore[i].type]++;
-	}
-
-	for (int i = 0; i < lightsTypeCounter; i++) {
-	  sprintf(buf, "%sLightsSize",
-		  shaderVarSufixStr[i]);
-	  //	uniformInt(mainShader, buf, lightsStoreSizeByType[i]);
-	  uniformInt(mainShader, buf, localLightsCounter[i]);
-	}
-      }
-
-    }
-
-    //	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-    //	vec3 fogColor = { 0.5f, 0.5f, 0.5f };
+    ///    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
     float near_plane = 0.1f;
     float far_plane  = 120.0f;
@@ -1892,8 +1666,6 @@ int main(int argc, char* argv[]) {
     // render to depth cubemap
     if(lightsStore)
       {
-	//	  glCullFace(GL_FRONT);
-	  
 	glUseProgram(shadersId[pointShadowShader]);
 	  
 	glEnable(GL_DEPTH_TEST);
@@ -1902,130 +1674,40 @@ int main(int argc, char* argv[]) {
 	    
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glClear(GL_DEPTH_BUFFER_BIT);
-	  
-	vec3 sidesVecs[6][2] = {
-	  {{ 1.0f, 0.0f, 0.0f},{ 0.0f, -1.0f, 0.0f}},
-	  {{ -1.0f, 0.0f, 0.0f},{ 0.0f, -1.0f, 0.0f}},
-	      
-	  {{ 0.0f, 1.0f, 0.0f},{0.0f, 0.0f, 1.0f}},
-	  {{ 0.0f, -1.0f, 0.0f},{0.0f, 0.0f, -1.0f}},
-	      
-	  {{ 0.0f, 0.0f, .1f},{0.0f, -1.0f, 0.0f}},
-	  {{ 0.0f, 0.0f, -.1f},{ 0.0f, -1.0f, 0.0f}},
-	};
-
-	/*	    vec3 sidesVecs[6][2] = {
-		    {{ 1.0f, 0.0f, 0.0f},{0.0f, 1.0f, 0.0f}},
-		    {{ -1.0f, 0.0f, 0.0f},{0.0f, 1.0f, 0.0f}},
-        
-		    {{ 0.0f, 1.0f, 0.0f},{0.0f, 1.0f, 0.0f}},
-		    {{ 0.0f, -1.0f, 0.0f},{0.0f, 1.0f, 0.0f}},
-        
-		    {{ 0.0f, 0.0f, 1.0f},{0.0f, 1.0f, 0.0f}},
-		    {{ 0.0f, 0.0f, -1.0f},{0.0f, 1.0f, 0.0f}},
-		    };*/   
-       
-	//	    Matrix shadowProj = perspective(rad(90.0f), (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, near_plane, far_plane);
 
 	Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
 
-	vec3 modelXLight = { lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14] };// (vec4){argVec3(lightsStore[0].pos),1.0f});
+	vec3 negPos = { -lightsStore[0].mat.m[12], -lightsStore[0].mat.m[13], -lightsStore[0].mat.m[14] };
 
-	// [0] - x axis [1] - y axis [2] - z axis
-	const float degrees[3][6] = {
-	  {180.0f, 180.0f, 90.0f, -90.0f, 180.0f, 0.0f},
-	  {90.0f, -90.0f, 0.0f, 0.0f, 0.0f, 0.0f},
-	  {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 180.0f}
-	};
-
-
-	// 	      {90.0f, -90.0f, -90.0f, 90.0f, 0.0f, 180.0f},
+	static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
+						{-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
 	    
-	for (int i = 0; i < 6; ++i){
-	  //  vec3 transfLightPos = { modelXLight.x + sidesVecs[i][0].x, modelXLight.y + sidesVecs[i][0].y, modelXLight.z + sidesVecs[i][0].z };
-
-	  //   printf(" %f %f %f \n", argVec3(transfLightPos));
-	      
+	for (int i = 0; i < 6; ++i){	      
 	  Matrix viewMat = IDENTITY_MATRIX;
-
-	  vec3 negPos = { -modelXLight.x, -modelXLight.y, -modelXLight.z };
 
 	  translate(&viewMat, argVec3(negPos));
 
-	  rotateX(&viewMat, rad(degrees[0][i]));
-	  rotateY(&viewMat, rad(degrees[1][i]));
-	  rotateZ(&viewMat, rad(degrees[2][i]));
+	  rotateX(&viewMat, rad(shadowRotation[i].x));
+	  rotateY(&viewMat, rad(shadowRotation[i].y));
+	  rotateZ(&viewMat, rad(shadowRotation[i].z));
 
-	  /*
-	    if(i == 2 || i == 3){
-	    rotateX(&viewMat, rad(degrees[i]));
-	    //	continue;
-	    }else{
-	    //	if(degrees[i] == 0) continue;
-		
-	    printf("%f \n",degrees[i]);
-	    rotateY(&viewMat, rad(degrees[i]));
-	    //		if(i==2){
-
-	    //		}else if(i == 3)
-	    //		rotateY(&view, rad(curCamera->yaw));
-	    }*/
-
-	  //	      rotateY(&view, rad(curCamera->yaw));
-		
-	  //lookAt(modelXLight, transfLightPos, sidesVecs[i][1]);
-	      
-	  //	      viewMat.m[2] *= -1.0f;
-	  //	      viewMat.m[6] *= -1.0f;
-	  //	      viewMat.m[10] *= -1.0f;
-	  //	      viewMat.m[14] *= -1.0f; 
-	  // viewMat.m[4] *= -1.0f;
-	  //	      viewMat.m[0] *= -1.0f;
-	      
-	  //	      if(i <= 1){
-	  //	viewMat.m[8] = -(1.0f - 1/viewMat.m[8]);
-	  //      }
-
-	      
-	  //	       viewMat.m[10] *= -1.0f;
-	  //	       viewMat.m[9] *= -1.0f;
-
-	  //	      viewMat.m[12] = -viewMat.m[12];
-	  //	      viewMat.m[13] = -viewMat.m[13];
-	  //	      viewMat.m[14] = -viewMat.m[14];
-
-	  //Matrix shadowTransforms = multiplymat4(shadowProj, viewMat);
-
-	  //	      shadowProj.m[8] *= -1.0f;
-	  //	      shadowProj.m[8] *= -1.0f;
-	  //	      shadowProj.m[0] *= -1.0f;
 	  Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
-	  //Matrix shadowTransforms = multiplymat4(shadowProj,viewMat);
-
-	  //   shadowTransforms.m[8] *= -1.0f;
-	  //	      shadowTransforms.m[0] *= -1.0f;
-	  // shadowTransforms.m[4] *= -1.0f;
-	  //	      shadowTransforms.m[12] *= -1.0f;
 
 	  char buf[128];
 
 	  sprintf(buf, "shadowMatrices[%d]", i);
 
 	  uniformMat4(pointShadowShader, buf, shadowTransforms.m);
-
 	}
 
 	uniformFloat(pointShadowShader, "far_plane", far_plane);
-	uniformVec3(pointShadowShader, "lightPos", modelXLight);
+	uniformVec3(pointShadowShader, "lightPos", (vec3){ lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14] });
 
 	glActiveTexture(GL_TEXTURE0);
 	renderScene(pointShadowShader);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);   
       }
-
-    vec3 fogColor = { 0.5f, 0.5f, 0.5f };
-    glClearColor(argVec3(fogColor), 1.0f);
     
     if (lightsStore)
       {
@@ -2036,51 +1718,22 @@ int main(int argc, char* argv[]) {
 	glEnable(GL_DEPTH_TEST);
 	
 	((void (*)(int))instances[curInstance][matsSetup])(mainShader);
-	
-	glUseProgram(shadersId[lightSourceShader]);
-
-	for (int i = 0; i < lightsStoreSize; i++) {
-	  //	  renderCube(lightsStore[i].pos, lightsStore[i].id);
-	  float intersectionDistance;
-
-	  bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightsStore[i].lb, lightsStore[i].rt, NULL, &intersectionDistance);
-
-	  if (isIntersect// && minDistToCamera > intersectionDistance
-	      ) {
-	    mouse.selectedThing = &lightsStore[i];
-	    mouse.selectedType = mouseLightT;
-	  }
-
-	  uniformVec3(lightSourceShader, "color", (vec3) { redColor });
-
-	  glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
-	  glBindVertexArray(cube.VAO);
-
-	  uniformMat4(lightSourceShader, "model", lightsStore[i].mat.m);
-
-	  glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
-
-	  //	  glActiveTexture(GL_TEXTURE0);
-	  glBindTexture(GL_TEXTURE_2D, 0);
-      
-	  glBindBuffer(GL_ARRAY_BUFFER, 0); 
-	  glBindVertexArray(0); 
-	}
 
 	glUseProgram(shadersId[mainShader]); 
-	
+		
         glUniform3f(cameraPos, argVec3(curCamera->pos));
         uniformFloat(mainShader, "far_plane", far_plane);
 
-	vec3 modelXLight = {lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14]};// (vec4){argVec3(lightsStore[0].pos),1.0f});
-	
-        uniformVec3(mainShader, "lightPoss", modelXLight);
+	//	vec3 modelXLight = {lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14]};
+        //uniformVec3(mainShader, "lightPoss", modelXLight);
 
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 
 	glActiveTexture(GL_TEXTURE0);
 	renderScene(mainShader);
+
+	((void (*)(void))instances[curInstance][render3DFunc])();    
 
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 	
@@ -2112,6 +1765,8 @@ int main(int argc, char* argv[]) {
     glDisable(GL_DEPTH_TEST);
     glUseProgram(shadersId[hudShader]);
 
+   
+
 
     instances[curInstance][render2DFunc]();
 
@@ -2136,6 +1791,7 @@ int main(int argc, char* argv[]) {
 
     mouse.clickL = false;
     mouse.clickR = false;
+    //    mouse.mouseDown = false;
 
     //	glFlush();
   
@@ -2784,15 +2440,13 @@ bool loadSave(char* saveName){
     grid[y][z][x] = calloc(1, sizeof(Tile));
     Tile* tile = grid[y][z][x]; 
 
-    fscanf(map, "%d %f %d ", &tile->ground, &tile->groundLift, &sidesCounter);
+    float groundLiftDELETEIT;
 
-    tile->groundMat = IDENTITY_MATRIX;
+    fscanf(map, "%d %f %d ", &tile->ground, &groundLiftDELETEIT, &sidesCounter);
 
     vec3 grid = xyz_indexesToCoords(x,y,z);
-	
-    tile->groundMat.m[12] = grid.x;
-    tile->groundMat.m[13] = grid.y;
-    tile->groundMat.m[14] = grid.z;
+
+    tile->pos = grid;
 
     GroundType type = valueIn(tile->ground, 0);
 
@@ -3065,7 +2719,7 @@ bool saveMap(char *saveName){
 	int tx1 = valueIn(tile->ground, 1);
 	int tx2 = valueIn(tile->ground, 2);
 
-	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || tile->groundLift > 0 || (y != 0 && type == texturedTile);
+	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || (y != 0 && type == texturedTile);
 
 	if(tile->walls[0].planes || tile->walls[1].planes || tile->walls[2].planes || tile->walls[3].planes){
 	  wallsIndexes[wallsCounter] = (vec3i){x,y,z};
@@ -3117,7 +2771,9 @@ bool saveMap(char *saveName){
       sidesAvaible++;
     }
 
-    fprintf(map, "%d %d %d %d %f %d ",x,y,z, grid[y][z][x]->ground, grid[y][z][x]->groundLift, sidesAvaible);
+    float liftDELETEIT;
+
+    fprintf(map, "%d %d %d %d %f %d ",x,y,z, grid[y][z][x]->ground, &liftDELETEIT, sidesAvaible);
 
     // walls
     for(int i1=0;i1<basicSideCounter;i1++){
@@ -4414,14 +4070,10 @@ void initGrid(int sx, int sy, int sz){
 	  
 	  setIn(grid[y][z][x]->ground, 0, texturedTile);
 	  setIn(grid[y][z][x]->ground, 2, textureOfGround);
-	  
-	  grid[y][z][x]->groundMat = IDENTITY_MATRIX;
 
 	  vec3 tile = xyz_indexesToCoords(x,y,z);
 	
-	  grid[y][z][x]->groundMat.m[12] = tile.x;
-	  grid[y][z][x]->groundMat.m[13] = tile.y;
-	  grid[y][z][x]->groundMat.m[14] = tile.z;
+	  grid[y][z][x]->pos = tile;
 	}
       }
     }
@@ -4443,17 +4095,17 @@ void batchGeometry(){
   const int vertexSize = 8;
 
   if (batchedGeometryIndexes) {
-  for (int i = 0; i < batchedGeometryIndexesSize; i++) {
+    for (int i = 0; i < batchedGeometryIndexesSize; i++) {
       if (batchedGeometryIndexes[i].wallsSize > 0) {
-          free(batchedGeometryIndexes[i].wallsIndexes);
-          batchedGeometryIndexes[i].wallsSize = 0;
+	free(batchedGeometryIndexes[i].wallsIndexes);
+	batchedGeometryIndexes[i].wallsSize = 0;
       }
 
       if (batchedGeometryIndexes[i].jointsSize > 0) {
-          free(batchedGeometryIndexes[i].jointsIndexes);
-          batchedGeometryIndexes[i].jointsSize = 0;
+	free(batchedGeometryIndexes[i].jointsIndexes);
+	batchedGeometryIndexes[i].jointsSize = 0;
       }
-  }
+    }
   }
   
   for (int y = 0; y < renderCapYLayer; y++) {
@@ -4574,10 +4226,10 @@ void batchGeometry(){
 
 	  if (type == texturedTile) {
 	    //	    if(!batchedIndexWasAssigned){
-	      batchedIndexWasAssigned = true;
-	      batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z}; 
-	      //	      batchedGeometryIndexesSize++;
-	      //	    }
+	    batchedIndexWasAssigned = true;
+	    batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z}; 
+	    //	      batchedGeometryIndexesSize++;
+	    //	    }
 	      
 	    vec3 tile = xyz_indexesToCoords(x,y,z);
 	    int txIndex = valueIn(grid[y][z][x]->ground, 2); 
@@ -4601,10 +4253,10 @@ void batchGeometry(){
 	  // block
 	  if(grid[y][z][x]->block){
 	    //	    if(!batchedIndexWasAssigned){
-	      batchedIndexWasAssigned = true;
-	      batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z}; 
-	      //	      batchedGeometryIndexesSize++;
-	      //	    }
+	    batchedIndexWasAssigned = true;
+	    batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z}; 
+	    //	      batchedGeometryIndexesSize++;
+	    //	    }
 	      
 	    TileBlocksTypes type = grid[y][z][x]->block->type;
 	    int txIndex = grid[y][z][x]->block->txIndex;
@@ -4663,11 +4315,11 @@ void batchGeometry(){
 	      }
 	      
 	      //	      if(!batchedIndexWasAssigned){
-		batchedIndexWasAssigned = true;
-		batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z};
+	      batchedIndexWasAssigned = true;
+	      batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z};
 		
-		//		batchedGeometryIndexesSize++;
-		//	      }
+	      //		batchedGeometryIndexesSize++;
+	      //	      }
 		
 	      WallType type = grid[y][z][x]->walls[i3].type;
 	      
@@ -4708,7 +4360,7 @@ void batchGeometry(){
 	    }
 
 	    if(grid[y][z][x]->jointExist[i3]){
-	      	      // remember wall that exist
+	      // remember wall that exist
 	      {
                 batchedGeometryIndexes[batchedGeometryIndexesSize].jointsSize++;
 		int newSize = batchedGeometryIndexes[batchedGeometryIndexesSize].jointsSize;
@@ -4723,10 +4375,10 @@ void batchGeometry(){
 	      }
 	      
 	      //	      if(!batchedIndexWasAssigned){
-		batchedIndexWasAssigned = true;
-		batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z}; 
-		//		batchedGeometryIndexesSize++;
-		//	      }
+	      batchedIndexWasAssigned = true;
+	      batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z}; 
+	      //		batchedGeometryIndexesSize++;
+	      //	      }
 		
 	      for(int i2=0;i2<wallsVPairs[wallJointT].planesNum;i2++){
 		int txIndex = grid[y][z][x]->joint[i3][i2].txIndex;
@@ -4764,9 +4416,9 @@ void batchGeometry(){
 	    }
 	  }
 
-	 if(batchedIndexWasAssigned){
-	   batchedGeometryIndexesSize++;
-	 }
+	  if(batchedIndexWasAssigned){
+	    batchedGeometryIndexesSize++;
+	  }
 	}
 	
       }
@@ -5152,5 +4804,165 @@ void renderScene(GLuint curShader){
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+  }
+}
+
+void checkMouseVSEntities(){
+  if (mouse.selectedType == mouseWallT || mouse.selectedType == mouseTileT) {
+    free(mouse.selectedThing);
+  }
+
+  mouse.selectedThing = NULL;
+  mouse.selectedType = 0;
+    
+  float minDistToCamera = 1000.0f;
+
+  WallMouseData* intersWallData = malloc(sizeof(WallMouseData));
+  TileMouseData* intersTileData = malloc(sizeof(TileMouseData));
+	
+  for(int i=0;i<batchedGeometryIndexesSize;i++){
+    vec3i ind = batchedGeometryIndexes[i].indx;
+    vec3 tile = vec3_indexesToCoords(ind);
+    Tile* bBlock = grid[ind.y][ind.z][ind.x];
+
+    // block
+    if (bBlock->block != NULL) {
+      float intersectionDistance;
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->block->lb, bBlock->block->rt, NULL, &intersectionDistance);
+
+      if (isIntersect && minDistToCamera > intersectionDistance) {
+	mouse.selectedThing = bBlock->block;
+	mouse.selectedType = mouseBlockT;
+
+	minDistToCamera = intersectionDistance;
+      }
+    }
+
+    // tiles
+    if(ind.y == curFloor){
+      const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
+      const vec3 lb = { tile.x, tile.y, tile.z };
+
+      float intersectionDistance;
+      vec3 intersection;
+
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
+
+      if (isIntersect && minDistToCamera > intersectionDistance) {
+	intersTileData->tile = bBlock;
+
+	intersTileData->grid = (vec2i){ ind.x,ind.z };
+	intersTileData->intersection = intersection;
+	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
+
+	mouse.selectedType = mouseTileT;
+	mouse.selectedThing = intersTileData;
+
+	minDistToCamera = intersectionDistance;
+      }
+    }
+
+    if (ind.y >= curFloor) {
+      // walls
+      {
+	for(int i2=0;i2<batchedGeometryIndexes[i].wallsSize;i2++){
+	  int wallIndex = batchedGeometryIndexes[i].wallsIndexes[i2];
+	  
+	  WallType type = bBlock->walls[wallIndex].type;
+	  
+	  float intersectionDistance;
+
+	  for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->walls[wallIndex].planes[i3].lb, bBlock->walls[wallIndex].planes[i3].rt, NULL, &intersectionDistance);
+
+	    if (isIntersect && minDistToCamera > intersectionDistance) {
+	      intersWallData->side = wallIndex;
+	      intersWallData->grid = ind;
+
+	      int tx = bBlock->walls[wallIndex].planes[i3].txIndex;
+
+	      intersWallData->txIndex = tx;
+	      intersWallData->tile = bBlock;
+
+	      intersWallData->type = type;
+	      intersWallData->plane = i3;
+
+	      mouse.selectedType = mouseWallT;
+	      mouse.selectedThing = intersWallData;
+	      
+	      minDistToCamera = intersectionDistance;
+	    }
+	  }
+	}
+      }
+
+      // joints
+      {
+	for (int i2 = 0; i2 < batchedGeometryIndexes[i].jointsSize; i2++) {
+	  int jointIndex = batchedGeometryIndexes[i].jointsIndexes[i2];
+	  float intersectionDistance;
+	    
+	  for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex][i3].lb, bBlock->joint[jointIndex][i3].rt, NULL, &intersectionDistance);
+
+	    if (isIntersect && minDistToCamera > intersectionDistance) {
+
+	      intersWallData->side = jointIndex;
+	      intersWallData->grid = ind;
+	      intersWallData->txIndex = bBlock->joint[jointIndex][i3].txIndex;
+	      intersWallData->tile = bBlock;
+
+	      intersWallData->type = wallJointT;
+	      intersWallData->plane = i3;
+
+	      mouse.selectedType = mouseWallT;
+	      mouse.selectedThing = intersWallData;
+
+	      minDistToCamera = intersectionDistance;
+	    }
+
+	  }
+	}
+	  
+      }
+    }
+  }
+
+
+  for (int i = 0; i < lightsStoreSize; i++) {
+    float intersectionDistance;
+
+    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightsStore[i].lb, lightsStore[i].rt, NULL, &intersectionDistance);
+
+    if (isIntersect && minDistToCamera > intersectionDistance
+	) {
+      mouse.selectedThing = &lightsStore[i];
+      mouse.selectedType = mouseLightT;
+	
+      minDistToCamera = intersectionDistance;
+    }
+  }
+
+  for (int i = 0; i < curModelsSize; i++) {
+    float intersectionDistance = 0.0f;
+
+    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i].lb, curModels[i].rt, NULL, &intersectionDistance);
+
+    int name = curModels[i].name;
+
+    if (isIntersect && minDistToCamera > intersectionDistance) {
+      mouse.selectedThing = &curModels[i];
+      mouse.selectedType = mouseModelT;
+
+      minDistToCamera = intersectionDistance;
+    }
+  }
+  
+  if(mouse.selectedType != mouseTileT){
+    free(intersTileData);
+  }
+
+  if(mouse.selectedType != mouseWallT){
+    free(intersWallData);
   }
 }

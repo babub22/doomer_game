@@ -327,6 +327,7 @@ void editorEvents(SDL_Event event){
 	      calculateModelAABB(model);
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	      uniformLights();
 	    }
 		
 	    break;
@@ -338,6 +339,7 @@ void editorEvents(SDL_Event event){
 	      calculateModelAABB(model);
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	      uniformLights();
 	    }
 		
 	    break;
@@ -433,31 +435,6 @@ void editorEvents(SDL_Event event){
 	  }
 
 	  batchGeometry();
-	}else if (false && mouse.selectedType == mouseTileT) {
-	  TileMouseData* data = (TileMouseData*)mouse.selectedThing;
-
-	  if(data->tile->groundLift + manipulationStep < floorH - 0.01f) {
-	    data->tile->groundLift += manipulationStep;
-	  }
-	      
-	  /*
-	    GroundType type = valueIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, 0);
-
-	    if (type != texturedTile) {
-	    setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, 0, texturedTile);
-	    setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, mouse->groundInter, 0);
-	    }
-	    else {
-	    Texture curTx = valueIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, mouse->groundInter);
-
-	    if (curTx == texturesCounter - 1) {
-	    setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, 0, netTile);
-	    }
-	    else {
-	    setIn(grid[curFloor][mouse.gridIntersect.z][mouse.gridIntersect.x]->ground, mouse->groundInter, curTx + 1);
-	    }
-	    }
-	  */
 	}
 
 	break;
@@ -492,6 +469,7 @@ void editorEvents(SDL_Event event){
 	      calculateModelAABB(model);
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	      uniformLights();
 	    }
 		
 	    break;
@@ -503,6 +481,7 @@ void editorEvents(SDL_Event event){
 	      calculateModelAABB(model);
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	      uniformLights();
 	    }
 		
 	    break;
@@ -578,12 +557,6 @@ void editorEvents(SDL_Event event){
 	  }
 
 	  batchGeometry();
-	}else if (false && mouse.selectedType == mouseTileT) {
-	  TileMouseData* data = (TileMouseData*) mouse.selectedThing;
-
-	  if(data->tile->groundLift - manipulationStep >= 0) {
-	    data->tile->groundLift -= manipulationStep;
-	  }
 	}
 
 	break;
@@ -736,6 +709,7 @@ void editorEvents(SDL_Event event){
 	      calculateModelAABB(model);
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	      uniformLights();
 	    }
 	  }
 	}
@@ -825,6 +799,7 @@ void editorEvents(SDL_Event event){
 	       calculateModelAABB(model);
 	     }else if(light){
 	       calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	       uniformLights();
 	     }
 		 
 	     break;
@@ -1098,6 +1073,7 @@ void editorEvents(SDL_Event event){
 
 	if(light){
 	  light->off = !light->off;
+	  uniformLights();
 	}
 				  
 	break;
@@ -1112,7 +1088,7 @@ void editorEvents(SDL_Event event){
 
 	if(light){
 	  light->color = (vec3){ (float)(rand() % 1000 + 1.0f) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f};
-	  printf("%f %f %f \n", argVec3(light->color));
+	  uniformLights();
 	}
 				  
 	break;
@@ -1263,6 +1239,8 @@ void editorEvents(SDL_Event event){
   }
 
   if (event.type == SDL_MOUSEBUTTONDOWN) {
+    mouse.mouseDown = true;
+      
     if (event.button.button == SDL_BUTTON_LEFT) {
       mouse.clickL = true;
     }
@@ -1270,6 +1248,10 @@ void editorEvents(SDL_Event event){
     if (event.button.button == SDL_BUTTON_RIGHT) {
       mouse.clickR = true;
     }
+  }
+
+  if (event.type == SDL_MOUSEBUTTONUP) {
+    mouse.mouseDown = false;
   }
 
   if(event.type == SDL_MOUSEWHEEL){
@@ -1289,10 +1271,10 @@ void editorEvents(SDL_Event event){
   }
       
   if (event.type == SDL_MOUSEMOTION) {
+    float x = -1.0 + 2.0 * (event.motion.x / windowW);
+    float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
+    
     if(curMenu || cursorMode){
-	float x = -1.0 + 2.0 * (event.motion.x / windowW);
-	float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
-
 	mouse.cursor.x = x;
 	mouse.cursor.z = y;  
     }
@@ -1343,19 +1325,12 @@ void editorMatsSetup(int curShader){
 
     translate(&view, argVec3(negPos));
       
-    if(curCamera->type == gameCameraT){
-      rotateY(&view, rad(-45.0f));
-      rotateX(&view, rad(-45.0f));
-    }else{
-      rotateY(&view, rad(curCamera->yaw));
-      rotateX(&view, rad(curCamera->pitch));
-    }
+    rotateY(&view, rad(curCamera->yaw));
+    rotateX(&view, rad(curCamera->pitch));
 
      //    view.m[8] *= -1.0f;
     
     for (int i = 0; i < shadersCounter; i++) {
-      if(i==pointShadowShader) continue;
-	  
       glUseProgram(shadersId[i]);
       uniformMat4(i, "proj", proj.m);
       uniformMat4(i, "view", view.m);
@@ -1378,8 +1353,11 @@ void editorMatsSetup(int curShader){
       float y = 0.0f;
 
       if(!curMenu){
-	x = mouse.cursor.x;
-	y = mouse.cursor.z;
+	int xx, yy;
+	Uint32 buttons = SDL_GetMouseState(&xx, &yy);
+
+	x = -1.0 + 2.0 * (xx / windowW);
+	y = -(-1.0 + 2.0 * (yy / windowH));
       }
       
       float z = 1.0f;
@@ -1407,6 +1385,33 @@ void editorMatsSetup(int curShader){
 }
 
 void editorPreFrame(float deltaTime){
+  
+  if(mouse.selectedType == mouseModelT && mouse.mouseDown){
+      Model* model = (Model*)mouse.selectedThing;
+
+      printf("ray %f %f %f \n", argVec3(mouse.rayDir));
+      vec3 ray = (vec3) { mouse.rayDir.x, 0, mouse.rayDir.z };
+      vec3 modelPos = (vec3) { model->mat.m[12], 0, model->mat.m[14] };
+      printf("dist %f \n", dotf3(ray, modelPos));
+      
+      /*
+      int xx, yy;
+      Uint32 buttons = SDL_GetMouseState(&xx, &yy);
+
+      float x = -1.0 + 2.0 * (xx / windowW);
+      float y = -(-1.0 + 2.0 * (yy / windowH));*/
+    
+      //      if(mouse.cursor.x > x){
+      //	model->mat.m[12] += 0.5F;
+	//      }else{
+      model->mat.m[12] += ray.x;//0.5F;
+      model->mat.m[14] += ray.z;//0.5F;
+	//      }
+
+      calculateModelAABB(model); 
+    }
+
+  
   if(!console.open && !curMenu){
 	float cameraSpeed = 10.0f * deltaTime;
 	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
@@ -1416,7 +1421,6 @@ void editorPreFrame(float deltaTime){
 	}
     
     cursorMode = currentKeyStates[SDL_SCANCODE_LCTRL];
-    printf("cursor %d \n", cursorMode);
 
     if (currentKeyStates[SDL_SCANCODE_W]){
 	if (curCamera) {//cameraMode){
@@ -1522,6 +1526,26 @@ void editorPreFrame(float deltaTime){
 
 // 3d specific for editor mode 
 void editor3dRender() {
+  glUseProgram(shadersId[lightSourceShader]);
+	
+  for (int i = 0; i < lightsStoreSize; i++) {
+    uniformVec3(lightSourceShader, "color", lightsStore[i].color);
+
+    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
+    glBindVertexArray(cube.VAO);
+
+    uniformMat4(lightSourceShader, "model", lightsStore[i].mat.m);
+
+    glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+      
+    glBindBuffer(GL_ARRAY_BUFFER, 0); 
+    glBindVertexArray(0); 
+  }
+
+  glUseProgram(shadersId[mainShader]); 
+  
 // render mouse.brush
     if(mouse.selectedType == mouseTileT){
 	TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
@@ -2383,32 +2407,7 @@ void editor2dRender(){
       
     if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= lightsTypeCounter){
       if(mouse.clickL){
-
-	lightsStoreSize++;
-
-	if(!lightsStore){
-	  lightsStore = malloc(sizeof(Light));
-	}else{
-	  lightsStore = realloc(lightsStore, sizeof(Light) * lightsStoreSize);
-	  printf("Calloc moder\n");
-	}
-	    
-	memcpy(&lightsStore[lightsStoreSize-1], &lightDef, sizeof(Light));
-	lightsStore[lightsStoreSize-1].pos = curCamera->pos;
-	lightsStore[lightsStoreSize-1].id = lightsStoreSize-1;
-	lightsStore[lightsStoreSize-1].type = selectedIndex-1;
-	lightsStoreSizeByType[selectedIndex-1]++;
-	  
-	lightsStore[lightsStoreSize-1].mat = IDENTITY_MATRIX;
-	lightsStore[lightsStoreSize-1].mat.m[12] = curCamera->pos.x;
-	lightsStore[lightsStoreSize-1].mat.m[13] = curCamera->pos.y;
-	lightsStore[lightsStoreSize-1].mat.m[14] = curCamera->pos.z;
-
-	calculateAABB(lightsStore[lightsStoreSize-1].mat, cube.vBuf, cube.vertexNum, cube.attrSize,
-		      &lightsStore[lightsStoreSize-1].lb, &lightsStore[lightsStoreSize-1].rt);
-
-	mouse.focusedType = mouseLightT; 
-	mouse.focusedThing = &lightsStore[lightsStoreSize-1];
+	createLight(curCamera->pos, selectedIndex-1);
 	  
 	curMenu->open = false; 
 	curMenu = NULL;
@@ -3410,3 +3409,107 @@ void editor2dRender(){
     }
   }
 }
+
+
+void createLight(vec3 pos, int type){
+  lightsStoreSize++;
+
+  if(!lightsStore){
+    lightsStore = malloc(sizeof(Light));
+  }else{
+    lightsStore = realloc(lightsStore, sizeof(Light) * lightsStoreSize);
+  }
+	    
+  memcpy(&lightsStore[lightsStoreSize-1], &lightDef, sizeof(Light));
+  lightsStore[lightsStoreSize-1].pos = pos;
+  lightsStore[lightsStoreSize-1].id = lightsStoreSize-1;
+  lightsStore[lightsStoreSize-1].type = type;
+  lightsStoreSizeByType[type]++;
+	  
+  lightsStore[lightsStoreSize-1].mat = IDENTITY_MATRIX;
+  lightsStore[lightsStoreSize-1].mat.m[12] = pos.x;
+  lightsStore[lightsStoreSize-1].mat.m[13] = pos.y;
+  lightsStore[lightsStoreSize-1].mat.m[14] = pos.z;
+
+  calculateAABB(lightsStore[lightsStoreSize-1].mat, cube.vBuf, cube.vertexNum, cube.attrSize,
+		&lightsStore[lightsStoreSize-1].lb, &lightsStore[lightsStoreSize-1].rt);
+  uniformLights();
+
+  mouse.focusedType = mouseLightT; 
+  mouse.focusedThing = &lightsStore[lightsStoreSize-1];
+
+  // update light info in main shader
+  uniformLights();
+}
+
+void uniformLights(){
+  GLint curShader = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+
+  glUseProgram(shadersId[mainShader]);
+
+    char buf[64];
+
+    static const char* shaderVarSufixStr[] = {
+      [pointLightT] = "point",
+      [dirLightT] = "dir"
+    };
+
+    uniformFloat(mainShader, "radius", max(gridX / 2.0f, gridZ / 2.0f));
+
+    int localLightsCounter[lightsTypeCounter] = { 0 };
+
+    for (int i = 0; i < lightsStoreSize; i++) {
+      if (lightsStore[i].off) {
+	continue;
+      }
+
+      int index = localLightsCounter[lightsStore[i].type];
+
+      if (lightsStore[i].type == dirLightT) {
+	sprintf(buf, "%sLights[%i].dir",
+		shaderVarSufixStr[lightsStore[i].type], index);
+	uniformVec3(mainShader, buf, lightsStore[i].dir);
+
+	sprintf(buf, "%sLights[%i].cutOff",
+		shaderVarSufixStr[lightsStore[i].type], index);
+	uniformFloat(mainShader, buf, lightsStore[i].cutOff);
+
+	sprintf(buf, "%sLights[%i].rad",
+		shaderVarSufixStr[lightsStore[i].type], index);
+	uniformFloat(mainShader, buf, lightsStore[i].rad);
+      }
+
+      sprintf(buf, "%sLights[%i].pos",
+	      shaderVarSufixStr[lightsStore[i].type], index);
+      uniformVec3(mainShader, buf, (vec3) { lightsStore[i].mat.m[12], lightsStore[i].mat.m[13], lightsStore[i].mat.m[14], });
+
+      sprintf(buf, "%sLights[%i].color",
+	      shaderVarSufixStr[lightsStore[i].type], index);
+      uniformVec3(mainShader, buf, lightsStore[i].color);
+		    
+
+      sprintf(buf, "%sLights[%i].constant",
+	      shaderVarSufixStr[lightsStore[i].type], index);
+      uniformFloat(mainShader, buf, lightsStore[i].constant);
+
+      sprintf(buf, "%sLights[%i].linear",
+	      shaderVarSufixStr[lightsStore[i].type], index);
+      uniformFloat(mainShader, buf, lightsStore[i].linear);
+
+      sprintf(buf, "%sLights[%i].qaudratic",
+	      shaderVarSufixStr[lightsStore[i].type], index);
+      uniformFloat(mainShader, buf, lightsStore[i].quadratic);
+
+      localLightsCounter[lightsStore[i].type]++;
+    }
+
+    for (int i = 0; i < lightsTypeCounter; i++) {
+      sprintf(buf, "%sLightsSize",
+	      shaderVarSufixStr[i]);
+      uniformInt(mainShader, buf, localLightsCounter[i]);
+    }
+
+  glUseProgram(curShader);
+}
+

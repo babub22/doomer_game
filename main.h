@@ -394,12 +394,7 @@ struct Tile{
   // 3 byte - over texture id
   // 4 byte - empty // maybe store H here
   int ground;
-
-  VPair groundPair;
-  Matrix groundMat;
-
-  //  float wallsPad[4];
-  float groundLift;
+  vec3 pos;
 
   Wall walls[4];
 
@@ -562,6 +557,8 @@ typedef struct{
   bool clickR;
   bool clickL; // in this frame
 
+  bool mouseDown;
+
   Side tileSide;
   
   int wheel;
@@ -582,6 +579,8 @@ typedef struct{
   void* selectedThing;
 
   vec2 cursor; // pos
+
+  
 } Mouse;
 
 	 
@@ -700,6 +699,8 @@ void renderText(char* text, float x, float y, float scale);
 
 // it also assigns lb, rt to model
 void calculateModelAABB(Model* model);
+
+void checkMouseVSEntities();
 
 void renderScene(GLuint curShader);
 

@@ -17,7 +17,6 @@ void gameOnSetInstance(){
 void game2dRender(){
   renderText(instancesStr[gameInstance], .0f, .0f, 1.0f);
 
-  glActiveTexture(solidColorTx);
   glBindTexture(GL_TEXTURE_2D, solidColorTx);
   setSolidColorTx(whiteColor, 1.0f);
       
@@ -51,7 +50,7 @@ void game3dRender(){
 void gamePreFrame(float deltaTime){
 };
 
-void gameMatsSetup(){
+void gameMatsSetup(int curShader){
     Matrix proj = perspective(rad(gameFov), windowW / windowH, 0.01f, 1000.0f);
 
     Matrix view = IDENTITY_MATRIX;
@@ -67,6 +66,8 @@ void gameMatsSetup(){
       uniformMat4(i, "proj", proj.m);
       uniformMat4(i, "view", view.m);
     }
+
+    glUseProgram(shadersId[curShader]);
 
     vec3 front  = ((vec3){ view.m[8], view.m[9], view.m[10] });
 
