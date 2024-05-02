@@ -252,8 +252,6 @@ int gridZ = 120;
 GLuint textVBO;
 GLuint textVAO;
 
-VPair netTile;
-
 unsigned int screenTexture;
 unsigned int textureColorBufferMultiSampled;
 

@@ -13,10 +13,8 @@ int dialogEditorHistoryCursor;
 bool cursorMode;
 bool cursorShouldBeCentered;
 
-
 int texturesMenuCurCategoryIndex = 0;
 ModelType objectsMenuSelectedType = objectModelType;
-
 
 Menu objectsMenu = { .type = objectsMenuT };
 Menu blocksMenu = { .type = blocksMenuT };
@@ -40,12 +38,12 @@ float contextBelowTextH;
 
 float borderArea = (bBlockW / 8);
 
-/*const int rotationBlock[4][2] = {
-  {-bBlockW, 0.0f},
-  [1]= { 0,        bBlockW }, // 12 14
-  { bBlockW,  bBlockW },
-  { bBlockD,  0 }, 
-};*/
+Matrix editorProj;
+Matrix editorView;
+
+VPair netTile;
+
+//bool mouseMovedInThisFrame;
 
 const int rotationBlock[4][2] = {
   {-bBlockW, 0.0f},
@@ -53,6 +51,8 @@ const int rotationBlock[4][2] = {
   { bBlockW,  0 },
   { 0,-bBlockD }, 
 };
+
+vec2 mouseFrameDiff;
 
 void editorOnSetInstance(){
   printf("Now editor");
@@ -62,6 +62,76 @@ void editorOnSetInstance(){
 }
 
 void editorPreLoop(){
+  editorProj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
+
+  
+  // net tile
+  {
+    /*float texturedTileVerts[] = {
+      bBlockW, 0.0f, bBlockD,
+      0.0f, 0.0f, bBlockD,
+      bBlockW, 0.0f, 0.0f,
+      
+      0.0f, 0.0f, bBlockD,
+      bBlockW, 0.0f, 0.0f,
+      0.0f, 0.0f, 0.0f,
+    };*/
+
+     const vec3 c0 = { 0.0f, 0.0f, 0.0f };
+    const vec3 c1 = { bBlockW, 0.0f, 0.0f };
+    const vec3 c3 = { bBlockW, 0.0f, bBlockD };
+    const vec3 c2 = { 0.0f, 0.0f, bBlockD };
+    
+    float netTileVerts[] = {
+       0.0f, 0.0f, 0.0f ,
+       bBlockW, 0.0f, 0.0f ,
+      
+       0.0f, 0.0f, 0.0f ,
+       0.0f, 0.0f, bBlockD ,
+      
+       0.0f, 0.0f, bBlockD ,
+       bBlockW, 0.0f, bBlockD ,
+      
+       bBlockW, 0.0f, 0.0f ,
+       bBlockW, 0.0f, bBlockD 
+    };
+
+    float* buf = malloc(sizeof(float) * gridX * gridZ * 8 * 3);
+    
+    for (int z = 0; z < gridZ; z++) {
+      for (int x = 0; x < gridX; x++) {
+	int index = (z * gridX + x) * 8 * 3;
+	vec3 tile = xyz_indexesToCoords(x,0.0f,z);
+
+	for(int i=0;i<8*3;i+=3){
+	  buf[index + i] = netTileVerts[i + 0] + tile.x;
+	  buf[index + i + 1] = netTileVerts[i + 1] + tile.y;
+	  buf[index + i + 2] = netTileVerts[i + 2] + tile.z;
+	}
+      }
+    }
+
+    //    for(int i=0;i<sizeof(float) * gridX * gridZ * 3;i+=3){
+      //      printf("%f %f %f \n", buf[i], buf[i+1], buf[i+2]);
+      // }
+
+    glGenVertexArrays(1, &netTile.VAO);
+    glBindVertexArray(netTile.VAO);
+
+    glGenBuffers(1, &netTile.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, netTile.VBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * gridX * gridZ * 8 * 3, buf, GL_STATIC_DRAW);
+  
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    free(buf);
+  }
+  
   // obj menu    
   {
     glGenVertexArrays(1, &objectsMenu.VAO);
@@ -288,17 +358,6 @@ void editorEvents(SDL_Event event){
 	    break;
 	  }
       case(SDL_SCANCODE_UP): {
-	/*	    if(manipulationMode != 0 && mouse.focusedType == mouseLightT){
-		    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-
-		    Light* light = (Light*)mouse.focusedThing;
-
-		    if (!currentKeyStates[SDL_SCANCODE_LCTRL]){
-		    light->pos.z += .1f;
-		    }else{
-		    light->pos.y += .1f;
-		    }
-		    }else*/
 	if(manipulationMode != 0 && (mouse.focusedType == mouseLightT || mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
 	  Matrix* mat = -1;
 	  bool itPlane = false;
@@ -883,7 +942,57 @@ void editorEvents(SDL_Event event){
 	 }
 	    
 	 break;
-       }case(SDL_SCANCODE_R): { 
+       }case(SDL_SCANCODE_R): {
+	  if(cursorMode){
+	    Model* model = NULL;
+	    Matrix* mat = NULL;
+	    Light* light = NULL;
+    
+	    if (mouse.selectedType == mouseModelT) { 
+	      model = (Model*)mouse.selectedThing; 
+	      mat = &model->mat; 
+	    }
+	    else if (mouse.selectedType == mousePlaneT) {
+	      Picture* plane = (Picture*)mouse.selectedThing;
+	      mat = &plane->mat;
+	    }else if(mouse.selectedType == mouseLightT){
+	      light = (Light*)mouse.selectedThing;
+	      mat = &light->mat; 
+	    }
+
+	    if(mat){
+	      float xTemp = mat->m[12];
+	      float yTemp = mat->m[13];
+	      float zTemp = mat->m[14];
+      
+	      mat->m[12] = 0;
+	      mat->m[13] = 0;
+	      mat->m[14] = 0;
+
+	      rotateY(mat->m, rad(45.0f));
+
+	      if(light){
+		light->dir = (vec3){0.0f, -1.0f, 0.0f};
+		  
+		vec4 trasfDir = mulmatvec4(light->mat, (vec4){light->dir.x, light->dir.y, light->dir.z, 0.0f});
+
+		light->dir.x = trasfDir.x;
+		light->dir.y = trasfDir.y;
+		light->dir.z = trasfDir.z;
+
+		calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	      }
+
+	      mat->m[12] = xTemp;
+	      mat->m[13] = yTemp;
+	      mat->m[14] = zTemp;
+
+	      if(model){
+		calculateModelAABB(model);
+	      }
+	    }
+	  }
+      
 	  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
 	  if (mouse.selectedType == mouseBlockT || mouse.brushType == mouseBlockBrushT) {
@@ -1239,19 +1348,16 @@ void editorEvents(SDL_Event event){
   }
 
   if (event.type == SDL_MOUSEBUTTONDOWN) {
-    mouse.mouseDown = true;
-      
-    if (event.button.button == SDL_BUTTON_LEFT) {
-      mouse.clickL = true;
-    }
-
-    if (event.button.button == SDL_BUTTON_RIGHT) {
-      mouse.clickR = true;
-    }
+    mouse.leftDown = event.button.button == SDL_BUTTON_LEFT;
+    mouse.rightDown = event.button.button == SDL_BUTTON_RIGHT;
   }
 
   if (event.type == SDL_MOUSEBUTTONUP) {
-    mouse.mouseDown = false;
+    mouse.leftDown = false;
+    mouse.rightDown = false;
+
+    mouse.clickL = event.button.button == SDL_BUTTON_LEFT;
+    mouse.clickR = event.button.button == SDL_BUTTON_RIGHT;
   }
 
   if(event.type == SDL_MOUSEWHEEL){
@@ -1316,29 +1422,24 @@ void editorEvents(SDL_Event event){
 }
 
 void editorMatsSetup(int curShader){
-  
     {
-    Matrix proj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
-
-    Matrix view = IDENTITY_MATRIX;
+    editorView = IDENTITY_MATRIX;
     vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
 
-    translate(&view, argVec3(negPos));
+    translate(&editorView, argVec3(negPos));
       
-    rotateY(&view, rad(curCamera->yaw));
-    rotateX(&view, rad(curCamera->pitch));
-
-     //    view.m[8] *= -1.0f;
+    rotateY(&editorView, rad(curCamera->yaw));
+    rotateX(&editorView, rad(curCamera->pitch));
     
     for (int i = 0; i < shadersCounter; i++) {
       glUseProgram(shadersId[i]);
-      uniformMat4(i, "proj", proj.m);
-      uniformMat4(i, "view", view.m);
+      uniformMat4(i, "proj", editorProj.m);
+      uniformMat4(i, "view", editorView.m);
     }
 
     glUseProgram(shadersId[curShader]);
 
-    vec3 front  = ((vec3){ view.m[8], view.m[9], view.m[10] });
+    vec3 front  = (vec3){ editorView.m[8], editorView.m[9], editorView.m[10] };
 
     curCamera->Z = normalize3((vec3) { front.x * -1.0f, front.y * 1.0f, front.z * 1.0f });
     curCamera->X = normalize3(cross3(curCamera->Z, curCamera->up));
@@ -1346,18 +1447,18 @@ void editorMatsSetup(int curShader){
 
     // cursor things
     {
-      //      float x = (2.0f * mouse.cursor.x) / windowW - 1.0f;
-      //      float y = 1.0f - (2.0f * mouse.cursor.z) / windowH;
-
       float x = 0.0f;
       float y = 0.0f;
 
       if(!curMenu){
 	int xx, yy;
-	Uint32 buttons = SDL_GetMouseState(&xx, &yy);
+	SDL_GetMouseState(&xx, &yy);
 
 	x = -1.0 + 2.0 * (xx / windowW);
 	y = -(-1.0 + 2.0 * (yy / windowH));
+
+	mouse.cursor.x = x;
+	mouse.cursor.z = y;
       }
       
       float z = 1.0f;
@@ -1365,17 +1466,21 @@ void editorMatsSetup(int curShader){
 
       Matrix inversedProj = IDENTITY_MATRIX;
       
-      inverse(proj.m, inversedProj.m);
+      inverse(editorProj.m, inversedProj.m);
       vec4 ray_eye = mulmatvec4(inversedProj, rayClip);
 
       ray_eye.z = -1.0f;
       ray_eye.w = 0.0f;
+      
+      mouse.rayView = (vec3){ argVec3(ray_eye) };
 
       Matrix inversedView = IDENTITY_MATRIX;
 
-      inverse(view.m, inversedView.m);
+      inverse(editorView.m, inversedView.m);
 
       vec4 ray_wor = mulmatvec4(inversedView, ray_eye);
+      
+      // mouse.wor = (vec3){ argVec3(ray_wor) };
       mouse.rayDir = normalize3((vec3) { argVec3(ray_wor) });
 
       //normalize4(&ray_wor);
@@ -1385,32 +1490,48 @@ void editorMatsSetup(int curShader){
 }
 
 void editorPreFrame(float deltaTime){
-  
-  if(mouse.selectedType == mouseModelT && mouse.mouseDown){
-      Model* model = (Model*)mouse.selectedThing;
-
-      printf("ray %f %f %f \n", argVec3(mouse.rayDir));
-      vec3 ray = (vec3) { mouse.rayDir.x, 0, mouse.rayDir.z };
-      vec3 modelPos = (vec3) { model->mat.m[12], 0, model->mat.m[14] };
-      printf("dist %f \n", dotf3(ray, modelPos));
-      
-      /*
-      int xx, yy;
-      Uint32 buttons = SDL_GetMouseState(&xx, &yy);
-
-      float x = -1.0 + 2.0 * (xx / windowW);
-      float y = -(-1.0 + 2.0 * (yy / windowH));*/
+  if(cursorMode){
+    Model* model = NULL;
+    Matrix* mat = NULL;
+	Light* light = NULL;
     
-      //      if(mouse.cursor.x > x){
-      //	model->mat.m[12] += 0.5F;
-	//      }else{
-      model->mat.m[12] += ray.x;//0.5F;
-      model->mat.m[14] += ray.z;//0.5F;
-	//      }
-
-      calculateModelAABB(model); 
+    if (mouse.selectedType == mouseModelT) { 
+      model = (Model*)mouse.selectedThing; 
+      mat = &model->mat; 
+    }
+    else if (mouse.selectedType == mousePlaneT) {
+      Picture* plane = (Picture*)mouse.selectedThing;
+      mat = &plane->mat;
+    }else if(mouse.selectedType == mouseLightT){
+      light = (Light*)mouse.selectedThing;
+      mat = &light->mat; 
     }
 
+   if(mat && (mouse.leftDown || mouse.rightDown)){
+      vec3 ray = (vec3) { mouse.rayDir.x, 0, mouse.rayDir.z };
+      vec3 modelPos = (vec3) { mat->m[12], mat->m[13], mat->m[14] };
+
+      vec4 modelViewPos = mulmatvec4(editorView, (vec4) { argVec3(modelPos), 1.0f });
+    
+      vec4 viewIntersect = (vec4) { -mouse.rayView.x * modelViewPos.z, -mouse.rayView.y * modelViewPos.z, 1.0f * modelViewPos.z, 1.0f  };
+
+      Matrix inversedView = IDENTITY_MATRIX;
+      inverse(editorView.m, inversedView.m);
+
+      vec4 worldPoint = mulmatvec4(inversedView, viewIntersect);
+
+      if(mouse.leftDown){
+	mat->m[12] = worldPoint.x;
+	mat->m[14] = worldPoint.z;
+      }else if(mouse.rightDown){
+	mat->m[13] = worldPoint.y;
+      }
+
+      if(model){
+	calculateModelAABB(model); 
+      }
+    }
+  }
   
   if(!console.open && !curMenu){
 	float cameraSpeed = 10.0f * deltaTime;
@@ -1527,6 +1648,24 @@ void editorPreFrame(float deltaTime){
 // 3d specific for editor mode 
 void editor3dRender() {
   glUseProgram(shadersId[lightSourceShader]);
+
+  // net tile draw
+  if(curFloor != 0){
+    uniformVec3(lightSourceShader, "color", (vec3){ darkPurple });
+    Matrix out2 = IDENTITY_MATRIX;
+    out2.m[13] = curFloor;
+    uniformMat4(lightSourceShader, "model", out2.m);
+
+    glBindBuffer(GL_ARRAY_BUFFER, netTile.VBO);
+    glBindVertexArray(netTile.VAO);
+
+    glDrawArrays(GL_LINES, 0, 8 * gridX * gridZ);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+      
+    glBindBuffer(GL_ARRAY_BUFFER, 0); 
+    glBindVertexArray(0); 
+  }
 	
   for (int i = 0; i < lightsStoreSize; i++) {
     uniformVec3(lightSourceShader, "color", lightsStore[i].color);
@@ -2754,7 +2893,7 @@ void editor2dRender(){
     Character* editedCharacter = &characters[characterId];
     Dialog* curDialog = editedCharacter->curDialog;
 
-    // dialog viewer background
+    // dialog editorViewer background
     {
       setSolidColorTx(blackColor, 1.0f);
       
@@ -3348,11 +3487,24 @@ void editor2dRender(){
       
       glBindVertexArray(cursor.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, cursor.VBO);
+
+      int xx, yy;
+      SDL_GetMouseState(&xx, &yy);
+
+      float x = -1.0 + 2.0 * (xx / windowW);
+      float z = -(-1.0 + 2.0 * (yy / windowH));
+
 	
-      float cursorPoint[] = {
+      /*      float cursorPoint[] = {
 	mouse.cursor.x + cursorW * 0.05f, mouse.cursor.z + cursorH, 0.0f, 0.0f,
 	mouse.cursor.x + cursorW, mouse.cursor.z + cursorH/2.0f, 0.0f, 0.0f,
 	mouse.cursor.x, mouse.cursor.z + cursorH / 4.0f, 0.0f, 0.0f, 
+	};*/
+
+      float cursorPoint[] = {
+	x + cursorW * 0.05f, z + cursorH, 0.0f, 0.0f,
+	x + cursorW, z + cursorH/2.0f, 0.0f, 0.0f,
+	x, z + cursorH / 4.0f, 0.0f, 0.0f, 
       };
 
       glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);

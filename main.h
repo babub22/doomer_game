@@ -557,13 +557,15 @@ typedef struct{
   bool clickR;
   bool clickL; // in this frame
 
-  bool mouseDown;
+  bool leftDown;
+  bool rightDown;
 
   Side tileSide;
   
   int wheel;
 
   vec3 rayDir;
+  vec3 rayView;
 
   float interDist;
   
