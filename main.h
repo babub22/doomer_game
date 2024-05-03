@@ -425,6 +425,9 @@ typedef enum{
   texturedTile,
 } GroundType;
 
+vec2* netTileAABB;
+int netTileSize;
+
 typedef enum{
   objectModelType,
   characterModelType,
@@ -514,6 +517,8 @@ typedef struct{
 
   int index1D;
   int index2D;
+
+  vec3 modelSizes; // def width, height, depth without scale
   
   //  Model* model;
 } ModelInfo;
@@ -566,6 +571,7 @@ typedef struct{
 
   vec3 rayDir;
   vec3 rayView;
+  //  vec3 worldRayPos;
 
   float interDist;
   

@@ -67,21 +67,6 @@ void editorPreLoop(){
   
   // net tile
   {
-    /*float texturedTileVerts[] = {
-      bBlockW, 0.0f, bBlockD,
-      0.0f, 0.0f, bBlockD,
-      bBlockW, 0.0f, 0.0f,
-      
-      0.0f, 0.0f, bBlockD,
-      bBlockW, 0.0f, 0.0f,
-      0.0f, 0.0f, 0.0f,
-    };*/
-
-     const vec3 c0 = { 0.0f, 0.0f, 0.0f };
-    const vec3 c1 = { bBlockW, 0.0f, 0.0f };
-    const vec3 c3 = { bBlockW, 0.0f, bBlockD };
-    const vec3 c2 = { 0.0f, 0.0f, bBlockD };
-    
     float netTileVerts[] = {
        0.0f, 0.0f, 0.0f ,
        bBlockW, 0.0f, 0.0f ,
@@ -97,6 +82,8 @@ void editorPreLoop(){
     };
 
     float* buf = malloc(sizeof(float) * gridX * gridZ * 8 * 3);
+    netTileAABB = malloc(sizeof(vec2) * gridX * gridZ * 2);
+    //    netTileSize = 0;
     
     for (int z = 0; z < gridZ; z++) {
       for (int x = 0; x < gridX; x++) {
@@ -104,6 +91,19 @@ void editorPreLoop(){
 	vec3 tile = xyz_indexesToCoords(x,0.0f,z);
 
 	for(int i=0;i<8*3;i+=3){
+	  if(i==0){
+	    // lb
+	    netTileAABB[netTileSize] = (vec2){ netTileVerts[i + 0] + tile.x, netTileVerts[i + 2] + tile.z };
+	    netTileSize++;
+	  }
+	  else if (i == 21) {
+		  // rt
+	    netTileAABB[netTileSize] = (vec2){ netTileVerts[i + 0] + tile.x, netTileVerts[i + 2] + tile.z };
+	    netTileSize++;
+	  }
+
+	  //	  printf("i = %d \n", i);
+	    
 	  buf[index + i] = netTileVerts[i + 0] + tile.x;
 	  buf[index + i + 1] = netTileVerts[i + 1] + tile.y;
 	  buf[index + i + 2] = netTileVerts[i + 2] + tile.z;
@@ -111,9 +111,9 @@ void editorPreLoop(){
       }
     }
 
-    //    for(int i=0;i<sizeof(float) * gridX * gridZ * 3;i+=3){
-      //      printf("%f %f %f \n", buf[i], buf[i+1], buf[i+2]);
-      // }
+    // for(int i=0;i< netTileSize;i++){
+    //      printf("%f %f \n", argVec2(netTileAABB[i]));
+    //    }
 
     glGenVertexArrays(1, &netTile.VAO);
     glBindVertexArray(netTile.VAO);
@@ -663,8 +663,37 @@ void editorEvents(SDL_Event event){
       }
       case(SDL_SCANCODE_X): {
 	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-			      
-	if(!currentKeyStates[SDL_SCANCODE_LCTRL]){
+
+	if(cursorMode){
+	  Model* model = NULL;
+	  Matrix* mat = NULL;
+	  Light* light = NULL;
+    
+	  if (mouse.selectedType == mouseModelT) { 
+	    model = (Model*)mouse.selectedThing; 
+	    mat = &model->mat; 
+	  }
+	  else if (mouse.selectedType == mousePlaneT) {
+	    Picture* plane = (Picture*)mouse.selectedThing;
+	    mat = &plane->mat;
+	  }else if(mouse.selectedType == mouseLightT){
+	    light = (Light*)mouse.selectedThing;
+	    mat = &light->mat; 
+	  }
+
+
+	  if(light){
+	    mat->m[13] = curFloor;
+	    calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	  }
+
+	  if(model){
+	    printf("%s %f \n", loadedModels1D[model->name].name ,loadedModels1D[model->name].modelSizes.y);
+	    
+	    mat->m[13] = curFloor + loadedModels1D[model->name].modelSizes.y / 2.0f;
+	    calculateModelAABB(model);
+	  }
+	}else{
 	  if(mouse.brushThing || mouse.brushType){
 	    if (mouse.brushType == mouseBlockBrushT) {
 	      TileBlock* block = (TileBlock*) mouse.brushThing;
@@ -677,12 +706,6 @@ void editorEvents(SDL_Event event){
 
 	    mouse.brushThing = NULL;
 	    mouse.brushType = 0;
-	  }else{
-	    drawDistance -= .1f / 2.0f;
-
-	    //if(enviromental.fog){
-	      //glUniform1f(radius, drawDistance);
-	    //}
 	  }
 	}
 
@@ -972,13 +995,13 @@ void editorEvents(SDL_Event event){
 	      rotateY(mat->m, rad(45.0f));
 
 	      if(light){
-		light->dir = (vec3){0.0f, -1.0f, 0.0f};
+		/*		light->dir = (vec3){0.0f, -1.0f, 0.0f};
 		  
 		vec4 trasfDir = mulmatvec4(light->mat, (vec4){light->dir.x, light->dir.y, light->dir.z, 0.0f});
 
 		light->dir.x = trasfDir.x;
 		light->dir.y = trasfDir.y;
-		light->dir.z = trasfDir.z;
+		light->dir.z = trasfDir.z;*/
 
 		calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
 	      }
@@ -1016,7 +1039,6 @@ void editorEvents(SDL_Event event){
 	      float zTemp = block->mat.m[14];
 			
 	      rotateY(block->mat.m, rad(90.0f));
-	      printf("Sosi hui zivotrnoe\n");
 			
 	      block->mat.m[12] = xTemp;
 	      block->mat.m[13] = yTemp;
@@ -1381,8 +1403,8 @@ void editorEvents(SDL_Event event){
     float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
     
     if(curMenu || cursorMode){
-	mouse.cursor.x = x;
-	mouse.cursor.z = y;  
+      mouse.cursor.x = x;
+      mouse.cursor.z = y;  
     }
 
     if (curCamera && !curMenu && !cursorMode) { 
@@ -1454,15 +1476,15 @@ void editorMatsSetup(int curShader){
 	int xx, yy;
 	SDL_GetMouseState(&xx, &yy);
 
-	x = -1.0 + 2.0 * (xx / windowW);
-	y = -(-1.0 + 2.0 * (yy / windowH));
+	//	x = -1.0 + 2.0 * (xx / windowW);
+	//	y = -(-1.0 + 2.0 * (yy / windowH));
 
-	mouse.cursor.x = x;
-	mouse.cursor.z = y;
+	x= mouse.cursor.x;
+	y= mouse.cursor.z;
       }
       
       float z = 1.0f;
-      vec4 rayClip = { x, y, -1.0, 1.0 };
+      vec4 rayClip = { x, y, -1.0f, 1.0f };
 
       Matrix inversedProj = IDENTITY_MATRIX;
       
@@ -1480,7 +1502,7 @@ void editorMatsSetup(int curShader){
 
       vec4 ray_wor = mulmatvec4(inversedView, ray_eye);
       
-      // mouse.wor = (vec3){ argVec3(ray_wor) };
+      //      mouse.worldRayPos = (vec3){ argVec3(ray_wor) };
       mouse.rayDir = normalize3((vec3) { argVec3(ray_wor) });
 
       //normalize4(&ray_wor);
@@ -1493,7 +1515,7 @@ void editorPreFrame(float deltaTime){
   if(cursorMode){
     Model* model = NULL;
     Matrix* mat = NULL;
-	Light* light = NULL;
+    Light* light = NULL;
     
     if (mouse.selectedType == mouseModelT) { 
       model = (Model*)mouse.selectedThing; 
@@ -1507,7 +1529,7 @@ void editorPreFrame(float deltaTime){
       mat = &light->mat; 
     }
 
-   if(mat && (mouse.leftDown || mouse.rightDown)){
+    if(mat && (mouse.leftDown || mouse.rightDown)){
       vec3 ray = (vec3) { mouse.rayDir.x, 0, mouse.rayDir.z };
       vec3 modelPos = (vec3) { mat->m[12], mat->m[13], mat->m[14] };
 
@@ -1527,19 +1549,63 @@ void editorPreFrame(float deltaTime){
 	mat->m[13] = worldPoint.y;
       }
 
-      if(model){
-	calculateModelAABB(model); 
+      //      vec3 centroid = {0};
+
+      /*if(light){
+	calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	
+	//	centroid.x = (light->rt.x+light->lb.x)/2.0f;
+	//	centroid.y = (light->rt.y+light->lb.y)/2.0f;
+	//	centroid.z = (light->rt.z+light->lb.z)/2.0f;
+      }*/
+
+      if(light){
+	/*
+	light->dir = (vec3){0.0f, -1.0f, 0.0f};
+		  
+	vec4 trasfDir = mulmatvec4(light->mat, (vec4){light->dir.x, light->dir.y, light->dir.z, 0.0f});
+
+	light->dir.x = trasfDir.x;
+	light->dir.y = trasfDir.y;
+	light->dir.z = trasfDir.z;*/
+
+	calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
       }
+
+      if(model){
+	calculateModelAABB(model);
+	/*
+	centroid.x = model->rt.x / 2.0f;
+	centroid.y = model->rt.y / 2.0f;
+	centroid.z = model->rt.z / 2.0f;
+	
+	vec4 worldCentroid = mulmatvec4(*mat, (vec4){ argVec3(centroid), 1.0f });
+	vec4 eyeCentroid = mulmatvec4(editorView, worldPoint);
+	vec4 clip = mulmatvec4(editorProj, eyeCentroid);
+
+	//	clip.w = -1.0f;
+
+	vec3 nds = { clip.x / clip.w, clip.y / clip.w, clip.z / clip.w };
+	vec2 viewPos = { ((nds.x + 1.0f) / 2.0f) * windowW, ((nds.y + 1.0f) / 2.0f) * windowH };
+
+	mouse.cursor.x = nds.x;
+	mouse.cursor.z = nds.y;
+	SDL_WarpMouseInWindow(window, viewPos.x, viewPos.z);
+
+	printf("Screen %f %f NDC: %f %f %f \n", argVec2(viewPos),argVec3(nds));*/
+      }
+
+      
     }
   }
   
   if(!console.open && !curMenu){
-	float cameraSpeed = 10.0f * deltaTime;
-	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+    float cameraSpeed = 10.0f * deltaTime;
+    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
-	if(!cursorMode && currentKeyStates[SDL_SCANCODE_LCTRL]){
-	  cursorShouldBeCentered = true;
-	}
+    if(!cursorMode && currentKeyStates[SDL_SCANCODE_LCTRL]){
+      cursorShouldBeCentered = true;
+    }
     
     cursorMode = currentKeyStates[SDL_SCANCODE_LCTRL];
 
@@ -1727,13 +1793,10 @@ void editor3dRender() {
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	static vec3 prevTile = {-1,-1,-1};
+  	static vec3 prevTile = {-1,-1,-1};
 
 	if(mouse.brushType == mouseBlockBrushT){
 	  TileBlock* block = (TileBlock*) mouse.brushThing;
-
-	  vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
-
 	  
 	  if((prevTile.x != -1 && prevTile.y != -1 && prevTile.z != -1)
 	     && (prevTile.x != tile.x || prevTile.y != tile.y || prevTile.z != tile.z)){   
@@ -1788,8 +1851,6 @@ void editor3dRender() {
 	  glBindBuffer(GL_ARRAY_BUFFER, 0); 
 	  glBindVertexArray(0);
 	}else if(mouse.brushType == mouseWallBrushT && mouse.tileSide != -1 && mouse.tileSide != center){
-	  TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
-
 	  vec2i curTile = tileData->grid;
 	  Side selectedSide = mouse.tileSide;
 	   
@@ -1856,15 +1917,6 @@ void editor3dRender() {
 	  }
 	  
 	  vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor,tileData->grid.z);
-
-	  Tile* opTile = NULL;
-
-	  Side oppositeSide = 0; 
-	  vec2i oppositeTile = {0};  
-	  
-	  //	  if(oppositeTileTo(tileData->grid, mouse.tileSide,&oppositeTile,&oppositeSide)){
-	  //	    opTile = grid[curFloor][oppositeTile.z][oppositeTile.x];
-	  //	  }
 
 	  if(mouse.clickR){ 
 	    wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
@@ -2352,7 +2404,7 @@ void editor2dRender(){
 	  
 	curModels[curModelsSize-1].mat = IDENTITY_MATRIX;  
 
-	scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f); 
+	//scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f); 
 
 	if(mouse.selectedType == mouseTileT){
 	  TileMouseData* tileData =  (TileMouseData*) mouse.selectedThing;
@@ -2361,15 +2413,22 @@ void editor2dRender(){
 	  curModels[curModelsSize-1].mat.m[12] = tile.x;
 	  curModels[curModelsSize-1].mat.m[13] = tile.y;
 	  curModels[curModelsSize-1].mat.m[14] = tile.z;
+	  
+	  curModels[curModelsSize-1].mat.m[13] += loadedModels2D[objectsMenuSelectedType][selectedIndex - 1].modelSizes.y;
+	}else{
+	  vec3 modelSize = loadedModels2D[objectsMenuSelectedType][selectedIndex - 1].modelSizes;
+	  
+	  curModels[curModelsSize-1].mat.m[12] = (mouse.rayDir.x*modelSize.x*4.0f) +curCamera->pos.x;
+	  curModels[curModelsSize-1].mat.m[13] = mouse.rayDir.y +curCamera->pos.y;
+	  curModels[curModelsSize-1].mat.m[14] = (mouse.rayDir.z*modelSize.z*4.0f) +curCamera->pos.z;
 	}
+	  calculateModelAABB(&curModels[curModelsSize-1]);
 	  
-	calculateModelAABB(&curModels[curModelsSize-1]);
-	  
-	objectsMenu.open = false;
-	curMenu = NULL;
-      };
+	  objectsMenu.open = false;
+	  curMenu = NULL;
+	};
 
-      setSolidColorTx(redColor, 1.0f);
+	setSolidColorTx(redColor, 1.0f);
       
       glBindVertexArray(hudRect.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
@@ -3113,7 +3172,7 @@ void editor2dRender(){
 	  }
 	}
 	if(found == false){
-	  // mouse vs buttons
+	  // vs buttons
 	  for(int i=0; i<dialogEditorButtonsCounter; i++){
 	    if(dialogEditor.buttons[i].x <= mouse.cursor.x && dialogEditor.buttons[i].x + dialogEditor.buttons[i].w >= mouse.cursor.x && dialogEditor.buttons[i].y >= mouseY && dialogEditor.buttons[i].y - dialogEditor.buttons[i].h <= mouseY){
 		
@@ -3502,9 +3561,9 @@ void editor2dRender(){
 	};*/
 
       float cursorPoint[] = {
-	x + cursorW * 0.05f, z + cursorH, 0.0f, 0.0f,
-	x + cursorW, z + cursorH/2.0f, 0.0f, 0.0f,
-	x, z + cursorH / 4.0f, 0.0f, 0.0f, 
+	x + cursorW * 0.05f, z - cursorH, 0.0f, 0.0f,
+	x + cursorW, z - cursorH/2.0f,    0.0f, 0.0f,
+	x, z - cursorH / 4.0f,            0.0f, 0.0f, 
       };
 
       glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);

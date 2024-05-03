@@ -66,7 +66,36 @@ float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;
 return shadow;
 }
 
+
 vec3 pointLightCalc(PointLight light, vec3 norm, vec3 viewDir){
+vec3 lightDir = normalize(light.pos - FragPos);
+// diffuse shading
+float diff = max(dot(norm, lightDir), 0.0);
+// specular shading
+
+vec3 reflectDir = reflect(-lightDir, norm);
+float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+
+// attenuation
+float distance    = length(light.pos - FragPos);
+float attenuation = 1.0 / (light.constant + light.linear * distance + 
+light.quadratic * (distance * distance));    
+
+// combine results
+vec3 ambient  = ambientC * light.color;
+vec3 diffuse  = diff * light.color;
+vec3 specular = specularC * spec * light.color;
+
+ambient  *= attenuation;
+diffuse  *= attenuation;
+specular *= attenuation;
+
+//ambient += (1.0 - shadow);
+
+return (ambient + (diffuse + specular));
+}
+
+vec3 pointLightCalcShadow(PointLight light, vec3 norm, vec3 viewDir){
 vec3 lightDir = normalize(light.pos - FragPos);
 // diffuse shading
 float diff = max(dot(norm, lightDir), 0.0);
@@ -150,7 +179,10 @@ for(int i=0;i<dirLightsSize;i++){
 res+= dirLightCalc(dirLights[i], norm, viewDir);
 }
 
-for(int i=0;i<pointLightsSize;i++){
+// shadows;
+res+= pointLightCalcShadow(pointLights[0], norm, viewDir);
+
+for(int i=1;i<pointLightsSize;i++){
 res+= pointLightCalc(pointLights[i], norm, viewDir);
 }
 
