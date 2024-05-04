@@ -228,7 +228,7 @@ Camera* curCamera = &camera1;
 
 bool fullScreen = 0;
 
-Light lightDef = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .constant = 1.0f, .linear = .09f, .quadratic = .032f, .dir = {0,-1, 0} };
+Light lightDef = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 7 };
 
 Menu dialogViewer = { .type = dialogViewerT };
 Menu dialogEditor = { .type = dialogEditorT };
@@ -964,13 +964,15 @@ int main(int argc, char* argv[]) {
     //    glShadeModel(GL_SMOOTH);
     //glClearDepth(1.0f);
     glEnable(GL_DEPTH_TEST);
-    //    glDepthFunc(GL_LEQUAL);
-    glDepthFunc(GL_LESS);
-    //    GL_LEQUAL
+    glDepthFunc(GL_LEQUAL);
+    //    glDepthFunc(GL_LESS);
     
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    //    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    //    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+    //    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+      glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     
     //GL_GEQUAL
     //    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
@@ -1681,7 +1683,7 @@ int main(int argc, char* argv[]) {
     glUseProgram(shadersId[pointShadowShader]);
     glEnable(GL_DEPTH_TEST);
     
-    if(false && lightsStore){
+    if(lightsStore){
 	glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 
@@ -1751,7 +1753,101 @@ int main(int argc, char* argv[]) {
 	glActiveTexture(GL_TEXTURE0);
 	renderScene(mainShader);
 
-	((void (*)(void))instances[curInstance][render3DFunc])();    
+	((void (*)(void))instances[curInstance][render3DFunc])();
+	
+	// highlight selected model with stencil
+	{
+	  if(mouse.selectedType == mouseModelT){
+	    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+	    glStencilMask(0xFF);
+
+	    Model* model = (Model*)mouse.selectedThing;
+	    int name = model->name;
+	    
+	    glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
+
+	    glBindVertexArray(loadedModels1D[name].VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
+
+	    uniformMat4(mainShader, "model", model->mat.m);
+
+	    glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
+
+	    // higlight
+	    {
+	      glUseProgram(shadersId[borderShader]);
+	    
+	      glStencilFunc(GL_NOTEQUAL	, 1, 0xFF);
+	      glStencilMask(0x00);
+      
+	      glDisable(GL_DEPTH_TEST);
+      
+	      uniformMat4(borderShader, "model", model->mat.m);
+	      uniformVec3(borderShader, "borderColor", (vec3){ redColor });
+	      glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
+
+	      glEnable(GL_DEPTH_TEST);
+
+	      glUseProgram(shadersId[mainShader]);
+
+	      glStencilMask(0x00);
+	    }
+	    glBindBuffer(GL_ARRAY_BUFFER, 0);
+	    glBindVertexArray(0);
+
+	    glBindTexture(GL_TEXTURE_2D, 0);
+	  }else if(false && mouse.selectedType == mouseLightT){
+	    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+	    glStencilMask(0xFF);
+	    
+	    Light* light = (Light*)mouse.selectedThing;
+
+	    glUseProgram(shadersId[lightSourceShader]);
+	    
+	    uniformVec3(lightSourceShader, "color", light->color);
+
+	    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
+	    glBindVertexArray(cube.VAO);
+
+	    uniformMat4(lightSourceShader, "model", light->mat.m);
+
+	    glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
+	    
+	    // higlight
+	    {
+	      //	      glUseProgram(shadersId[lightSourceShader]);
+	    
+	      glStencilFunc(GL_NOTEQUAL	, 1, 0xFF);
+	      glStencilMask(0x00);
+      
+	      glDisable(GL_DEPTH_TEST);
+
+	      //Matrix out = IDENTITY_MATRIX;
+	      //  memcpy(out.m, light->mat.m, sizeof(float) * 16);
+
+	      scale(&light->mat, 1.9f,1.9f,1.9f);
+      
+	      uniformMat4(borderShader, "model", light->mat.m);
+
+	      scale(&light->mat, 1.0f/1.9f,1.0f/1.9f,1.0f/1.9f);
+	      
+	      uniformVec3(borderShader, "color", (vec3){ redColor }); 
+	      glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
+
+	      glEnable(GL_DEPTH_TEST);
+
+	      glUseProgram(shadersId[mainShader]);
+
+	      glStencilMask(0x00);
+	    }
+
+	    glBindTexture(GL_TEXTURE_2D, 0);
+      
+	    glBindBuffer(GL_ARRAY_BUFFER, 0); 
+	    glBindVertexArray(0); 
+	  }
+	}
+
 
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 	
@@ -4785,71 +4881,8 @@ void assembleBlocks(){
 }
 
 
-
+// make render for shadow and for normal
 void renderScene(GLuint curShader){
-  for (int i = 0; i < curModelsSize; i++) {
-    if(&curModels[i] == mouse.selectedThing && curShader == mainShader){
-      printf("Here");
-      glStencilFunc(GL_ALWAYS, 1, 0xFF);
-      glStencilMask(0xFF);
-
-      //   glEnable(GL_STENCIL_TEST);
-    }
-    
-    int name = curModels[i].name;
-
-    //      glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
-
-    glBindVertexArray(loadedModels1D[name].VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
-
-    uniformMat4(curShader, "model", curModels[i].mat.m);
-
-    glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
-
-    if(&curModels[i] == mouse.selectedThing && curShader == mainShader){
-      glUseProgram(shadersId[borderShader]);
-	    
-      glStencilFunc(GL_NOTEQUAL	, 1, 0xFF);
-      glStencilMask(0x00);
-      
-      glDisable(GL_DEPTH_TEST);
-
-      // glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
-
-      //      Matrix scaled = IDENTITY_MATRIX;
-      //      memcpy(scaled.m, curModels[i].mat.m);
-
-      //      scale(&curModels[i].mat,1.1f,1.1f,1.1f);
-      
-      uniformMat4(borderShader, "model", curModels[i].mat.m);
-      uniformVec3(borderShader, "borderColor", (vec3){ redColor });
-      glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
-
-      // scale(&curModels[i].mat,1/1.1f,1/1.1f,1/1.1f);
-
-      //      glStencilMask(0xFF);
-      //      glStencilFunc(GL_ALWAYS, 0, 0xFF);
-      glEnable(GL_DEPTH_TEST);
-
-      glUseProgram(shadersId[curShader]);
-
-      glStencilMask(0x00);
-
-      // glDisable(GL_STENCIL_TEST);
-
-      //      glStencilMask(0xFF);
-      //   glStencilFunc(GL_ALWAYS, 1, 0xFF); 
-    }
-    
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-  }
-    
   Matrix out2 = IDENTITY_MATRIX;
    
   uniformMat4(curShader, "model", out2.m);
@@ -4867,6 +4900,29 @@ void renderScene(GLuint curShader){
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
   }
+  
+  for (int i = 0; i < curModelsSize; i++) {
+    if(&curModels[i] == mouse.selectedThing && curShader == mainShader){
+      continue;
+    }
+    
+    int name = curModels[i].name;
+
+    glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
+
+    glBindVertexArray(loadedModels1D[name].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
+
+    uniformMat4(curShader, "model", curModels[i].mat.m);
+
+    glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
+    
 }
 
 void checkMouseVSEntities(){

@@ -11,22 +11,24 @@ int gameCameraFloor = 1;
 void gameOnSetInstance(){
   printf("Now game\n");
   curCamera->pos.y = cameraFloor;
+
+  glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 }
 
 
 void game2dRender(){
-  renderText(instancesStr[gameInstance], .0f, .0f, 1.0f);
+  //  renderText(instancesStr[gameInstance], .0f, .0f, 1.0f);
 
   glBindTexture(GL_TEXTURE_2D, solidColorTx);
   setSolidColorTx(whiteColor, 1.0f);
       
   glBindVertexArray(cursor.VAO);
   glBindBuffer(GL_ARRAY_BUFFER, cursor.VBO);
-	
+
   float cursorPoint[] = {
-    mouse.cursor.x + cursorW * 0.05f, mouse.cursor.z + cursorH, 0.0f, 0.0f,
-    mouse.cursor.x + cursorW, mouse.cursor.z + cursorH/2.0f, 0.0f, 0.0f,
-    mouse.cursor.x, mouse.cursor.z + cursorH / 4.0f, 0.0f, 0.0f, 
+     mouse.cursor.x, mouse.cursor.z,            0.0f, 0.0f,
+     mouse.cursor.x + cursorW * 0.05f, mouse.cursor.z - cursorH,            0.0f, 0.0f,
+     mouse.cursor.x + cursorW, mouse.cursor.z - cursorH + (cursorH * 0.5f),            0.0f, 0.0f,
   };
 
   glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);

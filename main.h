@@ -592,8 +592,8 @@ typedef struct{
 } Mouse;
 
 	 
-#define cursorH 0.06f
-#define cursorW 0.02f
+#define cursorH 0.025f
+#define cursorW 0.01f
 
 VPair cursor;
 
@@ -649,10 +649,9 @@ typedef struct{
   LightType type;
 
   Matrix mat;
-  
-  float constant;
-  float linear;
-  float quadratic;
+
+  // TODO: Remove constant, linear, quad replace it with curLight
+  int curLightPresetIndex;
 
   float rad;
   float cutOff;

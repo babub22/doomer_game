@@ -10,7 +10,23 @@ int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
 
+const float lightPresetTable[][2] = { {0.0014, 0.000007},
+				   {0.007, 0.0002},
+				   {0.014, 0.0007},
+				   {0.022, 0.0019},
+				   {0.027, 0.0028},
+				   {0.045, 0.0075},
+				   {0.07, 0.017},
+				   {0.09, 0.032},
+				   {0.14, 0.07},
+				   {0.22, 0.20},
+				   {0.35, 0.44},
+				   {0.7, 1.8} };
+
+#define lightsPresetMax 12
+
 bool cursorMode;
+
 bool cursorShouldBeCentered;
 
 int texturesMenuCurCategoryIndex = 0;
@@ -56,6 +72,8 @@ vec2 mouseFrameDiff;
 
 void editorOnSetInstance(){
   printf("Now editor");
+
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
   renderCapYLayer = gridY;
   batchGeometry();
@@ -651,15 +669,6 @@ void editorEvents(SDL_Event event){
 	curCamera->pos.y -= .1f;
 
 	break;
-      } 
-      case(SDL_SCANCODE_Z): {
-	drawDistance += .1f / 2.0f;
-
-	//if(enviromental.fog){
-	  //glUniform1f(radius, drawDistance);
-	//}
-
-	break;
       }
       case(SDL_SCANCODE_X): {
 	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
@@ -685,12 +694,13 @@ void editorEvents(SDL_Event event){
 	  if(light){
 	    mat->m[13] = curFloor;
 	    calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	    uniformLights();
 	  }
 
 	  if(model){
 	    printf("%s %f \n", loadedModels1D[model->name].name ,loadedModels1D[model->name].modelSizes.y);
 	    
-	    mat->m[13] = curFloor + loadedModels1D[model->name].modelSizes.y / 2.0f;
+	    mat->m[13] = curFloor + loadedModels1D[model->name].modelSizes.y;
 	    calculateModelAABB(model);
 	  }
 	}else{
@@ -1380,6 +1390,15 @@ void editorEvents(SDL_Event event){
 
     mouse.clickL = event.button.button == SDL_BUTTON_LEFT;
     mouse.clickR = event.button.button == SDL_BUTTON_RIGHT;
+
+    if(cursorMode && mouse.focusedThing){
+      if(mouse.focusedType == mouseTileT || mouse.focusedType == mouseBlockT){
+	free(mouse.focusedThing);
+      }
+
+      mouse.focusedThing = NULL;
+      mouse.focusedType = 0;
+    }
   }
 
   if(event.type == SDL_MOUSEWHEEL){
@@ -1395,6 +1414,66 @@ void editorEvents(SDL_Event event){
       }
 	
       manipulationScaleStep = (manipulationStep * 5) + 1;
+    }
+
+    if(cursorMode){
+      Model* model = NULL;
+      Matrix* mat = NULL;
+      Light* light = NULL;
+    
+      if (mouse.selectedType == mouseModelT) { 
+	model = (Model*)mouse.selectedThing; 
+	mat = &model->mat; 
+      }
+      else if (mouse.selectedType == mousePlaneT) {
+	Picture* plane = (Picture*)mouse.selectedThing;
+	mat = &plane->mat;
+      }else if(mouse.selectedType == mouseLightT){
+	light = (Light*)mouse.selectedThing;
+	mat = &light->mat; 
+      }
+
+      float scaleStep = 0.01f;
+
+      if(light){
+	int temp = light->curLightPresetIndex;
+	
+	if(event.wheel.y > 0){
+	  light->curLightPresetIndex--;
+	}else if(event.wheel.y < 0){
+	  light->curLightPresetIndex++;
+	}
+
+	if(light->curLightPresetIndex < 0 || light->curLightPresetIndex >= lightsPresetMax){
+	  light->curLightPresetIndex = temp;
+	}
+
+	uniformLights();
+      }
+
+      if(model){
+	float xTemp = mat->m[12];
+	float yTemp = mat->m[13];
+	float zTemp = mat->m[14];
+
+	mat->m[12] = 0;
+	mat->m[13] = 0;
+	mat->m[14] = -zTemp;
+
+	if(event.wheel.y > 0){
+	  scale(mat, 1.0f+ scaleStep,1.0f+ scaleStep, 1.0f + scaleStep);
+	}else if(event.wheel.y < 0){
+	  scale(mat, 1.0f/(1.0f+ scaleStep),
+		1.0f / (1.0f + scaleStep),
+		1.0f / (1.0f + scaleStep));
+	}
+	
+	mat->m[12] = xTemp;
+	mat->m[13] = yTemp;
+	mat->m[14] = zTemp;
+
+	calculateModelAABB(model);
+      }
     }
   }
       
@@ -1512,20 +1591,32 @@ void editorMatsSetup(int curShader){
 }
 
 void editorPreFrame(float deltaTime){
-  if(cursorMode){
+  if((cursorMode) && (mouse.leftDown || mouse.rightDown)){
+    if(!mouse.focusedThing){
+      if(mouse.focusedType == mouseTileT || mouse.focusedType == mouseBlockT){
+	free(mouse.focusedThing);
+      }
+      
+      mouse.focusedThing = mouse.selectedThing;
+      mouse.focusedType = mouse.selectedType;
+
+      mouse.selectedThing = NULL;
+      mouse.selectedType = 0;
+    }
+  
     Model* model = NULL;
     Matrix* mat = NULL;
     Light* light = NULL;
     
-    if (mouse.selectedType == mouseModelT) { 
-      model = (Model*)mouse.selectedThing; 
+    if (mouse.focusedType == mouseModelT) { 
+      model = (Model*)mouse.focusedThing; 
       mat = &model->mat; 
     }
-    else if (mouse.selectedType == mousePlaneT) {
-      Picture* plane = (Picture*)mouse.selectedThing;
+    else if (mouse.focusedType == mousePlaneT) {
+      Picture* plane = (Picture*)mouse.focusedThing;
       mat = &plane->mat;
-    }else if(mouse.selectedType == mouseLightT){
-      light = (Light*)mouse.selectedThing;
+    }else if(mouse.focusedType == mouseLightT){
+      light = (Light*)mouse.focusedThing;
       mat = &light->mat; 
     }
 
@@ -1560,16 +1651,8 @@ void editorPreFrame(float deltaTime){
       }*/
 
       if(light){
-	/*
-	light->dir = (vec3){0.0f, -1.0f, 0.0f};
-		  
-	vec4 trasfDir = mulmatvec4(light->mat, (vec4){light->dir.x, light->dir.y, light->dir.z, 0.0f});
-
-	light->dir.x = trasfDir.x;
-	light->dir.y = trasfDir.y;
-	light->dir.z = trasfDir.z;*/
-
 	calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+	uniformLights();
       }
 
       if(model){
@@ -1605,6 +1688,13 @@ void editorPreFrame(float deltaTime){
 
     if(!cursorMode && currentKeyStates[SDL_SCANCODE_LCTRL]){
       cursorShouldBeCentered = true;
+
+      if(mouse.focusedType == mouseTileT || mouse.focusedType == mouseBlockT){
+	free(mouse.focusedThing);
+      }
+
+      mouse.focusedThing = NULL;
+      mouse.focusedType = 0;
     }
     
     cursorMode = currentKeyStates[SDL_SCANCODE_LCTRL];
@@ -1696,12 +1786,12 @@ void editorPreFrame(float deltaTime){
 	manipulationMode = ROTATE_X;
       }else if (currentKeyStates[SDL_SCANCODE_Y]){
 	manipulationMode = ROTATE_Y;
-      }else if (currentKeyStates[SDL_SCANCODE_Z]){
+      }else if (false && currentKeyStates[SDL_SCANCODE_Z]){
 	manipulationMode = ROTATE_Z;
       } 
     }else if(currentKeyStates[SDL_SCANCODE_T]){
       manipulationMode = TRANSFORM_XY;
-    }else if (currentKeyStates[SDL_SCANCODE_Z]) {
+    }else if (false && currentKeyStates[SDL_SCANCODE_Z]) {
       manipulationMode = TRANSFORM_Z;
     }
     else if(currentKeyStates[SDL_SCANCODE_G]){
@@ -1734,6 +1824,10 @@ void editor3dRender() {
   }
 	
   for (int i = 0; i < lightsStoreSize; i++) {
+    if(&lightsStore[i] == mouse.selectedThing){
+      //   continue;
+    }
+    
     uniformVec3(lightSourceShader, "color", lightsStore[i].color);
 
     glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
@@ -2060,7 +2154,6 @@ void editor3dRender() {
 //}
 
 void editor2dRender(){
-  renderText(instancesStr[editorInstance], .0f, .0f, 1.0f);
     
   // setup context text
   {
@@ -2372,9 +2465,9 @@ void editor2dRender(){
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    float mouseY = mouse.cursor.z + 0.06f;
+    float mouseY = mouse.cursor.z;
       
-    int selectedIndex = (1.0f-((mouseY +1.0f)/2.0f)) / (letterH/2);
+    int selectedIndex = (1.0f - ((mouseY +1.0f)/2.0f)) / (letterH/2) ;
     selectedIndex++;
       
     if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= modelsTypesInfo[objectsMenuSelectedType].counter){
@@ -2528,9 +2621,9 @@ void editor2dRender(){
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    float mouseY = mouse.cursor.z + 0.06f;
+    float mouseY = mouse.cursor.z;
       
-    int selectedIndex = (1.0f-((mouseY +1.0f)/2.0f)) / (letterH/2);
+    int selectedIndex = (1.0f-((mouseY +1.0f)/2.0f)) / (letterH/2.0f);
     selectedIndex++;
       
     if(mouse.cursor.x <= objectsMenuWidth && selectedIndex <= tileBlocksCounter){
@@ -2598,7 +2691,7 @@ void editor2dRender(){
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    float mouseY = mouse.cursor.z + 0.06f;
+    float mouseY = mouse.cursor.z;
       
     int selectedIndex = (1.0f-((mouseY +1.0f)/2.0f)) / (letterH/2);
     selectedIndex++;
@@ -2706,7 +2799,7 @@ void editor2dRender(){
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
       
-    float mouseY = mouse.cursor.z + 0.06f;
+    float mouseY = mouse.cursor.z;
     int selectedIndex = (1.0f-((mouseY +1.0f)/2.0f)) / (letterH/2);
 
     // 1 - textureSide
@@ -2840,7 +2933,7 @@ void editor2dRender(){
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    float mouseY = mouse.cursor.z + 0.06f;
+    float mouseY = mouse.cursor.z;
       
     int selectedIndex = (1.0f-((mouseY +1.0f)/2.0f)) / (letterH/2);
     int selectedSign = 0;
@@ -3011,7 +3104,7 @@ void editor2dRender(){
       
     renderText(curDialog->replicaText, dialogViewer.rect.x + 0.02f, dialogViewer.rect.y - 0.02f, 1.0f);
 
-    float mouseY = mouse.cursor.z + 0.06f;
+    float mouseY = mouse.cursor.z;
     bool selectedNewAnswer = false;
       
     // dialog answers buttons
@@ -3135,8 +3228,7 @@ void editor2dRender(){
     {
       if(mouse.clickL){
 	bool found = false;
-	float mouseY = mouse.cursor.z + 0.06f;
-
+	float mouseY = mouse.cursor.z;
 	  
 	if (selectedTextInput) {
 	  selectedTextInput->active = false;
@@ -3558,12 +3650,19 @@ void editor2dRender(){
 	mouse.cursor.x + cursorW * 0.05f, mouse.cursor.z + cursorH, 0.0f, 0.0f,
 	mouse.cursor.x + cursorW, mouse.cursor.z + cursorH/2.0f, 0.0f, 0.0f,
 	mouse.cursor.x, mouse.cursor.z + cursorH / 4.0f, 0.0f, 0.0f, 
-	};*/
+	};
 
-      float cursorPoint[] = {
+	float cursorPoint[] = {
 	x + cursorW * 0.05f, z - cursorH, 0.0f, 0.0f,
 	x + cursorW, z - cursorH/2.0f,    0.0f, 0.0f,
 	x, z - cursorH / 4.0f,            0.0f, 0.0f, 
+	};
+      */
+
+      float cursorPoint[] = {
+	x, z,            0.0f, 0.0f,
+	x + cursorW * 0.05f, z - cursorH,            0.0f, 0.0f,
+	x + cursorW, z - cursorH + (cursorH * 0.5f),            0.0f, 0.0f,
       };
 
       glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);
@@ -3702,15 +3801,15 @@ void uniformLights(){
 
       sprintf(buf, "%sLights[%i].constant",
 	      shaderVarSufixStr[lightsStore[i].type], index);
-      uniformFloat(mainShader, buf, lightsStore[i].constant);
+      uniformFloat(mainShader, buf, 1.0f);
 
       sprintf(buf, "%sLights[%i].linear",
 	      shaderVarSufixStr[lightsStore[i].type], index);
-      uniformFloat(mainShader, buf, lightsStore[i].linear);
+      uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i].curLightPresetIndex][0]);
 
       sprintf(buf, "%sLights[%i].qaudratic",
 	      shaderVarSufixStr[lightsStore[i].type], index);
-      uniformFloat(mainShader, buf, lightsStore[i].quadratic);
+      uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i].curLightPresetIndex][1]);
 
       localLightsCounter[lightsStore[i].type]++;
     }
