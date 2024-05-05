@@ -1906,11 +1906,11 @@ void editor3dRender() {
 	    
 	    int index = (block->rotateAngle) / 90;
 
-	    block->mat.m[12] += rotationBlock[index][0];
-	    block->mat.m[14] += rotationBlock[index][1];
+	    //	    block->mat.m[12] += rotationBlock[index][0];
+	    //	    block->mat.m[14] += rotationBlock[index][1];
 	    
 	    //	    
-	    /*	    if(block->rotateAngle == 90){
+	    if(block->rotateAngle == 90){
 		    block->mat.m[14] += bBlockW;
 	    }
 	    else if (block->rotateAngle == 180) {
@@ -1920,8 +1920,8 @@ void editor3dRender() {
 	    else if (block->rotateAngle == 270) {
 	      block->mat.m[12] += bBlockD;
 		  
-	      itWalRotatedAround = true;
-	    }*/
+	      //   itWalRotatedAround = true;
+	    }
 	    //	    else if(itWalRotatedAround){
 	      //	      block->mat.m[12] -= bBlockW;
 	      //	      printf("QQQQ");
@@ -2016,6 +2016,7 @@ void editor3dRender() {
 	    wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
 
 	    if(!tileData->tile){
+	      printf("Calllllllll\n");
 	      grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
 	      tileData->tile = grid[curFloor][tileData->grid.z][tileData->grid.x];
 	    }

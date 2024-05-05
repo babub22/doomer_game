@@ -5080,7 +5080,7 @@ void checkMouseVSEntities(){
   // net tile
   if(curFloor != 0 && curInstance == editorInstance){
     for(int i=0;i<netTileSize;i+=2){
-      const vec3 rt = { netTileAABB[i+1].x + bBlockW, curFloor, netTileAABB[i+1].z + bBlockD };
+      const vec3 rt = { netTileAABB[i+1].x, curFloor, netTileAABB[i+1].z };
       const vec3 lb = { netTileAABB[i].x, curFloor, netTileAABB[i].z };
 
       float intersectionDistance;
@@ -5089,8 +5089,8 @@ void checkMouseVSEntities(){
       bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
 
       if (isIntersect && minDistToCamera > intersectionDistance) {
-          vec3i gridInd = xyz_coordsToIndexes(netTileAABB[i+1].x, curFloor, netTileAABB[i+1].z);
-	intersTileData->tile = grid[gridInd.y][gridInd.z][gridInd.x];
+          vec3i gridInd = xyz_coordsToIndexes(netTileAABB[i].x, curFloor, netTileAABB[i].z);
+	intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
 
 	intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
 	intersTileData->intersection = intersection;
@@ -5101,7 +5101,7 @@ void checkMouseVSEntities(){
 
 	minDistToCamera = intersectionDistance;
       }
-    }
+      }
   }
   
   if(mouse.selectedType != mouseTileT){
