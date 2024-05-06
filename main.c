@@ -1756,6 +1756,7 @@ int main(int argc, char* argv[]) {
 	((void (*)(void))instances[curInstance][render3DFunc])();
 	
 	// highlight selected model with stencil
+	if(hints)
 	{
 	  if(mouse.selectedType == mouseModelT){
 	    glStencilFunc(GL_ALWAYS, 1, 0xFF);

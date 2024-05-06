@@ -4,7 +4,6 @@
 #include "editor.h"
 
 TextInput* selectedTextInput;
-bool hints = true;
 
 int* dialogEditorHistory;
 int dialogEditorHistoryLen;
@@ -1919,15 +1918,7 @@ void editor3dRender() {
 	    }
 	    else if (block->rotateAngle == 270) {
 	      block->mat.m[12] += bBlockD;
-		  
-	      //   itWalRotatedAround = true;
 	    }
-	    //	    else if(itWalRotatedAround){
-	      //	      block->mat.m[12] -= bBlockW;
-	      //	      printf("QQQQ");
-	      //	      itWalRotatedAround = false;
-	      //	   }
-//	    
 	  }
 
 	  prevTile.x = tile.x;

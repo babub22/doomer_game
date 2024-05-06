@@ -662,6 +662,8 @@ typedef struct{
   vec3 rt;
 } Light;
 
+bool hints;
+
 void renderCube(vec3 pos, int lightId);
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist);
