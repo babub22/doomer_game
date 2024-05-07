@@ -105,7 +105,7 @@ typedef enum{
 } MenuTypes;
 
 typedef enum{
-  pointLightT, dirLightT,
+  pointLightT, shadowPointLightT,
   lightsTypeCounter
 } LightType;
 
@@ -660,6 +660,8 @@ typedef struct{
 
   vec3 lb;
   vec3 rt;
+
+  int cubemapIndex;
 } Light;
 
 bool hints;
@@ -978,9 +980,10 @@ GLuint fontAtlas;
 
 int curFloor;
 
-Light* lightsStore;
-int lightsStoreSize;
+Light* lightsStore[lightsTypeCounter];
 int lightsStoreSizeByType[lightsTypeCounter];
+int lightsStoreSize;
+
 Light lightDef;/* = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .constant = 1.0f, .linear = .09f, .quadratic = .032f, .dir = {0,-1, 0} };*/
 
 Picture* createdPlanes;

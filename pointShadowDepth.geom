@@ -1,64 +1,36 @@
 #version 330 core
 
 layout (triangles) in;
-layout (triangle_strip, max_vertices=18) out;
+//layout (triangle_strip, max_vertices=18) out;
+layout (triangle_strip, max_vertices=108) out;	
 
-uniform mat4 shadowMatrices[6];
+uniform mat4 shadowMatrices[6*6];
 
-out vec4 FragPos;
+//out vec4 FragPos;
+//out vec3 lightPos;
 
+out float len;
 
-/*
-void emitFace(mat4 m) {
-for(int i = 0; i < 3; ++i)
-{
-FragPos = gl_in[i].gl_Position;
-gl_Position = m * FragPos;
-EmitVertex();
-}
-EndPrimitive();
-}
+uniform int lightsSize;
+uniform vec3 lightsPos[6];		
 
 void main()
 {
-gl_Layer = 0;
-emitFace(shadowMatrices[0]);
+for(int indx = 0; indx < lightsSize; ++indx){
+for(int face = 0; face < 6; ++face){
+gl_Layer = indx * 6 + face;
+for(int i = 0; i < 3; ++i){
 
-gl_Layer = 1;
-emitFace(shadowMatrices[1]);
+vec4 pos = gl_in[i].gl_Position;
+len = length(pos.xyz - lightsPos[indx]);
 
-gl_Layer = 2;
-emitFace(shadowMatrices[2]);
-
-gl_Layer = 3;
-emitFace(shadowMatrices[3]);
-
-gl_Layer = 4;
-emitFace(shadowMatrices[4]);
-
-gl_Layer = 5;
-emitFace(shadowMatrices[5]);
-}*/
-
-void main()
-{
-
-for(int face = 0; face < 6; ++face)
-{
-gl_Layer = face; // built-in variable that specifies to which face we render.
-for(int i = 0; i < 3; ++i) // for each triangle's vertices
-{
-FragPos = gl_in[i].gl_Position;
-
-//FragPos.y = -FragPos.y;
-
-gl_Position = shadowMatrices[face] * FragPos;
+gl_Position = shadowMatrices[gl_Layer] * gl_in[i].gl_Position;
 
 EmitVertex();
 }
 
-
 EndPrimitive();
+}
 }
 
 }

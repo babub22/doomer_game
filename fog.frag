@@ -2,7 +2,7 @@
 uniform vec3 cameraPos;
 
 uniform sampler2D colorMap;
-uniform samplerCube depthMap;
+uniform samplerCubeArray depthMapsArray;
 
 uniform float radius;
 
@@ -19,6 +19,8 @@ vec3 color;
 float constant;
 float linear;
 float quadratic;
+
+int cubemapIndex;
 };
 
 struct DirLight{
@@ -35,8 +37,12 @@ float cutOff;
 };
 
 #define MAX_LIGHTS 50
+
 uniform int pointLightsSize;  
 uniform PointLight pointLights[MAX_LIGHTS];
+
+uniform int shadowPointLightsSize;  
+uniform PointLight shadowPointLights[MAX_LIGHTS];
 
 uniform int dirLightsSize;  
 uniform DirLight dirLights[MAX_LIGHTS];
@@ -48,11 +54,11 @@ float specularC = .2f;
 
 uniform float far_plane;
 
-float shadowCalc(vec3 lightDir, vec3 lightPos){
+float shadowCalc(vec3 lightDir, vec3 lightPos, int cubemapIndex){
 
 vec3 fragToLight = FragPos - lightPos;
 
-float closestDepth = texture(depthMap, fragToLight).r;
+float closestDepth = texture(depthMapsArray, vec4(fragToLight, cubemapIndex)).r;
 closestDepth *= far_plane;
 
 float currentDepth = length(fragToLight);
@@ -118,13 +124,14 @@ ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
-float shadow = shadowCalc(lightDir, light.pos);
+float shadow = shadowCalc(lightDir, light.pos, light.cubemapIndex);
 
 //ambient += (1.0 - shadow);
 
 return (ambient + (diffuse + specular) * (1.0 - shadow));
 }
 
+/*
 vec3 dirLightCalc(DirLight light, vec3 norm, vec3 viewDir){
 vec3 lightDir = normalize(light.pos - FragPos);
 // diffuse shading
@@ -160,7 +167,7 @@ float shadow = shadowCalc(lightDir, light.pos);
 
 return (ambient + diffuse + specular);
 
-}  
+} */ 
 
 void main(void){
 vec4 tex = texture2D(colorMap, TexCoord);
@@ -175,14 +182,16 @@ vec3 norm = normalize(Normal);
 
 vec3 res;
 
-for(int i=0;i<dirLightsSize;i++){
-res+= dirLightCalc(dirLights[i], norm, viewDir);
-}
+//for(int i=0;i<dirLightsSize;i++){
+//res+= dirLightCalc(dirLights[i], norm, viewDir);
+//}
 
 // shadows;
-res+= pointLightCalcShadow(pointLights[0], norm, viewDir);
+for(int i=0;i<shadowPointLightsSize;i++){
+res+= pointLightCalcShadow(shadowPointLights[i], norm, viewDir);
+}
 
-for(int i=1;i<pointLightsSize;i++){
+for(int i=0;i<pointLightsSize;i++){
 res+= pointLightCalc(pointLights[i], norm, viewDir);
 }
 
@@ -194,7 +203,7 @@ float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 //vec3 fragToLight = lightPoss - FragPos;
 vec3 fragToLight = FragPos - lightPoss;	
 
-float closestDepth = texture(depthMap, fragToLight).r;
+//float closestDepth = texture(depthMapsArray, fragToLight).r;
 //closestDepth *= far_plane;
 
 //gl_FragColor =  vec4(vec3(closestDepth), 1.0);  

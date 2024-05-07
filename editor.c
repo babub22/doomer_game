@@ -1821,21 +1821,26 @@ void editor3dRender() {
     glBindBuffer(GL_ARRAY_BUFFER, 0); 
     glBindVertexArray(0); 
   }
-	
-  for (int i = 0; i < lightsStoreSize; i++) {
-    if(&lightsStore[i] == mouse.selectedThing){
-      //   continue;
-    }
-    
-    uniformVec3(lightSourceShader, "color", lightsStore[i].color);
-
+  
+  // lights render
+  {
     glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
     glBindVertexArray(cube.VAO);
 
-    uniformMat4(lightSourceShader, "model", lightsStore[i].mat.m);
+    for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
+      for (int i = 0; i < lightsStoreSizeByType[i2]; i++) {
+	if(&lightsStore[i] == mouse.selectedThing){
+	  //   continue;
+	}
+    
+	uniformVec3(lightSourceShader, "color", lightsStore[i2][i].color);
 
-    glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
+	uniformMat4(lightSourceShader, "model", lightsStore[i2][i].mat.m);
 
+	glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
+      }
+    }
+    
     glBindTexture(GL_TEXTURE_2D, 0);
       
     glBindBuffer(GL_ARRAY_BUFFER, 0); 
@@ -3714,31 +3719,39 @@ void editor2dRender(){
 
 
 void createLight(vec3 pos, int type){
+  static int lastUsedCubemap = 0;
+    
   lightsStoreSize++;
-
-  if(!lightsStore){
-    lightsStore = malloc(sizeof(Light));
-  }else{
-    lightsStore = realloc(lightsStore, sizeof(Light) * lightsStoreSize);
-  }
-	    
-  memcpy(&lightsStore[lightsStoreSize-1], &lightDef, sizeof(Light));
-  lightsStore[lightsStoreSize-1].pos = pos;
-  lightsStore[lightsStoreSize-1].id = lightsStoreSize-1;
-  lightsStore[lightsStoreSize-1].type = type;
   lightsStoreSizeByType[type]++;
-	  
-  lightsStore[lightsStoreSize-1].mat = IDENTITY_MATRIX;
-  lightsStore[lightsStoreSize-1].mat.m[12] = pos.x;
-  lightsStore[lightsStoreSize-1].mat.m[13] = pos.y;
-  lightsStore[lightsStoreSize-1].mat.m[14] = pos.z;
 
-  calculateAABB(lightsStore[lightsStoreSize-1].mat, cube.vBuf, cube.vertexNum, cube.attrSize,
-		&lightsStore[lightsStoreSize-1].lb, &lightsStore[lightsStoreSize-1].rt);
-  uniformLights();
+  if(!lightsStore[type]){
+    lightsStore[type] = malloc(sizeof(Light));
+  }else{
+    lightsStore[type] = realloc(lightsStore[type], sizeof(Light) * lightsStoreSizeByType[type]);
+  }
+
+  int indexOfNew = lightsStoreSizeByType[type]-1;
+	    
+  memcpy(&lightsStore[type][indexOfNew], &lightDef, sizeof(Light));
+  lightsStore[type][indexOfNew].pos = pos;
+  lightsStore[type][indexOfNew].id = lightsStoreSize-1;
+  lightsStore[type][indexOfNew].type = type;
+
+  if(type == shadowPointLightT){
+    lightsStore[type][indexOfNew].cubemapIndex = lastUsedCubemap;
+    lastUsedCubemap++; 
+  }
+	  
+  lightsStore[type][indexOfNew].mat = IDENTITY_MATRIX;
+  lightsStore[type][indexOfNew].mat.m[12] = pos.x;
+  lightsStore[type][indexOfNew].mat.m[13] = pos.y;
+  lightsStore[type][indexOfNew].mat.m[14] = pos.z;
+
+  calculateAABB(lightsStore[type][indexOfNew].mat, cube.vBuf, cube.vertexNum, cube.attrSize,
+		&lightsStore[type][indexOfNew].lb, &lightsStore[type][indexOfNew].rt);
 
   mouse.focusedType = mouseLightT; 
-  mouse.focusedThing = &lightsStore[lightsStoreSize-1];
+  mouse.focusedThing = &lightsStore[type][indexOfNew];
 
   // update light info in main shader
   uniformLights();
@@ -3754,62 +3767,62 @@ void uniformLights(){
 
     static const char* shaderVarSufixStr[] = {
       [pointLightT] = "point",
-      [dirLightT] = "dir"
+      [shadowPointLightT] = "shadowPoint"
     };
 
     uniformFloat(mainShader, "radius", max(gridX / 2.0f, gridZ / 2.0f));
 
     int localLightsCounter[lightsTypeCounter] = { 0 };
+    
+    for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
+      for (int i = 0; i < lightsStoreSizeByType[i2]; i++) {
+	if (lightsStore[i2][i].off) {
+	  continue;
+	}
 
-    for (int i = 0; i < lightsStoreSize; i++) {
-      if (lightsStore[i].off) {
-	continue;
-      }
+	sprintf(buf, "%sLights[%i].pos",
+		shaderVarSufixStr[i2], i);
+	uniformVec3(mainShader, buf, (vec3) { lightsStore[i2][i].mat.m[12], lightsStore[i2][i].mat.m[13], lightsStore[i2][i].mat.m[14], });
 
-      int index = localLightsCounter[lightsStore[i].type];
-
-      if (lightsStore[i].type == dirLightT) {
-	sprintf(buf, "%sLights[%i].dir",
-		shaderVarSufixStr[lightsStore[i].type], index);
-	uniformVec3(mainShader, buf, lightsStore[i].dir);
-
-	sprintf(buf, "%sLights[%i].cutOff",
-		shaderVarSufixStr[lightsStore[i].type], index);
-	uniformFloat(mainShader, buf, lightsStore[i].cutOff);
-
-	sprintf(buf, "%sLights[%i].rad",
-		shaderVarSufixStr[lightsStore[i].type], index);
-	uniformFloat(mainShader, buf, lightsStore[i].rad);
-      }
-
-      sprintf(buf, "%sLights[%i].pos",
-	      shaderVarSufixStr[lightsStore[i].type], index);
-      uniformVec3(mainShader, buf, (vec3) { lightsStore[i].mat.m[12], lightsStore[i].mat.m[13], lightsStore[i].mat.m[14], });
-
-      sprintf(buf, "%sLights[%i].color",
-	      shaderVarSufixStr[lightsStore[i].type], index);
-      uniformVec3(mainShader, buf, lightsStore[i].color);
+	sprintf(buf, "%sLights[%i].color",
+		shaderVarSufixStr[i2], i);
+	uniformVec3(mainShader, buf, lightsStore[i2][i].color);
 		    
 
-      sprintf(buf, "%sLights[%i].constant",
-	      shaderVarSufixStr[lightsStore[i].type], index);
-      uniformFloat(mainShader, buf, 1.0f);
+	sprintf(buf, "%sLights[%i].constant",
+		shaderVarSufixStr[i2], i);
+	uniformFloat(mainShader, buf, 1.0f);
 
-      sprintf(buf, "%sLights[%i].linear",
-	      shaderVarSufixStr[lightsStore[i].type], index);
-      uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i].curLightPresetIndex][0]);
+	sprintf(buf, "%sLights[%i].linear",
+		shaderVarSufixStr[i2], i);
+	uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i2][i].curLightPresetIndex][0]);
 
-      sprintf(buf, "%sLights[%i].qaudratic",
-	      shaderVarSufixStr[lightsStore[i].type], index);
-      uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i].curLightPresetIndex][1]);
+	sprintf(buf, "%sLights[%i].qaudratic",
+		shaderVarSufixStr[i2], i);
+	uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i2][i].curLightPresetIndex][1]);
 
-      localLightsCounter[lightsStore[i].type]++;
+	sprintf(buf, "%sLights[%i].cubemapIndex",
+		shaderVarSufixStr[i2], i);
+	uniformInt(mainShader, buf, lightsStore[i2][i].cubemapIndex);
+	printf("cubemap: %d \n",  lightsStore[i2][i].cubemapIndex);
+
+
+	localLightsCounter[lightsStore[i2][i].type]++;
+      }
+      
+      sprintf(buf, "%sLightsSize",
+	      shaderVarSufixStr[i2]);
+      uniformInt(mainShader, buf, lightsStoreSizeByType[i2]);
     }
 
-    for (int i = 0; i < lightsTypeCounter; i++) {
-      sprintf(buf, "%sLightsSize",
-	      shaderVarSufixStr[i]);
-      uniformInt(mainShader, buf, localLightsCounter[i]);
+    glUseProgram(shadersId[pointShadowShader]);
+    uniformInt(pointShadowShader, "lightsSize", lightsStoreSizeByType[shadowPointLightT]);
+
+    for(int i=0;i<lightsStoreSizeByType[shadowPointLightT];i++){
+      vec3 pos = { lightsStore[shadowPointLightT][i].mat.m[12], lightsStore[shadowPointLightT][i].mat.m[13], lightsStore[shadowPointLightT][i].mat.m[14] };
+      
+      sprintf(buf, "lightsPos[%d]", i);
+      uniformVec3(pointShadowShader, buf, pos);
     }
 
   glUseProgram(curShader);

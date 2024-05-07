@@ -55,7 +55,7 @@ const char* wallTypeStr[] = {
 
 const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps",[angledRoofT] = "Angle Roof" };
 
-const char* lightTypesStr[] = { [dirLightT] = "Dir light",[pointLightT] = "Point light" };
+const char* lightTypesStr[] = { [shadowPointLightT] = "Shadow point light",[pointLightT] = "Point light" };
 
 const char* wallPlanesStr[] = {
   [wTopPlane] = "Top plane",
@@ -1241,20 +1241,22 @@ int main(int argc, char* argv[]) {
     // create depth cubemap texture
     //	glActiveTexture(GL_TEXTURE1);
     glGenTextures(1, &depthCubemap);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, depthCubemap);
 	
-    for (unsigned int i = 0; i < 6; ++i){
-      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    }
+    //    for (unsigned int i = 0; i < 6; ++i){
+      //      glTexImage2D(GL_TEXTURE_CUBE_MAP_ARRAY_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+      //    }
 	
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    //	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    ///	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 6 * 6, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    //	glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    ///	glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 
 	
@@ -1271,7 +1273,7 @@ int main(int argc, char* argv[]) {
     }
 	
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, 0);
     //	glActiveTexture(GL_TEXTURE0);
   }
 
@@ -1473,7 +1475,7 @@ int main(int argc, char* argv[]) {
   
   glUseProgram(shadersId[mainShader]);
   uniformInt(mainShader, "colorMap", 0); 
-  uniformInt(mainShader, "depthMap", 1);
+  uniformInt(mainShader, "depthMapsArray", 1);
   uniformFloat(mainShader, "far_plane", far_plane);
 
   while (!quit) {
@@ -1683,48 +1685,61 @@ int main(int argc, char* argv[]) {
     glUseProgram(shadersId[pointShadowShader]);
     glEnable(GL_DEPTH_TEST);
     
-    if(lightsStore){
-	glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
-	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    //    if(lightsStore[shadowPointLightT])
+    glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 
+    int index = 0;
+    for(int i=0;i<lightsStoreSizeByType[shadowPointLightT];i++){
+      //      if(lightsStore[shadowPointLightT][i].off){
+	//	continue;
+	//      }      
+      
 	glStencilMask(0xff);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	glStencilMask(0x00);
-	//	glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
 
-	vec3 negPos = { -lightsStore[0].mat.m[12], -lightsStore[0].mat.m[13], -lightsStore[0].mat.m[14] };
+	vec3 negPos = { -lightsStore[shadowPointLightT][i].mat.m[12], -lightsStore[shadowPointLightT][i].mat.m[13], -lightsStore[shadowPointLightT][i].mat.m[14] };
 
 	static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
 						{-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
-	    
-	for (int i = 0; i < 6; ++i){	      
+
+	
+	
+	for (int i2 = 6 * i; i2 < 6 * (i+1); ++i2){	      
 	  Matrix viewMat = IDENTITY_MATRIX;
 
 	  translate(&viewMat, argVec3(negPos));
 
-	  rotateX(&viewMat, rad(shadowRotation[i].x));
-	  rotateY(&viewMat, rad(shadowRotation[i].y));
-	  rotateZ(&viewMat, rad(shadowRotation[i].z));
+	  rotateX(&viewMat, rad(shadowRotation[i2 - (6 * i)].x));
+	  rotateY(&viewMat, rad(shadowRotation[i2 - (6 * i)].y));
+	  rotateZ(&viewMat, rad(shadowRotation[i2 - (6 * i)].z));
 
 	  Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
 
 	  char buf[128];
 
-	  sprintf(buf, "shadowMatrices[%d]", i);
+	  sprintf(buf, "shadowMatrices[%d]", i2);
 
 	  uniformMat4(pointShadowShader, buf, shadowTransforms.m);
 	}
 
+	//	index++;
+	
 	//	uniformVec3(pointShadowShader, "lightPos", (vec3){ lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14] });
-	uniformVec3(pointShadowShader, "lightPos", (vec3){ lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14] });
+	//	uniformVec3(pointShadowShader, "lightPos", (vec3){ lightsStore[shadowPointLightT][i].mat.m[12], lightsStore[shadowPointLightT][i].mat.m[13], lightsStore[shadowPointLightT][i].mat.m[14] });
 
+      }
+
+    if(lightsStoreSizeByType[shadowPointLightT] > 0){
 	glActiveTexture(GL_TEXTURE0);
 	renderScene(pointShadowShader);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);   
-      }
+    }
+
     
     //  if (lightsStore)
       {
@@ -1748,7 +1763,7 @@ int main(int argc, char* argv[]) {
         //uniformVec3(mainShader, "lightPoss", modelXLight);
 
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
+	glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, depthCubemap);
 
 	glActiveTexture(GL_TEXTURE0);
 	renderScene(mainShader);
@@ -1756,7 +1771,7 @@ int main(int argc, char* argv[]) {
 	((void (*)(void))instances[curInstance][render3DFunc])();
 	
 	// highlight selected model with stencil
-	if(hints)
+	if(true)
 	{
 	  if(mouse.selectedType == mouseModelT){
 	    glStencilFunc(GL_ALWAYS, 1, 0xFF);
@@ -1850,7 +1865,7 @@ int main(int argc, char* argv[]) {
 	}
 
 
-	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, 0);
 	
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
@@ -5048,17 +5063,18 @@ void checkMouseVSEntities(){
   }
 
   // lights
-  for (int i = 0; i < lightsStoreSize; i++) {
-    float intersectionDistance;
+  for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
+    for (int i = 0; i < lightsStoreSizeByType[i2]; i++) {
+      float intersectionDistance;
 
-    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightsStore[i].lb, lightsStore[i].rt, NULL, &intersectionDistance);
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightsStore[i2][i].lb, lightsStore[i2][i].rt, NULL, &intersectionDistance);
 
-    if (isIntersect && minDistToCamera > intersectionDistance
-	) {
-      mouse.selectedThing = &lightsStore[i];
-      mouse.selectedType = mouseLightT;
+      if (isIntersect && minDistToCamera > intersectionDistance) {
+	mouse.selectedThing = &lightsStore[i2][i];
+	mouse.selectedType = mouseLightT;
 	
-      minDistToCamera = intersectionDistance;
+	minDistToCamera = intersectionDistance;
+      }
     }
   }
 
