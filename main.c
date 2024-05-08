@@ -24,6 +24,9 @@ void glErrorCheck(){
 
 vec3 lightPos;// = {}
 
+float near_plane;
+float far_plane;
+
 const void(*instances[instancesCounter][funcsCounter])() = {
   [editorInstance] = {
     [render2DFunc] = editor2dRender,
@@ -1467,8 +1470,8 @@ int main(int argc, char* argv[]) {
     
   ((void (*)(void))instances[curInstance][preLoopFunc])();    
 
-  float near_plane = 0.1f;
-  float far_plane  = 120.0f;
+  near_plane = 0.1f;
+  far_plane  = 120.0f;
   
   glUseProgram(shadersId[pointShadowShader]);
   uniformFloat(pointShadowShader, "far_plane", far_plane);
@@ -1677,7 +1680,7 @@ int main(int argc, char* argv[]) {
     checkMouseVSEntities();
 
     //   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    glStencilMask(0xff);
+    /*    glStencilMask(0xff);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glStencilMask(0x00);
 	
@@ -1687,9 +1690,9 @@ int main(int argc, char* argv[]) {
     
     //    if(lightsStore[shadowPointLightT])
     glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
-    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);*/
 
-    int index = 0;
+    /*    int index = 0;
     for(int i=0;i<lightsStoreSizeByType[shadowPointLightT];i++){
       //      if(lightsStore[shadowPointLightT][i].off){
 	//	continue;
@@ -1725,12 +1728,6 @@ int main(int argc, char* argv[]) {
 
 	  uniformMat4(pointShadowShader, buf, shadowTransforms.m);
 	}
-
-	//	index++;
-	
-	//	uniformVec3(pointShadowShader, "lightPos", (vec3){ lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14] });
-	//	uniformVec3(pointShadowShader, "lightPos", (vec3){ lightsStore[shadowPointLightT][i].mat.m[12], lightsStore[shadowPointLightT][i].mat.m[13], lightsStore[shadowPointLightT][i].mat.m[14] });
-
       }
 
     if(lightsStoreSizeByType[shadowPointLightT] > 0){
@@ -1738,7 +1735,7 @@ int main(int argc, char* argv[]) {
 	renderScene(pointShadowShader);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);   
-    }
+    }*/
 
     
     //  if (lightsStore)
@@ -4211,6 +4208,109 @@ void initGrid(int sx, int sy, int sz){
 	}
       }
     }
+  }
+}
+
+void rerenderShadowsForAllLights(){
+  int index = 0;
+  for(int i=0;i<lightsStoreSizeByType[shadowPointLightT];i++){
+    //      if(lightsStore[shadowPointLightT][i].off){
+    //	continue;
+    //      }      
+      
+    glStencilMask(0xff);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glStencilMask(0x00);
+
+    Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
+
+    vec3 negPos = { -lightsStore[shadowPointLightT][i].mat.m[12], -lightsStore[shadowPointLightT][i].mat.m[13], -lightsStore[shadowPointLightT][i].mat.m[14] };
+
+    static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
+					    {-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
+
+	
+	
+    for (int i2 = 6 * i; i2 < 6 * (i+1); ++i2){	      
+      Matrix viewMat = IDENTITY_MATRIX;
+
+      translate(&viewMat, argVec3(negPos));
+
+      rotateX(&viewMat, rad(shadowRotation[i2 - (6 * i)].x));
+      rotateY(&viewMat, rad(shadowRotation[i2 - (6 * i)].y));
+      rotateZ(&viewMat, rad(shadowRotation[i2 - (6 * i)].z));
+
+      Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
+
+      char buf[128];
+
+      sprintf(buf, "shadowMatrices[%d]", i2);
+
+      uniformMat4(pointShadowShader, buf, shadowTransforms.m);
+    }
+  }
+
+  if(lightsStoreSizeByType[shadowPointLightT] > 0){
+    glActiveTexture(GL_TEXTURE0);
+    renderScene(pointShadowShader);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);   
+  }
+}
+
+void rerenderShadowForLight(int lightId){
+  GLint curShader = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+
+  glUseProgram(shadersId[pointShadowShader]);
+  glEnable(GL_DEPTH_TEST);
+    
+  //    if(lightsStore[shadowPointLightT])
+  glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
+  glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+
+  int index = 0;
+      
+  glStencilMask(0xff);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  glStencilMask(0x00);
+
+  Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
+
+  vec3 negPos = { -lightsStore[shadowPointLightT][lightId].mat.m[12], -lightsStore[shadowPointLightT][lightId].mat.m[13], -lightsStore[shadowPointLightT][lightId].mat.m[14] };
+
+  static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
+					  {-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
+	
+  for (int i2 = 6 * lightId; i2 < 6 * (lightId+1); ++i2){	      
+    Matrix viewMat = IDENTITY_MATRIX;
+
+    translate(&viewMat, argVec3(negPos));
+
+    rotateX(&viewMat, rad(shadowRotation[i2 - (6 * lightId)].x));
+    rotateY(&viewMat, rad(shadowRotation[i2 - (6 * lightId)].y));
+    rotateZ(&viewMat, rad(shadowRotation[i2 - (6 * lightId)].z));
+
+    Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
+
+    char buf[128];
+
+    sprintf(buf, "shadowMatrices[%d]", i2);
+
+    uniformMat4(pointShadowShader, buf, shadowTransforms.m);
+  }
+
+  glActiveTexture(GL_TEXTURE0);
+  renderScene(pointShadowShader);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glUseProgram(curShader);
+}
+
+void batchModels(){
+  for(int i=0;i<curModelsSize;i++){
+
   }
 }
 

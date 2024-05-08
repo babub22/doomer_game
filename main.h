@@ -666,6 +666,10 @@ typedef struct{
 
 bool hints;
 
+void rerenderShadowForLight(int lightId);
+void batchModels();
+void rerenderShadowsForAllLights();
+
 void renderCube(vec3 pos, int lightId);
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist);

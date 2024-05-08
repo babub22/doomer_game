@@ -54,18 +54,41 @@ float specularC = .2f;
 
 uniform float far_plane;
 
+vec3 gridSamplingDisk[20] = vec3[]
+(
+vec3(1, 1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1, 1,  1), 
+vec3(1, 1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1, 1, -1),
+vec3(1, 1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1, 1,  0),
+vec3(1, 0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1, 0, -1),
+vec3(0, 1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0, 1, -1)
+);
+
 float shadowCalc(vec3 lightDir, vec3 lightPos, int cubemapIndex){
 
 vec3 fragToLight = FragPos - lightPos;
-
-float closestDepth = texture(depthMapsArray, vec4(fragToLight, cubemapIndex)).r;
-closestDepth *= far_plane;
-
 float currentDepth = length(fragToLight);
 
-float bias = 0.05; // we use a much larger bias since depth is now in [near_plane, far_plane] range
+float shadow = 0.0;
+float bias = 0.05;
+int samples = 20;
+float viewDistance = length(cameraPos - FragPos);
+float diskRadius = (1.0 + (viewDistance / far_plane)) / 25.0;
+for(int i = 0; i < samples; ++i)
+{
+float closestDepth = texture(depthMapsArray, vec4(fragToLight + gridSamplingDisk[i] * diskRadius, cubemapIndex)).r;
+closestDepth *= far_plane;   // undo mapping [0;1]
+if(currentDepth - bias > closestDepth)
+shadow += 1.0;
+}
+shadow /= float(samples);
 
-float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;
+//float closestDepth = texture(depthMapsArray, vec4(fragToLight, //cubemapIndex)).r;
+//closestDepth *= far_plane;
+
+
+//float bias = 0.05;
+
+//float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;
 
 //gl_FragColor = vec4(res * color,tex.a);
 

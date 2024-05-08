@@ -404,6 +404,10 @@ void editorEvents(SDL_Event event){
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
 	      uniformLights();
+
+	      if(light->type == shadowPointLightT){
+		rerenderShadowForLight(light->id);
+	      }
 	    }
 		
 	    break;
@@ -415,7 +419,12 @@ void editorEvents(SDL_Event event){
 	      calculateModelAABB(model);
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+
 	      uniformLights();
+	      
+	      if(light->type == shadowPointLightT){
+		rerenderShadowForLight(light->id);
+	      }
 	    }
 		
 	    break;
@@ -546,6 +555,10 @@ void editorEvents(SDL_Event event){
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
 	      uniformLights();
+
+	      if(light->type == shadowPointLightT){
+		rerenderShadowForLight(light->id);
+	      }
 	    }
 		
 	    break;
@@ -558,6 +571,10 @@ void editorEvents(SDL_Event event){
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
 	      uniformLights();
+
+	      if(light->type == shadowPointLightT){
+		rerenderShadowForLight(light->id);
+	      }
 	    }
 		
 	    break;
@@ -693,7 +710,12 @@ void editorEvents(SDL_Event event){
 	  if(light){
 	    mat->m[13] = curFloor;
 	    calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+
 	    uniformLights();
+	    
+	    if(light->type == shadowPointLightT){
+		rerenderShadowForLight(light->id);
+	      }
 	  }
 
 	  if(model){
@@ -801,6 +823,10 @@ void editorEvents(SDL_Event event){
 	    }else if(light){
 	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
 	      uniformLights();
+
+	      if(light->type == shadowPointLightT){
+		rerenderShadowForLight(light->id);
+	      }
 	    }
 	  }
 	}
@@ -891,6 +917,10 @@ void editorEvents(SDL_Event event){
 	     }else if(light){
 	       calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
 	       uniformLights();
+
+	       if(light->type == shadowPointLightT){
+		rerenderShadowForLight(light->id);
+	       }
 	     }
 		 
 	     break;
@@ -1214,6 +1244,7 @@ void editorEvents(SDL_Event event){
 	if(light){
 	  light->off = !light->off;
 	  uniformLights();
+	  
 	}
 				  
 	break;
@@ -1448,6 +1479,9 @@ void editorEvents(SDL_Event event){
 	}
 
 	uniformLights();
+	if(light->type == shadowPointLightT){
+	  rerenderShadowForLight(light->id);
+	}
       }
 
       if(model){
@@ -1652,6 +1686,9 @@ void editorPreFrame(float deltaTime){
       if(light){
 	calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
 	uniformLights();
+	if(light->type == shadowPointLightT){
+	  rerenderShadowForLight(light->id);
+	}
       }
 
       if(model){
@@ -3733,8 +3770,9 @@ void createLight(vec3 pos, int type){
   int indexOfNew = lightsStoreSizeByType[type]-1;
 	    
   memcpy(&lightsStore[type][indexOfNew], &lightDef, sizeof(Light));
+  
   lightsStore[type][indexOfNew].pos = pos;
-  lightsStore[type][indexOfNew].id = lightsStoreSize-1;
+  lightsStore[type][indexOfNew].id = lightsStoreSizeByType[type] - 1;
   lightsStore[type][indexOfNew].type = type;
 
   if(type == shadowPointLightT){
@@ -3755,6 +3793,7 @@ void createLight(vec3 pos, int type){
 
   // update light info in main shader
   uniformLights();
+  rerenderShadowForLight(lightsStore[type][indexOfNew].id);
 }
 
 void uniformLights(){
