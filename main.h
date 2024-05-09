@@ -511,8 +511,10 @@ typedef struct{
   GLuint tx;
 
   int size;
+  
   vec3* vertices;
-
+  float* entireVert;
+  
   ModelType type;
 
   int index1D;
@@ -522,6 +524,8 @@ typedef struct{
   
   //  Model* model;
 } ModelInfo;
+
+void batchModels();
 
 typedef enum{
   // 1,2 to access .ground
@@ -1048,7 +1052,13 @@ int longestTextureCategoryLen;
 // avaible/loaded models
 ModelInfo* loadedModels1D;
 ModelInfo** loadedModels2D;
+Geometry* modelsBatch; // by tx
+ModelInfo** loadedModels2D;
+
 size_t loadedModelsSize;
+
+int* loadedModelsTx;
+size_t loadedModelsTxSize; // num of tx loaded for models
 
 GLuint solidColorTx;
 GLuint errorTx;

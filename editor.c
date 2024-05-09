@@ -3793,7 +3793,10 @@ void createLight(vec3 pos, int type){
 
   // update light info in main shader
   uniformLights();
-  rerenderShadowForLight(lightsStore[type][indexOfNew].id);
+
+  if (type == shadowPointLightT) {
+	rerenderShadowForLight(lightsStore[type][indexOfNew].id);
+  }
 }
 
 void uniformLights(){

@@ -10,7 +10,8 @@
 int renderCapYLayer;
 EngineInstance curInstance = editorInstance;
 
-const int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+//const int SHADOW_WIDTH = 128, SHADOW_HEIGHT = 128;
+const int SHADOW_WIDTH = 512, SHADOW_HEIGHT = 512;  
 unsigned int depthMapFBO;
 unsigned int depthCubemap;
 
@@ -960,6 +961,9 @@ int main(int argc, char* argv[]) {
 
     glEnable(GL_TEXTURE_2D);
 
+    //    glEnable(GL_CULL_FACE);
+    //    glCullFace(GL_FRONT);
+
 	
     //	glEnable(GL_CULL_FACE);
 
@@ -1239,6 +1243,103 @@ int main(int argc, char* argv[]) {
     free(indexesTrackerFor2DTex);
   }
 
+    
+  // load 3d models
+  {
+    FILE* objsSpecs = fopen("./assets/objs/ObjsSpecs.txt", "r");
+
+    if (!objsSpecs) {
+      printf("ObjsSpecs.txt was not found! \n");
+    }
+    else {
+      char textureName[50];
+      char objName[50];
+      char typeStr[10];
+
+      int charsCounter = 0;
+      int objsCounter = 0;
+
+      while (fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF) {
+	if (strcmp(typeStr, "Char") == 0) {
+	  charsCounter++;
+	}
+	else if (strcmp(typeStr, "Obj") == 0) {
+	  objsCounter++;
+	}
+	else {
+	  printf("Model %s has wrong type %s \n", objName, typeStr);
+	  exit(0);
+	}
+      };
+
+      loadedModels1D = malloc(sizeof(ModelInfo) * (charsCounter + objsCounter));
+
+      loadedModels2D = malloc(sizeof(ModelInfo*) * modelTypeCounter);
+      loadedModels2D[objectModelType] = malloc(sizeof(ModelInfo) * objsCounter);
+      loadedModels2D[characterModelType] = malloc(sizeof(ModelInfo) * objsCounter);
+
+      rewind(objsSpecs);
+
+      while (fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF) {
+	char* fullObjPath = malloc(strlen(objName) + strlen(objsFolder) + 1);
+
+	strcpy(fullObjPath, objsFolder);
+	strcat(fullObjPath, objName);
+
+	char* fullTxPath = malloc(strlen(textureName) + strlen(objsFolder) + 1);
+
+	strcpy(fullTxPath, objsFolder);
+	strcat(fullTxPath, textureName);
+
+	ModelType type = -1;
+
+	for (int i2 = 0; i2 < modelTypeCounter; i2++) {
+	  if (strcmp(typeStr, modelsTypesInfo[i2].str) == 0) {
+	    type = i2;
+	    break;
+	  }
+	}
+
+	ModelInfo* loadedModel = loadOBJ(fullObjPath, fullTxPath);
+
+	loadedModel->type = type;
+	loadedModel->name = malloc(sizeof(char) * (strlen(objName) + 1));
+	strcpy(loadedModel->name, objName);
+	strcut(loadedModel->name, strlen(objName) - 4, strlen(objName));
+	loadedModel->index1D = loadedModelsSize;
+	loadedModel->index2D = modelsTypesInfo[type].counter;
+
+	loadedModels1D[loadedModelsSize] = *loadedModel;
+	loadedModels2D[type][modelsTypesInfo[type].counter] = *loadedModel;
+
+	free(fullObjPath);
+	free(fullTxPath);
+
+	printf("Loaded %s\n", objName);
+
+	modelsTypesInfo[type].counter++;
+	loadedModelsSize++;
+      }
+
+      fclose(objsSpecs);
+    }
+  }
+
+  modelsBatch = calloc(loadedModelsTxSize, sizeof(Geometry));
+  
+  for (int i = 0; i < loadedModelsTxSize; i++) {
+    glGenVertexArrays(1, &modelsBatch[i].pairs.VAO);
+    glBindVertexArray(modelsBatch[i].pairs.VAO);
+
+    glGenBuffers(1, &modelsBatch[i].pairs.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, modelsBatch[i].pairs.VBO);
+
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+  }
+
+  
+
   {
     glGenFramebuffers(1, &depthMapFBO);
     // create depth cubemap texture
@@ -1325,87 +1426,6 @@ int main(int argc, char* argv[]) {
     glBindTexture(GL_TEXTURE_2D, 0);
   }
 
-  // load 3d models
-  {
-    FILE* objsSpecs = fopen("./assets/objs/ObjsSpecs.txt", "r");
-
-    if (!objsSpecs) {
-      printf("ObjsSpecs.txt was not found! \n");
-    }
-    else {
-      char textureName[50];
-      char objName[50];
-      char typeStr[10];
-
-      int charsCounter = 0;
-      int objsCounter = 0;
-
-      while (fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF) {
-	if (strcmp(typeStr, "Char") == 0) {
-	  charsCounter++;
-	}
-	else if (strcmp(typeStr, "Obj") == 0) {
-	  objsCounter++;
-	}
-	else {
-	  printf("Model %s has wrong type %s \n", objName, typeStr);
-	  exit(0);
-	}
-      };
-
-      loadedModels1D = malloc(sizeof(ModelInfo) * (charsCounter + objsCounter));
-
-      loadedModels2D = malloc(sizeof(ModelInfo*) * modelTypeCounter);
-      loadedModels2D[objectModelType] = malloc(sizeof(ModelInfo) * objsCounter);
-      loadedModels2D[characterModelType] = malloc(sizeof(ModelInfo) * objsCounter);
-
-      rewind(objsSpecs);
-
-      while (fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF) {
-	char* fullObjPath = malloc(strlen(objName) + strlen(objsFolder) + 1);
-
-	strcpy(fullObjPath, objsFolder);
-	strcat(fullObjPath, objName);
-
-	char* fullTxPath = malloc(strlen(textureName) + strlen(objsFolder) + 1);
-
-	strcpy(fullTxPath, objsFolder);
-	strcat(fullTxPath, textureName);
-
-	ModelType type = -1;
-
-	for (int i2 = 0; i2 < modelTypeCounter; i2++) {
-	  if (strcmp(typeStr, modelsTypesInfo[i2].str) == 0) {
-	    type = i2;
-	    break;
-	  }
-	}
-
-	ModelInfo* loadedModel = loadOBJ(fullObjPath, fullTxPath);
-
-	loadedModel->type = type;
-	loadedModel->name = malloc(sizeof(char) * (strlen(objName) + 1));
-	strcpy(loadedModel->name, objName);
-	strcut(loadedModel->name, strlen(objName) - 4, strlen(objName));
-	loadedModel->index1D = loadedModelsSize;
-	loadedModel->index2D = modelsTypesInfo[type].counter;
-
-	loadedModels1D[loadedModelsSize] = *loadedModel;
-	loadedModels2D[type][modelsTypesInfo[type].counter] = *loadedModel;
-
-	free(fullObjPath);
-	free(fullTxPath);
-
-	printf("Loaded %s\n", objName);
-
-	modelsTypesInfo[type].counter++;
-	loadedModelsSize++;
-      }
-
-      fclose(objsSpecs);
-    }
-  }
-
   // tang of fov calculations
   fov = editorFOV;
   // tangFOV = tanf(rad(fov) * 0.5);
@@ -1429,6 +1449,7 @@ int main(int argc, char* argv[]) {
 
   renderCapYLayer = gridY;
   batchGeometry();
+  batchModels();
 
   // set up camera
   GLint cameraPos = glGetUniformLocation(shadersId[mainShader], "cameraPos");
@@ -1470,7 +1491,7 @@ int main(int argc, char* argv[]) {
     
   ((void (*)(void))instances[curInstance][preLoopFunc])();    
 
-  near_plane = 0.1f;
+  near_plane = 0.01f;
   far_plane  = 120.0f;
   
   glUseProgram(shadersId[pointShadowShader]);
@@ -1786,12 +1807,15 @@ int main(int argc, char* argv[]) {
 
 	    glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
 
+	    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+	    glStencilMask(0x00);
+	    
 	    // higlight
 	    {
 	      glUseProgram(shadersId[borderShader]);
 	    
-	      glStencilFunc(GL_NOTEQUAL	, 1, 0xFF);
-	      glStencilMask(0x00);
+	      //	      glStencilFunc(GL_NOTEQUAL	, 1, 0xFF);
+	      //	      glStencilMask(0x00);
       
 	      glDisable(GL_DEPTH_TEST);
       
@@ -1805,6 +1829,7 @@ int main(int argc, char* argv[]) {
 
 	      glStencilMask(0x00);
 	    }
+	    
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
 	    glBindVertexArray(0);
 
@@ -1860,7 +1885,6 @@ int main(int argc, char* argv[]) {
 	    glBindVertexArray(0); 
 	  }
 	}
-
 
 	glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, 0);
 	
@@ -2231,8 +2255,8 @@ ModelInfo* loadOBJ(char* path, char* texturePath){
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 
-
-  free(modelVerts);
+  loadedModel->entireVert = modelVerts;
+  //  free(modelVerts);
 
   // set mat of loadedModels1D[name] to IDENTITY_MATRIX
   /*  loadedModel->mat.m[0] = 1;
@@ -2266,6 +2290,16 @@ ModelInfo* loadOBJ(char* path, char* texturePath){
     }
   
     SDL_FreeSurface(texture);
+
+    loadedModelsTxSize++;
+
+    if(!loadedModelsTx){
+      loadedModelsTx = malloc(loadedModelsTxSize * sizeof(int));
+    }else{
+      loadedModelsTx = realloc(loadedModelsTx, loadedModelsTxSize * sizeof(int));
+    }
+
+    loadedModelsTx[loadedModelsTxSize-1] = loadedModel->tx;
   }
   
   return loadedModel;
@@ -4251,8 +4285,14 @@ void rerenderShadowsForAllLights(){
   }
 
   if(lightsStoreSizeByType[shadowPointLightT] > 0){
+    //    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
+    
     glActiveTexture(GL_TEXTURE0);
     renderScene(pointShadowShader);
+
+    glCullFace(GL_BACK);
+    //    glDisable(GL_CULL_FACE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);   
   }
@@ -4309,9 +4349,91 @@ void rerenderShadowForLight(int lightId){
 }
 
 void batchModels(){
+  int* modelsBatchCounterByTx = calloc(loadedModelsTxSize, sizeof(int));
+  //  loaded
+  //int mappedTxToIndexes[loadedModelsTxSize] = {0};
+  
   for(int i=0;i<curModelsSize;i++){
-
+    modelsBatchCounterByTx[loadedModels1D[curModels[i].name].tx - loadedModels1D[0].tx] += loadedModels1D[curModels[i].name].size * 8 * sizeof(float);
+    //mappedTxToIndexes[loadedModels1D[curModels[i].name].tx]
   }
+
+  printf("%d first obj tx \n", loadedModels1D[0].tx);
+
+  for (int i = 0; i < loadedModelsTxSize; i++) {
+      modelsBatch[i].size = modelsBatchCounterByTx[i];
+
+      if (modelsBatchCounterByTx[i] != 0) {
+          if (!modelsBatch[i].verts) {
+              modelsBatch[i].verts = malloc(modelsBatchCounterByTx[i]);
+          }
+          else {
+              modelsBatch[i].verts = realloc(modelsBatch[i].verts, modelsBatchCounterByTx[i]);
+          }
+      }
+
+      modelsBatch[i].tris = modelsBatchCounterByTx[i] / 8 / sizeof(float);
+  }
+
+  memset(modelsBatchCounterByTx, 0, sizeof(int) * loadedModelsTxSize);
+
+
+  for (int i2 = 0; i2 < curModelsSize; i2++) {
+      int txIndex = loadedModels1D[curModels[i2].name].tx - loadedModels1D[0].tx;
+
+    for(int i=0;i<loadedModels1D[curModels[i2].name].size * 8;i+=8){
+   //   modelsBatchCounterByTx[txIndex] += loadedModels1D[curModels[i2].name].size * 8 * sizeof(float);
+
+      vec4 vert = { loadedModels1D[curModels[i2].name].entireVert[i], loadedModels1D[curModels[i2].name].entireVert[i+1], loadedModels1D[curModels[i2].name].entireVert[i+2], 1.0f };
+
+      vec4 transf = mulmatvec4(curModels[i2].mat, vert);
+
+      vec4 normal = { loadedModels1D[curModels[i2].name].entireVert[i+5], loadedModels1D[curModels[i2].name].entireVert[i+6], loadedModels1D[curModels[i2].name].entireVert[i+7], 1.0f };
+
+      Matrix inversedModel = IDENTITY_MATRIX;
+      inverse(curModels[i2].mat.m, inversedModel.m);
+
+      Matrix trasposedAndInversedModel = IDENTITY_MATRIX;
+      mat4transpose(trasposedAndInversedModel.m, inversedModel.m);
+		  
+      vec4 transfNormal = mulmatvec4(trasposedAndInversedModel, normal);
+
+      modelsBatch[txIndex].verts[modelsBatchCounterByTx[txIndex]+i] = transf.x;   
+      modelsBatch[txIndex].verts[modelsBatchCounterByTx[txIndex]+i+1] = transf.y;
+      modelsBatch[txIndex].verts[modelsBatchCounterByTx[txIndex]+i+2] = transf.z;
+
+      modelsBatch[txIndex].verts[modelsBatchCounterByTx[txIndex]+i+3] = loadedModels1D[curModels[i2].name].entireVert[i+3];
+      modelsBatch[txIndex].verts[modelsBatchCounterByTx[txIndex]+i+4] = loadedModels1D[curModels[i2].name].entireVert[i+4];
+		    
+      modelsBatch[txIndex].verts[modelsBatchCounterByTx[txIndex]+i+5] = transfNormal.x;
+      modelsBatch[txIndex].verts[modelsBatchCounterByTx[txIndex]+i+6] = transfNormal.y;
+      modelsBatch[txIndex].verts[modelsBatchCounterByTx[txIndex]+i+7] = transfNormal.z;
+    }
+    
+    modelsBatchCounterByTx[txIndex] += loadedModels1D[curModels[i2].name].size * 8;
+    txIndex++;
+  }
+
+  for(int i=0;i<loadedModelsTxSize;i++){
+    glBindVertexArray(modelsBatch[i].pairs.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, modelsBatch[i].pairs.VBO);
+  
+    glBufferData(GL_ARRAY_BUFFER, modelsBatch[i].size, modelsBatch[i].verts, GL_STATIC_DRAW);
+  
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  free(modelsBatchCounterByTx);
 }
 
 void batchGeometry(){
@@ -5016,11 +5138,25 @@ void renderScene(GLuint curShader){
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
   }
-  
+
+  for (int i = 0; i < loadedModelsTxSize; i++) {
+    glBindTexture(GL_TEXTURE_2D, loadedModelsTx[i]);
+
+    glBindBuffer(GL_ARRAY_BUFFER, modelsBatch[i].pairs.VBO);
+    glBindVertexArray(modelsBatch[i].pairs.VAO);
+
+    glDrawArrays(GL_TRIANGLES, 0, modelsBatch[i].tris);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  /*
   for (int i = 0; i < curModelsSize; i++) {
-    if(&curModels[i] == mouse.selectedThing && curShader == mainShader){
-      continue;
-    }
+    //    if(&curModels[i] == mouse.selectedThing && curShader == mainShader){
+      //      continue;
+      //    }
     
     int name = curModels[i].name;
 
@@ -5038,7 +5174,7 @@ void renderScene(GLuint curShader){
 
     glBindTexture(GL_TEXTURE_2D, 0);
   }
-    
+  */
 }
 
 void checkMouseVSEntities(){

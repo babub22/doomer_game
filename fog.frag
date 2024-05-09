@@ -69,7 +69,7 @@ vec3 fragToLight = FragPos - lightPos;
 float currentDepth = length(fragToLight);
 
 float shadow = 0.0;
-float bias = 0.05;
+float bias = 0.15; // .15
 int samples = 20;
 float viewDistance = length(cameraPos - FragPos);
 float diskRadius = (1.0 + (viewDistance / far_plane)) / 25.0;
@@ -82,13 +82,13 @@ shadow += 1.0;
 }
 shadow /= float(samples);
 
-//float closestDepth = texture(depthMapsArray, vec4(fragToLight, //cubemapIndex)).r;
-//closestDepth *= far_plane;
+/*float closestDepth = texture(depthMapsArray, vec4(fragToLight, cubemapIndex)).r;
+closestDepth *= far_plane;
 
 
-//float bias = 0.05;
+float bias = 0.05;
 
-//float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;
+float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;*/
 
 //gl_FragColor = vec4(res * color,tex.a);
 
@@ -231,9 +231,9 @@ vec3 fragToLight = FragPos - lightPoss;
 
 //gl_FragColor =  vec4(vec3(closestDepth), 1.0);  
 
-gl_FragColor = vec4(res * color,tex.a);
+//gl_FragColor = vec4(res * color,tex.a);
 
-//gl_FragColor = vec4(res * color * fogAttenuation + (.5 * //(1.0-fogAttenuation)),tex.a);
+gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
 }
 
 /*
