@@ -295,6 +295,8 @@ typedef struct {
   int planesNum;
 } BlockInfo;
 
+VPair circle;
+
 typedef struct{
   GLuint VBO;
   GLuint VAO;
@@ -484,6 +486,8 @@ typedef struct{
 
   vec3 lb;
   vec3 rt;
+
+  vec3 centroid;
 } Model;
 
 typedef struct{

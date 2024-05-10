@@ -1858,6 +1858,86 @@ void editor3dRender() {
     glBindBuffer(GL_ARRAY_BUFFER, 0); 
     glBindVertexArray(0); 
   }
+
+  // rotation circles
+  if(mouse.focusedType == mouseModelT)
+  {
+    Model* model = mouse.focusedThing;
+
+    vec3 groundPos = model->rt;
+    
+    vec3 centroid = {
+      (model->rt.x+model->lb.x)/2.0f,
+      (model->rt.y+model->lb.y)/2.0f,
+      (model->rt.z+model->lb.z)/2.0f
+    };
+
+    float scaleStep =  max(model->rt.z - centroid.z,max(model->rt.y - centroid.y, model->rt.x - centroid.x)) * 1.2f;
+    
+    uniformVec3(lightSourceShader, "color", (vec3){ redColor });
+
+    Matrix out2 = IDENTITY_MATRIX;
+
+    scale(&out2, scaleStep, scaleStep, scaleStep);
+    
+    out2.m[12] = centroid.x;
+    out2.m[13] = centroid.y;
+    out2.m[14] = centroid.z;
+    
+    uniformMat4(lightSourceShader, "model", out2.m);
+
+    glBindBuffer(GL_ARRAY_BUFFER, circle.VBO);
+    glBindVertexArray(circle.VAO);
+
+    glDrawArrays(GL_LINES, 0, circle.vertexNum);
+
+    float xTemp = out2.m[12];
+    float yTemp = out2.m[13];
+    float zTemp = out2.m[14];
+
+    out2.m[12] = 0;
+    out2.m[13] = 0;
+    out2.m[14] = 0;
+  
+    rotateY(&out2, rad(90.0f));
+
+    out2.m[12] = centroid.x;
+    out2.m[13] = centroid.y;
+    out2.m[14] = centroid.z;
+    
+    uniformVec3(lightSourceShader, "color", (vec3){ blueColor });
+    
+    uniformMat4(lightSourceShader, "model", out2.m);
+
+    glDrawArrays(GL_LINES, 0, circle.vertexNum);
+
+    xTemp = out2.m[12];
+    yTemp = out2.m[13];
+    zTemp = out2.m[14];
+
+    out2.m[12] = 0;
+    out2.m[13] = 0;
+    out2.m[14] = 0;
+
+    rotateY(&out2, rad(90.0f));
+    rotateX(&out2, rad(90.0f));
+
+    out2.m[12] = centroid.x;
+    out2.m[13] = centroid.y;
+    out2.m[14] = centroid.z;
+
+    uniformVec3(lightSourceShader, "color", (vec3){ greenColor });
+    
+    uniformMat4(lightSourceShader, "model", out2.m);
+  
+    glDrawArrays(GL_LINES, 0, circle.vertexNum);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+      
+    glBindBuffer(GL_ARRAY_BUFFER, 0); 
+    glBindVertexArray(0); 
+  }
+  
   
   // lights render
   {

@@ -1,4 +1,4 @@
-#version 330 core
+#version 400
 uniform vec3 cameraPos;
 
 uniform sampler2D colorMap;

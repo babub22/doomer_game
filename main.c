@@ -28,6 +28,8 @@ vec3 lightPos;// = {}
 float near_plane;
 float far_plane;
 
+VPair circle;
+
 const void(*instances[instancesCounter][funcsCounter])() = {
   [editorInstance] = {
     [render2DFunc] = editor2dRender,
@@ -385,6 +387,56 @@ int main(int argc, char* argv[]) {
 	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 	    glEnableVertexAttribArray(1);*/
 
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // circle buf
+  {
+    circle.vBuf = malloc(sizeof(float) * 3 * 180 * 2);
+    circle.vertexNum = 180 * 2;
+    circle.attrSize = 3;
+
+    int index = 0;
+    vec3 circleA = { 0 };
+    
+    float r = 1.0f;
+    float h = 1.0f;
+    float k = 1.0f;
+    
+    for (int i = 0; i < 180; i++)
+      {
+	circleA.x = r * cos(i) - h;
+    circleA.y = r * sin(i) + k;
+	
+	circle.vBuf[index+0] = circleA.x + k;
+	circle.vBuf[index+1] = circleA.y - h;
+	circle.vBuf[index+2] = 0;
+	
+	index+=3;
+    
+    circleA.x = r * cos(i + 0.1) - h;
+    circleA.y = r * sin(i + 0.1) + k;
+	
+	circle.vBuf[index+0] = circleA.x + k;
+	circle.vBuf[index+1] = circleA.y - h;
+	circle.vBuf[index+2] = 0;
+	
+	//	glVertex3f(circle.x + k,circle.y - h,0);
+	index+=3;
+      }
+
+    glGenVertexArrays(1, &circle.VAO);
+    glBindVertexArray(circle.VAO);
+
+    glGenBuffers(1, &circle.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, circle.VBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * 360, circle.vBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+    
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
   }
@@ -2160,10 +2212,15 @@ ModelInfo* loadOBJ(char* path, char* texturePath){
   loadedModel->vertices = malloc(mesh->index_count * sizeof(vec3));
 
   loadedModel->modelSizes = (vec3){0,0,0};
+  vec3 minPoint = { FLT_MAX, FLT_MAX, FLT_MAX };
 
   int counter = 0;
   for (int i = 0; i < mesh->position_count * 3;i+=3){
     if(i==0) continue;
+
+    minPoint.x = min(minPoint.x, mesh->positions[i]);
+    minPoint.y = min(minPoint.y, mesh->positions[i+1]);
+    minPoint.z = min(minPoint.z, mesh->positions[i+2]);
 
     loadedModel->modelSizes.x = max(loadedModel->modelSizes.x, mesh->positions[i]);
     loadedModel->modelSizes.y = max(loadedModel->modelSizes.y, mesh->positions[i+1]);
@@ -2172,6 +2229,10 @@ ModelInfo* loadOBJ(char* path, char* texturePath){
     verts[counter] = (vec3){mesh->positions[i], mesh->positions[i+1], mesh->positions[i+2]};
     counter++;
   }
+
+  loadedModel->modelSizes.x -= minPoint.x;
+  loadedModel->modelSizes.y -= minPoint.y;
+  loadedModel->modelSizes.z -= minPoint.z;
   
 
   // UVs
