@@ -105,7 +105,7 @@ typedef enum{
 } MenuTypes;
 
 typedef enum{
-  pointLightT, shadowPointLightT,
+  pointLightT, shadowPointLightT,// dirLightT,
   lightsTypeCounter
 } LightType;
 
@@ -195,7 +195,7 @@ typedef struct{
   size_t geomIndex;
 } Wall;
 
-void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, vec3* lb, vec3* rt);
+void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, int attrSize, vec3* lb, vec3* rt);
 
 typedef enum{
   editorCameraT, gameCameraT  
@@ -595,6 +595,9 @@ typedef struct{
   void* selectedThing;
 
   vec2 cursor; // pos
+  vec2 lastCursor;
+
+  vec3 lastTrackBall;
 
   
 } Mouse;

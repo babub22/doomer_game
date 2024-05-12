@@ -280,10 +280,42 @@ void inverse(float M[], float T[]) {
 
 void mat4transpose(float *M, const float *N)
 {
-    int i, j;
-    for (j = 0; j < 4; ++j) {
-        for (i = 0; i < 4; ++i) {
-            M[i * 4 + j] = N[j * 4 + i];
-        }
+  int i, j;
+  for (j = 0; j < 4; ++j) {
+    for (i = 0; i < 4; ++i) {
+      M[i * 4 + j] = N[j * 4 + i];
     }
+  }
+}
+
+void rotate(Matrix *m, float angle, float x, float y, float z) {
+  float radians = rad(angle);
+  float c = cosf(radians);
+  float s = sinf(radians);
+  float length = sqrtf(x * x + y * y + z * z);
+  float u[3] = {x / length, y / length, z / length};
+
+  Matrix rotation;
+  rotation.m[0] = c + u[0] * u[0] * (1 - c);
+  rotation.m[1] = u[0] * u[1] * (1 - c) - u[2] * s;
+  rotation.m[2] = u[0] * u[2] * (1 - c) + u[1] * s;
+  rotation.m[3] = 0.0f;
+
+  rotation.m[4] = u[1] * u[0] * (1 - c) + u[2] * s;
+  rotation.m[5] = c + u[1] * u[1] * (1 - c);
+  rotation.m[6] = u[1] * u[2] * (1 - c) - u[0] * s;
+  rotation.m[7] = 0.0f;
+
+  rotation.m[8] = u[2] * u[0] * (1 - c) - u[1] * s;
+  rotation.m[9] = u[2] * u[1] * (1 - c) + u[0] * s;
+  rotation.m[10] = c + u[2] * u[2] * (1 - c);
+  rotation.m[11] = 0.0f;
+
+  rotation.m[12] = 0.0f;
+  rotation.m[13] = 0.0f;
+  rotation.m[14] = 0.0f;
+  rotation.m[15] = 1.0f;
+
+  Matrix out = multiplymat4(*m, rotation);
+  memcpy(m,&out,sizeof(Matrix));
 }

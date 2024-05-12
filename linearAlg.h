@@ -96,3 +96,4 @@ Matrix lookAt(vec3 eye, vec3 center, vec3 up);
 
 #define map(x, in_min, in_max, out_min, out_max)(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
+void rotate(Matrix *m, float angle, float x, float y, float z);

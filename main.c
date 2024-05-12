@@ -10,6 +10,10 @@
 int renderCapYLayer;
 EngineInstance curInstance = editorInstance;
 
+int navPointsSize;
+vec3* navPoints;
+VPair navPointsMesh;
+
 //const int SHADOW_WIDTH = 128, SHADOW_HEIGHT = 128;
 const int SHADOW_WIDTH = 512, SHADOW_HEIGHT = 512;  
 unsigned int depthMapFBO;
@@ -61,7 +65,7 @@ const char* wallTypeStr[] = {
 
 const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps",[angledRoofT] = "Angle Roof" };
 
-const char* lightTypesStr[] = { [shadowPointLightT] = "Shadow point light",[pointLightT] = "Point light" };
+const char* lightTypesStr[] = { [shadowPointLightT] = "Point light(shadow)",[pointLightT] = "Point light" };
 
 const char* wallPlanesStr[] = {
   [wTopPlane] = "Top plane",
@@ -1839,6 +1843,27 @@ int main(int argc, char* argv[]) {
 	renderScene(mainShader);
 
 	((void (*)(void))instances[curInstance][render3DFunc])();
+
+	// nav meshes drawing
+	{
+	  glUseProgram(shadersId[lightSourceShader]);
+	    
+	  glBindBuffer(GL_ARRAY_BUFFER, navPointsMesh.VBO);
+	  glBindVertexArray(navPointsMesh.VAO);
+
+	  uniformVec3(lightSourceShader, "color", (vec3) { blueColor });
+
+	  Matrix out = IDENTITY_MATRIX;
+	  uniformMat4(lightSourceShader, "model", out.m);
+
+	  glDrawArrays(GL_TRIANGLES, 0, navPointsMesh.vertexNum);
+
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+
+	  glUseProgram(shadersId[mainShader]);
+	}
+
 	
 	// highlight selected model with stencil
 	if(true)
@@ -4524,6 +4549,8 @@ void batchGeometry(){
       }
     }
   }
+
+  navPointsSize=0;
   
   for (int y = 0; y < renderCapYLayer; y++) {
     for (int z = 0; z < gridZ; z++) {
@@ -4538,9 +4565,14 @@ void batchGeometry(){
 	    
 	    geomentyByTxCounter[txIndex] += sizeof(texturedTileVerts);
 
+	    if(!grid[y][z][x]->block){
+	      //navPointsSize++;
+	    }
+	    
 	    if(!batchedIndexWasAssigned){
 	      batchedGeometryIndexesSize++;
 	      batchedIndexWasAssigned= true;
+
 	    }
 	  }
 
@@ -4550,7 +4582,7 @@ void batchGeometry(){
 	      batchedGeometryIndexesSize++;
 	      batchedIndexWasAssigned= true;
 	    }
-	      
+
 	    TileBlocksTypes type = grid[y][z][x]->block->type;
 	    int txIndex = grid[y][z][x]->block->txIndex;
 	    
@@ -4576,6 +4608,12 @@ void batchGeometry(){
 		  geomentyByTxCounter[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * sizeof(float) * vertexSize;
 		}
 	      }
+	    }else{
+	      GroundType type = valueIn(grid[y][z][x]->ground, 0);
+
+	      if(type == texturedTile){
+		navPointsSize++;
+	      }
 	    }
 
 	    if(grid[y][z][x]->jointExist[i]){
@@ -4598,6 +4636,15 @@ void batchGeometry(){
       }
     }
   }
+
+
+  if(!navPoints){
+    navPoints = malloc(sizeof(vec3) * navPointsSize);
+  }else{
+    navPoints = realloc(navPoints, sizeof(vec3) * navPointsSize);
+  }
+
+  navPointsSize = 0;
 
   printf("pre batchedGeometryIndexes: %d \n", batchedGeometryIndexesSize);
 
@@ -4647,8 +4694,15 @@ void batchGeometry(){
 	    batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z}; 
 	    //	      batchedGeometryIndexesSize++;
 	    //	    }
+
 	      
 	    vec3 tile = xyz_indexesToCoords(x,y,z);
+
+	    //	    if(!grid[y][z][x]->block){
+	      //   navPoints[navPointsSize] = (vec3){tile.x+0.5f,tile.y,tile.z+0.5f};
+	      //	      navPointsSize++;
+	      //    }
+	    
 	    int txIndex = valueIn(grid[y][z][x]->ground, 2); 
 
 	    for(int i=0;i<6*vertexSize;i+=vertexSize){
@@ -4716,67 +4770,82 @@ void batchGeometry(){
 
 	  // walls
 	  for(int i3=0;i3<basicSideCounter;i3++){
-	    if(grid[y][z][x]->walls[i3].planes){
-	      // remember wall that exist
-	      {
-                batchedGeometryIndexes[batchedGeometryIndexesSize].wallsSize++;
-		int newSize = batchedGeometryIndexes[batchedGeometryIndexesSize].wallsSize;
+          if (grid[y][z][x]->walls[i3].planes) {
+              // remember wall that exist
+              {
+                  batchedGeometryIndexes[batchedGeometryIndexesSize].wallsSize++;
+                  int newSize = batchedGeometryIndexes[batchedGeometryIndexesSize].wallsSize;
 
-		if(!batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes){
-		  batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes = malloc(sizeof(uint8_t));
-		}else{
-		  batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes = realloc(batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes, sizeof(uint8_t) * newSize);
-		}
-		
-		batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes[newSize-1] = i3;
-	      }
-	      
-	      //	      if(!batchedIndexWasAssigned){
-	      batchedIndexWasAssigned = true;
-	      batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z};
-		
-	      //		batchedGeometryIndexesSize++;
-	      //	      }
-		
-	      WallType type = grid[y][z][x]->walls[i3].type;
-	      
-	      for(int i2=0;i2<wallsVPairs[type].planesNum;i2++){
-		if(!grid[y][z][x]->walls[i3].planes[i2].hide){
-		  int txIndex = grid[y][z][x]->walls[i3].planes[i2].txIndex;
-		  		
-		  for(int i=0;i<wallsVPairs[type].pairs[i2].vertexNum * vertexSize;i+=vertexSize){
-		    vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i], wallsVPairs[type].pairs[i2].vBuf[i+1], wallsVPairs[type].pairs[i2].vBuf[i+2], 1.0f };
+                  if (!batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes) {
+                      batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes = malloc(sizeof(uint8_t));
+                  }
+                  else {
+                      batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes = realloc(batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes, sizeof(uint8_t) * newSize);
+                  }
 
-		    vec4 transf = mulmatvec4(grid[y][z][x]->walls[i3].mat, vert);
+                  batchedGeometryIndexes[batchedGeometryIndexesSize].wallsIndexes[newSize - 1] = i3;
+              }
 
-		    vec4 normal = { wallsVPairs[type].pairs[i2].vBuf[i+5], wallsVPairs[type].pairs[i2].vBuf[i+6], wallsVPairs[type].pairs[i2].vBuf[i+7], 1.0f };
+              //	      if(!batchedIndexWasAssigned){
+              batchedIndexWasAssigned = true;
+              batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){ x,y,z };
 
-		    Matrix inversedWallModel = IDENTITY_MATRIX;
-		    inverse(grid[y][z][x]->walls[i3].mat.m, inversedWallModel.m);
+              //		batchedGeometryIndexesSize++;
+              //	      }
 
-		    Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
-		    mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
-		  
-		    vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+              WallType type = grid[y][z][x]->walls[i3].type;
 
-		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i] = transf.x; 
-		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+1] = transf.y;
-		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+2] = transf.z;
+              for (int i2 = 0; i2 < wallsVPairs[type].planesNum; i2++) {
+                  if (!grid[y][z][x]->walls[i3].planes[i2].hide) {
+                      int txIndex = grid[y][z][x]->walls[i3].planes[i2].txIndex;
 
-		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+3] = wallsVPairs[type].pairs[i2].vBuf[i+3];
-		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+4] = wallsVPairs[type].pairs[i2].vBuf[i+4];
-		    
-		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+5] = transfNormal.x;
-		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+6] = transfNormal.y;
-		    geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+7] = transfNormal.z;
-		  }
+                      for (int i = 0; i < wallsVPairs[type].pairs[i2].vertexNum * vertexSize; i += vertexSize) {
+                          vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i], wallsVPairs[type].pairs[i2].vBuf[i + 1], wallsVPairs[type].pairs[i2].vBuf[i + 2], 1.0f };
 
-		  geomentyByTxCounter[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * vertexSize;
-		}
-	      }
-	    }
+                          vec4 transf = mulmatvec4(grid[y][z][x]->walls[i3].mat, vert);
 
-	    if(grid[y][z][x]->jointExist[i3]){
+                          vec4 normal = { wallsVPairs[type].pairs[i2].vBuf[i + 5], wallsVPairs[type].pairs[i2].vBuf[i + 6], wallsVPairs[type].pairs[i2].vBuf[i + 7], 1.0f };
+
+                          Matrix inversedWallModel = IDENTITY_MATRIX;
+                          inverse(grid[y][z][x]->walls[i3].mat.m, inversedWallModel.m);
+
+                          Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+                          mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+
+                          vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+                          geometry[txIndex].verts[geomentyByTxCounter[txIndex] + i] = transf.x;
+                          geometry[txIndex].verts[geomentyByTxCounter[txIndex] + i + 1] = transf.y;
+                          geometry[txIndex].verts[geomentyByTxCounter[txIndex] + i + 2] = transf.z;
+
+                          geometry[txIndex].verts[geomentyByTxCounter[txIndex] + i + 3] = wallsVPairs[type].pairs[i2].vBuf[i + 3];
+                          geometry[txIndex].verts[geomentyByTxCounter[txIndex] + i + 4] = wallsVPairs[type].pairs[i2].vBuf[i + 4];
+
+                          geometry[txIndex].verts[geomentyByTxCounter[txIndex] + i + 5] = transfNormal.x;
+                          geometry[txIndex].verts[geomentyByTxCounter[txIndex] + i + 6] = transfNormal.y;
+                          geometry[txIndex].verts[geomentyByTxCounter[txIndex] + i + 7] = transfNormal.z;
+                      }
+
+                      geomentyByTxCounter[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * vertexSize;
+                  }
+              }
+          }
+
+	  
+	  GroundType type = valueIn(grid[y][z][x]->ground, 0);
+
+	  if(!grid[y][z][x]->walls[i3].planes && type == texturedTile){
+	    static const vec2 paddd[4] = {
+	      [top] = {0.5f,0.0f}, [left] = { 1.0f, 0.5f }, [right] = { 0.0f, 0.5f }, [bot] = { 0.5f, 1.0f } 
+	    };
+
+	    vec3 tile = xyz_indexesToCoords(x, y, z);
+
+	    navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
+	    navPointsSize++;
+	  }
+
+	  if(grid[y][z][x]->jointExist[i3]){
 	      // remember wall that exist
 	      {
                 batchedGeometryIndexes[batchedGeometryIndexesSize].jointsSize++;
@@ -4868,6 +4937,43 @@ void batchGeometry(){
   //   }
 
   free(geomentyByTxCounter);
+  
+  if(!navPointsMesh.vBuf){
+    navPointsMesh.vBuf = malloc(sizeof(float) * 3 * cube.vertexNum * navPointsSize);
+  }else{
+    navPointsMesh.vBuf = realloc(navPointsMesh.vBuf,sizeof(float) * 3 * cube.vertexNum * navPointsSize);
+  }
+
+  // asseble navPointsMesh
+  int index = 0;
+  for(int i=0;i<navPointsSize*cube.vertexNum*3;i+=cube.vertexNum*3){
+    for(int i2=0;i2<cube.vertexNum*3;i2+=3){
+      navPointsMesh.vBuf[i + i2 + 0] = cube.vBuf[i2 + 0] + (float)navPoints[index].x;
+      navPointsMesh.vBuf[i + i2 + 1] = cube.vBuf[i2 + 1] + (float)navPoints[index].y;
+      navPointsMesh.vBuf[i + i2 + 2] = cube.vBuf[i2 + 2] + (float)navPoints[index].z;
+
+      //   printf("%f %f %f \n", navPointsMesh.vBuf[i + i2 + 0], navPointsMesh.vBuf[i + i2 + 1], navPointsMesh.vBuf[i + i2 + 2]);
+    }
+    
+    index++;
+  }
+
+  glGenBuffers(1, &navPointsMesh.VBO);
+  glGenVertexArrays(1, &navPointsMesh.VAO);
+
+  glBindBuffer(GL_ARRAY_BUFFER, navPointsMesh.VBO);
+  glBindVertexArray(navPointsMesh.VAO);
+
+  navPointsMesh.vertexNum = navPointsSize * cube.vertexNum;
+  navPointsMesh.attrSize = 3;
+
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * cube.vertexNum * navPointsSize, navPointsMesh.vBuf, GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+  glEnableVertexAttribArray(0);
+  
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
 }
 
 vec3 calculateNormal(vec3 a, vec3 b, vec3 c){
@@ -5238,7 +5344,7 @@ void renderScene(GLuint curShader){
   */
 }
 
-void checkMouseVSEntities(){
+void checkMouseVSEntities(){  
   if (mouse.selectedType == mouseWallT || mouse.selectedType == mouseTileT) {
     free(mouse.selectedThing);
   }
