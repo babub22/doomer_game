@@ -1,4 +1,4 @@
-Car.obj car.png Char
+Car.obj car.png Obj
 SnowTree0.obj SnowTree0.png Obj
 SnowTree1.obj SnowTree1.png Obj
 Suhrob0.obj Suhrob0.png Obj
@@ -13,4 +13,4 @@ Table.obj Wood.png Obj
 Sigi.obj Sigi.png Obj
 Book.obj Books.png Obj
 Bookshelf.obj Bookshelves.png Obj
-Doomer.obj Doomer.png Obj
+Doomer.obj Doomer.png Char

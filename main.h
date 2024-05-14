@@ -596,11 +596,10 @@ typedef struct{
 
   vec2 cursor; // pos
   vec2 lastCursor;
-
-  vec3 lastTrackBall;
-
   
+  vec3 gizmoPosOfInter;
 } Mouse;
+
 
 	 
 #define cursorH 0.025f
@@ -698,6 +697,8 @@ vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tile
 void wallsLoadVAOandVBO();
 
 void renderText(char* text, float x, float y, float scale);
+VPair translatePair;
+
 
 // Macro-Functions
 // ~~~~~
@@ -835,6 +836,7 @@ typedef enum{
   matsSetup,
   eventFunc,
   onSetFunc,
+  mouseVSFunc,
   funcsCounter,
 } EngineInstanceFunc;
 
@@ -1089,3 +1091,16 @@ void uniformVec2(int shader, char* var, vec2 value);
 int renderCapYLayer;
 
 EngineInstance curInstance;
+
+typedef struct {
+    vec3i indx;
+
+    uint8_t wallsSize;
+    uint8_t* wallsIndexes;
+
+    uint8_t jointsSize;
+    uint8_t* jointsIndexes;
+} BatchedTile;
+
+BatchedTile* batchedGeometryIndexes;
+int batchedGeometryIndexesSize;

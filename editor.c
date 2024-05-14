@@ -10,17 +10,17 @@ int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
 
 const float lightPresetTable[][2] = { {0.0014, 0.000007},
-				   {0.007, 0.0002},
-				   {0.014, 0.0007},
-				   {0.022, 0.0019},
-				   {0.027, 0.0028},
-				   {0.045, 0.0075},
-				   {0.07, 0.017},
-				   {0.09, 0.032},
-				   {0.14, 0.07},
-				   {0.22, 0.20},
-				   {0.35, 0.44},
-				   {0.7, 1.8} };
+				      {0.007, 0.0002},
+				      {0.014, 0.0007},
+				      {0.022, 0.0019},
+				      {0.027, 0.0028},
+				      {0.045, 0.0075},
+				      {0.07, 0.017},
+				      {0.09, 0.032},
+				      {0.14, 0.07},
+				      {0.22, 0.20},
+				      {0.35, 0.44},
+				      {0.7, 1.8} };
 
 #define lightsPresetMax 12
 
@@ -29,10 +29,16 @@ typedef enum{
 } EditorCursorMode;
 
 EditorCursorMode cursorMode;
+float circleRotAngle;
+
+vec3 posOfStart;
+vec3 curPoss;
+//vec3/posOfInterWithCircle;
 
 // 0 - x | 1 - y | 2 - z
 // 0 - lb | 1 - rt
 vec3 rotatingCirclesAABB[2][3];
+vec3 translateAABB[2][3];
 
 typedef enum{
   XCircle = 1, YCircle, ZCircle
@@ -44,7 +50,7 @@ char* rotatingAxisStr[4] = {
   [YCircle]= "Y-axis",
   [ZCircle]= "Z-axis"};
 
-RotationCircles selectedRotatingCircleAxis;
+RotationCircles selectedGizmoAxis;
 //float rotationCirclesRadius;
 
 int texturesMenuCurCategoryIndex = 0;
@@ -104,17 +110,17 @@ void editorPreLoop(){
   // net tile
   {
     float netTileVerts[] = {
-       0.0f, 0.0f, 0.0f ,
-       bBlockW, 0.0f, 0.0f ,
+      0.0f, 0.0f, 0.0f ,
+      bBlockW, 0.0f, 0.0f ,
       
-       0.0f, 0.0f, 0.0f ,
-       0.0f, 0.0f, bBlockD ,
+      0.0f, 0.0f, 0.0f ,
+      0.0f, 0.0f, bBlockD ,
       
-       0.0f, 0.0f, bBlockD ,
-       bBlockW, 0.0f, bBlockD ,
+      0.0f, 0.0f, bBlockD ,
+      bBlockW, 0.0f, bBlockD ,
       
-       bBlockW, 0.0f, 0.0f ,
-       bBlockW, 0.0f, bBlockD 
+      bBlockW, 0.0f, 0.0f ,
+      bBlockW, 0.0f, bBlockD 
     };
 
     float* buf = malloc(sizeof(float) * gridX * gridZ * 8 * 3);
@@ -133,7 +139,7 @@ void editorPreLoop(){
 	    netTileSize++;
 	  }
 	  else if (i == 21) {
-		  // rt
+	    // rt
 	    netTileAABB[netTileSize] = (vec2){ netTileVerts[i + 0] + tile.x, netTileVerts[i + 2] + tile.z };
 	    netTileSize++;
 	  }
@@ -938,7 +944,7 @@ void editorEvents(SDL_Event event){
 	       uniformLights();
 
 	       if(light->type == shadowPointLightT){
-		rerenderShadowForLight(light->id);
+		 rerenderShadowForLight(light->id);
 	       }
 	     }
 		 
@@ -1048,41 +1054,41 @@ void editorEvents(SDL_Event event){
 	    Light* light = NULL;
     
 	    if (mouse.selectedType == mouseModelT) { 
-	      model = (Model*)mouse.selectedThing; 
-	      mat = &model->mat; 
+	    model = (Model*)mouse.selectedThing; 
+	    mat = &model->mat; 
 	    }
 	    else if (mouse.selectedType == mousePlaneT) {
-	      Picture* plane = (Picture*)mouse.selectedThing;
-	      mat = &plane->mat;
+	    Picture* plane = (Picture*)mouse.selectedThing;
+	    mat = &plane->mat;
 	    }else if(mouse.selectedType == mouseLightT){
-	      light = (Light*)mouse.selectedThing;
-	      mat = &light->mat; 
+	    light = (Light*)mouse.selectedThing;
+	    mat = &light->mat; 
 	    }
 
 	    if(mat){
-	      float xTemp = mat->m[12];
-	      float yTemp = mat->m[13];
-	      float zTemp = mat->m[14];
+	    float xTemp = mat->m[12];
+	    float yTemp = mat->m[13];
+	    float zTemp = mat->m[14];
       
-	      mat->m[12] = 0;
-	      mat->m[13] = 0;
-	      mat->m[14] = 0;
+	    mat->m[12] = 0;
+	    mat->m[13] = 0;
+	    mat->m[14] = 0;
 
-	      rotateY(mat->m, rad(45.0f));
+	    rotateY(mat->m, rad(45.0f));
 
-	      if(light){
-		calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	      }
-
-	      mat->m[12] = xTemp;
-	      mat->m[13] = yTemp;
-	      mat->m[14] = zTemp;
-
-	      if(model){
-		calculateModelAABB(model);
-	      }
+	    if(light){
+	    calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
 	    }
-	  }*/
+
+	    mat->m[12] = xTemp;
+	    mat->m[13] = yTemp;
+	    mat->m[14] = zTemp;
+
+	    if(model){
+	    calculateModelAABB(model);
+	    }
+	    }
+	    }*/
       
 	  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
@@ -1113,11 +1119,11 @@ void editorEvents(SDL_Event event){
 	      block->mat.m[14] = zTemp;
 
 	      /*	      static const float increaseData[4][2] = {
-		{ -bBlockW, 0.0f }, // [12] [14]
-		{ 0.0f, bBlockW },
-		{ bBlockW, 0.0f },
-		{ 0.0f, -bBlockD }
-	      };*/
+			      { -bBlockW, 0.0f }, // [12] [14]
+			      { 0.0f, bBlockW },
+			      { bBlockW, 0.0f },
+			      { 0.0f, -bBlockD }
+			      };*/
 
 	      int index = block->rotateAngle / 90;
 	      block->mat.m[12] += rotationBlock[index][0];
@@ -1278,53 +1284,53 @@ void editorEvents(SDL_Event event){
 				  
 	break;
       }      case(SDL_SCANCODE_M): {
-	Light* light = NULL;
+	       Light* light = NULL;
 	    
-	if(mouse.focusedType == mouseLightT){
-	  light = (Light*) mouse.focusedThing;
-	}else if(mouse.selectedType == mouseLightT){
-	  light = (Light*) mouse.selectedThing;
-	}
+	       if(mouse.focusedType == mouseLightT){
+		 light = (Light*) mouse.focusedThing;
+	       }else if(mouse.selectedType == mouseLightT){
+		 light = (Light*) mouse.selectedThing;
+	       }
 
-	if(light){
-	  light->color = (vec3){ (float)(rand() % 1000 + 1.0f) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f};
-	  uniformLights();
-	}
+	       if(light){
+		 light->color = (vec3){ (float)(rand() % 1000 + 1.0f) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f};
+		 uniformLights();
+	       }
 				  
-	break;
-      }case(SDL_SCANCODE_P): {
-	 const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+	       break;
+	     }case(SDL_SCANCODE_P): {
+		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 			      
-	 if((!curMenu || curMenu->type == planeCreatorT) && !currentKeyStates[SDL_SCANCODE_LCTRL]){
-	   if(planeOnCreation){
-	     free(planeOnCreation);
-	     planeOnCreation = NULL;
-	   }
+		if((!curMenu || curMenu->type == planeCreatorT) && !currentKeyStates[SDL_SCANCODE_LCTRL]){
+		  if(planeOnCreation){
+		    free(planeOnCreation);
+		    planeOnCreation = NULL;
+		  }
 	       
-	   planeCreatorMenu.open = !planeCreatorMenu.open;
-	   curMenu = planeCreatorMenu.open ? &planeCreatorMenu : NULL;
-	 }
+		  planeCreatorMenu.open = !planeCreatorMenu.open;
+		  curMenu = planeCreatorMenu.open ? &planeCreatorMenu : NULL;
+		}
 	     
-	 break;
-       }case(SDL_SCANCODE_T):{
-	  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+		break;
+	      }case(SDL_SCANCODE_T):{
+		 const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 			      
-	  if((!curMenu || curMenu->type == texturesMenuT) && !currentKeyStates[SDL_SCANCODE_LCTRL]){
-	    texturesMenu.open = !texturesMenu.open;
-	    curMenu = texturesMenu.open ? &texturesMenu : NULL;
-	  }
+		 if((!curMenu || curMenu->type == texturesMenuT) && !currentKeyStates[SDL_SCANCODE_LCTRL]){
+		   texturesMenu.open = !texturesMenu.open;
+		   curMenu = texturesMenu.open ? &texturesMenu : NULL;
+		 }
 	     
-	  break;
-	}case(SDL_SCANCODE_L):{
-	   const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+		 break;
+	       }case(SDL_SCANCODE_L):{
+		  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 			      
-	   if((!curMenu || curMenu->type == lightMenuT) && !currentKeyStates[SDL_SCANCODE_LCTRL]){
-	     lightMenu.open = !lightMenu.open;
-	     curMenu = lightMenu.open ? &lightMenu : NULL;
-	   }
+		  if((!curMenu || curMenu->type == lightMenuT) && !currentKeyStates[SDL_SCANCODE_LCTRL]){
+		    lightMenu.open = !lightMenu.open;
+		    curMenu = lightMenu.open ? &lightMenu : NULL;
+		  }
 	     
-	   break;
-	 }
+		  break;
+		}
       case(SDL_SCANCODE_H): {
 	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
@@ -1349,65 +1355,64 @@ void editorEvents(SDL_Event event){
 	    
 	if(!currentKeyStates[SDL_SCANCODE_LCTRL]){
 
-	  if(mouse.focusedThing){
-	      
-	    if (mouse.focusedType == mouseModelT) {
-	      Model* model = (Model*)mouse.focusedThing;
-	      int index = 0;
+	  if (mouse.selectedType == mouseModelT) {
+	    Model* model = (Model*)mouse.selectedThing;
+	    int index = 0;
 
-	      // clear dialogs
-	      int charId = curModels[model->id].characterId;
+	    // clear dialogs
+	    int charId = curModels[model->id].characterId;
 
-	      destroyCharacter(charId);
+	    destroyCharacter(charId);
 
-	      for (int i = 0; i < curModelsSize; i++) {
-		if (curModels[i].id == model->id){
-		  continue;
-		}
-
-		curModels[index] = curModels[i];
-		index++;
+	    for (int i = 0; i < curModelsSize; i++) {
+	      if (curModels[i].id == model->id){
+		continue;
 	      }
 
-	      curModelsSize--;
-	      curModels = realloc(curModels, curModelsSize * sizeof(Model));
-	    
-	      mouse.focusedThing = NULL;
-	      mouse.focusedType = 0;
-
-	      batchGeometry();
-	    }else if (mouse.focusedType == mousePlaneT) {
-	      Picture* panel = (Picture*)mouse.focusedThing;
-	      int index = 0;
-
-	      // clear dialogs
-	      int charId = panel->characterId;
-
-	      destroyCharacter(charId);
-
-	      for (int i = 0; i < curModelsSize; i++) {
-		if (createdPlanes[i].id == panel->id){
-		  continue;
-		}
-
-		createdPlanes[index] = createdPlanes[i];
-		index++;
-	      }
-		  
-	      createdPlanesSize--;
-	      createdPlanes = realloc(createdPlanes, createdPlanesSize * sizeof(Model));
-	    
-	      mouse.focusedThing = NULL;
-	      mouse.focusedType = 0;
-
-	      batchGeometry();
+	      curModels[index] = curModels[i];
+	      index++;
 	    }
+
+	    curModelsSize--;
+	    curModels = realloc(curModels, curModelsSize * sizeof(Model));
+	    
+	    mouse.focusedThing = NULL;
+	    mouse.selectedThing = 0;
+
+	    batchGeometry();
+	  }else if (mouse.selectedType == mousePlaneT) {
+	    Picture* panel = (Picture*)mouse.selectedThing;
+	    int index = 0;
+
+	    // clear dialogs
+	    int charId = panel->characterId;
+
+	    destroyCharacter(charId);
+
+	    for (int i = 0; i < curModelsSize; i++) {
+	      if (createdPlanes[i].id == panel->id){
+		continue;
+	      }
+
+	      createdPlanes[index] = createdPlanes[i];
+	      index++;
+	    }
+		  
+	    createdPlanesSize--;
+	    createdPlanes = realloc(createdPlanes, createdPlanesSize * sizeof(Model));
+	    
+	    mouse.focusedThing = NULL;
+	    mouse.focusedType = 0;
+
+	    batchGeometry();
 	  }else if (mouse.selectedType == mouseWallT) {
 	    // WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
 	    WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 
 	    free(data->tile->walls[data->side].planes);
 	    data->tile->walls[data->side].planes = NULL;
+
+	    printf("Deleted wall;\n");
 
 	    batchGeometry();
 	  }else if (mouse.selectedType == mouseTileT) {
@@ -1462,13 +1467,14 @@ void editorEvents(SDL_Event event){
     mouse.clickR = event.button.button == SDL_BUTTON_RIGHT;
 
     // if click missing foucedThing reset focus
-    if(mouse.focusedThing != mouse.selectedThing){
-      //      cursorMode = moveMode;
+    /*if(mouse.focusedThing != mouse.selectedThing){
+      cursorMode = moveMode;
       
       mouse.focusedThing = NULL;
       mouse.focusedType = 0;
-    }
+    }*/
   }
+
 
   if(event.type == SDL_MOUSEWHEEL){
     mouse.wheel = event.wheel.y;
@@ -1597,11 +1603,11 @@ void editorEvents(SDL_Event event){
 	curCamera->front = normalize3(curCamera->dir);
       }
     }
-}
+  }
 }
 
 void editorMatsSetup(int curShader){
-    {
+  {
     editorView = IDENTITY_MATRIX;
     vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
 
@@ -1665,30 +1671,11 @@ void editorMatsSetup(int curShader){
       //normalize4(&ray_wor);
 
     }
-    }
+  }
 }
 
 void editorPreFrame(float deltaTime){
-  if(cursorMode == rotationMode && !mouse.leftDown){
-    selectedRotatingCircleAxis = 0;
-    
-    float minDistToCamera = 1000.0f;
-    float intersectionDistance;
-    
-    for(int i=0;i<3;i++){
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, rotatingCirclesAABB[0][i], rotatingCirclesAABB[1][i], NULL, &intersectionDistance);
-
-      if(isIntersect && minDistToCamera > intersectionDistance){
-	selectedRotatingCircleAxis = i+1;
-	minDistToCamera = intersectionDistance;
-      }
-    }
-
-    // printf("Selected axis: %s \n", rotatingAxisStr[selectedRotatingCircleAxis]);
-  }
-
-  
-  if(cursorMode && (mouse.leftDown || mouse.rightDown)){
+    if(cursorMode && (mouse.leftDown || mouse.rightDown)){
     Model* model = NULL;
     Matrix* mat = NULL;
     Light* light = NULL;
@@ -1705,178 +1692,98 @@ void editorPreFrame(float deltaTime){
       mat = &light->mat; 
     }
 
-      if(mat && (mouse.leftDown || mouse.rightDown)){
-	vec3 ray = (vec3) { mouse.rayDir.x, 0, mouse.rayDir.z };
-	vec3 modelPos = (vec3) { mat->m[12], mat->m[13], mat->m[14] };
+    if(mat && (mouse.leftDown || mouse.rightDown)){
+      vec3 diffDrag = { curPoss.x - posOfStart.x, curPoss.y - posOfStart.y, curPoss.z - posOfStart.z };
 
-	vec4 modelViewPos = mulmatvec4(editorView, (vec4) { argVec3(modelPos), 1.0f });
-    
-	vec4 viewIntersect = (vec4) { -mouse.rayView.x * modelViewPos.z, -mouse.rayView.y * modelViewPos.z, 1.0f * modelViewPos.z, 1.0f  };
-
-	Matrix inversedView = IDENTITY_MATRIX;
-	inverse(editorView.m, inversedView.m);
-
-	vec4 worldPoint = mulmatvec4(inversedView, viewIntersect);
-	
-	//vec3 curWDir = normalize3(argVec3(worldPoint));
-
-	if(cursorMode == moveMode){
-	  if(mouse.leftDown){
-	    mat->m[12] = worldPoint.x;
-	    mat->m[14] = worldPoint.z;
-	  }else if(mouse.rightDown){
-	    mat->m[13] = worldPoint.y;
-	  }
-	}else if(cursorMode == rotationMode){
-	  float xTemp = mat->m[12];
-	  float yTemp = mat->m[13];
-	  float zTemp = mat->m[14];
-
-	  mat->m[12] = 0;
-	  mat->m[13] = 0;
-	  mat->m[14] = 0;
-	  
-	  vec3 cursorOnTrackball;// = { argVec2(mouse.cursor), cursorZ };
-	  vec3 lastTrackBall;// = { argVec2(mouse.cursor), cursorZ };
-	  
-	  {
-	    float d = sqrtf(mouse.cursor.x * mouse.cursor.x + mouse.cursor.z * mouse.cursor.z);
-	    d = (d<1.0f) ? d : 1.0f;
-
-	    float cursorZ = sqrtf(1.001f - d*d);
-	    cursorOnTrackball = (vec3){ argVec2(mouse.cursor), cursorZ };
-	  }
-
-	  {
-	    float d = sqrtf(mouse.lastCursor.x * mouse.lastCursor.x + mouse.lastCursor.z * mouse.lastCursor.z);
-	    d = (d<1.0f) ? d : 1.0f;
-
-	    float cursorZ = sqrtf(1.001f - d*d);
-	    lastTrackBall = (vec3){ argVec2(mouse.lastCursor), cursorZ };
-	  }
-
-
-	  float dx = cursorOnTrackball.x - lastTrackBall.x;
-	  float dy = cursorOnTrackball.y - lastTrackBall.y;
-	  float dz = cursorOnTrackball.z - lastTrackBall.z;
-
-	  if (dx || dy || dz) {
-	    //	    float angle = 180.0f * sqrtf(dx * dx + dy * dy + dz * dz);
-	    float angle = 90.0f * sqrtf(dx * dx + dy * dy + dz * dz);
-
-	    float xAxis = lastTrackBall.y * cursorOnTrackball.z - lastTrackBall.z * cursorOnTrackball.y;
-	    float yAxis = lastTrackBall.z * cursorOnTrackball.x - lastTrackBall.x * cursorOnTrackball.z;
-	    float zAxis = lastTrackBall.x * cursorOnTrackball.y - mouse.lastTrackBall.x * cursorOnTrackball.y;
-
-	    rotate(mat, angle * 1.5f, -xAxis, -yAxis, 0.0f);
-
-	    /*if(yAxis > 0){
-	      rotate(mat, angle, 0.0f,1.0f,0.0f);
-	    }else{
-	      rotate(mat, angle, 0.0f,-1.0f,0.0f);
-	    }
-
-	    if(xAxis > 0){
-	      rotate(mat, angle, 1.0f,0.0f,0.0f);
-	    }else{
-	      rotate(mat, angle, -1.0f,0.0f,0.0f);
-	    }*/
-
-	    printf("%f \n", yAxis);
-	    //	    printf
-	    /*
-	    axis = normalize3(axis);
-
-	    float x = axis.x;
-	    float y = axis.y;
-	    float z = axis.z;
-
-	    float rotationMatrix[16] = {
-	      x * x * omc + c,     y * x * omc + z * s, x * z * omc - y * s, 0.0f,
-	      x * y * omc - z * s, y * y * omc + c,     y * z * omc + x * s, 0.0f,
-	      x * z * omc + y * s, y * z * omc - x * s, z * z * omc + c,     0.0f,
-	      0.0f,                0.0f,                0.0f,                1.0f
-	    };
-
-	    Matrix rot = IDENTITY_MATRIX;
-	    memcpy(rot.m,rotationMatrix,sizeof(float) * 16);
-
-	    printf("%f %f %f %f\n %f %f %f %f\n %f %f %f %f\n",rot.m[0],rot.m[1],rot.m[2],rot.m[3],rot.m[4],rot.m[5],rot.m[6],rot.m[7],rot.m[8],rot.m[9],rot.m[10],rot.m[11]);
-
-	    Matrix out = multiplymat4(*mat,rot);*/
-
-	    //	    rotateX(mat,rad(angle));
-
-		  
-	  }
-	  
-	  mouse.lastTrackBall = cursorOnTrackball;
-
-	  //	  printf("%f %f %f\n",argVec2(mouse.cursor));
-
-	  /*float dx, dy, dz;
-	  vec3 curPos = {0};
-	  
-	  float d, norm, angle;
-	  
-	  curPos.x = (2.0f * mouse.cursor.x - windowW) / windowW; //Calculate x component for vector at mouse's current position
-	  curPos.y = (windowH - 2.0f * mouse.cursor.z) / windowH; //Calculate y component for vector at mouse's current position
-	  
-	  d = sqrtf(curPos.x * curPos.x + curPos.y * curPos.y); //Calculate z component
-	  d = (d < 1.0f) ? d : 1.0f; //Project vector onto surface of trackball
-	  curPos.z = sqrtf(1.001f - d * d); //Calculate z component
-	  norm = 1.0 / sqrt(curPos.x * curPos.x + curPos.y * curPos.y + curPos.z * curPos.z);
-	  curPos.x *= norm; //Normalize vecor
-	  curPos.y *= norm;
-	  curPos.z *= norm;
-	  dx = curPos.x - mouse.lastRotatePos.x; //Check if mouse has moved from last position
-	  dy = curPos.y - mouse.lastRotatePos.y;
-	  dz = curPos.z - mouse.lastRotatePos.z;
-
-	  if (dx || dy || dz) //If mouse has moved
-	    {
-	      angle = 90.0 * sqrt(dx * dx + dy * dy + dz * dz); //Calculate rotation angle
-
-	      printf("angle %f \n", angle);
-
-	      //	      axis[0] = mouse.lastRotatePos.y * curPos.z - mouse.lastRotatePos.z * curPos.y; //Calculate rotation axis
-	      //	      axis[1] = mouse.lastRotatePos.z * curPos.x - mouse.lastRotatePos.x * curPos.z;
-	      //	      axis[2] = mouse.lastRotatePos.x * curPos.y - mouse.lastRotatePos.y * curPos.x;
-
-	      mouse.lastRotatePos.x = curPos.x; //Set the last position to the current
-	      mouse.lastRotatePos.y = curPos.y;
-	      mouse.lastRotatePos.z = curPos.z;
-		  
-	      if(selectedRotatingCircleAxis == XCircle){
-		rotateX(mat->m, rad(angle));
-	      }
-	    }*/
-	  
-	  //else if(selectedRotatingCircleAxis == YCircle){
-	    //rotateY(mat->m, rad);
-	  //}else if(selectedRotatingCircleAxis == ZCircle){
-	  //rotateZ(mat->m, rad);
-	  //}
-
-	  mat->m[12] = xTemp;
-	  mat->m[13] = yTemp;
-	  mat->m[14] = zTemp;
-	  
-	  batchModels();
-	}
-
-	if(light){
-	  calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	  uniformLights();
-	  if(light->type == shadowPointLightT){
-	    rerenderShadowForLight(light->id);
-	  }
-	}
-
-	if(model){
-	  calculateModelAABB(model);
-	}
+      if(selectedGizmoAxis == XCircle){
+	mat->m[12] += diffDrag.x;
+      }else if(selectedGizmoAxis == YCircle){
+	mat->m[13] += diffDrag.y;
+      }else if(selectedGizmoAxis == ZCircle){
+	mat->m[14] += diffDrag.z;
       }
+	
+
+      posOfStart = curPoss;
+	
+      /*	vec3 ray = (vec3) { mouse.rayDir.x, 0, mouse.rayDir.z };
+		vec3 modelPos = (vec3) { mat->m[12], mat->m[13], mat->m[14] };
+
+		vec4 modelViewPos = mulmatvec4(editorView, (vec4) { argVec3(modelPos), 1.0f });
+    
+		vec4 viewIntersect = (vec4) { -mouse.rayView.x * modelViewPos.z, -mouse.rayView.y * modelViewPos.z, 1.0f * modelViewPos.z, 1.0f  };
+
+		Matrix inversedView = IDENTITY_MATRIX;
+		inverse(editorView.m, inversedView.m);
+
+		vec4 worldPoint = mulmatvec4(inversedView, viewIntersect);
+	
+		//vec3 curWDir = normalize3(argVec3(worldPoint));
+
+		if(cursorMode == moveMode){
+		if(mouse.leftDown){
+		mat->m[12] = worldPoint.x;
+		mat->m[14] = worldPoint.z;
+		}else if(mouse.rightDown){
+		mat->m[13] = worldPoint.y;
+		}
+		}else if(cursorMode == rotationMode){
+		float xTemp = mat->m[12];
+		float yTemp = mat->m[13];
+		float zTemp = mat->m[14];
+
+		mat->m[12] = 0;
+		mat->m[13] = 0;
+		mat->m[14] = 0;
+	  
+		float dx = mouse.cursor.x - mouse.lastCursor.x;
+		// float dy = mouse.cursor.y - mouse.lastCursor.y;
+		//	  float dz = mouse.cursor.z - mouse.lastCursor.z;
+
+		vec3 centerOfRotation = model->centroid;
+		//	  vec3 arm2 = normalize3(mouse.rayView + mouse.rayDir * mouse.interDist);
+		//	  vec3 rot = {(mouse.rayView.x + mouse.rayDir.x) * mouse.interDist - centerOfRotation.x, (mouse.rayView.y + mouse.rayDir.y) * mouse.interDist - centerOfRotation.y, (mouse.rayView.z + mouse.rayDir.z) * mouse.interDist - centerOfRotation.z};
+	  
+		vec3 arm1 = normalize3(model->centroid);
+		//  vec3 arm2 = normalize3(rot);
+
+		//	  float d = dotf3(arm2, arm1);
+		//	  circleRotAngle = cosf(d);
+
+		printf("angle %f \n", circleRotAngle);
+
+		//  printf("rot %f %f %f \n", argVec3(rot));
+		printf("center %f %f %f \n", argVec3(centerOfRotation));
+	  
+		//	  float stepR = 
+
+		if(selectedGizmoAxis == XCircle){
+	    
+		}else if(selectedGizmoAxis == YCircle){
+	    
+		}else if(selectedGizmoAxis == ZCircle){
+		//rotate
+		}
+		mat->m[12] = xTemp;
+		mat->m[13] = yTemp;
+		mat->m[14] = zTemp;
+	  
+      */
+      batchModels();
+    }
+
+    if(light){
+      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+      uniformLights();
+      if(light->type == shadowPointLightT){
+	rerenderShadowForLight(light->id);
+      }
+    }
+
+    if(model){
+      calculateModelAABB(model);
+    }
+    //}
     
   }
   
@@ -1887,8 +1794,8 @@ void editorPreFrame(float deltaTime){
     // cursorMode will be started but we have focusedType
     if(!cursorMode && currentKeyStates[SDL_SCANCODE_LCTRL]){
       /*      if(mouse.focusedType == mouseTileT || mouse.focusedType == mouseBlockT){
-	free(mouse.focusedThing);
-      }*/
+	      free(mouse.focusedThing);
+	      }*/
 
       mouse.focusedThing = NULL;
       mouse.focusedType = 0;
@@ -1905,21 +1812,21 @@ void editorPreFrame(float deltaTime){
     if(!cursorMode && mouse.focusedThing){
       /*if(mouse.focusedType == mouseTileT || mouse.focusedType == mouseBlockT){
 	free(mouse.focusedThing);
-      }*/
+	}*/
 
       mouse.focusedThing = NULL;
       mouse.focusedType = 0;
     }
 
     if (currentKeyStates[SDL_SCANCODE_W]){
-	if (curCamera) {//cameraMode){
-	  vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
+      if (curCamera) {//cameraMode){
+	vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
 		    
-	  curCamera->pos.x -= cameraSpeed * normFront.x;
-	  curCamera->pos.y -= cameraSpeed * normFront.y;
-	  curCamera->pos.z -= cameraSpeed * normFront.z;
-	}
+	curCamera->pos.x -= cameraSpeed * normFront.x;
+	curCamera->pos.y -= cameraSpeed * normFront.y;
+	curCamera->pos.z -= cameraSpeed * normFront.z;
       }
+    }
     else if (currentKeyStates[SDL_SCANCODE_S])
       {
 	if (curCamera) {//cameraMode){
@@ -1933,8 +1840,8 @@ void editorPreFrame(float deltaTime){
 	  //	    glUniform3f(cameraPos, argVec3(curCamera->pos));
 	}
 	//else {
-	  //player.pos.x -= speed * sin(rad(player.angle));
-	  //player.pos.z -= speed * cos(rad(player.angle));
+	//player.pos.x -= speed * sin(rad(player.angle));
+	//player.pos.z -= speed * cos(rad(player.angle));
 	//}
       }
     else if (currentKeyStates[SDL_SCANCODE_D])
@@ -2039,96 +1946,185 @@ void editor3dRender() {
 
   // rotation circles
   if(cursorMode == rotationMode && mouse.focusedType == mouseModelT)
-  {
-    Model* model = mouse.focusedThing;
+    {
+      Model* model = mouse.focusedThing;
 
-    vec3 groundPos = model->rt;
+      vec3 groundPos = model->rt;
     
-    vec3 centroid = {
-      (model->rt.x+model->lb.x)/2.0f,
-      (model->rt.y+model->lb.y)/2.0f,
-      (model->rt.z+model->lb.z)/2.0f
-    };
+      vec3 centroid = {
+	(model->rt.x+model->lb.x)/2.0f,
+	(model->rt.y+model->lb.y)/2.0f,
+	(model->rt.z+model->lb.z)/2.0f
+      };
 
-    float scaleStep =  max(model->rt.z - centroid.z,max(model->rt.y - centroid.y, model->rt.x - centroid.x)) * 1.2f;
+      //    float scaleStep =  max(model->rt.z - centroid.z,max(model->rt.y - centroid.y, model->rt.x - centroid.x)) * 1.2f;
     
-    uniformVec3(lightSourceShader, "color", (vec3){ redColor });
+      uniformVec3(lightSourceShader, "color", (vec3){ redColor });
 
-    Matrix out2 = IDENTITY_MATRIX;
+      Matrix out2 = IDENTITY_MATRIX;
 
-    scale(&out2, scaleStep, scaleStep, scaleStep);
-    
-    out2.m[12] = centroid.x;
-    out2.m[13] = centroid.y;
-    out2.m[14] = centroid.z;
+      out2.m[12] = centroid.x;
+      out2.m[13] = centroid.y;
+      out2.m[14] = centroid.z;
 
-    // x axis
-    uniformMat4(lightSourceShader, "model", out2.m);
-    calculateAABB(out2, circle.vBuf, circle.vertexNum,circle.attrSize,
-		  &rotatingCirclesAABB[0][0], &rotatingCirclesAABB[1][0]);
+      // x axis
+      uniformMat4(lightSourceShader, "model", out2.m);
+      calculateAABB(out2, circle.vBuf, circle.vertexNum,circle.attrSize,
+		    &rotatingCirclesAABB[0][0], &rotatingCirclesAABB[1][0]);
 
-	printf("X axis: RT: %f %f %f LB: %f %f %f \n", argVec3(rotatingCirclesAABB[1][0]), argVec3(rotatingCirclesAABB[0][0]));
+      printf("X axis: RT: %f %f %f LB: %f %f %f \n", argVec3(rotatingCirclesAABB[1][0]), argVec3(rotatingCirclesAABB[0][0]));
 
-	glBindBuffer(GL_ARRAY_BUFFER, circle.VBO);
-	glBindVertexArray(circle.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, circle.VBO);
+      glBindVertexArray(circle.VAO);
 
-	glDrawArrays(GL_LINES, 0, circle.vertexNum);
+      glDisable(GL_DEPTH_TEST);
+      glDrawArrays(GL_LINES, 0, circle.vertexNum);
+      glEnable(GL_DEPTH_TEST);
 
-	float xTemp = out2.m[12];
-	float yTemp = out2.m[13];
-	float zTemp = out2.m[14];
+      float xTemp = out2.m[12];
+      float yTemp = out2.m[13];
+      float zTemp = out2.m[14];
 
-	out2.m[12] = 0;
-	out2.m[13] = 0;
-	out2.m[14] = 0;
+      out2.m[12] = 0;
+      out2.m[13] = 0;
+      out2.m[14] = 0;
 
-	rotateY(&out2, rad(90.0f));
+      rotateY(&out2, rad(90.0f));
 
-	out2.m[12] = centroid.x;
-	out2.m[13] = centroid.y;
-	out2.m[14] = centroid.z;
+      out2.m[12] = centroid.x;
+      out2.m[13] = centroid.y;
+      out2.m[14] = centroid.z;
 
-	uniformVec3(lightSourceShader, "color", (vec3) { blueColor });
+      uniformVec3(lightSourceShader, "color", (vec3) { blueColor });
 
-	// z axis
-	uniformMat4(lightSourceShader, "model", out2.m);
-	calculateAABB(out2, circle.vBuf, circle.vertexNum, circle.attrSize,
-		&rotatingCirclesAABB[0][2], &rotatingCirclesAABB[1][2]);
+      // z axis
+      uniformMat4(lightSourceShader, "model", out2.m);
+      calculateAABB(out2, circle.vBuf, circle.vertexNum, circle.attrSize,
+		    &rotatingCirclesAABB[0][2], &rotatingCirclesAABB[1][2]);
 
-	printf("X axis: RT: %f %f %f LB: %f %f %f \n", argVec3(rotatingCirclesAABB[1][2]), argVec3(rotatingCirclesAABB[0][2]));
+      printf("X axis: RT: %f %f %f LB: %f %f %f \n", argVec3(rotatingCirclesAABB[1][2]), argVec3(rotatingCirclesAABB[0][2]));
 
-	glDrawArrays(GL_LINES, 0, circle.vertexNum);
+      glDisable(GL_DEPTH_TEST);
+      glDrawArrays(GL_LINES, 0, circle.vertexNum);
+      glEnable(GL_DEPTH_TEST);
 
-	xTemp = out2.m[12];
-	yTemp = out2.m[13];
-	zTemp = out2.m[14];
+      xTemp = out2.m[12];
+      yTemp = out2.m[13];
+      zTemp = out2.m[14];
 
-	out2.m[12] = 0;
-	out2.m[13] = 0;
-	out2.m[14] = 0;
+      out2.m[12] = 0;
+      out2.m[13] = 0;
+      out2.m[14] = 0;
 
-	rotateY(&out2, rad(90.0f));
-	rotateX(&out2, rad(90.0f));
+      rotateY(&out2, rad(90.0f));
+      rotateX(&out2, rad(90.0f));
 
-	out2.m[12] = centroid.x;
-	out2.m[13] = centroid.y;
-	out2.m[14] = centroid.z;
+      out2.m[12] = centroid.x;
+      out2.m[13] = centroid.y;
+      out2.m[14] = centroid.z;
 
-	uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
-	// y axis
-	uniformMat4(lightSourceShader, "model", out2.m);
-	calculateAABB(out2, circle.vBuf, circle.vertexNum, circle.attrSize,
-		&rotatingCirclesAABB[0][1], &rotatingCirclesAABB[1][1]);
+      uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
+      // y axis
+      uniformMat4(lightSourceShader, "model", out2.m);
+      calculateAABB(out2, circle.vBuf, circle.vertexNum, circle.attrSize,
+		    &rotatingCirclesAABB[0][1], &rotatingCirclesAABB[1][1]);
 
-	printf("X axis: RT: %f %f %f LB: %f %f %f \n", argVec3(rotatingCirclesAABB[1][1]), argVec3(rotatingCirclesAABB[0][1]));
-  
-    glDrawArrays(GL_LINES, 0, circle.vertexNum);
+      printf("X axis: RT: %f %f %f LB: %f %f %f \n", argVec3(rotatingCirclesAABB[1][1]), argVec3(rotatingCirclesAABB[0][1]));
 
-    glBindTexture(GL_TEXTURE_2D, 0);
+      glDisable(GL_DEPTH_TEST);
+      glDrawArrays(GL_LINES, 0, circle.vertexNum);
+      glEnable(GL_DEPTH_TEST);
+
+      glBindTexture(GL_TEXTURE_2D, 0);
       
-    glBindBuffer(GL_ARRAY_BUFFER, 0); 
-    glBindVertexArray(0); 
-  }
+      glBindBuffer(GL_ARRAY_BUFFER, 0); 
+      glBindVertexArray(0); 
+    }
+
+  if(cursorMode == moveMode && mouse.focusedType == mouseModelT)
+    {
+      Model* model = mouse.focusedThing;
+
+      vec3 groundPos = model->rt;
+    
+      vec3 centroid = {
+	(model->rt.x+model->lb.x)/2.0f,
+	(model->rt.y+model->lb.y)/2.0f,
+	(model->rt.z+model->lb.z)/2.0f
+      };
+
+      uniformVec3(lightSourceShader, "color", (vec3){ redColor });
+
+      Matrix out2 = IDENTITY_MATRIX;
+
+      out2.m[12] = centroid.x;
+      out2.m[13] = centroid.y;
+      out2.m[14] = centroid.z;
+
+      // x axis
+      uniformMat4(lightSourceShader, "model", out2.m);
+      calculateAABB(out2, translatePair.vBuf, translatePair.vertexNum,translatePair.attrSize,
+		    &translateAABB[0][0], &translateAABB[1][0]);
+
+      glBindBuffer(GL_ARRAY_BUFFER, translatePair.VBO);
+      glBindVertexArray(translatePair.VAO);
+
+      glDisable(GL_DEPTH_TEST);
+      glDrawArrays(GL_TRIANGLES, 0, translatePair.vertexNum);
+      glEnable(GL_DEPTH_TEST);
+      
+      out2 = IDENTITY_MATRIX;
+
+      out2.m[12] = 0;
+      out2.m[13] = 0;
+      out2.m[14] = 0;
+
+      rotateY(&out2, rad(90.0f));
+
+      out2.m[12] = centroid.x;
+      out2.m[13] = centroid.y;
+      out2.m[14] = centroid.z;
+
+      uniformVec3(lightSourceShader, "color", (vec3) { blueColor });
+
+      // z axis
+      uniformMat4(lightSourceShader, "model", out2.m);
+      calculateAABB(out2, translatePair.vBuf, translatePair.vertexNum, translatePair.attrSize,
+		    &translateAABB[0][2], &translateAABB[1][2]);
+
+      glDisable(GL_DEPTH_TEST);
+      glDrawArrays(GL_TRIANGLES, 0, translatePair.vertexNum);
+      glEnable(GL_DEPTH_TEST);
+
+      out2 = IDENTITY_MATRIX;
+      
+      out2.m[12] = 0;
+      out2.m[13] = 0;
+      out2.m[14] = 0;
+
+      rotateZ(&out2, -rad(90.0f));
+
+      out2.m[12] = centroid.x;
+      out2.m[13] = centroid.y;
+      out2.m[14] = centroid.z;
+
+      uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
+      
+      // y axis
+      uniformMat4(lightSourceShader, "model", out2.m);
+      calculateAABB(out2, translatePair.vBuf, translatePair.vertexNum, translatePair.attrSize,
+		    &translateAABB[0][1], &translateAABB[1][1]);
+  
+      glDisable(GL_DEPTH_TEST);
+      glDrawArrays(GL_TRIANGLES, 0, translatePair.vertexNum);
+      glEnable(GL_DEPTH_TEST);
+
+      glBindTexture(GL_TEXTURE_2D, 0);
+      
+      glBindBuffer(GL_ARRAY_BUFFER, 0); 
+      glBindVertexArray(0); 
+    }
+ 
   
   
   // lights render
@@ -2158,308 +2154,338 @@ void editor3dRender() {
 
   glUseProgram(shadersId[mainShader]); 
   
-// render mouse.brush
-    if(mouse.selectedType == mouseTileT){
-	TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
+  // render mouse.brush
+  if(mouse.selectedType == mouseTileT){
+    TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
 
-	const vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
+    const vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
 	
-	if(tileData->intersection.x < tile.x + borderArea && tileData->intersection.x >= tile.x - borderArea) {
-	  mouse.tileSide = left;
-	}
-	else {
-	  if (tileData->intersection.z < tile.z + borderArea && tileData->intersection.z >= tile.z - borderArea) {
-	    mouse.tileSide = top;
-	  }
-	  else if (tileData->intersection.z > (tile.z + bBlockD / 2) - borderArea && tileData->intersection.z < (tile.z + bBlockD / 2) + borderArea && tileData->intersection.x >(tile.x + bBlockW / 2) - borderArea && tileData->intersection.x < (tile.x +bBlockW/2) + borderArea){
-	    mouse.tileSide = center;
-	  }else{
-	    mouse.tileSide = -1;
-	  }
-	}
+    if(tileData->intersection.x < tile.x + borderArea && tileData->intersection.x >= tile.x - borderArea) {
+      mouse.tileSide = left;
+    }
+    else {
+      if (tileData->intersection.z < tile.z + borderArea && tileData->intersection.z >= tile.z - borderArea) {
+	mouse.tileSide = top;
+      }
+      else if (tileData->intersection.z > (tile.z + bBlockD / 2) - borderArea && tileData->intersection.z < (tile.z + bBlockD / 2) + borderArea && tileData->intersection.x >(tile.x + bBlockW / 2) - borderArea && tileData->intersection.x < (tile.x +bBlockW/2) + borderArea){
+	mouse.tileSide = center;
+      }else{
+	mouse.tileSide = -1;
+      }
+    }
 
-	const float selectionW = borderArea * 3;
+    const float selectionW = borderArea * 3;
 
-	/*if (mouse.tileSide != -1) {
-	  glBindVertexArray(selectionRectVAO);
-	  glBindBuffer(GL_ARRAY_BUFFER, selectionRectVBO);
+    /*if (mouse.tileSide != -1) {
+      glBindVertexArray(selectionRectVAO);
+      glBindBuffer(GL_ARRAY_BUFFER, selectionRectVBO);
 
-	  Matrix out = IDENTITY_MATRIX;
+      Matrix out = IDENTITY_MATRIX;
 
-	  out.m[12] = tile.x;
-	  out.m[13] = tile.y;
-	  out.m[14] = tile.z;
+      out.m[12] = tile.x;
+      out.m[13] = tile.y;
+      out.m[14] = tile.z;
 		
-	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
-	}*/
+      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
+      }*/
 
-	//	printf("%d \n", mouse.tileSide);
+    //	printf("%d \n", mouse.tileSide);
 
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
-  	static vec3 prevTile = {-1,-1,-1};
+    static vec3 prevTile = {-1,-1,-1};
 
-	if(mouse.brushType == mouseBlockBrushT){
-	  TileBlock* block = (TileBlock*) mouse.brushThing;
+    if(mouse.brushType == mouseBlockBrushT){
+      TileBlock* block = (TileBlock*) mouse.brushThing;
 	  
-	  if((prevTile.x != -1 && prevTile.y != -1 && prevTile.z != -1)
-	     && (prevTile.x != tile.x || prevTile.y != tile.y || prevTile.z != tile.z)){   
-	    block->mat = IDENTITY_MATRIX; 
+      if((prevTile.x != -1 && prevTile.y != -1 && prevTile.z != -1)
+	 && (prevTile.x != tile.x || prevTile.y != tile.y || prevTile.z != tile.z)){   
+	block->mat = IDENTITY_MATRIX; 
 
-	    rotateY(block->mat.m, rad(block->rotateAngle)); 
+	rotateY(block->mat.m, rad(block->rotateAngle)); 
 			
-	    block->mat.m[12] = tile.x;
-	    block->mat.m[13] = tile.y;
-	    block->mat.m[14] = tile.z;
+	block->mat.m[12] = tile.x;
+	block->mat.m[13] = tile.y;
+	block->mat.m[14] = tile.z;
 
-	    block->tile = tileData->tile;
+	block->tile = tileData->tile;
 	    
-	    int index = (block->rotateAngle) / 90;
+	int index = (block->rotateAngle) / 90;
 
-	    //	    block->mat.m[12] += rotationBlock[index][0];
-	    //	    block->mat.m[14] += rotationBlock[index][1];
+	//	    block->mat.m[12] += rotationBlock[index][0];
+	//	    block->mat.m[14] += rotationBlock[index][1];
 	    
-	    //	    
-	    if(block->rotateAngle == 90){
-		    block->mat.m[14] += bBlockW;
-	    }
-	    else if (block->rotateAngle == 180) {
-	      block->mat.m[12] += bBlockW;
-	      block->mat.m[14] += bBlockW;
-	    }
-	    else if (block->rotateAngle == 270) {
-	      block->mat.m[12] += bBlockD;
-	    }
-	  }
-
-	  prevTile.x = tile.x;
-	  prevTile.y = tile.y;
-	  prevTile.z = tile.z;  
-
-	  glBindVertexArray(blocksVPairs[block->type].pairs[0].VAO); 
-	  glBindBuffer(GL_ARRAY_BUFFER, blocksVPairs[block->type].pairs[0].VBO);  
-
-	  glBindTexture(GL_TEXTURE_2D, loadedTextures1D[block->txIndex].tx);
-	  uniformMat4(mainShader, "model", block->mat.m);
-
-	  glDrawArrays(GL_TRIANGLES, 0, blocksVPairs[block->type].pairs[0].vertexNum);
-
-	  glBindBuffer(GL_ARRAY_BUFFER, 0); 
-	  glBindVertexArray(0);
-	}else if(mouse.brushType == mouseWallBrushT && mouse.tileSide != -1 && mouse.tileSide != center){
-	  vec2i curTile = tileData->grid;
-	  Side selectedSide = mouse.tileSide;
-	   
-	  WallType* type = mouse.brushThing;
-
-	  Wall wal = {0};
-
-	  // setup wall 
-	  {
-	    memset(&wal, 0, sizeof(Wall));
-
-	    wal.type = *type;
-	    wal.mat = IDENTITY_MATRIX;
-
-	    wal.mat.m[12] = tile.x; 
-	    wal.mat.m[13] = tile.y;
-	    wal.mat.m[14] = tile.z;
-	  }
-	  
-	  static const int rotationPad[4][3] = { 
-	    [bot] = { 180, 1, 1 },
-	    [top]= { 0, 0, 0  },
-	    [left]= { 270, 0, 0 }, 
-	    [right]= { 90, 1, 1}//{ 180, 14, 1, 12, 1 }
-	  };
-
-	  // rotate wall to selectedSide
-	  {
-	    Matrix* mat = &wal.mat;
-
-	    float xTemp = mat->m[12];
-	    float yTemp = mat->m[13];
-	    float zTemp = mat->m[14];
-
-	    rotateY(wal.mat.m, rad(rotationPad[selectedSide][0]));
-
-	    mat->m[12] = xTemp;
-	    mat->m[13] = yTemp;
-	    mat->m[14] = zTemp;
-
-	    mat->m[12] += rotationPad[selectedSide][2];
-	    mat->m[14] += rotationPad[selectedSide][1];
-	  }
-
-	  // brush phantom
-	  {
-	    uniformMat4(mainShader, "model", wal.mat.m);
-	    
-	    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[0].tx);
-	  
-	    for(int i=0;i<wallsVPairs[wal.type].planesNum;i++){
-	      glBindVertexArray(wallsVPairs[wal.type].pairs[i].VAO);
-	      glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wal.type].pairs[i].VBO);
-
-	      glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[wal.type].pairs[i].vertexNum);
-	      
-	      glBindVertexArray(0);
-	      glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    }
-	    
-	    glBindTexture(GL_TEXTURE_2D, 0);
-	    glBindVertexArray(0);
-	    glBindBuffer(GL_ARRAY_BUFFER, 0);
-	  }
-	  
-	  vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor,tileData->grid.z);
-
-	  if(mouse.clickR){ 
-	    wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
-
-	    if(!tileData->tile){
-	      printf("Calllllllll\n");
-	      grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
-	      tileData->tile = grid[curFloor][tileData->grid.z][tileData->grid.x];
-	    }
-	    
-	    for(int i=0;i<wallsVPairs[wal.type].planesNum;i++){
-	      calculateAABB(wal.mat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, wallsVPairs[wal.type].pairs[i].attrSize, &wal.planes[i].lb, &wal.planes[i].rt);
-	    }
-
-	    if(selectedSide == left){
-	      bool botInner = tileData->tile->walls[top].planes;
-
-	      bool botOuter = tileData->grid.x - 1 >= 0 && grid[curFloor][tileData->grid.z][tileData->grid.x - 1] && grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->walls[top].planes;
-
-	      bool botPar = tileData->grid.z + 1 < gridZ && grid[curFloor][tileData->grid.z + 1][tileData->grid.x] && grid[curFloor][tileData->grid.z + 1][tileData->grid.x]->walls[left].planes;
-
-	      if(botPar){
-		grid[curFloor][tileData->grid.z + 1][tileData->grid.x]->jointExist[top] = false;
-
-		if (grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1]) {
-		grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1]->jointExist[right] = false;
-		}
-	      }
-
-	      bool topPar = tileData->grid.x - 1 >= 0 && grid[curFloor][tileData->grid.z - 1][tileData->grid.x] && grid[curFloor][tileData->grid.z - 1][tileData->grid.x]->walls[left].planes;
-	      
-	      if(topPar){
-			  if (grid[curFloor][tileData->grid.z - 1][tileData->grid.x - 1]) {
-		grid[curFloor][tileData->grid.z - 1][tileData->grid.x-1]->jointExist[left] = false;
-			  }
-		grid[curFloor][tileData->grid.z][tileData->grid.x]->jointExist[bot] = false;
-	      }
-
-	      if((!botInner || !botOuter) && !topPar){
-		if(botInner){
-		  tileData->tile->jointExist[top] = true;
-		  setupAABBAndMatForJoint(tileData->grid, top);
-		}
-
-		if(botOuter){
-		  if(!grid[curFloor][tileData->grid.z][tileData->grid.x - 1]){
-		    grid[curFloor][tileData->grid.z][tileData->grid.x - 1] = calloc(1, sizeof(Tile));
-		  }
-		  
-		  grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->jointExist[right] = true;
-		  setupAABBAndMatForJoint((vec2i){ tileData->grid.x - 1, tileData->grid.z }, right);
-		}
-	      }
-
-	      bool topOuter = tileData->grid.z + 1 < gridZ && grid[curFloor][tileData->grid.z + 1][tileData->grid.x] && grid[curFloor][tileData->grid.z + 1][tileData->grid.x]->walls[top].planes;
-	      
-	      bool topInner = (tileData->grid.z + 1 < gridZ) && (tileData->grid.x - 1 >= 0) && grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1] && grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1]->walls[top].planes;
-	      
-	      if((!topInner || !topOuter) && !botPar){
-		if(topInner){
-		  if(!grid[curFloor][tileData->grid.z][tileData->grid.x-1]){
-		    grid[curFloor][tileData->grid.z][tileData->grid.x-1] = calloc(1, sizeof(Tile));
-		  }
-
-		  grid[curFloor][tileData->grid.z][tileData->grid.x-1]->jointExist[left] = true;
-		  setupAABBAndMatForJoint((vec2i){ tileData->grid.x - 1, tileData->grid.z }, left);
-		}
-
-		if(topOuter){
-		  if(!grid[curFloor][tileData->grid.z+1][tileData->grid.x]){
-		    grid[curFloor][tileData->grid.z+1][tileData->grid.x] = calloc(1, sizeof(Tile));
-		  }
-		  
-		  grid[curFloor][tileData->grid.z+1][tileData->grid.x]->jointExist[bot] = true;
-		  setupAABBAndMatForJoint((vec2i){ tileData->grid.x, tileData->grid.z + 1 }, bot);
-		}
-	      } 
-	    }else if(selectedSide == top){
-	      bool leftInner = tileData->tile->walls[left].planes;
-	      
-	      bool leftOuter = tileData->grid.z - 1 >= 0 && grid[curFloor][tileData->grid.z - 1][tileData->grid.x] && grid[curFloor][tileData->grid.z - 1][tileData->grid.x]->walls[left].planes;
-
-	      bool leftPar = tileData->grid.x - 1 >= 0 && grid[curFloor][tileData->grid.z][tileData->grid.x - 1] && grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->walls[top].planes;
-
-	      if(leftPar){
-		grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->jointExist[right] = false;
-
-		if (grid[curFloor][tileData->grid.z - 1][tileData->grid.x - 1]) {
-		grid[curFloor][tileData->grid.z-1][tileData->grid.x-1]->jointExist[left] = false; 
-		}
-	      }
-
-	      bool rightPar = tileData->grid.x + 1 < gridX && grid[curFloor][tileData->grid.z][tileData->grid.x + 1] && grid[curFloor][tileData->grid.z][tileData->grid.x + 1]->walls[top].planes;
-
-	      if(rightPar){
-		grid[curFloor][tileData->grid.z][tileData->grid.x + 1]->jointExist[bot] = false;
-		grid[curFloor][tileData->grid.z][tileData->grid.x + 1]->jointExist[top] = false;
-	      }
-
-	      if((!leftInner || !leftOuter) && !leftPar){
-		if(leftInner){
-		  printf("Inner\n");
-		  tileData->tile->jointExist[top] = true;
-		  setupAABBAndMatForJoint(tileData->grid, top);
-		}
-
-		if(leftOuter){
-		  printf("Out\n");
-		  tileData->tile->jointExist[bot] = true;
-		  setupAABBAndMatForJoint(tileData->grid, bot);
-		}
-	      }
-
-	      bool rightInner = tileData->grid.x + 1 < gridX && grid[curFloor][tileData->grid.z][tileData->grid.x +1] && grid[curFloor][tileData->grid.z][tileData->grid.x +1]->walls[left].planes;
-	      
-	      bool rightOuter = (tileData->grid.z - 1 >= 0) && (tileData->grid.x + 1 < gridX) && grid[curFloor][tileData->grid.z - 1][tileData->grid.x + 1] && grid[curFloor][tileData->grid.z - 1][tileData->grid.x + 1]->walls[left].planes;
-
-	      if((!rightInner || !rightOuter) && !rightPar){
-		if(rightInner){
-		  tileData->tile->jointExist[right] = true;
-		  setupAABBAndMatForJoint(tileData->grid, right);
-		}
-
-		if(rightOuter){
-		  if(!grid[curFloor][tileData->grid.z - 1][tileData->grid.x]){
-		    grid[curFloor][tileData->grid.z - 1][tileData->grid.x] = calloc(1, sizeof(Tile));
-		  }
-		  
-		  grid[curFloor][tileData->grid.z - 1][tileData->grid.x]->jointExist[left] = true;
-		  setupAABBAndMatForJoint((vec2i){ tileData->grid.x, tileData->grid.z - 1 }, left);
-		}
-	      } 
-	    }
-
-	    memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x]->walls[selectedSide], &wal, sizeof(Wall));
-
-	    batchGeometry();
-	  }
+	//	    
+	if(block->rotateAngle == 90){
+	  block->mat.m[14] += bBlockW;
+	}
+	else if (block->rotateAngle == 180) {
+	  block->mat.m[12] += bBlockW;
+	  block->mat.m[14] += bBlockW;
+	}
+	else if (block->rotateAngle == 270) {
+	  block->mat.m[12] += bBlockD;
 	}
       }
+
+      prevTile.x = tile.x;
+      prevTile.y = tile.y;
+      prevTile.z = tile.z;  
+
+      glBindVertexArray(blocksVPairs[block->type].pairs[0].VAO); 
+      glBindBuffer(GL_ARRAY_BUFFER, blocksVPairs[block->type].pairs[0].VBO);  
+
+      glBindTexture(GL_TEXTURE_2D, loadedTextures1D[block->txIndex].tx);
+      uniformMat4(mainShader, "model", block->mat.m);
+
+      glDrawArrays(GL_TRIANGLES, 0, blocksVPairs[block->type].pairs[0].vertexNum);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0); 
+      glBindVertexArray(0);
+    }else if(mouse.brushType == mouseWallBrushT && mouse.tileSide != -1 && mouse.tileSide != center){
+      vec2i curTile = tileData->grid;
+      Side selectedSide = mouse.tileSide;
+	   
+      WallType* type = mouse.brushThing;
+
+      Wall wal = {0};
+
+      // setup wall 
+      {
+	memset(&wal, 0, sizeof(Wall));
+
+	wal.type = *type;
+	wal.mat = IDENTITY_MATRIX;
+
+	wal.mat.m[12] = tile.x; 
+	wal.mat.m[13] = tile.y;
+	wal.mat.m[14] = tile.z;
+      }
+	  
+      static const int rotationPad[4][3] = { 
+	[bot] = { 180, 1, 1 },
+	[top]= { 0, 0, 0  },
+	[left]= { 270, 0, 0 }, 
+	[right]= { 90, 1, 1}//{ 180, 14, 1, 12, 1 }
+      };
+
+      // rotate wall to selectedSide
+      {
+	Matrix* mat = &wal.mat;
+
+	float xTemp = mat->m[12];
+	float yTemp = mat->m[13];
+	float zTemp = mat->m[14];
+
+	rotateY(wal.mat.m, rad(rotationPad[selectedSide][0]));
+
+	mat->m[12] = xTemp;
+	mat->m[13] = yTemp;
+	mat->m[14] = zTemp;
+
+	mat->m[12] += rotationPad[selectedSide][2];
+	mat->m[14] += rotationPad[selectedSide][1];
+      }
+
+      // brush phantom
+      {
+	uniformMat4(mainShader, "model", wal.mat.m);
+	    
+	glBindTexture(GL_TEXTURE_2D, loadedTextures1D[0].tx);
+	  
+	for(int i=0;i<wallsVPairs[wal.type].planesNum;i++){
+	  glBindVertexArray(wallsVPairs[wal.type].pairs[i].VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wal.type].pairs[i].VBO);
+
+	  glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[wal.type].pairs[i].vertexNum);
+	      
+	  glBindVertexArray(0);
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+	    
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+      }
+	  
+      vec3 tile = xyz_indexesToCoords(tileData->grid.x,curFloor,tileData->grid.z);
+
+      if(mouse.clickR){ 
+	wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
+
+	if(!tileData->tile){
+	  printf("Calllllllll\n");
+	  grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
+	  tileData->tile = grid[curFloor][tileData->grid.z][tileData->grid.x];
+	}
+	    
+	for(int i=0;i<wallsVPairs[wal.type].planesNum;i++){
+	  calculateAABB(wal.mat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, wallsVPairs[wal.type].pairs[i].attrSize, &wal.planes[i].lb, &wal.planes[i].rt);
+	}
+
+	if(selectedSide == left){
+	  bool botInner = tileData->tile->walls[top].planes;
+
+	  bool botOuter = tileData->grid.x - 1 >= 0 && grid[curFloor][tileData->grid.z][tileData->grid.x - 1] && grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->walls[top].planes;
+
+	  bool botPar = tileData->grid.z + 1 < gridZ && grid[curFloor][tileData->grid.z + 1][tileData->grid.x] && grid[curFloor][tileData->grid.z + 1][tileData->grid.x]->walls[left].planes;
+
+	  if(botPar){
+	    grid[curFloor][tileData->grid.z + 1][tileData->grid.x]->jointExist[top] = false;
+
+	    if (grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1]) {
+	      grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1]->jointExist[right] = false;
+	    }
+	  }
+
+	  bool topPar = tileData->grid.x - 1 >= 0 && grid[curFloor][tileData->grid.z - 1][tileData->grid.x] && grid[curFloor][tileData->grid.z - 1][tileData->grid.x]->walls[left].planes;
+	      
+	  if(topPar){
+	    if (grid[curFloor][tileData->grid.z - 1][tileData->grid.x - 1]) {
+	      grid[curFloor][tileData->grid.z - 1][tileData->grid.x-1]->jointExist[left] = false;
+	    }
+	    grid[curFloor][tileData->grid.z][tileData->grid.x]->jointExist[bot] = false;
+	  }
+
+	  if((!botInner || !botOuter) && !topPar){
+	    if(botInner){
+	      tileData->tile->jointExist[top] = true;
+	      setupAABBAndMatForJoint(tileData->grid, top);
+	    }
+
+	    if(botOuter){
+	      if(!grid[curFloor][tileData->grid.z][tileData->grid.x - 1]){
+		grid[curFloor][tileData->grid.z][tileData->grid.x - 1] = calloc(1, sizeof(Tile));
+	      }
+		  
+	      grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->jointExist[right] = true;
+	      setupAABBAndMatForJoint((vec2i){ tileData->grid.x - 1, tileData->grid.z }, right);
+	    }
+	  }
+
+	  bool topOuter = tileData->grid.z + 1 < gridZ && grid[curFloor][tileData->grid.z + 1][tileData->grid.x] && grid[curFloor][tileData->grid.z + 1][tileData->grid.x]->walls[top].planes;
+	      
+	  bool topInner = (tileData->grid.z + 1 < gridZ) && (tileData->grid.x - 1 >= 0) && grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1] && grid[curFloor][tileData->grid.z + 1][tileData->grid.x - 1]->walls[top].planes;
+	      
+	  if((!topInner || !topOuter) && !botPar){
+	    if(topInner){
+	      if(!grid[curFloor][tileData->grid.z][tileData->grid.x-1]){
+		grid[curFloor][tileData->grid.z][tileData->grid.x-1] = calloc(1, sizeof(Tile));
+	      }
+
+	      grid[curFloor][tileData->grid.z][tileData->grid.x-1]->jointExist[left] = true;
+	      setupAABBAndMatForJoint((vec2i){ tileData->grid.x - 1, tileData->grid.z }, left);
+	    }
+
+	    if(topOuter){
+	      if(!grid[curFloor][tileData->grid.z+1][tileData->grid.x]){
+		grid[curFloor][tileData->grid.z+1][tileData->grid.x] = calloc(1, sizeof(Tile));
+	      }
+		  
+	      grid[curFloor][tileData->grid.z+1][tileData->grid.x]->jointExist[bot] = true;
+	      setupAABBAndMatForJoint((vec2i){ tileData->grid.x, tileData->grid.z + 1 }, bot);
+	    }
+	  } 
+	}else if(selectedSide == top){
+	  bool leftInner = tileData->tile->walls[left].planes;
+	      
+	  bool leftOuter = tileData->grid.z - 1 >= 0 && grid[curFloor][tileData->grid.z - 1][tileData->grid.x] && grid[curFloor][tileData->grid.z - 1][tileData->grid.x]->walls[left].planes;
+
+	  bool leftPar = tileData->grid.x - 1 >= 0 && grid[curFloor][tileData->grid.z][tileData->grid.x - 1] && grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->walls[top].planes;
+
+	  if(leftPar){
+	    grid[curFloor][tileData->grid.z][tileData->grid.x - 1]->jointExist[right] = false;
+
+	    if (grid[curFloor][tileData->grid.z - 1][tileData->grid.x - 1]) {
+	      grid[curFloor][tileData->grid.z-1][tileData->grid.x-1]->jointExist[left] = false; 
+	    }
+	  }
+
+	  bool rightPar = tileData->grid.x + 1 < gridX && grid[curFloor][tileData->grid.z][tileData->grid.x + 1] && grid[curFloor][tileData->grid.z][tileData->grid.x + 1]->walls[top].planes;
+
+	  if(rightPar){
+	    grid[curFloor][tileData->grid.z][tileData->grid.x + 1]->jointExist[bot] = false;
+	    grid[curFloor][tileData->grid.z][tileData->grid.x + 1]->jointExist[top] = false;
+	  }
+
+	  if((!leftInner || !leftOuter) && !leftPar){
+	    if(leftInner){
+	      printf("Inner\n");
+	      tileData->tile->jointExist[top] = true;
+	      setupAABBAndMatForJoint(tileData->grid, top);
+	    }
+
+	    if(leftOuter){
+	      printf("Out\n");
+	      tileData->tile->jointExist[bot] = true;
+	      setupAABBAndMatForJoint(tileData->grid, bot);
+	    }
+	  }
+
+	  bool rightInner = tileData->grid.x + 1 < gridX && grid[curFloor][tileData->grid.z][tileData->grid.x +1] && grid[curFloor][tileData->grid.z][tileData->grid.x +1]->walls[left].planes;
+	      
+	  bool rightOuter = (tileData->grid.z - 1 >= 0) && (tileData->grid.x + 1 < gridX) && grid[curFloor][tileData->grid.z - 1][tileData->grid.x + 1] && grid[curFloor][tileData->grid.z - 1][tileData->grid.x + 1]->walls[left].planes;
+
+	  if((!rightInner || !rightOuter) && !rightPar){
+	    if(rightInner){
+	      tileData->tile->jointExist[right] = true;
+	      setupAABBAndMatForJoint(tileData->grid, right);
+	    }
+
+	    if(rightOuter){
+	      if(!grid[curFloor][tileData->grid.z - 1][tileData->grid.x]){
+		grid[curFloor][tileData->grid.z - 1][tileData->grid.x] = calloc(1, sizeof(Tile));
+	      }
+		  
+	      grid[curFloor][tileData->grid.z - 1][tileData->grid.x]->jointExist[left] = true;
+	      setupAABBAndMatForJoint((vec2i){ tileData->grid.x, tileData->grid.z - 1 }, left);
+	    }
+	  } 
+	}
+
+	memcpy(&grid[curFloor][(int)curTile.z][(int)curTile.x]->walls[selectedSide], &wal, sizeof(Wall));
+
+	batchGeometry();
+      }
+    }
+  }
 }
 //}
 
 void editor2dRender(){
+  char buf[64];
+  vec3 diffDrag = { curPoss.x - posOfStart.x, curPoss.y - posOfStart.y, curPoss.z - posOfStart.z };
+
+  //  if(cursorMode == rotation)
+  sprintf(buf, "%s - diff %f %f %f", rotatingAxisStr[selectedGizmoAxis], argVec3(diffDrag));
+
+  sprintf(buf, "%s - diff %f %f %f", rotatingAxisStr[selectedGizmoAxis], argVec3(diffDrag));
+  
+  renderText(buf, 0.0f, 0.0f, 1.0f);
+
+  vec3 axis;
+
+  if(selectedGizmoAxis - 1 == XCircle){
+    axis = (vec3){0,0,1};
+  }else if(selectedGizmoAxis - 1 == YCircle){
+    axis = (vec3){0,1,0};
+  }else if(selectedGizmoAxis - 1 == ZCircle){
+    axis = (vec3){0,1,0};
+  }
+
+  float dotPr = dotf3(diffDrag, axis);
+  float mag = sqrtf(diffDrag.y * diffDrag.y + diffDrag.z * diffDrag.z);
+    
+  float angle = acosf(dotPr/mag) * (180.0f / 3.14159265358979323846);
+  
+  sprintf(buf, "angle %f", angle);
+  renderText(buf, 0.0f, letterH, 1.0f);
+
+  //  sprintf(buf, "cur %f %f %f", argVec3(curPoss));
+  //  renderText(buf, 0.0f, letterH*2, 1.0f);
     
   // setup context text
   {
@@ -2821,13 +2847,13 @@ void editor2dRender(){
 	  curModels[curModelsSize-1].mat.m[13] = mouse.rayDir.y +curCamera->pos.y;
 	  curModels[curModelsSize-1].mat.m[14] = (mouse.rayDir.z*modelSize.z*4.0f) +curCamera->pos.z;
 	}
-	  calculateModelAABB(&curModels[curModelsSize-1]);
+	calculateModelAABB(&curModels[curModelsSize-1]);
 	  
-	  objectsMenu.open = false;
-	  curMenu = NULL;
-	};
+	objectsMenu.open = false;
+	curMenu = NULL;
+      };
 
-	setSolidColorTx(redColor, 1.0f);
+      setSolidColorTx(redColor, 1.0f);
       
       glBindVertexArray(hudRect.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
@@ -2857,7 +2883,7 @@ void editor2dRender(){
 
     // types of models
     {
-    glActiveTexture(GL_TEXTURE0);
+      glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, solidColorTx);
 
       float typeButtonW = (1.0f + objectsMenuWidth) / 2;
@@ -2874,7 +2900,7 @@ void editor2dRender(){
       }
 	
       glBindVertexArray(hudRect.VAO);
-	  glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
 	  
       for(int i=0; i<modelTypeCounter;i++){
 	if(i == objectsMenuSelectedType){
@@ -3898,42 +3924,42 @@ void editor2dRender(){
 
   // render context text
   /*  if(!curMenu && hints){
-    // black backGround drawins
-    {
-      glActiveTexture(GL_TEXTURE0);;
-      glBindTexture(GL_TEXTURE_2D, solidColorTx);
-      setSolidColorTx(blackColor, 1.0f);
+  // black backGround drawins
+  {
+  glActiveTexture(GL_TEXTURE0);;
+  glBindTexture(GL_TEXTURE_2D, solidColorTx);
+  setSolidColorTx(blackColor, 1.0f);
 	
-      glBindVertexArray(hudRect.VAO);
-      glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
+  glBindVertexArray(hudRect.VAO);
+  glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
 	    
-      float answerSelection[] = {
-	-1.0f, -1.0f + (letterH * contextBelowTextH), 0.0f, 1.0f,
-	1.0f, -1.0f + (letterH * contextBelowTextH), 1.0f, 1.0f,
-	-1.0f, -1.0f, 0.0f, 0.0f,
+  float answerSelection[] = {
+  -1.0f, -1.0f + (letterH * contextBelowTextH), 0.0f, 1.0f,
+  1.0f, -1.0f + (letterH * contextBelowTextH), 1.0f, 1.0f,
+  -1.0f, -1.0f, 0.0f, 0.0f,
 
-	1.0f, -1.0f + (letterH * contextBelowTextH), 1.0f, 1.0f,
-	-1.0f, -1.0f, 1.0f, 0.0f,
-	1.0f, -1.0f, 0.0f, 0.0f, 
-      };
+  1.0f, -1.0f + (letterH * contextBelowTextH), 1.0f, 1.0f,
+  -1.0f, -1.0f, 1.0f, 0.0f,
+  1.0f, -1.0f, 0.0f, 0.0f, 
+  };
 
-      glBufferData(GL_ARRAY_BUFFER, sizeof(answerSelection), answerSelection, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(answerSelection), answerSelection, GL_STATIC_DRAW);
 
-      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-      glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+  glEnableVertexAttribArray(0);
 
-      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-      glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+  glEnableVertexAttribArray(1);
 
-      glDrawArrays(GL_TRIANGLES, 0, 6);
+  glDrawArrays(GL_TRIANGLES, 0, 6);
     
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glBindVertexArray(0);
-    }
-
-    renderText(contextBelowText, -1.0f, -1.0f + letterH * contextBelowTextH, 1.0f); 
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
   }
-*/
+
+  renderText(contextBelowText, -1.0f, -1.0f + letterH * contextBelowTextH, 1.0f); 
+  }
+  */
 
   // render cursor
   if(curMenu || cursorMode)
@@ -3953,16 +3979,16 @@ void editor2dRender(){
 
 	
       /*      float cursorPoint[] = {
-	mouse.cursor.x + cursorW * 0.05f, mouse.cursor.z + cursorH, 0.0f, 0.0f,
-	mouse.cursor.x + cursorW, mouse.cursor.z + cursorH/2.0f, 0.0f, 0.0f,
-	mouse.cursor.x, mouse.cursor.z + cursorH / 4.0f, 0.0f, 0.0f, 
-	};
+	      mouse.cursor.x + cursorW * 0.05f, mouse.cursor.z + cursorH, 0.0f, 0.0f,
+	      mouse.cursor.x + cursorW, mouse.cursor.z + cursorH/2.0f, 0.0f, 0.0f,
+	      mouse.cursor.x, mouse.cursor.z + cursorH / 4.0f, 0.0f, 0.0f, 
+	      };
 
-	float cursorPoint[] = {
-	x + cursorW * 0.05f, z - cursorH, 0.0f, 0.0f,
-	x + cursorW, z - cursorH/2.0f,    0.0f, 0.0f,
-	x, z - cursorH / 4.0f,            0.0f, 0.0f, 
-	};
+	      float cursorPoint[] = {
+	      x + cursorW * 0.05f, z - cursorH, 0.0f, 0.0f,
+	      x + cursorW, z - cursorH/2.0f,    0.0f, 0.0f,
+	      x, z - cursorH / 4.0f,            0.0f, 0.0f, 
+	      };
       */
 
       float cursorPoint[] = {
@@ -4067,7 +4093,7 @@ void createLight(vec3 pos, int type){
   uniformLights();
 
   if (type == shadowPointLightT) {
-	rerenderShadowForLight(lightsStore[type][indexOfNew].id);
+    rerenderShadowForLight(lightsStore[type][indexOfNew].id);
   }
 }
 
@@ -4077,68 +4103,319 @@ void uniformLights(){
 
   glUseProgram(shadersId[mainShader]);
 
-    char buf[64];
+  char buf[64];
 
-    static const char* shaderVarSufixStr[] = {
-      [pointLightT] = "point",
-      [shadowPointLightT] = "shadowPoint"
-    };
+  static const char* shaderVarSufixStr[] = {
+    [pointLightT] = "point",
+    [shadowPointLightT] = "shadowPoint"
+  };
 
-    uniformFloat(mainShader, "radius", max(gridX / 2.0f, gridZ / 2.0f));
+  uniformFloat(mainShader, "radius", max(gridX / 2.0f, gridZ / 2.0f));
 
-    int localLightsCounter[lightsTypeCounter] = { 0 };
+  int localLightsCounter[lightsTypeCounter] = { 0 };
     
-    for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
-      for (int i = 0; i < lightsStoreSizeByType[i2]; i++) {
-	if (lightsStore[i2][i].off) {
-	  continue;
-	}
+  for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
+    for (int i = 0; i < lightsStoreSizeByType[i2]; i++) {
+      if (lightsStore[i2][i].off) {
+	continue;
+      }
 
-	sprintf(buf, "%sLights[%i].pos",
-		shaderVarSufixStr[i2], i);
-	uniformVec3(mainShader, buf, (vec3) { lightsStore[i2][i].mat.m[12], lightsStore[i2][i].mat.m[13], lightsStore[i2][i].mat.m[14], });
+      sprintf(buf, "%sLights[%i].pos",
+	      shaderVarSufixStr[i2], i);
+      uniformVec3(mainShader, buf, (vec3) { lightsStore[i2][i].mat.m[12], lightsStore[i2][i].mat.m[13], lightsStore[i2][i].mat.m[14], });
 
-	sprintf(buf, "%sLights[%i].color",
-		shaderVarSufixStr[i2], i);
-	uniformVec3(mainShader, buf, lightsStore[i2][i].color);
+      sprintf(buf, "%sLights[%i].color",
+	      shaderVarSufixStr[i2], i);
+      uniformVec3(mainShader, buf, lightsStore[i2][i].color);
 		    
 
-	sprintf(buf, "%sLights[%i].constant",
-		shaderVarSufixStr[i2], i);
-	uniformFloat(mainShader, buf, 1.0f);
+      sprintf(buf, "%sLights[%i].constant",
+	      shaderVarSufixStr[i2], i);
+      uniformFloat(mainShader, buf, 1.0f);
 
-	sprintf(buf, "%sLights[%i].linear",
-		shaderVarSufixStr[i2], i);
-	uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i2][i].curLightPresetIndex][0]);
+      sprintf(buf, "%sLights[%i].linear",
+	      shaderVarSufixStr[i2], i);
+      uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i2][i].curLightPresetIndex][0]);
 
-	sprintf(buf, "%sLights[%i].qaudratic",
-		shaderVarSufixStr[i2], i);
-	uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i2][i].curLightPresetIndex][1]);
+      sprintf(buf, "%sLights[%i].qaudratic",
+	      shaderVarSufixStr[i2], i);
+      uniformFloat(mainShader, buf, lightPresetTable[lightsStore[i2][i].curLightPresetIndex][1]);
 
-	sprintf(buf, "%sLights[%i].cubemapIndex",
-		shaderVarSufixStr[i2], i);
-	uniformInt(mainShader, buf, lightsStore[i2][i].cubemapIndex);
-	printf("cubemap: %d \n",  lightsStore[i2][i].cubemapIndex);
+      sprintf(buf, "%sLights[%i].cubemapIndex",
+	      shaderVarSufixStr[i2], i);
+      uniformInt(mainShader, buf, lightsStore[i2][i].cubemapIndex);
+      printf("cubemap: %d \n",  lightsStore[i2][i].cubemapIndex);
 
 
-	localLightsCounter[lightsStore[i2][i].type]++;
-      }
-      
-      sprintf(buf, "%sLightsSize",
-	      shaderVarSufixStr[i2]);
-      uniformInt(mainShader, buf, lightsStoreSizeByType[i2]);
+      localLightsCounter[lightsStore[i2][i].type]++;
     }
-
-    glUseProgram(shadersId[pointShadowShader]);
-    uniformInt(pointShadowShader, "lightsSize", lightsStoreSizeByType[shadowPointLightT]);
-
-    for(int i=0;i<lightsStoreSizeByType[shadowPointLightT];i++){
-      vec3 pos = { lightsStore[shadowPointLightT][i].mat.m[12], lightsStore[shadowPointLightT][i].mat.m[13], lightsStore[shadowPointLightT][i].mat.m[14] };
       
-      sprintf(buf, "lightsPos[%d]", i);
-      uniformVec3(pointShadowShader, buf, pos);
-    }
+    sprintf(buf, "%sLightsSize",
+	    shaderVarSufixStr[i2]);
+    uniformInt(mainShader, buf, lightsStoreSizeByType[i2]);
+  }
+
+  glUseProgram(shadersId[pointShadowShader]);
+  uniformInt(pointShadowShader, "lightsSize", lightsStoreSizeByType[shadowPointLightT]);
+
+  for(int i=0;i<lightsStoreSizeByType[shadowPointLightT];i++){
+    vec3 pos = { lightsStore[shadowPointLightT][i].mat.m[12], lightsStore[shadowPointLightT][i].mat.m[13], lightsStore[shadowPointLightT][i].mat.m[14] };
+      
+    sprintf(buf, "lightsPos[%d]", i);
+    uniformVec3(pointShadowShader, buf, pos);
+  }
 
   glUseProgram(curShader);
 }
 
+void editorMouseVS(){
+  if (mouse.selectedType == mouseWallT || mouse.selectedType == mouseTileT) {
+    free(mouse.selectedThing);
+  }
+
+  mouse.selectedThing = NULL;
+  mouse.selectedType = 0;
+    
+  float minDistToCamera = 1000.0f;
+
+  bool atLeastOneGizmoInter = false;
+
+  // check gizmos inter
+  if(cursorMode == rotationMode){
+    if(!mouse.leftDown){
+      selectedGizmoAxis = 0;
+    
+      float minDistToCamera = 1000.0f;
+      float intersectionDistance;
+    
+      for(int i=0;i<3;i++){
+	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, rotatingCirclesAABB[0][i], rotatingCirclesAABB[1][i], &posOfStart, &intersectionDistance);
+
+	if(isIntersect && minDistToCamera > intersectionDistance){
+	  selectedGizmoAxis = i+1;
+	  minDistToCamera = intersectionDistance;
+
+	  atLeastOneGizmoInter = true;
+	}
+      }
+    }else{
+      vec3 inter;
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, rotatingCirclesAABB[0][selectedGizmoAxis-1], rotatingCirclesAABB[1][selectedGizmoAxis-1], &inter, NULL);
+
+      if(isIntersect){
+	atLeastOneGizmoInter = true;
+	curPoss = inter;
+      }
+    }
+  }else if(cursorMode == moveMode){
+    if(!mouse.leftDown){
+      selectedGizmoAxis = 0;
+    
+      float minDistToCamera = 1000.0f;
+      float intersectionDistance;
+    
+      for(int i=0;i<3;i++){
+	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, translateAABB[0][i], translateAABB[1][i], &posOfStart, &intersectionDistance);
+
+	if(isIntersect && minDistToCamera > intersectionDistance){
+	  selectedGizmoAxis = i+1;
+	  minDistToCamera = intersectionDistance;
+
+	  atLeastOneGizmoInter = true;
+	}
+      }
+    }else{
+      vec3 inter;
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, translateAABB[0][selectedGizmoAxis-1], translateAABB[1][selectedGizmoAxis-1], &inter, NULL);
+
+      if(isIntersect){
+	atLeastOneGizmoInter = true;
+	curPoss = inter;
+      }
+    }
+  }
+
+  if(atLeastOneGizmoInter){
+    return;
+  }
+  
+  // check geom inter
+  WallMouseData* intersWallData = malloc(sizeof(WallMouseData));
+  TileMouseData* intersTileData = malloc(sizeof(TileMouseData));
+	
+  for(int i=0;i<batchedGeometryIndexesSize;i++){
+    vec3i ind = batchedGeometryIndexes[i].indx;
+    vec3 tile = vec3_indexesToCoords(ind);
+    Tile* bBlock = grid[ind.y][ind.z][ind.x];
+
+    // block
+    if (bBlock->block != NULL){
+      float intersectionDistance;
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->block->lb, bBlock->block->rt, &mouse.gizmoPosOfInter, &intersectionDistance);
+
+      if (isIntersect && minDistToCamera > intersectionDistance) {
+	mouse.selectedThing = bBlock->block;
+	mouse.selectedType = mouseBlockT;
+
+	mouse.interDist = intersectionDistance;
+	minDistToCamera = intersectionDistance;
+      }
+    }
+
+    // tiles
+    if(ind.y == curFloor){
+      const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
+      const vec3 lb = { tile.x, tile.y, tile.z };
+
+      float intersectionDistance;
+      vec3 intersection;
+
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
+
+      if (isIntersect && minDistToCamera > intersectionDistance) {
+	intersTileData->tile = bBlock;
+
+	intersTileData->grid = (vec2i){ ind.x,ind.z };
+	intersTileData->intersection = intersection;
+	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
+
+	mouse.selectedType = mouseTileT;
+	mouse.selectedThing = intersTileData;
+
+	minDistToCamera = intersectionDistance;
+      }
+    }
+
+    if (ind.y >= curFloor) {
+      // walls
+      {
+	for(int i2=0;i2<batchedGeometryIndexes[i].wallsSize;i2++){
+	  int wallIndex = batchedGeometryIndexes[i].wallsIndexes[i2];
+	  
+	  WallType type = bBlock->walls[wallIndex].type;
+	  
+	  float intersectionDistance;
+
+	  for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->walls[wallIndex].planes[i3].lb, bBlock->walls[wallIndex].planes[i3].rt, NULL, &intersectionDistance);
+
+	    if (isIntersect && minDistToCamera > intersectionDistance) {
+	      intersWallData->side = wallIndex;
+	      intersWallData->grid = ind;
+
+	      int tx = bBlock->walls[wallIndex].planes[i3].txIndex;
+
+	      intersWallData->txIndex = tx;
+	      intersWallData->tile = bBlock;
+
+	      intersWallData->type = type;
+	      intersWallData->plane = i3;
+
+	      mouse.selectedType = mouseWallT;
+	      mouse.selectedThing = intersWallData;
+	      
+	      minDistToCamera = intersectionDistance;
+	    }
+	  }
+	}
+      }
+
+      // joints
+      {
+	for (int i2 = 0; i2 < batchedGeometryIndexes[i].jointsSize; i2++) {
+	  int jointIndex = batchedGeometryIndexes[i].jointsIndexes[i2];
+	  float intersectionDistance;
+	    
+	  for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex][i3].lb, bBlock->joint[jointIndex][i3].rt, NULL, &intersectionDistance);
+
+	    if (isIntersect && minDistToCamera > intersectionDistance) {
+
+	      intersWallData->side = jointIndex;
+	      intersWallData->grid = ind;
+	      intersWallData->txIndex = bBlock->joint[jointIndex][i3].txIndex;
+	      intersWallData->tile = bBlock;
+
+	      intersWallData->type = wallJointT;
+	      intersWallData->plane = i3;
+
+	      mouse.selectedType = mouseWallT;
+	      mouse.selectedThing = intersWallData;
+
+	      minDistToCamera = intersectionDistance;
+	    }
+
+	  }
+	}
+	  
+      }
+    }
+  }
+
+  // lights
+  for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
+    for (int i = 0; i < lightsStoreSizeByType[i2]; i++) {
+      float intersectionDistance;
+
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightsStore[i2][i].lb, lightsStore[i2][i].rt, NULL, &intersectionDistance);
+
+      if (isIntersect && minDistToCamera > intersectionDistance) {
+	mouse.selectedThing = &lightsStore[i2][i];
+	mouse.selectedType = mouseLightT;
+	
+	minDistToCamera = intersectionDistance;
+      }
+    }
+  }
+
+  // models
+  for (int i = 0; i < curModelsSize; i++) {
+    float intersectionDistance = 0.0f;
+
+    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i].lb, curModels[i].rt, NULL, &intersectionDistance);
+
+    int name = curModels[i].name;
+
+    if (isIntersect && minDistToCamera > intersectionDistance) {
+      mouse.selectedThing = &curModels[i];
+      mouse.selectedType = mouseModelT;
+
+      minDistToCamera = intersectionDistance;
+    }
+  }
+
+  // net tile
+  if(curFloor != 0 && curInstance == editorInstance){
+    for(int i=0;i<netTileSize;i+=2){
+      const vec3 rt = { netTileAABB[i+1].x, curFloor, netTileAABB[i+1].z };
+      const vec3 lb = { netTileAABB[i].x, curFloor, netTileAABB[i].z };
+
+      float intersectionDistance;
+      vec3 intersection;
+
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
+
+      if (isIntersect && minDistToCamera > intersectionDistance) {
+	vec3i gridInd = xyz_coordsToIndexes(netTileAABB[i].x, curFloor, netTileAABB[i].z);
+	intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
+
+	intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
+	intersTileData->intersection = intersection;
+	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
+
+	mouse.selectedType = mouseTileT;
+	mouse.selectedThing = intersTileData;
+
+	minDistToCamera = intersectionDistance;
+      }
+    }
+  }
+  
+  if(mouse.selectedType != mouseTileT){
+    free(intersTileData);
+  }
+
+  if(mouse.selectedType != mouseWallT){
+    free(intersWallData);
+  }
+}

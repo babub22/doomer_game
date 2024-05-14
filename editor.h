@@ -5,6 +5,7 @@ void editorPreLoop();
 void editorEvents(SDL_Event event);
 void editorOnSetInstance();
 void editorMatsSetup(int curShader);
+void editorMouseVS();
 
 void createLight(vec3 pos, int type);
 void uniformLights();

@@ -32,7 +32,10 @@ vec3 lightPos;// = {}
 float near_plane;
 float far_plane;
 
+VPair translatePair;
+
 VPair circle;
+float citcleInterDist;
 
 const void(*instances[instancesCounter][funcsCounter])() = {
   [editorInstance] = {
@@ -43,6 +46,7 @@ const void(*instances[instancesCounter][funcsCounter])() = {
     [matsSetup] = editorMatsSetup,
     [eventFunc] = editorEvents,
     [onSetFunc] = editorOnSetInstance,
+    [mouseVSFunc] = editorMouseVS,
   },
   [gameInstance] = {
     [render2DFunc] = game2dRender,
@@ -52,6 +56,7 @@ const void(*instances[instancesCounter][funcsCounter])() = {
     [matsSetup] = gameMatsSetup,
     [eventFunc] = gameEvents,
     [onSetFunc] = gameOnSetInstance,
+    [mouseVSFunc] = gameMouseVS,
   }
 };
 
@@ -290,15 +295,6 @@ VPair cube;
 GLuint objectsMenuTypeRectVBO;
 GLuint objectsMenuTypeRectVAO;
 
-typedef struct{
-  vec3i indx;
-
-  uint8_t wallsSize;
-  uint8_t* wallsIndexes;
-
-  uint8_t jointsSize;
-  uint8_t* jointsIndexes;
-} BatchedTile;
 
 BatchedTile* batchedGeometryIndexes;
 int batchedGeometryIndexesSize;
@@ -450,6 +446,15 @@ int main(int argc, char* argv[]) {
     glGenBuffers(1, &hudRect.VBO);
     glGenVertexArrays(1, &hudRect.VAO);
 
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // nav meshes
+  {
+    glGenBuffers(1, &navPointsMesh.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, navPointsMesh.VBO);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -843,6 +848,9 @@ int main(int argc, char* argv[]) {
     glEnableVertexAttribArray(1);
   }
 
+
+  
+
   {
     glGenBuffers(1, &cube.VBO);
     glGenVertexArrays(1, &cube.VAO);
@@ -927,6 +935,49 @@ int main(int argc, char* argv[]) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
   }
+
+  // translate buf
+  {
+    translatePair.vertexNum = 6;
+    translatePair.attrSize = 3;
+
+    int index = 0;
+    vec3 circleA = { 0 };
+    
+    float r = 1.0f;
+    float h = 1.0f;
+    float k = 1.0f;
+
+    float h1 = 1.0f / 8.0f;
+
+    float transl[] = {
+      0.0f, 0.0f, 0.0f,
+      1.0f, 0.0f, 0.0f,
+      1.0f, h1, 0.0f,
+
+      0.0f, 0.0f, 0.0f,
+      1.0f, h1, 0.0f,
+      0.0f, h1, 0.0f,
+    };
+    
+    translatePair.vBuf = malloc(sizeof(transl));
+    memcpy(translatePair.vBuf,transl,sizeof(transl));
+
+    glGenVertexArrays(1, &translatePair.VAO);
+    glBindVertexArray(translatePair.VAO);
+
+    glGenBuffers(1, &translatePair.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, translatePair.VBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transl), transl, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
 
   // snowflakes
   {
@@ -1577,8 +1628,6 @@ int main(int argc, char* argv[]) {
 	quit = true;
       }
 
-            
-
       if (event.type == SDL_KEYDOWN && !console.open) {
 	/*                if (event.key.keysym.scancode == SDL_SCANCODE_F11){
 			  fullScreen = !fullScreen;
@@ -1751,10 +1800,12 @@ int main(int argc, char* argv[]) {
       ((void (*)(SDL_Event))instances[curInstance][eventFunc])(event);
     }
 
-    ((void (*)(float))instances[curInstance][preFrameFunc])(deltaTime);
 
     mouse.tileSide = -1;
-    checkMouseVSEntities();
+    //    checkMouseVSEntities();
+    ((void (*)(int))instances[curInstance][mouseVSFunc])(mainShader);
+    
+    ((void (*)(float))instances[curInstance][preFrameFunc])(deltaTime);
 
     //   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     /*    glStencilMask(0xff);
@@ -1845,6 +1896,7 @@ int main(int argc, char* argv[]) {
 	((void (*)(void))instances[curInstance][render3DFunc])();
 
 	// nav meshes drawing
+	if(false)
 	{
 	  glUseProgram(shadersId[lightSourceShader]);
 	    
@@ -1866,7 +1918,7 @@ int main(int argc, char* argv[]) {
 
 	
 	// highlight selected model with stencil
-	if(true)
+	if(false)
 	{
 	  if(mouse.selectedType == mouseModelT){
 	    glStencilFunc(GL_ALWAYS, 1, 0xFF);
@@ -2407,6 +2459,8 @@ void calculateModelAABB(Model* model){
     model->rt.y = max(model->rt.y, trasformedVert4.y);
     model->rt.z = max(model->rt.z, trasformedVert4.z);
   }
+
+  model->centroid = (vec3){ (model->rt.x - model->lb.x) / 2.0f,  (model->rt.y - model->lb.y) / 2.0f,  (model->rt.z - model->lb.z) / 2.0f };
 }
 
 void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, int attrSize, vec3* lb, vec3* rt){
@@ -4444,8 +4498,6 @@ void batchModels(){
     //mappedTxToIndexes[loadedModels1D[curModels[i].name].tx]
   }
 
-  printf("%d first obj tx \n", loadedModels1D[0].tx);
-
   for (int i = 0; i < loadedModelsTxSize; i++) {
       modelsBatch[i].size = modelsBatchCounterByTx[i];
 
@@ -4566,13 +4618,12 @@ void batchGeometry(){
 	    geomentyByTxCounter[txIndex] += sizeof(texturedTileVerts);
 
 	    if(!grid[y][z][x]->block){
-	      //navPointsSize++;
+	      navPointsSize++;
 	    }
-	    
+
 	    if(!batchedIndexWasAssigned){
 	      batchedGeometryIndexesSize++;
 	      batchedIndexWasAssigned= true;
-
 	    }
 	  }
 
@@ -4594,6 +4645,14 @@ void batchGeometry(){
 
 	  // walls
 	  for(int i=0;i<basicSideCounter;i++){
+	    if (!grid[y][z][x]->block) {
+              vec3 tile = xyz_indexesToCoords(x, y, z);
+
+              if (!grid[y][z][x]->walls[i].planes && type == texturedTile && (i==top || i==left)) {
+		navPointsSize++;
+              }
+	    }
+
 	    if(grid[y][z][x]->walls[i].planes){
 	      if(!batchedIndexWasAssigned){
 		batchedGeometryIndexesSize++;
@@ -4607,12 +4666,6 @@ void batchGeometry(){
 		  int txIndex = grid[y][z][x]->walls[i].planes[i2].txIndex;
 		  geomentyByTxCounter[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * sizeof(float) * vertexSize;
 		}
-	      }
-	    }else{
-	      GroundType type = valueIn(grid[y][z][x]->ground, 0);
-
-	      if(type == texturedTile){
-		navPointsSize++;
 	      }
 	    }
 
@@ -4698,10 +4751,10 @@ void batchGeometry(){
 	      
 	    vec3 tile = xyz_indexesToCoords(x,y,z);
 
-	    //	    if(!grid[y][z][x]->block){
-	      //   navPoints[navPointsSize] = (vec3){tile.x+0.5f,tile.y,tile.z+0.5f};
-	      //	      navPointsSize++;
-	      //    }
+	    if(!grid[y][z][x]->block){
+	      navPoints[navPointsSize] = (vec3){tile.x+0.5f,tile.y,tile.z+0.5f};
+	      navPointsSize++;
+	    }
 	    
 	    int txIndex = valueIn(grid[y][z][x]->ground, 2); 
 
@@ -4832,17 +4885,19 @@ void batchGeometry(){
           }
 
 	  
-	  GroundType type = valueIn(grid[y][z][x]->ground, 0);
 
-	  if(!grid[y][z][x]->walls[i3].planes && type == texturedTile){
-	    static const vec2 paddd[4] = {
-	      [top] = {0.5f,0.0f}, [left] = { 1.0f, 0.5f }, [right] = { 0.0f, 0.5f }, [bot] = { 0.5f, 1.0f } 
-	    };
-
+	  if(!grid[y][z][x]->block){
+	    GroundType type = valueIn(grid[y][z][x]->ground, 0);
 	    vec3 tile = xyz_indexesToCoords(x, y, z);
+	       
+	    if(!grid[y][z][x]->walls[i3].planes && type == texturedTile && (i3 == top || i3 == left)){
+	      static const vec2 paddd[2] = {
+		[top] = {0.5f,0.0f}, [left] = { 0.0f, 0.5f } 
+	      };
 
-	    navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
-	    navPointsSize++;
+	      navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
+	      navPointsSize++;
+	    }
 	  }
 
 	  if(grid[y][z][x]->jointExist[i3]){
@@ -4937,12 +4992,41 @@ void batchGeometry(){
   //   }
 
   free(geomentyByTxCounter);
+
+  // check for object collision on nav points
+  int index2 = 0;
+  float padAroundObj = 0.25f;
   
-  if(!navPointsMesh.vBuf){
-    navPointsMesh.vBuf = malloc(sizeof(float) * 3 * cube.vertexNum * navPointsSize);
-  }else{
-    navPointsMesh.vBuf = realloc(navPointsMesh.vBuf,sizeof(float) * 3 * cube.vertexNum * navPointsSize);
+  for(int i=0;i<navPointsSize;i++){
+      bool isPointInter = false;
+
+    for(int i2=0;i2<curModelsSize;i2++){
+      //      curModels[i2]
+      vec2 minObj = {curModels[i2].lb.x-padAroundObj, curModels[i2].lb.z-padAroundObj};
+      vec2 maxObj = {curModels[i2].rt.x+padAroundObj, curModels[i2].rt.z+padAroundObj};
+      
+      if((minObj.x <= navPoints[i].x && minObj.z <= navPoints[i].z)
+	 && (maxObj.x >= navPoints[i].x && maxObj.z >= navPoints[i].z)){
+          isPointInter = true;
+	break;
+      }
+    }
+
+    if (!isPointInter) {
+      navPoints[index2] = navPoints[i];
+      index2++;
+    }
   }
+
+  navPointsSize = index2;
+  navPoints = realloc(navPoints, sizeof(vec3) * navPointsSize);
+    
+  if(navPointsMesh.vBuf){
+    free(navPointsMesh.vBuf);
+    navPointsMesh.vBuf = NULL;
+  }
+
+  navPointsMesh.vBuf = malloc(sizeof(float) * 3 * cube.vertexNum * navPointsSize);
 
   // asseble navPointsMesh
   int index = 0;
@@ -4957,9 +5041,6 @@ void batchGeometry(){
     
     index++;
   }
-
-  glGenBuffers(1, &navPointsMesh.VBO);
-  glGenVertexArrays(1, &navPointsMesh.VAO);
 
   glBindBuffer(GL_ARRAY_BUFFER, navPointsMesh.VBO);
   glBindVertexArray(navPointsMesh.VAO);
@@ -5363,14 +5444,15 @@ void checkMouseVSEntities(){
     Tile* bBlock = grid[ind.y][ind.z][ind.x];
 
     // block
-    if (bBlock->block != NULL) {
+    if (bBlock->block != NULL){
       float intersectionDistance;
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->block->lb, bBlock->block->rt, NULL, &intersectionDistance);
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->block->lb, bBlock->block->rt, &mouse.gizmoPosOfInter, &intersectionDistance);
 
       if (isIntersect && minDistToCamera > intersectionDistance) {
 	mouse.selectedThing = bBlock->block;
 	mouse.selectedType = mouseBlockT;
 
+	mouse.interDist = intersectionDistance;
 	minDistToCamera = intersectionDistance;
       }
     }
