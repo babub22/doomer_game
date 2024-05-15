@@ -32,8 +32,6 @@ vec3 lightPos;// = {}
 float near_plane;
 float far_plane;
 
-VPair translatePair;
-
 VPair circle;
 float citcleInterDist;
 
@@ -932,48 +930,6 @@ int main(int argc, char* argv[]) {
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-  }
-
-  // translate buf
-  {
-    translatePair.vertexNum = 6;
-    translatePair.attrSize = 3;
-
-    int index = 0;
-    vec3 circleA = { 0 };
-    
-    float r = 1.0f;
-    float h = 1.0f;
-    float k = 1.0f;
-
-    float h1 = 1.0f / 8.0f;
-
-    float transl[] = {
-      0.0f, 0.0f, 0.0f,
-      1.0f, 0.0f, 0.0f,
-      1.0f, h1, 0.0f,
-
-      0.0f, 0.0f, 0.0f,
-      1.0f, h1, 0.0f,
-      0.0f, h1, 0.0f,
-    };
-    
-    translatePair.vBuf = malloc(sizeof(transl));
-    memcpy(translatePair.vBuf,transl,sizeof(transl));
-
-    glGenVertexArrays(1, &translatePair.VAO);
-    glBindVertexArray(translatePair.VAO);
-
-    glGenBuffers(1, &translatePair.VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, translatePair.VBO);
-
-    glBufferData(GL_ARRAY_BUFFER, sizeof(transl), transl, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-    glEnableVertexAttribArray(0);
-    
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
   }

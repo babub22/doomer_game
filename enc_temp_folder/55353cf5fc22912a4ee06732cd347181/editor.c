@@ -2140,6 +2140,9 @@ void editor3dRender() {
       //      static const float rotateZ[3] = {.0f, -rad(90.0f), .0f};
       
       for(int i=0;i<3;i++){
+	glBindBuffer(GL_ARRAY_BUFFER, translationGizmos[i].VBO);
+	glBindVertexArray(translationGizmos[i].VAO);
+	
 	if(i+1 == XCircle){
 	  uniformVec3(lightSourceShader, "color", (vec3){ redColor });
 	}else if(i+1 == YCircle){
@@ -2149,15 +2152,22 @@ void editor3dRender() {
 	}
 
 	Matrix out2 = IDENTITY_MATRIX;
+
+	//	out2.m[12] = 0;
+	//	out2.m[13] = 0;
+	//	out2.m[14] = 0;
+	
+	/*	if(i+1 == YCircle){
+	  rotateZ(&out2, -rad(90.0f)); // y
+	}else if(i+1 == ZCircle){
+	  rotateY(&out2, rad(90.0f)); // z
+	}*/
 	
 	out2.m[12] = centroid.x + padding[i][0];
 	out2.m[13] = centroid.y + padding[i][1];
 	out2.m[14] = centroid.z + padding[i][2];
 
 	uniformMat4(lightSourceShader, "model", out2.m);
-	
-	glBindBuffer(GL_ARRAY_BUFFER, translationGizmos[i].VBO);
-	glBindVertexArray(translationGizmos[i].VAO);
 
 	glDrawArrays(GL_TRIANGLES, 0, translationGizmos[i].vertexNum);
 
