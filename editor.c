@@ -5,6 +5,8 @@
 
 TextInput* selectedTextInput;
 
+float rotationAcc;
+
 int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
@@ -38,20 +40,26 @@ vec3 curPoss;
 // 0 - x | 1 - y | 2 - z
 // 0 - lb | 1 - rt
 vec3 rotatingCirclesAABB[2][3];
-vec3 translateAABB[2][3];
 
 typedef enum{
   XCircle = 1, YCircle, ZCircle, XYPlane, ZYPlane, XZPlane, axisCounter
 } RotationCircles;
 
-char* rotatingAxisStr[4] = {
+vec3 translateAABB[2][axisCounter-1];
+VPair translationGizmos[axisCounter-1];
+VPair rotationGizmos[3];
+
+char* rotatingAxisStr[axisCounter] = {
   [0]= "None",
   [XCircle]= "X-axis",
   [YCircle]= "Y-axis",
-  [ZCircle]= "Z-axis"
+  [ZCircle]= "Z-axis",
+  
+  [XYPlane]= "XY-Plane",
+  [ZYPlane]= "ZY-Plane",
+  [XZPlane]= "XZ-Plane",
 };
 
-VPair translationGizmos[3];
 
 RotationCircles selectedGizmoAxis;
 //float rotationCirclesRadius;
@@ -107,19 +115,82 @@ void editorOnSetInstance(){
 }
 
 void editorPreLoop(){
-  //  vec3 axisPads[2]
-  float h1 = 1.0f / 9.0f;
+  // circle buf
+  {
+    rotationGizmos[YCircle-1].vertexNum = 6;//180 * 2;
+    rotationGizmos[YCircle-1].attrSize = 3;
+
+    int index = 0;
+    vec3 rot = { 0 };
+    
+    float r = 1.0f;
+    float h = 1.0f;
+    float k = 1.0f;
+    
+    /*for (int i = 0; i < 180; i++){
+      rot.x = r * cos(i) - h;
+      rot.y = r * sin(i) + k;
+	
+      rotationGizmos[YCircle-1].vBuf[index+0] = rot.x + k;
+      rotationGizmos[YCircle-1].vBuf[index+1] = rot.y - h;
+      rotationGizmos[YCircle-1].vBuf[index+2] = 0;
+	
+      index+=3;
+    
+      rot.x = r * cos(i + 0.1) - h;
+      rot.y = r * sin(i + 0.1) + k;
+	
+      rotationGizmos[YCircle-1].vBuf[index+0] = rot.x + k;
+      rotationGizmos[YCircle-1].vBuf[index+1] = rot.y - h;
+      rotationGizmos[YCircle-1].vBuf[index+2] = 0;
+	
+      index+=3;
+    }*/
+
+	const float YPlane[] = {
+	  -.5f, .0f, -.5f,
+	  -.5f, .0f, .5f,
+	  .5f, .0f, .5f,
+
+	  -.5f, .0f, -.5f,
+	  .5f, .0f, .5f,
+	  .5f, .0f, -.5f,
+	};
+
+    rotationGizmos[YCircle-1].vBuf = malloc(sizeof(YPlane));
+    memcpy(rotationGizmos[YCircle-1].vBuf, YPlane, sizeof(YPlane));
+
+    glGenVertexArrays(1, &rotationGizmos[YCircle-1].VAO);
+    glBindVertexArray(rotationGizmos[YCircle-1].VAO);
+
+    glGenBuffers(1, &rotationGizmos[YCircle-1].VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, rotationGizmos[YCircle-1].VBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(YPlane), rotationGizmos[YCircle-1].vBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
   
   // translation gizmos
   {
-    for(int i=0;i<3;i++){
+    float h1 = 1.0f / 9.0f;
+    
+    for(int i=0;i<axisCounter-1;i++){
       printf("AAA %d \n", i);
       
       translationGizmos[i].vertexNum = 6;
       translationGizmos[i].attrSize = 3;
 
-      if(i==0){ // X
+      float sInterPlane =  -(0.5f / 4.0f);
+      float eInterPlane =  0.5f / 4.0f;
+
+      if(i+1==XCircle){
 	float transl[] = {
+	  // X axis
 	  -0.5f, -(h1/2.0f), 0.0f,
 	  0.5f, -(h1/2.0f), 0.0f,
 	  0.5f, h1/2.0f, 0.0f,
@@ -128,24 +199,26 @@ void editorPreLoop(){
 	  .5f, h1/2.0f, 0.0f,
 	  -.5f, h1/2.0f, 0.0f,
 	};
-	
-	translationGizmos[i].vBuf = malloc(sizeof(transl));
-	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
-      }else if(i==1){ // Y
-	float transl[] = {
-	  -(h1/2.0f), -0.5f, 0.0f,
-	  -(h1/2.0f), 0.5f,  0.0f,
-	  h1/2.0f, 0.5f, 0.0f,
 
-	  -(h1/2.0f), -.5f, 0.0f,
-	  h1/2.0f, .5f, 0.0f,
-	  h1/2.0f,-.5f, 0.0f,
-	};
-	
 	translationGizmos[i].vBuf = malloc(sizeof(transl));
 	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
-      }else if(i==2){ // Z
+      }else if(i+1==YCircle){ // y
 	float transl[] = {
+	// Y axis
+	-(h1/2.0f), -0.5f, 0.0f,
+	-(h1/2.0f), 0.5f,  0.0f,
+	h1/2.0f, 0.5f, 0.0f,
+
+	-(h1/2.0f), -.5f, 0.0f,
+	h1/2.0f, .5f, 0.0f,
+	h1/2.0f,-.5f, 0.0f,
+	};
+
+	translationGizmos[i].vBuf = malloc(sizeof(transl));
+	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+      }else if(i+1==ZCircle){ // z
+	float transl[] = {
+	  // Z axis
 	  0.0f, -(h1/2.0f), -.5f,
 	  0.0f, -(h1/2.0f), .5f,
 	  0.0f, h1/2.0f, .5f,
@@ -154,17 +227,57 @@ void editorPreLoop(){
 	  0.0f, h1/2.0f, .5f,
 	  0.0f, h1/2.0f, -.5f,
 	};
+	
+	translationGizmos[i].vBuf = malloc(sizeof(transl));
+	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+      }else if(i+1==XYPlane){ // xy
+	float transl[] = {
+	  sInterPlane, sInterPlane, 0.0f,
+	  sInterPlane, eInterPlane, 0.0f,
+	  eInterPlane,  eInterPlane, 0.0f,
+
+	  sInterPlane, sInterPlane, 0.0f,
+	  eInterPlane, eInterPlane, 0.0f,
+	  eInterPlane, sInterPlane, 0.0f,
+	};
+	
+	translationGizmos[i].vBuf = malloc(sizeof(transl));
+	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+      }else if(i+1==ZYPlane){ // zy
+	float transl[] = {
+	  0.0f, sInterPlane, sInterPlane,
+	  0.0f, sInterPlane, eInterPlane,
+	  0.0f, eInterPlane,  eInterPlane,
+
+	  0.0f, sInterPlane, sInterPlane,
+	  0.0f, eInterPlane, eInterPlane,
+	  0.0f, eInterPlane, sInterPlane,
+	};
+
+	translationGizmos[i].vBuf = malloc(sizeof(transl));
+	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+      }else if(i+1==XZPlane){ // xz
+	float transl[] = {
+	  // XZ axis
+	  sInterPlane, 0.0f, sInterPlane,
+	  sInterPlane, 0.0f, eInterPlane,
+	  eInterPlane, 0.0f, eInterPlane,
+
+	  sInterPlane, 0.0f, sInterPlane,
+	  eInterPlane, 0.0f, eInterPlane,
+	  eInterPlane, 0.0f, sInterPlane,
+	};
 
 	translationGizmos[i].vBuf = malloc(sizeof(transl));
 	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
       }
-
+      
+	
       for(int i2=0;i2<6*3;i2++){
 	printf("%f ", translationGizmos[i].vBuf[i2]);
       }
 
       printf("\n");
-      
 
       glGenVertexArrays(1, &translationGizmos[i].VAO);
       glBindVertexArray(translationGizmos[i].VAO);
@@ -1115,16 +1228,18 @@ void editorEvents(SDL_Event event){
 	     (mouse.selectedType == mouseModelT || mouse.selectedType == mouseLightT)){
 	    mouse.focusedThing = mouse.selectedThing;
 	    mouse.focusedType = mouse.selectedType;
+	    //	    cursorMode = rotationMode;
 
-	    mouse.selectedThing = NULL;
-	    mouse.selectedType = 0;
+	    //	    mouse.selectedThing = NULL;
+	    //	    mouse.selectedType = 0;
 	  }
-	  
+
 	  if(cursorMode == rotationMode){
 	    cursorMode = moveMode;
 	  }else if(cursorMode == moveMode){
 	    cursorMode = rotationMode;
 	  }
+	  
 
 	  printf("cursormode %d \n", cursorMode);
 	  
@@ -1549,6 +1664,8 @@ void editorEvents(SDL_Event event){
     mouse.leftDown = false;
     mouse.rightDown = false;
 
+    rotationAcc = 0.0f;
+
     mouse.clickL = event.button.button == SDL_BUTTON_LEFT;
     mouse.clickR = event.button.button == SDL_BUTTON_RIGHT; 
 
@@ -1756,7 +1873,7 @@ void editorMatsSetup(int curShader){
 }
 
 void editorPreFrame(float deltaTime){
-    if(cursorMode && (mouse.leftDown || mouse.rightDown)){
+  if(cursorMode && (mouse.leftDown || mouse.rightDown)){
     Model* model = NULL;
     Matrix* mat = NULL;
     Light* light = NULL;
@@ -1776,80 +1893,141 @@ void editorPreFrame(float deltaTime){
     if(mat && (mouse.leftDown || mouse.rightDown)){
       vec3 diffDrag = { curPoss.x - posOfStart.x, curPoss.y - posOfStart.y, curPoss.z - posOfStart.z };
 
-      if(selectedGizmoAxis == XCircle){
-	mat->m[12] += diffDrag.x;
-      }else if(selectedGizmoAxis == YCircle){
-	mat->m[13] += diffDrag.y;
-      }else if(selectedGizmoAxis == ZCircle){
-	mat->m[14] += diffDrag.z;
-      }
+      printf("diff %f %f %f\n", argVec3(diffDrag));
+
+      if(cursorMode == moveMode){
+	if(selectedGizmoAxis == XCircle){
+	  mat->m[12] += diffDrag.x;
+	}else if(selectedGizmoAxis == YCircle){
+	  mat->m[13] += diffDrag.y;
+	}else if(selectedGizmoAxis == ZCircle){
+	  mat->m[14] += diffDrag.z;
+	}else if(selectedGizmoAxis == XYPlane){
+	  mat->m[12] += diffDrag.x;
+	  mat->m[13] += diffDrag.y;
+	}else if(selectedGizmoAxis == ZYPlane){
+	  mat->m[14] += diffDrag.z;
+	  mat->m[13] += diffDrag.y;
+	}else if(selectedGizmoAxis == XZPlane){
+	  mat->m[14] += diffDrag.z;
+	  mat->m[12] += diffDrag.x;
+	}
+      }else if(cursorMode == rotationMode){
+	if(selectedGizmoAxis == YCircle){
+	  float tempX=mat->m[12];
+	  float tempY=mat->m[13];
+	  float tempZ=mat->m[14];
+
+	  mat->m[12]=0.0f;
+	  mat->m[13]=0.0f;
+	  mat->m[14]=0.0f;
+	  
+
+	  vec3 centerOfYPlane = {
+	    rotatingCirclesAABB[0][YCircle - 1].x+(rotatingCirclesAABB[1][YCircle-1].x - rotatingCirclesAABB[0][YCircle - 1].x),
+
+	    rotatingCirclesAABB[0][YCircle - 1].y + (rotatingCirclesAABB[1][YCircle - 1].y - rotatingCirclesAABB[0][YCircle - 1].y),
+
+	    rotatingCirclesAABB[0][YCircle-1].z + (rotatingCirclesAABB[1][YCircle - 1].z - rotatingCirclesAABB[0][YCircle-1].z)
+	  };
+
+	  //  exit(0);
+	  /*
+	    vec3 rel = {curPoss.x-centerOfYPlane.x, 0.0f, curPoss.z - centerOfYPlane.z};
+
+	    float mag = sqrtf(rel.x*rel.x + rel.z*rel.z);
+
+	    rel.x /= mag;
+	    rel.z /= mag;
+
+	    rotateY(mat, atan2f(rel.x, rel.z) * 0.01f);
+	    //	  printf("%f \n", atan2f(diffDrag.x, diffDrag.z) * (180.0f / 3.14159265358979323846));
+	    */
+
+	  vec3 prev_vector = {posOfStart.x -  centerOfYPlane.x,posOfStart.y -  centerOfYPlane.y, posOfStart.z -  centerOfYPlane.z};
+	  vec3 cur_vector = {curPoss.x -  centerOfYPlane.x,curPoss.y -  centerOfYPlane.y, curPoss.z -  centerOfYPlane.z};
+
+	  cur_vector = normalize3(cur_vector);
+	  prev_vector = normalize3(prev_vector);
+
+	  float scDot = dotf3(prev_vector, cur_vector);
+
+	  //  float dot_product = prev_vector.x * cur_vector.x + prev_vector.z * cur_vector.z;
+	  
+	  //  float scDot = dot_product;
+	  
+	  if (scDot < -1.0f) {
+	    scDot = -1.0f;
+	  }
+	  else if (scDot > 1.0f){
+	    scDot = 1.0f;
+	  }
+
+	  float angle = acosf(scDot);
+
+	  vec3 posDir = cross3((vec3){.0f,1.0f,.0f}, prev_vector);
+
+	  if(dotf3(cur_vector, posDir)<0.0f){
+	    angle *= -1.0f;
+	  }
+	  
+	  //rotateY(mat, angle * 0.01f);
+
+	  //rotationAcc += angle;
+	  rotateY(mat, angle);
+
+	  
+	  /*
+	  printf("Dot: %f Cross %f Angle %f\n", dot_product, cross_product, atan2f(cross_product, dot_product)  * (180.0 / PI) );
+
+	  float mag_vec1 = sqrt(cur_vector.x * cur_vector.x + cur_vector.z * cur_vector.z);
+	  float mag_vec2 = sqrt(prev_vector.x * prev_vector.x + prev_vector.z * prev_vector.z);
+
+	  printf("mag1: %f mag2: %f\n", mag_vec1, mag_vec2);
+
+
+	  float angle_rad = atan2f(diffDrag.z, diffDrag.x);//atan2f(cross_product, dot_product);//acosf(dot_product / (mag_vec1*mag_vec2));
+
+	  float angle_deg = angle_rad * (180.0 / PI);
+
+	  float prev_angle_deg = atan2f(prev_vector.z, prev_vector.x) * (180.0 / PI);
+
+	  float angle_diff = angle_deg - prev_angle_deg;
+
+	  // Adjust for 360 degrees rotation
+	  if (angle_diff > 180) {
+	    angle_diff -= 360;
+	  } else if (angle_diff < -180) {
+	    angle_diff += 360;
+	  }
+
+*/
+	  //atan2f();
+
+	  //	  printf("Angle: %f Atan: %f My: %f\n", angle_rad, atan2f(cross_product, dot_product), rad(1.0f));
+	//  exit(0);
+
+	  //	  if (cross_product < 0)
+	  //	    angle_rad = -angle_rad;
+
+
+	  //	  printf();
+	  
+	  //  rotateY(mat, rad(1.0f));
+	  //	  rotateY(mat, angle_rad);
+
+	  //	  rotateY(mat, rad(angle_diff) * 0.01f);
+
+	  mat->m[12]=tempX;
+	  mat->m[13]=tempY;
+	  mat->m[14]=tempZ;
+	}
+
 	
+      }
 
       posOfStart = curPoss;
-	
-      /*	vec3 ray = (vec3) { mouse.rayDir.x, 0, mouse.rayDir.z };
-		vec3 modelPos = (vec3) { mat->m[12], mat->m[13], mat->m[14] };
-
-		vec4 modelViewPos = mulmatvec4(editorView, (vec4) { argVec3(modelPos), 1.0f });
-    
-		vec4 viewIntersect = (vec4) { -mouse.rayView.x * modelViewPos.z, -mouse.rayView.y * modelViewPos.z, 1.0f * modelViewPos.z, 1.0f  };
-
-		Matrix inversedView = IDENTITY_MATRIX;
-		inverse(editorView.m, inversedView.m);
-
-		vec4 worldPoint = mulmatvec4(inversedView, viewIntersect);
-	
-		//vec3 curWDir = normalize3(argVec3(worldPoint));
-
-		if(cursorMode == moveMode){
-		if(mouse.leftDown){
-		mat->m[12] = worldPoint.x;
-		mat->m[14] = worldPoint.z;
-		}else if(mouse.rightDown){
-		mat->m[13] = worldPoint.y;
-		}
-		}else if(cursorMode == rotationMode){
-		float xTemp = mat->m[12];
-		float yTemp = mat->m[13];
-		float zTemp = mat->m[14];
-
-		mat->m[12] = 0;
-		mat->m[13] = 0;
-		mat->m[14] = 0;
-	  
-		float dx = mouse.cursor.x - mouse.lastCursor.x;
-		// float dy = mouse.cursor.y - mouse.lastCursor.y;
-		//	  float dz = mouse.cursor.z - mouse.lastCursor.z;
-
-		vec3 centerOfRotation = model->centroid;
-		//	  vec3 arm2 = normalize3(mouse.rayView + mouse.rayDir * mouse.interDist);
-		//	  vec3 rot = {(mouse.rayView.x + mouse.rayDir.x) * mouse.interDist - centerOfRotation.x, (mouse.rayView.y + mouse.rayDir.y) * mouse.interDist - centerOfRotation.y, (mouse.rayView.z + mouse.rayDir.z) * mouse.interDist - centerOfRotation.z};
-	  
-		vec3 arm1 = normalize3(model->centroid);
-		//  vec3 arm2 = normalize3(rot);
-
-		//	  float d = dotf3(arm2, arm1);
-		//	  circleRotAngle = cosf(d);
-
-		printf("angle %f \n", circleRotAngle);
-
-		//  printf("rot %f %f %f \n", argVec3(rot));
-		printf("center %f %f %f \n", argVec3(centerOfRotation));
-	  
-		//	  float stepR = 
-
-		if(selectedGizmoAxis == XCircle){
-	    
-		}else if(selectedGizmoAxis == YCircle){
-	    
-		}else if(selectedGizmoAxis == ZCircle){
-		//rotate
-		}
-		mat->m[12] = xTemp;
-		mat->m[13] = yTemp;
-		mat->m[14] = zTemp;
-	  
-      */
+      
       batchModels();
     }
 
@@ -1874,30 +2052,27 @@ void editorPreFrame(float deltaTime){
 
     // cursorMode will be started but we have focusedType
     if(!cursorMode && currentKeyStates[SDL_SCANCODE_LCTRL]){
-      /*      if(mouse.focusedType == mouseTileT || mouse.focusedType == mouseBlockT){
-	      free(mouse.focusedThing);
-	      }*/
-
+      cursorMode = moveMode;
       mouse.focusedThing = NULL;
       mouse.focusedType = 0;
     }
 
-    if(!cursorMode && currentKeyStates[SDL_SCANCODE_LCTRL]){
-      cursorMode = moveMode;
-    }else if(!currentKeyStates[SDL_SCANCODE_LCTRL]){
+    if(cursorMode &&!currentKeyStates[SDL_SCANCODE_LCTRL]){
       cursorMode = 0;
+      mouse.focusedThing = NULL;
+      mouse.focusedType = 0;
     }
 
     // if we closed cursorMode in this frame
     // reset focused thing
-    if(!cursorMode && mouse.focusedThing){
+    //    if(!cursorMode && mouse.focusedThing){
       /*if(mouse.focusedType == mouseTileT || mouse.focusedType == mouseBlockT){
 	free(mouse.focusedThing);
 	}*/
 
-      mouse.focusedThing = NULL;
-      mouse.focusedType = 0;
-    }
+      //      mouse.focusedThing = NULL;
+      //      mouse.focusedType = 0;
+      //    }
 
     if (currentKeyStates[SDL_SCANCODE_W]){
       if (curCamera) {//cameraMode){
@@ -2030,7 +2205,7 @@ void editor3dRender() {
     {
       Model* model = mouse.focusedThing;
 
-      vec3 groundPos = model->rt;
+      int yIndex = YCircle-1;
     
       vec3 centroid = {
 	(model->rt.x+model->lb.x)/2.0f,
@@ -2038,6 +2213,41 @@ void editor3dRender() {
 	(model->rt.z+model->lb.z)/2.0f
       };
 
+      Matrix out2 = IDENTITY_MATRIX;
+
+      out2.m[12] = centroid.x;
+      out2.m[13] = centroid.y;
+      out2.m[14] = centroid.z;
+
+      uniformVec3(lightSourceShader, "color", (vec3){ greenColor });
+      uniformMat4(lightSourceShader, "model", out2.m);
+
+      /*      if(mouse.leftDown && selectedGizmoAxis == YCircle){
+	out2 = IDENTITY_MATRIX;
+      
+	//	scale(&out2, 1000.0f, 1000.0f, 1000.0f);
+
+	out2.m[12] = centroid.x;
+	out2.m[13] = centroid.y;
+	out2.m[14] = centroid.z;
+      }*/
+      
+      calculateAABB(out2, rotationGizmos[yIndex].vBuf, rotationGizmos[yIndex].vertexNum, rotationGizmos[yIndex].attrSize,
+		    &rotatingCirclesAABB[0][yIndex], &rotatingCirclesAABB[1][yIndex]);
+
+      glBindBuffer(GL_ARRAY_BUFFER, rotationGizmos[yIndex].VBO);
+      glBindVertexArray(rotationGizmos[yIndex].VAO);
+
+      glDisable(GL_DEPTH_TEST);
+      glDrawArrays(GL_TRIANGLES, 0, rotationGizmos[yIndex].vertexNum);
+      glEnable(GL_DEPTH_TEST);
+
+      glBindTexture(GL_TEXTURE_2D, 0);
+      
+      glBindBuffer(GL_ARRAY_BUFFER, 0); 
+      glBindVertexArray(0); 
+
+      /*      
       //    float scaleStep =  max(model->rt.z - centroid.z,max(model->rt.y - centroid.y, model->rt.x - centroid.x)) * 1.2f;
     
       uniformVec3(lightSourceShader, "color", (vec3){ redColor });
@@ -2106,24 +2316,11 @@ void editor3dRender() {
 
       uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
       // y axis
-      uniformMat4(lightSourceShader, "model", out2.m);
-      calculateAABB(out2, circle.vBuf, circle.vertexNum, circle.attrSize,
-		    &rotatingCirclesAABB[0][1], &rotatingCirclesAABB[1][1]);
-
-      printf("X axis: RT: %f %f %f LB: %f %f %f \n", argVec3(rotatingCirclesAABB[1][1]), argVec3(rotatingCirclesAABB[0][1]));
-
-      glDisable(GL_DEPTH_TEST);
-      glDrawArrays(GL_LINES, 0, circle.vertexNum);
-      glEnable(GL_DEPTH_TEST);
-
-      glBindTexture(GL_TEXTURE_2D, 0);
+      */
       
-      glBindBuffer(GL_ARRAY_BUFFER, 0); 
-      glBindVertexArray(0); 
     }
 
-  if(cursorMode == moveMode && mouse.focusedType == mouseModelT)
-    {
+  if(cursorMode == moveMode && mouse.focusedType == mouseModelT){
       glDisable(GL_DEPTH_TEST);
       
       Model* model = mouse.focusedThing;
@@ -2134,17 +2331,17 @@ void editor3dRender() {
 	(model->rt.z+model->lb.z)/2.0f
       };
 
-      static const float padding[3][3] = {{ .5f, .0f, .0f }, { .0f, .5f, .0f}, { .0f, .0f, -.5f}};
-
-      //      static const float rotateZ[3] = {.0f, -rad(90.0f), .0f};
-      //      static const float rotateZ[3] = {.0f, -rad(90.0f), .0f};
+      static const float padding[6][3] = {{ .5f, .0f, .0f }, { .0f, .5f, .0f}, { .0f, .0f, -.5f},
+					  { .5f, .5f, .0f }, // XY
+					  { .0f, .5f, -.5f}, // ZY
+					  { .5f, .0f, -.5f}}; // XZ
       
-      for(int i=0;i<3;i++){
-	if(i+1 == XCircle){
+      for(int i=0;i<axisCounter-1;i++){
+	if(i+1 == XCircle || i+1 == XZPlane){
 	  uniformVec3(lightSourceShader, "color", (vec3){ redColor });
-	}else if(i+1 == YCircle){
+	}else if(i+1 == YCircle || i+1 == XYPlane){
 	  uniformVec3(lightSourceShader, "color", (vec3){ greenColor });
-	}else if(i+1 == ZCircle){
+	}else if(i+1 == ZCircle || i+1 == ZYPlane){
 	  uniformVec3(lightSourceShader, "color", (vec3){ blueColor });
 	}
 
@@ -4246,19 +4443,21 @@ void editorMouseVS(){
       float minDistToCamera = 1000.0f;
       float intersectionDistance;
     
-      for(int i=0;i<3;i++){
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, rotatingCirclesAABB[0][i], rotatingCirclesAABB[1][i], &posOfStart, &intersectionDistance);
+      //      for(int i=0;i<3;i++){
+	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, rotatingCirclesAABB[0][YCircle-1], rotatingCirclesAABB[1][YCircle-1], &posOfStart, &intersectionDistance);
 
 	if(isIntersect && minDistToCamera > intersectionDistance){
-	  selectedGizmoAxis = i+1;
+	  selectedGizmoAxis = YCircle;//i+1;
 	  minDistToCamera = intersectionDistance;
 
 	  atLeastOneGizmoInter = true;
 	}
-      }
+	//      }
     }else{
       vec3 inter;
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, rotatingCirclesAABB[0][selectedGizmoAxis-1], rotatingCirclesAABB[1][selectedGizmoAxis-1], &inter, NULL);
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, rotatingCirclesAABB[0][YCircle-1], rotatingCirclesAABB[1][YCircle-1], &inter, NULL);
+
+      printf("%d inter value\n",isIntersect);
 
       if(isIntersect){
 	atLeastOneGizmoInter = true;
@@ -4272,7 +4471,7 @@ void editorMouseVS(){
       float minDistToCamera = 1000.0f;
       float intersectionDistance;
     
-      for(int i=0;i<3;i++){
+      for(int i=0;i<axisCounter-1;i++){
 	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, translateAABB[0][i], translateAABB[1][i], &posOfStart, &intersectionDistance);
 
 	if(isIntersect && minDistToCamera > intersectionDistance){

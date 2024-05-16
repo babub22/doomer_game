@@ -295,8 +295,6 @@ typedef struct {
   int planesNum;
 } BlockInfo;
 
-VPair circle;
-
 typedef struct{
   GLuint VBO;
   GLuint VAO;
@@ -697,8 +695,6 @@ vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tile
 void wallsLoadVAOandVBO();
 
 void renderText(char* text, float x, float y, float scale);
-VPair translatePair;
-
 
 // Macro-Functions
 // ~~~~~

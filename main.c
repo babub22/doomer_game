@@ -32,9 +32,6 @@ vec3 lightPos;// = {}
 float near_plane;
 float far_plane;
 
-VPair circle;
-float citcleInterDist;
-
 const void(*instances[instancesCounter][funcsCounter])() = {
   [editorInstance] = {
     [render2DFunc] = editor2dRender,
@@ -385,56 +382,6 @@ int main(int argc, char* argv[]) {
 	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 	    glEnableVertexAttribArray(1);*/
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-  }
-
-  // circle buf
-  {
-    circle.vBuf = malloc(sizeof(float) * 3 * 180 * 2);
-    circle.vertexNum = 180 * 2;
-    circle.attrSize = 3;
-
-    int index = 0;
-    vec3 circleA = { 0 };
-    
-    float r = 1.0f;
-    float h = 1.0f;
-    float k = 1.0f;
-    
-    for (int i = 0; i < 180; i++)
-      {
-	circleA.x = r * cos(i) - h;
-    circleA.y = r * sin(i) + k;
-	
-	circle.vBuf[index+0] = circleA.x + k;
-	circle.vBuf[index+1] = circleA.y - h;
-	circle.vBuf[index+2] = 0;
-	
-	index+=3;
-    
-    circleA.x = r * cos(i + 0.1) - h;
-    circleA.y = r * sin(i + 0.1) + k;
-	
-	circle.vBuf[index+0] = circleA.x + k;
-	circle.vBuf[index+1] = circleA.y - h;
-	circle.vBuf[index+2] = 0;
-	
-	//	glVertex3f(circle.x + k,circle.y - h,0);
-	index+=3;
-      }
-
-    glGenVertexArrays(1, &circle.VAO);
-    glBindVertexArray(circle.VAO);
-
-    glGenBuffers(1, &circle.VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, circle.VBO);
-
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * 360, circle.vBuf, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-    glEnableVertexAttribArray(0);
-    
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
   }
@@ -1975,7 +1922,7 @@ int main(int argc, char* argv[]) {
 	
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
-	glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST); 
 
 	// render to fbo 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
