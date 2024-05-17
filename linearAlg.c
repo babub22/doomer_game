@@ -176,13 +176,13 @@ Matrix orthogonal(float l, float r, float b, float t, float n, float f)
 }
 
 vec3 cross3(const vec3 v1, const vec3 v2) {
-	vec3 crossproduct = { 0, 0, 0 };
+  vec3 crossproduct = { 0, 0, 0 };
 
-	crossproduct.x = v1.y * v2.z - v1.z * v2.y;
-	crossproduct.y = v1.x * v2.z - v1.z * v2.x;
-	crossproduct.z = v1.x * v2.y - v1.y * v2.x;
-
-	return crossproduct;
+  crossproduct.x = v1.y * v2.z - v1.z * v2.y;
+  crossproduct.y = v1.z * v2.x - v1.x * v2.z;
+  crossproduct.z = v1.x * v2.y - v1.y * v2.x;
+  
+  return crossproduct;
 }
 
 vec3 normalize3(const vec3 vec) {
@@ -288,10 +288,10 @@ void mat4transpose(float *M, const float *N)
   }
 }
 
-void rotate(Matrix *m, float angle, float x, float y, float z) {
-  float radians = rad(angle);
-  float c = cosf(radians);
-  float s = sinf(radians);
+void rotate(Matrix *m, float rad, float x, float y, float z) {
+  //  float radians = rad(angle);
+  float c = cosf(rad);
+  float s = sinf(rad);
   float length = sqrtf(x * x + y * y + z * z);
   float u[3] = {x / length, y / length, z / length};
 
