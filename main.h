@@ -672,7 +672,7 @@ typedef struct{
   int cubemapIndex;
 } Light;
 
-bool hints;
+bool navPointsDraw;
 
 void rerenderShadowForLight(int lightId);
 void batchModels();

@@ -9,3 +9,5 @@ void editorMouseVS();
 
 void createLight(vec3 pos, int type);
 void uniformLights();
+
+void initGizmosAABBFromSelected();

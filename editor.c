@@ -5,8 +5,6 @@
 
 TextInput* selectedTextInput;
 
-float rotationAcc;
-
 int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
@@ -26,30 +24,41 @@ const float lightPresetTable[][2] = { {0.0014, 0.000007},
 
 #define lightsPresetMax 12
 
+bool hints = true;
+
 typedef enum{
   moveMode = 1, rotationMode, cursorModeCunter
 } EditorCursorMode;
-
-EditorCursorMode cursorMode;
-float circleRotAngle;
-
-vec3 posOfStart;
-vec3 curPoss;
-//vec3/posOfInterWithCircle;
-
-// 0 - x | 1 - y | 2 - z
-// 0 - lb | 1 - rt
-vec3 rotatingCirclesAABB[2][3];
 
 typedef enum{
   XCircle = 1, YCircle, ZCircle, XYPlane, ZYPlane, XZPlane, axisCounter
 } RotationCircles;
 
-vec3 translateAABB[2][axisCounter-1];
-VPair translationGizmos[axisCounter-1];
-VPair rotationGizmos[3];
+EditorCursorMode cursorMode;
 
-char* rotatingAxisStr[axisCounter] = {
+float rotationGizmodegAcc;
+bool isFreeGizmoRotation;
+
+VPair* gizmosGeom[2];
+const int gizmosNum[2] = { axisCounter-1, 3 }; 
+vec3* gizmosAABB[2][2];
+vec3* gizmosPaddings[2];
+
+vec3 gizmoStartPos;
+vec3 gizmoCurPos;
+RotationCircles selectedGizmoAxis;
+
+const vec3 gizmosColors[axisCounter - 1] = {
+  [XCircle - 1] = {redColor},
+  [YCircle - 1] = {greenColor},
+  [ZCircle - 1] = {blueColor},
+
+  [XZPlane - 1] = {redColor},
+  [XYPlane - 1] = {greenColor},
+  [ZYPlane - 1] = {blueColor},
+};
+
+const char* gizmosAxisStr[axisCounter] = {
   [0]= "None",
   [XCircle]= "X-axis",
   [YCircle]= "Y-axis",
@@ -61,9 +70,6 @@ char* rotatingAxisStr[axisCounter] = {
 };
 
 
-RotationCircles selectedGizmoAxis;
-//float rotationCirclesRadius;
-
 int texturesMenuCurCategoryIndex = 0;
 ModelType objectsMenuSelectedType = objectModelType;
 
@@ -72,10 +78,6 @@ Menu blocksMenu = { .type = blocksMenuT };
 Menu texturesMenu = { .type = texturesMenuT };
 Menu lightMenu = { .type = lightMenuT };
 Menu planeCreatorMenu = { .type = planeCreatorT };
-
-ManipulationMode manipulationMode = 0;
-float manipulationStep = 0.01f;
-float manipulationScaleStep = 5 * 0.01f + 1;
 
 // avaible/loaded models
 ModelInfo* loadedModels1D;
@@ -117,58 +119,74 @@ void editorOnSetInstance(){
 void editorPreLoop(){
   // circle buf
   {
+    gizmosGeom[rotationMode -1] = calloc(gizmosNum[rotationMode -1], sizeof(VPair));
+    gizmosAABB[rotationMode -1][0] = calloc(gizmosNum[rotationMode -1], sizeof(vec3));
+    gizmosAABB[rotationMode -1][1] = calloc(gizmosNum[rotationMode -1], sizeof(vec3));
+
+    gizmosPaddings[rotationMode -1] = calloc(gizmosNum[rotationMode -1], sizeof(VPair));
+    
+    
     for(int i=0;i<3;i++){
-      rotationGizmos[i].vertexNum = 6;
-      rotationGizmos[i].attrSize = 3;
+      gizmosGeom[rotationMode -1][i].vertexNum = 6;
+      gizmosGeom[rotationMode -1][i].attrSize = 3;
+
+      float size = .15f;
 
       if(i==0){ // x
 	float plane[] = {
-	  .0f,  -.5f,  -.5f,
-	  .0f,  -.5f,  .5f,
-	  .0f,  .5f,  .5f,
+	  .0f,  -size,  -size,
+	  .0f,  -size,  size,
+	  .0f,  size,  size,
 
-	  .0f,  -.5f,  -.5f,
-	  .0f,  .5f,  .5f,
-	  .0f,  .5f,  -.5f,
+	  .0f,  -size,  -size,
+	  .0f,  size,  size,
+	  .0f,  size,  -size,
 	};
 
-	rotationGizmos[i].vBuf = malloc(sizeof(plane));
-	memcpy(rotationGizmos[i].vBuf, plane, sizeof(plane));
+	gizmosPaddings[rotationMode -1][i] = (vec3){ -.5f, .0f, .0f }; 
+
+	gizmosGeom[rotationMode -1][i].vBuf = malloc(sizeof(plane));
+	memcpy(gizmosGeom[rotationMode -1][i].vBuf, plane, sizeof(plane));
       }else if(i == 1){ // y
 	float plane[] = {
-	  -.5f, .0f, -.5f,
-	  -.5f, .0f, .5f,
-	  .5f, .0f, .5f,
+	  -size, .0f, -size,
+	  -size, .0f, size,
+	  size, .0f, size,
 
-	  -.5f, .0f, -.5f,
-	  .5f, .0f, .5f,
-	  .5f, .0f, -.5f,
+	  -size, .0f, -size,
+	  size, .0f, size,
+	  size, .0f, -size,
 	};
+
+	gizmosPaddings[rotationMode -1][i] = (vec3){ .0f, -.5f, .0f }; 
 	
-	rotationGizmos[i].vBuf = malloc(sizeof(plane));
-	memcpy(rotationGizmos[i].vBuf, plane, sizeof(plane));
+	gizmosGeom[rotationMode -1][i].vBuf = malloc(sizeof(plane));
+	memcpy(gizmosGeom[rotationMode -1][i].vBuf, plane, sizeof(plane));
       }else if(i == 2){ // z
 	float plane[] = {
-	  -.5f, -.5f, .0f,
-	  .5f, .5f, .0f,
-	  .5f, -.5f, .0f,
+	  -size, -size, .0f,
+	  size, size, .0f,
+	  size, -size, .0f,
 	  
-	  -.5f, -.5f, .0f,
-	  -.5f, .5f, .0f,
-	  .5f, .5f, .0f,
+	  -size, -size, .0f,
+	  -size, size, .0f,
+	  size, size, .0f,
 
 	};
 
-	rotationGizmos[i].vBuf = malloc(sizeof(plane));
-	memcpy(rotationGizmos[i].vBuf, plane, sizeof(plane));
+	gizmosPaddings[rotationMode -1][i] = (vec3){ .0f, .0f, .5f }; 
+
+	gizmosGeom[rotationMode -1][i].vBuf = malloc(sizeof(plane));
+	memcpy(gizmosGeom[rotationMode -1][i].vBuf, plane, sizeof(plane));
       }
-    glGenVertexArrays(1, &rotationGizmos[i].VAO);
-    glBindVertexArray(rotationGizmos[i].VAO);
+      
+    glGenVertexArrays(1, &gizmosGeom[rotationMode -1][i].VAO);
+    glBindVertexArray(gizmosGeom[rotationMode -1][i].VAO);
 
-    glGenBuffers(1, &rotationGizmos[i].VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, rotationGizmos[i].VBO);
+    glGenBuffers(1, &gizmosGeom[rotationMode -1][i].VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, gizmosGeom[rotationMode -1][i].VBO);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 3, rotationGizmos[i].vBuf, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 3, gizmosGeom[rotationMode -1][i].vBuf, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
@@ -182,12 +200,18 @@ void editorPreLoop(){
   // translation gizmos
   {
     float h1 = 1.0f / 9.0f;
-    
-    for(int i=0;i<axisCounter-1;i++){
+
+    gizmosGeom[moveMode -1] = calloc(gizmosNum[moveMode -1], sizeof(VPair));
+    gizmosAABB[moveMode -1][0] = calloc(gizmosNum[moveMode -1], sizeof(vec3));
+    gizmosAABB[moveMode -1][1] = calloc(gizmosNum[moveMode -1], sizeof(vec3));
+
+    gizmosPaddings[moveMode -1] = calloc(gizmosNum[moveMode -1], sizeof(VPair));
+      
+    for(int i=0;i<gizmosNum[moveMode -1];i++){
       printf("AAA %d \n", i);
       
-      translationGizmos[i].vertexNum = 6;
-      translationGizmos[i].attrSize = 3;
+      gizmosGeom[moveMode -1][i].vertexNum = 6;
+      gizmosGeom[moveMode -1][i].attrSize = 3;
 
       float sInterPlane =  -(0.5f / 4.0f);
       float eInterPlane =  0.5f / 4.0f;
@@ -204,8 +228,10 @@ void editorPreLoop(){
 	  -.5f, h1/2.0f, 0.0f,
 	};
 
-	translationGizmos[i].vBuf = malloc(sizeof(transl));
-	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+	gizmosPaddings[moveMode -1][i] = (vec3){.5f,.0f,.0f};
+	
+	gizmosGeom[moveMode -1][i].vBuf = malloc(sizeof(transl));
+	memcpy(gizmosGeom[moveMode -1][i].vBuf,transl,sizeof(transl));
       }else if(i+1==YCircle){ // y
 	float transl[] = {
 	// Y axis
@@ -218,8 +244,10 @@ void editorPreLoop(){
 	h1/2.0f,-.5f, 0.0f,
 	};
 
-	translationGizmos[i].vBuf = malloc(sizeof(transl));
-	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+	gizmosPaddings[moveMode -1][i] = (vec3){.0f,.5f,.0f};
+
+	gizmosGeom[moveMode -1][i].vBuf = malloc(sizeof(transl));
+	memcpy(gizmosGeom[moveMode -1][i].vBuf,transl,sizeof(transl));
       }else if(i+1==ZCircle){ // z
 	float transl[] = {
 	  // Z axis
@@ -231,9 +259,11 @@ void editorPreLoop(){
 	  0.0f, h1/2.0f, .5f,
 	  0.0f, h1/2.0f, -.5f,
 	};
+
+	gizmosPaddings[moveMode -1][i] = (vec3){.0f,.0f,-.5f};
 	
-	translationGizmos[i].vBuf = malloc(sizeof(transl));
-	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+	gizmosGeom[moveMode -1][i].vBuf = malloc(sizeof(transl));
+	memcpy(gizmosGeom[moveMode -1][i].vBuf,transl,sizeof(transl));
       }else if(i+1==XYPlane){ // xy
 	float transl[] = {
 	  sInterPlane, sInterPlane, 0.0f,
@@ -244,9 +274,11 @@ void editorPreLoop(){
 	  eInterPlane, eInterPlane, 0.0f,
 	  eInterPlane, sInterPlane, 0.0f,
 	};
+
+	gizmosPaddings[moveMode -1][i] = (vec3){.5f,.5f,.0f};
 	
-	translationGizmos[i].vBuf = malloc(sizeof(transl));
-	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+	gizmosGeom[moveMode -1][i].vBuf = malloc(sizeof(transl));
+	memcpy(gizmosGeom[moveMode -1][i].vBuf,transl,sizeof(transl));
       }else if(i+1==ZYPlane){ // zy
 	float transl[] = {
 	  0.0f, sInterPlane, sInterPlane,
@@ -258,8 +290,10 @@ void editorPreLoop(){
 	  0.0f, eInterPlane, sInterPlane,
 	};
 
-	translationGizmos[i].vBuf = malloc(sizeof(transl));
-	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+	gizmosPaddings[moveMode -1][i] = (vec3){.0f,.5f,-.5f };
+
+	gizmosGeom[moveMode -1][i].vBuf = malloc(sizeof(transl));
+	memcpy(gizmosGeom[moveMode -1][i].vBuf,transl,sizeof(transl));
       }else if(i+1==XZPlane){ // xz
 	float transl[] = {
 	  // XZ axis
@@ -272,24 +306,26 @@ void editorPreLoop(){
 	  eInterPlane, 0.0f, sInterPlane,
 	};
 
-	translationGizmos[i].vBuf = malloc(sizeof(transl));
-	memcpy(translationGizmos[i].vBuf,transl,sizeof(transl));
+	gizmosPaddings[moveMode -1][i] = (vec3){.5f,.0f,-.5f};
+
+	gizmosGeom[moveMode -1][i].vBuf = malloc(sizeof(transl));
+	memcpy(gizmosGeom[moveMode -1][i].vBuf,transl,sizeof(transl));
       }
       
 	
       for(int i2=0;i2<6*3;i2++){
-	printf("%f ", translationGizmos[i].vBuf[i2]);
+	printf("%f ", gizmosGeom[moveMode -1][i].vBuf[i2]);
       }
 
       printf("\n");
 
-      glGenVertexArrays(1, &translationGizmos[i].VAO);
-      glBindVertexArray(translationGizmos[i].VAO);
+      glGenVertexArrays(1, &gizmosGeom[moveMode -1][i].VAO);
+      glBindVertexArray(gizmosGeom[moveMode -1][i].VAO);
 
-      glGenBuffers(1, &translationGizmos[i].VBO);
-      glBindBuffer(GL_ARRAY_BUFFER, translationGizmos[i].VBO);
+      glGenBuffers(1, &gizmosGeom[moveMode -1][i].VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, gizmosGeom[moveMode -1][i].VBO);
 
-      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 3, translationGizmos[i].vBuf, GL_STATIC_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 3, gizmosGeom[moveMode -1][i].vBuf, GL_STATIC_DRAW);
     
       glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
       glEnableVertexAttribArray(0);
@@ -591,290 +627,6 @@ void editorEvents(SDL_Event event){
 	hints = !hints;
 	  
 	break;
-      }	  case(SDL_SCANCODE_F3):{
-	    //enviromental.snow = !enviromental.snow;
-	  
-	    break;
-	  }
-      case(SDL_SCANCODE_UP): {
-	if(manipulationMode != 0 && (mouse.focusedType == mouseLightT || mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
-	  Matrix* mat = -1;
-	  bool itPlane = false;
-		   
-	  Model* model = NULL;
-	  Light* light = NULL;
-	      
-	  if (mouse.focusedType == mouseModelT) { 
-	    model = (Model*)mouse.focusedThing; 
-	    mat = &model->mat; 
-	  }
-	  else if (mouse.focusedType == mousePlaneT) {
-	    Picture* plane = (Picture*)mouse.focusedThing;
-	    mat = &plane->mat;
-	    itPlane = true;
-	  }else if(mouse.focusedType == mouseLightT){
-	    light = (Light*)mouse.focusedThing;
-	    mat = &light->mat; 
-	  }
-
-	  switch(manipulationMode){
-	  case(TRANSFORM_Z):{
-	    mat->m[13] = mat->m[13] + manipulationStep;
-
-	    if(model){
-	      calculateModelAABB(model);
-	    }else if(light){
-	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	      uniformLights();
-
-	      if(light->type == shadowPointLightT){
-		rerenderShadowForLight(light->id);
-	      }
-	    }
-		
-	    break;
-	  }
-	  case(TRANSFORM_XY): {
-	    mat->m[12] = mat->m[12] - manipulationStep;
-
-	    if(model){
-	      calculateModelAABB(model);
-	    }else if(light){
-	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-
-	      uniformLights();
-	      
-	      if(light->type == shadowPointLightT){
-		rerenderShadowForLight(light->id);
-	      }
-	    }
-		
-	    break;
-	  }
-	  case(SCALE): {
-	    if(itPlane){
-	      Picture* plane = (Picture*)mouse.focusedThing;
-	      plane->h += 0.01f;
-	      /*
-		float xTemp = mat->m[12];
-		float yTemp = mat->m[13];
-		float zTemp = mat->m[14];
-
-		mat->m[12] = 0;
-		mat->m[13] = 0;
-		mat->m[14] = -zTemp;
-
-		//		  scale(mat->m, 1.0f, manipulationScaleStep, 1.0f);
-
-		mat->m[12] = xTemp;
-		mat->m[13] = yTemp;
-		mat->m[14] = zTemp;*/
-	    }else if(mouse.focusedType != mouseLightT){
-	      float xTemp = mat->m[12];
-	      float yTemp = mat->m[13];
-	      float zTemp = mat->m[14];
-
-	      mat->m[12] = 0;
-	      mat->m[13] = 0;
-	      mat->m[14] = -zTemp;
-
-	      scale(mat->m, manipulationScaleStep, manipulationScaleStep, manipulationScaleStep);
-
-	      mat->m[12] = xTemp;
-	      mat->m[13] = yTemp;
-	      mat->m[14] = zTemp;
-	    }
-
-	    if(model){
-	      calculateModelAABB(model);
-	    }
-		
-	    break;
-	  }
-
-	  default: break;
-	  }
-	}
-	else if(false && (mouse.brushType == mouseBlockBrushT || mouse.selectedType == mouseBlockT)){
-	  TileBlock* block = NULL;
-
-	  if(mouse.brushType == mouseBlockBrushT){
-	    block = (TileBlock*) mouse.brushThing;
-	  }else if(mouse.selectedType == mouseBlockT){
-	    block = (TileBlock*) mouse.selectedThing;
-	  }
-
-	  if(block->type == roofBlockT) { 
-	    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL); 
-
-	    /*if (currentKeyStates[SDL_SCANCODE_LCTRL] && block->vertexes[11] + manipulationStep <= floorH) {
-	      block->vertexes[11] += manipulationStep;
-	      block->vertexes[21] += manipulationStep;
-	      block->vertexes[26] += manipulationStep;  
-	      }
-	      else if (!currentKeyStates[SDL_SCANCODE_LCTRL] && block->vertexes[1] + manipulationStep <= floorH) { 
-	      block->vertexes[1] += manipulationStep;
-	      block->vertexes[6] += manipulationStep;
-	      block->vertexes[16] += manipulationStep;
-	      }*/
-		
-	  }
-	}
-	else if (mouse.selectedType == mouseWallT) {
-	  WallMouseData* data = (WallMouseData*) mouse.selectedThing;
-
-	  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-
-	  Matrix* mat = &data->tile->walls[data->side].mat;
-
-	  if(currentKeyStates[SDL_SCANCODE_LCTRL]){
-	    scale(mat, 1.0f, 1.05f, 1.0f);		
-	  }/*else{
-	     if(data->side == bot || data->side == top){
-	     mat->m[14] += .05f;
-	     }else{
-	     mat->m[12] += .05f;
-	     }
-	     }*/
-
-	  for(int i=0;i<wallsVPairs[data->type].planesNum;i++){
-	    calculateAABB(*mat, wallsVPairs[data->type].pairs[i].vBuf, wallsVPairs[data->type].pairs[i].vertexNum, wallsVPairs[data->type].pairs[i].attrSize, &data->tile->walls[data->side].planes[i].lb, &data->tile->walls[data->side].planes[i].rt);
-	  }
-
-	  batchGeometry();
-	}
-
-	break;
-      }
-      case(SDL_SCANCODE_DOWN): {
-	// TODO: if intersected tile + wall will work only tile changer
-	if(manipulationMode != 0 && (mouse.focusedType == mouseLightT || mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
-	  Matrix* mat = -1;
-	  bool isPlane = false;
-	  Model* model = NULL;
-	  Light* light = NULL;
-	      
-	  if (mouse.focusedType == mouseModelT) {
-	    model = (Model*)mouse.focusedThing;
-	    mat = &model->mat;
-	  }
-	  else if (mouse.focusedType == mousePlaneT) {
-	    Picture* plane = (Picture*)mouse.focusedThing;
-	    mat = &plane->mat;
-	    isPlane = true;
-	  }
-	  else if(mouse.focusedType == mouseLightT){
-	    light = (Light*)mouse.focusedThing;
-	    mat = &light->mat; 
-	  }
-
-	  switch(manipulationMode){ 
-	  case(TRANSFORM_Z):{
-	    mat->m[13] = mat->m[13] - manipulationStep;
-
-	    if(model){
-	      calculateModelAABB(model);
-	    }else if(light){
-	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	      uniformLights();
-
-	      if(light->type == shadowPointLightT){
-		rerenderShadowForLight(light->id);
-	      }
-	    }
-		
-	    break;
-	  }
-	  case(TRANSFORM_XY): {
-	    mat->m[12] = mat->m[12] + manipulationStep;
-
-	    if(model){
-	      calculateModelAABB(model);
-	    }else if(light){
-	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	      uniformLights();
-
-	      if(light->type == shadowPointLightT){
-		rerenderShadowForLight(light->id);
-	      }
-	    }
-		
-	    break;
-	  }
-	  case(SCALE): {
-	    if(isPlane){
-	      Picture* plane = (Picture*)mouse.focusedThing;
-	      plane->h -= 0.01f;
-	    }else if(mouse.focusedType != mouseLightT){
-	      float xTemp = mat->m[12];
-	      float yTemp = mat->m[13];
-	      float zTemp = mat->m[14];
-
-	      mat->m[12] = 0;
-	      mat->m[13] = 0;
-	      mat->m[14] = -zTemp;
-
-	      scale(mat->m, 1.0f / manipulationScaleStep, 1.0f / manipulationScaleStep, 1.0f / manipulationScaleStep);
-
-	      mat->m[12] = xTemp;
-	      mat->m[13] = yTemp;
-	      mat->m[14] = zTemp;
-	    }
-		
-	    if(model){
-	      calculateModelAABB(model);
-	    }
-		
-	    break;
-	  }
-
-
-	  default: break;
-	  }
-
-	}else if(false && mouse.brushType == mouseBlockBrushT){
-	  TileBlock* block = (TileBlock*) mouse.brushThing;
-
-	  if(block->type == roofBlockT) {
-	    const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-
-	    /*if (currentKeyStates[SDL_SCANCODE_LCTRL] && block->vertexes[11] - manipulationStep >= 0) {
-	      block->vertexes[11] -= manipulationStep;
-	      block->vertexes[21] -= manipulationStep;
-	      block->vertexes[26] -= manipulationStep;
-	      }
-	      else if (!currentKeyStates[SDL_SCANCODE_LCTRL] && block->vertexes[1] - manipulationStep >= 0) {
-	      block->vertexes[1] -= manipulationStep;
-	      block->vertexes[6] -= manipulationStep;
-	      block->vertexes[16] -= manipulationStep;
-	      }*/
-		
-	  }
-	}else if (mouse.selectedType == mouseWallT) {
-	  WallMouseData* data = (WallMouseData*)mouse.selectedThing;
-	      
-	  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-
-	  Matrix* mat = &data->tile->walls[data->side].mat;
-
-	  if(currentKeyStates[SDL_SCANCODE_LCTRL]){
-	    scale(mat, 1.0f, 1/1.05f, 1.0f);
-	  }/*else{
-	     if(data->side == bot || data->side == top){
-	     mat->m[14] -= .05f;
-	     }else{
-	     mat->m[12] -= .05f;
-	     }
-	     }*/
-	      
-	  for(int i=0;i<wallsVPairs[data->type].planesNum;i++){
-	    calculateAABB(*mat, wallsVPairs[data->type].pairs[i].vBuf, wallsVPairs[data->type].pairs[i].vertexNum, wallsVPairs[data->type].pairs[i].attrSize, &data->tile->walls[data->side].planes[i].lb, &data->tile->walls[data->side].planes[i].rt);
-	  }
-
-	  batchGeometry();
-	}
-
-	break;
       }
       case(SDL_SCANCODE_Q): {
 	curCamera->pos.y += .1f ;
@@ -882,25 +634,19 @@ void editorEvents(SDL_Event event){
 	break;
       }
       case(SDL_SCANCODE_F): {
-	if(!mouse.focusedThing){
-	  if(mouse.selectedType == mouseLightT || mouse.selectedType == mousePlaneT || mouse.selectedType == mouseModelT){
-	    mouse.focusedThing = mouse.selectedThing;
-	    mouse.focusedType = mouse.selectedType;
-	  }
-	}else{
-	  mouse.focusedThing = NULL;
-	  mouse.focusedType = 0;
-	  manipulationMode = 0;
-	  manipulationStep = 0.01f;
-	}
-	    
-	/*
-	  if(mouse.focusedModel && mouse.selectedModel && mouse.focusedModel->id == mouse.selectedModel->id){
-	  mouse.focusedModel = NULL;
+	// do i need focuse something without cursorMode
+	if(false){
+	  if(!mouse.focusedThing){
+	    if(mouse.selectedType == mouseLightT || mouse.selectedType == mousePlaneT || mouse.selectedType == mouseModelT){
+	      mouse.focusedThing = mouse.selectedThing;
+	      mouse.focusedType = mouse.selectedType;
+	    }
 	  }else{
-	  mouse.focusedModel = mouse.selectedModel;
-	  }*/
-	  
+	    mouse.focusedThing = NULL;
+	    mouse.focusedType = 0;
+	  }
+	}
+	
 	break;
       }
       case(SDL_SCANCODE_E): {
@@ -928,23 +674,50 @@ void editorEvents(SDL_Event event){
 	    mat = &light->mat; 
 	  }
 
+	  // TODO: Make rotation reset
+	  if(false && cursorMode == rotationMode){
+	    mat->m[0] = 0;
+	    mat->m[1] = 0;
+	    mat->m[2] = 0;
 
-	  if(light){
-	    mat->m[13] = curFloor;
-	    calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-
-	    uniformLights();
+	    mat->m[4] = 0;
+	    mat->m[5] = 0;
+	    mat->m[6] = 0;
 	    
-	    if(light->type == shadowPointLightT){
+	    mat->m[8] = 0;
+	    mat->m[9] = 0;
+	    mat->m[10] = 0;
+	    
+	    if(model){
+	      calculateModelAABB(model);
+	    }
+
+	    if(light){
+	      uniformLights();
 	      rerenderShadowForLight(light->id);
+	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
 	    }
 	  }
 
-	  if(model){
-	    printf("%s %f \n", loadedModels1D[model->name].name ,loadedModels1D[model->name].modelSizes.y);
+	  // TODO: Make more clever way to alling object with net
+	  if(false){
+	    if(light){
+	      mat->m[13] = curFloor;
+	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
+
+	      uniformLights();
 	    
-	    mat->m[13] = curFloor + loadedModels1D[model->name].modelSizes.y;
-	    calculateModelAABB(model);
+	      if(light->type == shadowPointLightT){
+		rerenderShadowForLight(light->id);
+	      }
+	    }
+
+	    if(model){
+	      printf("%s %f \n", loadedModels1D[model->name].name ,loadedModels1D[model->name].modelSizes.y);
+	    
+	      mat->m[13] = curFloor + loadedModels1D[model->name].modelSizes.y;
+	      calculateModelAABB(model);
+	    }
 	  }
 	}else{
 	  if(mouse.brushThing || mouse.brushType){
@@ -964,202 +737,6 @@ void editorEvents(SDL_Event event){
 
 	break;
       }
-      case(SDL_SCANCODE_LEFT): {
-	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-
-	Light* light = (Light*)mouse.focusedThing;
-	    
-	/*	    if(mouse.focusedType == mouseLightT){
-		    light->pos.x -= .1f;
-		    }else*/
-	if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT || mouse.focusedType == mouseLightT)){  
-	  Matrix* mat = -1; 
-	  bool isPlane = false;
-	      
-	  Model* model = NULL;
-	  Light* light = NULL;
-
-	  if (mouse.focusedType == mouseModelT) {
-	    model = (Model*)mouse.focusedThing;
-	    mat = &model->mat;
-
-	  }
-	  else if (mouse.focusedType == mousePlaneT) {
-	    Picture* plane = (Picture*)mouse.focusedThing;
-	    mat = &plane->mat;
-	    isPlane = true;
-	  }else if(mouse.focusedType == mouseLightT){
-	    light = (Light*)mouse.focusedThing;
-	    mat = &light->mat;
-	    //		light->dir = (vec3){0.0f, -1.0f, 0.0f};
-	  }
-
-	  float xTemp = mat->m[12];
-	  float yTemp = mat->m[13];
-	  float zTemp = mat->m[14];
-
-	  if (manipulationMode == ROTATE_Y || manipulationMode == ROTATE_X || manipulationMode == ROTATE_Z) {
-	    mat->m[12] = 0;
-	    mat->m[13] = 0;
-	    mat->m[14] = 0;
-
-	    float step = 1.0f;
-
-	    if (manipulationMode == ROTATE_Y) {
-	      rotateY(mat->m, rad(-step));
-	    }
-	    else if (manipulationMode == ROTATE_X) {
-	      rotateX(mat->m, rad(-step));
-	    }
-	    else if (manipulationMode == ROTATE_Z) {
-	      rotateZ(mat->m, rad(-step));
-	    }
-
-	    if(light){
-	      light->dir = (vec3){0.0f, -1.0f, 0.0f};
-		  
-	      vec4 trasfDir = mulmatvec4(light->mat, (vec4){light->dir.x, light->dir.y, light->dir.z, 0.0f});
-
-	      light->dir.x = trasfDir.x;
-	      light->dir.y = trasfDir.y;
-	      light->dir.z = trasfDir.z;
-
-	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	    }
-
-	    mat->m[12] = xTemp;
-	    mat->m[13] = yTemp;
-	    mat->m[14] = zTemp;
-
-	    if(model){
-	      calculateModelAABB(model);
-	    }
-	  }else if(manipulationMode == SCALE && isPlane){
-	    Picture* plane = (Picture*)mouse.focusedThing;
-	    plane->w -= 0.01f;
-	  }else if (manipulationMode == TRANSFORM_XY) {   
-	    mat->m[14] = mat->m[14] + manipulationStep;  
-		 
-	    if(model){
-	      calculateModelAABB(model);
-	    }else if(light){
-	      calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	      uniformLights();
-
-	      if(light->type == shadowPointLightT){
-		rerenderShadowForLight(light->id);
-	      }
-	    }
-	  }
-	}
-	    
-	break;
-      }case(SDL_SCANCODE_RIGHT): {  
-	 const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL); 
-
-	 Light* light = (Light*)mouse.focusedThing;  
-		   
-	 /*if(mouse.focusedType == mouseLightT){ 
-	   light->pos.x += .1f;  
-	   }else*/
-	 if(manipulationMode != 0 && (mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT || mouse.focusedType == mouseLightT)){  
-	   Matrix* mat = -1;
-	   bool isPlane = false;
-
-	   Light* light = NULL;
-	   Model* model = NULL; 
-		  
-	   if (mouse.focusedType == mouseModelT) {      
-	     model = (Model*)mouse.focusedThing;   
-	     mat = &model->mat;  
-
-	   }
-	   else if (mouse.focusedType == mousePlaneT) {
-	     Picture* plane = (Picture*)mouse.focusedThing;
-	     mat = &plane->mat;
-	     isPlane = true;
-	   }
-	   else if(mouse.focusedType == mouseLightT){
-	     light = (Light*)mouse.focusedThing;
-	     mat = &light->mat;
-	     //		light->dir = (vec3){0.0f, -1.0f, 0.0f};
-	   }
-
-	   float xTemp = mat->m[12];
-	   float yTemp = mat->m[13];
-	   float zTemp = mat->m[14];
-
-	   if (manipulationMode == ROTATE_Y || manipulationMode == ROTATE_X || manipulationMode == ROTATE_Z) {
-	     mat->m[12] = 0;
-	     mat->m[13] = 0;
-	     mat->m[14] = -zTemp;
-
-	     float step = 1.0f;
-
-	     if (manipulationMode == ROTATE_Y) {
-	       rotateY(mat->m, rad(step));
-	     }
-	     else if (manipulationMode == ROTATE_X) {
-	       rotateX(mat->m, rad(step));
-	     }
-	     else if (manipulationMode == ROTATE_Z) {
-	       rotateZ(mat->m, rad(step));
-	     }
-
-	     if(light){
-	       light->dir = (vec3){0.0f, -1.0f, 0.0f};
-		  
-	       vec4 trasfDir = mulmatvec4(light->mat, (vec4){light->dir.x, light->dir.y, light->dir.z, 0.0f});
-
-	       light->dir.x = trasfDir.x;
-	       light->dir.y = trasfDir.y;
-	       light->dir.z = trasfDir.z;
-
-	       calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	     }
-
-	     mat->m[12] = xTemp;
-	     mat->m[13] = yTemp;
-	     mat->m[14] = zTemp;
-
-	     if(model){
-	       calculateModelAABB(model);
-	     }
-	   }else if(manipulationMode == SCALE && isPlane){
-	     Picture* plane = (Picture*)mouse.focusedThing;
-	     plane->w += 0.01f;
-	   }
-
-	   switch (manipulationMode) {
-	   case(TRANSFORM_XY): {
-	     mat->m[14] = mat->m[14] - manipulationStep;
-		 
-	     if(model){
-	       calculateModelAABB(model);
-	     }else if(light){
-	       calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	       uniformLights();
-
-	       if(light->type == shadowPointLightT){
-		 rerenderShadowForLight(light->id);
-	       }
-	     }
-		 
-	     break;
-	   }
-
-	   default: break;
-	   }
-	 }
-
-	 break;
-       }case(SDL_SCANCODE_SPACE): {
-	  //cameraMode = !cameraMode;
-
-	  //curCamera = cameraMode ? &camera1 : &camera2;
-
-	  break;
-	}
       case(SDL_SCANCODE_O): {
 	if(!curMenu || curMenu->type == objectsMenuT){
 	  objectsMenu.open = !objectsMenu.open;
@@ -1229,65 +806,16 @@ void editorEvents(SDL_Event event){
        }case(SDL_SCANCODE_R): {
 	  // set focused to object under cursor in time pressed R
 	  if(cursorMode &&
-	     (mouse.selectedType == mouseModelT || mouse.selectedType == mouseLightT)){
-	    mouse.focusedThing = mouse.selectedThing;
-	    mouse.focusedType = mouse.selectedType;
-	    //	    cursorMode = rotationMode;
+	     (mouse.selectedType == mouseModelT || mouse.selectedType == mouseLightT) && mouse.focusedThing != mouse.selectedThing){
 
-	    //	    mouse.selectedThing = NULL;
-	    //	    mouse.selectedType = 0;
-	  }
-
-	  if(cursorMode == rotationMode){
+	    initGizmosAABBFromSelected();
+	    
+	    cursorMode = rotationMode;
+	  }else if(cursorMode == rotationMode){
 	    cursorMode = moveMode;
 	  }else if(cursorMode == moveMode){
 	    cursorMode = rotationMode;
 	  }
-	  
-
-	  printf("cursormode %d \n", cursorMode);
-	  
-	  /*if(cursorMode){
-	    Model* model = NULL;
-	    Matrix* mat = NULL;
-	    Light* light = NULL;
-    
-	    if (mouse.selectedType == mouseModelT) { 
-	    model = (Model*)mouse.selectedThing; 
-	    mat = &model->mat; 
-	    }
-	    else if (mouse.selectedType == mousePlaneT) {
-	    Picture* plane = (Picture*)mouse.selectedThing;
-	    mat = &plane->mat;
-	    }else if(mouse.selectedType == mouseLightT){
-	    light = (Light*)mouse.selectedThing;
-	    mat = &light->mat; 
-	    }
-
-	    if(mat){
-	    float xTemp = mat->m[12];
-	    float yTemp = mat->m[13];
-	    float zTemp = mat->m[14];
-      
-	    mat->m[12] = 0;
-	    mat->m[13] = 0;
-	    mat->m[14] = 0;
-
-	    rotateY(mat->m, rad(45.0f));
-
-	    if(light){
-	    calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	    }
-
-	    mat->m[12] = xTemp;
-	    mat->m[13] = yTemp;
-	    mat->m[14] = zTemp;
-
-	    if(model){
-	    calculateModelAABB(model);
-	    }
-	    }
-	    }*/
       
 	  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
@@ -1316,14 +844,7 @@ void editorEvents(SDL_Event event){
 	      block->mat.m[12] = xTemp;
 	      block->mat.m[13] = yTemp;
 	      block->mat.m[14] = zTemp;
-
-	      /*	      static const float increaseData[4][2] = {
-			      { -bBlockW, 0.0f }, // [12] [14]
-			      { 0.0f, bBlockW },
-			      { bBlockW, 0.0f },
-			      { 0.0f, -bBlockD }
-			      };*/
-
+	      
 	      int index = block->rotateAngle / 90;
 	      block->mat.m[12] += rotationBlock[index][0];
 	      block->mat.m[14] += rotationBlock[index][1];
@@ -1332,7 +853,6 @@ void editorEvents(SDL_Event event){
 	    }
 
 	  }
-
 
 	  break;
 	}case(SDL_SCANCODE_2):{
@@ -1552,7 +1072,7 @@ void editorEvents(SDL_Event event){
       case(SDL_SCANCODE_DELETE): {
 	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 	    
-	if(!currentKeyStates[SDL_SCANCODE_LCTRL]){
+	//	if(!currentKeyStates[SDL_SCANCODE_LCTRL]){
 
 	  if (mouse.selectedType == mouseModelT) {
 	    Model* model = (Model*)mouse.selectedThing;
@@ -1578,7 +1098,13 @@ void editorEvents(SDL_Event event){
 	    mouse.focusedThing = NULL;
 	    mouse.selectedThing = 0;
 
-	    batchGeometry();
+	    batchModels();
+	    
+	    if(navPointsDraw){
+	      batchGeometry();
+	    }
+	    
+	    rerenderShadowsForAllLights();
 	  }else if (mouse.selectedType == mousePlaneT) {
 	    Picture* panel = (Picture*)mouse.selectedThing;
 	    int index = 0;
@@ -1611,9 +1137,8 @@ void editorEvents(SDL_Event event){
 	    free(data->tile->walls[data->side].planes);
 	    data->tile->walls[data->side].planes = NULL;
 
-	    printf("Deleted wall;\n");
-
 	    batchGeometry();
+	    rerenderShadowsForAllLights();
 	  }else if (mouse.selectedType == mouseTileT) {
 	    // WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
 	    TileMouseData* data = (TileMouseData*)mouse.selectedThing; 
@@ -1633,7 +1158,7 @@ void editorEvents(SDL_Event event){
 
 	    batchGeometry();
 	  }
-	}
+	  //	}
 			      
 	break;
       }
@@ -1647,15 +1172,11 @@ void editorEvents(SDL_Event event){
     mouse.rightDown = event.button.button == SDL_BUTTON_RIGHT;
 
     // set focused to object under click
-    if((mouse.leftDown || mouse.rightDown) &&
+    if(mouse.leftDown &&
        cursorMode &&
-       (mouse.selectedType == mouseModelT || mouse.selectedType == mouseLightT)){
+       (mouse.selectedType == mouseModelT || mouse.selectedType == mouseLightT) && mouse.focusedThing != mouse.selectedThing){
 
-	mouse.focusedThing = mouse.selectedThing;
-	mouse.focusedType = mouse.selectedType;
-
-	//mouse.selectedThing = NULL;
-	//mouse.selectedType = 0;
+      initGizmosAABBFromSelected();
     }
     
     if(mouse.focusedThing != mouse.selectedThing && selectedGizmoAxis == 0){
@@ -1668,30 +1189,46 @@ void editorEvents(SDL_Event event){
     mouse.leftDown = false;
     mouse.rightDown = false;
 
-    rotationAcc = 0.0f;
+    rotationGizmodegAcc = 0.0f;
 
     mouse.clickL = event.button.button == SDL_BUTTON_LEFT;
-    mouse.clickR = event.button.button == SDL_BUTTON_RIGHT; 
+    mouse.clickR = event.button.button == SDL_BUTTON_RIGHT;
 
-    // if click missing foucedThing reset focus
-    //    if(mouse.focusedThing != mouse.selectedThing && selectedGizmoAxis == 0){
+	if (selectedGizmoAxis) {
+    Matrix* mat = NULL;
+    Matrix out;
+
+    if (mouse.focusedType == mouseModelT) {
+      Model* model  = (Model*)mouse.focusedThing;
+      mat = &model->mat;
+    }
+    else if (mouse.focusedType == mousePlaneT) {
+      Picture* plane = (Picture*)mouse.focusedThing;
+      mat = &plane->mat;
+    }
+    else if (mouse.focusedType == mouseLightT) {
+      Light* light = (Light*)mouse.focusedThing;
+      mat = &light->mat;
+    }
+
+    // return from scaledAABB back to normal
+    // unselected axis
+    if(mat){
+      out = IDENTITY_MATRIX;
+
+      out.m[12] = mat->m[12] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].x;
+      out.m[13] = mat->m[13] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].y;
+      out.m[14] = mat->m[14] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].z;
+
+      calculateAABB(out, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vBuf, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vertexNum,gizmosGeom[cursorMode-1][selectedGizmoAxis-1].attrSize,
+		    &gizmosAABB[cursorMode-1][0][selectedGizmoAxis-1], &gizmosAABB[cursorMode-1][1][selectedGizmoAxis-1]);
+    }
+	}
   }
 
 
   if(event.type == SDL_MOUSEWHEEL){
     mouse.wheel = event.wheel.y;
-
-    if((mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT)){
-      const float dStep = 0.0001f;
-	  
-      if(event.wheel.y > 0){
-	manipulationStep += dStep;
-      }else if(event.wheel.y < 0 && manipulationStep - dStep >= dStep){
-	manipulationStep -= dStep;
-      }
-	
-      manipulationScaleStep = (manipulationStep * 5) + 1;
-    }
 
     if(cursorMode){
       Model* model = NULL;
@@ -1726,6 +1263,7 @@ void editorEvents(SDL_Event event){
 	}
 
 	uniformLights();
+	
 	if(light->type == shadowPointLightT){
 	  rerenderShadowForLight(light->id);
 	}
@@ -1753,6 +1291,13 @@ void editorEvents(SDL_Event event){
 	mat->m[14] = zTemp;
 
 	calculateModelAABB(model);
+
+	if(navPointsDraw){
+	  batchGeometry();
+	}
+	
+	batchModels();
+	rerenderShadowsForAllLights();
       }
     }
   }
@@ -1877,7 +1422,7 @@ void editorMatsSetup(int curShader){
 }
 
 void editorPreFrame(float deltaTime){
-  if(cursorMode && (mouse.leftDown || mouse.rightDown)){
+  if(cursorMode && mouse.leftDown){
     Model* model = NULL;
     Matrix* mat = NULL;
     Light* light = NULL;
@@ -1895,7 +1440,7 @@ void editorPreFrame(float deltaTime){
     }
 
     if(mat && (mouse.leftDown || mouse.rightDown)){
-      vec3 diffDrag = { curPoss.x - posOfStart.x, curPoss.y - posOfStart.y, curPoss.z - posOfStart.z };
+      vec3 diffDrag = { gizmoCurPos.x - gizmoStartPos.x, gizmoCurPos.y - gizmoStartPos.y, gizmoCurPos.z - gizmoStartPos.z };
 
       //   printf("diff %f %f %f\n", argVec3(diffDrag));
 
@@ -1916,26 +1461,34 @@ void editorPreFrame(float deltaTime){
 	  mat->m[14] += diffDrag.z;
 	  mat->m[12] += diffDrag.x;
 	}
+
       }else if(cursorMode == rotationMode){
 	const vec3 axis[3] = {{1.0f,0.0f,0.0f},
 			      {0.0f,1.0f,0.0f},
 			      {0.0f,0.0f,1.0f}};
 	
 	if(selectedGizmoAxis){
+	  // static const vec3 padding[3] = { { -.5f, .0f, .0f }, { .0f, -.5f, .0f}, { .0f, .0f, .5f} }; // XZ
+	  //	  static const vec3 padding[3] = { { .0f, .0f, .0f }, { .0f, .0f, .0f}, { .0f, .0f,.0f} }; // XZ
+	  
 	  vec3 planePos = {
-	    mat->m[12],	    mat->m[13],	    mat->m[14],
+	    
+	    mat->m[12] + gizmosPaddings[cursorMode - 1][selectedGizmoAxis-1].x,
+		mat->m[13] + gizmosPaddings[cursorMode - 1][selectedGizmoAxis-1].y,
+		mat->m[14] + gizmosPaddings[cursorMode - 1][selectedGizmoAxis-1].z,
+
 	  };
 	  
 	  vec3 prev_vector = {
-	    posOfStart.x -  planePos.x,
-	    posOfStart.y - planePos.y,
-	    posOfStart.z -  planePos.z
+	    gizmoStartPos.x -  planePos.x,
+	    gizmoStartPos.y - planePos.y,
+	    gizmoStartPos.z -  planePos.z
 	  };
 	  
 	  vec3 cur_vector = {
-	    curPoss.x -  planePos.x,
-	    curPoss.y - planePos.y,
-	    curPoss.z -  planePos.z 
+	    gizmoCurPos.x -  planePos.x,
+	    gizmoCurPos.y - planePos.y,
+	    gizmoCurPos.z -  planePos.z 
 	  };
 	  
 	  cur_vector = normalize3(cur_vector);
@@ -1966,7 +1519,19 @@ void editorPreFrame(float deltaTime){
 	  mat->m[13]=0.0f;
 	  mat->m[14]=0.0f;
 
-	  rotate(mat, angle, argVec3(axis[selectedGizmoAxis - 1]));
+	  if(!isFreeGizmoRotation){
+	    rotationGizmodegAcc += angle;
+
+	    if(rotationGizmodegAcc >= rad(15.0f)){
+	      rotate(mat, rad(15.0f), argVec3(axis[selectedGizmoAxis - 1]));
+	      rotationGizmodegAcc = 0.0f;
+	    }else if(rotationGizmodegAcc <= -rad(15.0f)){
+	      rotate(mat, -rad(15.0f), argVec3(axis[selectedGizmoAxis - 1]));
+	      rotationGizmodegAcc = 0.0f;
+	    }
+	  }else{
+	    rotate(mat, angle, argVec3(axis[selectedGizmoAxis - 1]));
+	  }
 	  
 	  mat->m[12]=tempX;
 	  mat->m[13]=tempY;
@@ -1974,29 +1539,64 @@ void editorPreFrame(float deltaTime){
 	}
       }
 
-      posOfStart = curPoss; 
+	  Matrix out2;
+
+      if(mat){
+	for(int i=0;i<2;i++){
+	  for(int i2=0;i2<gizmosNum[i];i2++){
+	    out2 = IDENTITY_MATRIX;
+
+	    out2.m[12] = mat->m[12] + gizmosPaddings[i][i2].x;
+	    out2.m[13] = mat->m[13] + gizmosPaddings[i][i2].y;
+	    out2.m[14] = mat->m[14] + gizmosPaddings[i][i2].z;
+
+	    calculateAABB(out2, gizmosGeom[i][i2].vBuf, gizmosGeom[i][i2].vertexNum,gizmosGeom[i][i2].attrSize,
+			  &gizmosAABB[i][0][i2], &gizmosAABB[i][1][i2]);
+	  }
+	}
+
+	if(selectedGizmoAxis){
+	  out2 = IDENTITY_MATRIX;
+	  scale(&out2, 1000.0f, 1000.0f, 1000.0f);
+
+	  out2.m[12] = mat->m[12] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].x;
+	  out2.m[13] = mat->m[13] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].y;
+	  out2.m[14] = mat->m[14] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].z;
+
+	  calculateAABB(out2, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vBuf, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vertexNum,gizmosGeom[cursorMode-1][selectedGizmoAxis-1].attrSize,
+			&gizmosAABB[cursorMode-1][0][selectedGizmoAxis-1], &gizmosAABB[cursorMode-1][1][selectedGizmoAxis-1]);
+	}
+      }
+      
+      gizmoStartPos = gizmoCurPos; 
        
-      batchModels();
     }
 
     if(light){
       calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
       uniformLights();
+      
       if(light->type == shadowPointLightT){
 	rerenderShadowForLight(light->id);
       }
     }
 
     if(model){
+      if(navPointsDraw){
+	batchGeometry();
+      }
+      
+      batchModels();
       calculateModelAABB(model);
+      rerenderShadowsForAllLights();
     }
-    //}
-    
   }
   
   if(!console.open && !curMenu){
     float cameraSpeed = 10.0f * deltaTime;
     const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+
+    isFreeGizmoRotation = currentKeyStates[SDL_SCANCODE_LALT];
 
     // cursorMode will be started but we have focusedType
     if(!cursorMode && currentKeyStates[SDL_SCANCODE_LCTRL]){
@@ -2005,22 +1605,16 @@ void editorPreFrame(float deltaTime){
       mouse.focusedType = 0;
     }
 
-    if(cursorMode &&!currentKeyStates[SDL_SCANCODE_LCTRL]){
+    if(cursorMode && !currentKeyStates[SDL_SCANCODE_LCTRL]){
       cursorMode = 0;
+      selectedGizmoAxis = 0;
+
+      gizmoCurPos = (vec3){0};
+      gizmoStartPos = (vec3){0};
+      
       mouse.focusedThing = NULL;
       mouse.focusedType = 0;
     }
-
-    // if we closed cursorMode in this frame
-    // reset focused thing
-    //    if(!cursorMode && mouse.focusedThing){
-      /*if(mouse.focusedType == mouseTileT || mouse.focusedType == mouseBlockT){
-	free(mouse.focusedThing);
-	}*/
-
-      //      mouse.focusedThing = NULL;
-      //      mouse.focusedType = 0;
-      //    }
 
     if (currentKeyStates[SDL_SCANCODE_W]){
       if (curCamera) {//cameraMode){
@@ -2071,62 +1665,11 @@ void editorPreFrame(float deltaTime){
 
   }
 
-  if ((mouse.focusedType == mouseLightT || mouse.focusedType == mouseModelT || mouse.focusedType == mousePlaneT) && currentKeyStates[SDL_SCANCODE_LCTRL]) {
-    if(currentKeyStates[SDL_SCANCODE_P]){
-      if(mouse.selectedType == mouseTileT){
-	Matrix* mat = -1;
-	Model* model = NULL;
-
-	if (mouse.focusedType == mouseModelT) {
-	  model = (Model*)mouse.focusedThing;
-	  mat = &model->mat;
-
-	}
-	else if (mouse.focusedType == mousePlaneT) {
-	  Picture* plane = (Picture*)mouse.focusedThing;
-	  mat = &plane->mat;
-	}
-	else if (mouse.focusedType == mouseLightT) {
-	  Light* light = (Light*)mouse.focusedThing;
-	  mat = &light->mat;
-	}
-	       
-	TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
-	vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);      
-
-	mat->m[12] = tile.x;
-	mat->m[13] = tile.y; 
-	mat->m[14] = tile.z; 
-		    
-	if(model){  
-	  calculateModelAABB(model);     
-	} 
-      }
-	  
-    }else if(currentKeyStates[SDL_SCANCODE_R]){
-      // Rotate
-      if (currentKeyStates[SDL_SCANCODE_X]){
-	manipulationMode = ROTATE_X;
-      }else if (currentKeyStates[SDL_SCANCODE_Y]){
-	manipulationMode = ROTATE_Y;
-      }else if (false && currentKeyStates[SDL_SCANCODE_Z]){
-	manipulationMode = ROTATE_Z;
-      } 
-    }else if(currentKeyStates[SDL_SCANCODE_T]){
-      manipulationMode = TRANSFORM_XY;
-    }else if (false && currentKeyStates[SDL_SCANCODE_Z]) {
-      manipulationMode = TRANSFORM_Z;
-    }
-    else if(currentKeyStates[SDL_SCANCODE_G]){
-      // Scale
-      manipulationMode = SCALE;
-    }
-  }
 }
 
 // 3d specific for editor mode 
 void editor3dRender() {
-  batchModels();
+  //  batchModels();
   
   glUseProgram(shadersId[lightSourceShader]);
 
@@ -2148,204 +1691,49 @@ void editor3dRender() {
     glBindVertexArray(0); 
   }
 
-  // rotation circles
-  if(cursorMode == rotationMode && mouse.focusedType == mouseModelT)
-    {
-      Model* model = mouse.focusedThing;
+  // gizmos draw
+  if(mouse.focusedThing && cursorMode){
+    Matrix* mat = NULL;
 
-    //  int yIndex = i;
+    if (mouse.focusedType == mouseModelT) {
+      Model* model = (Model*)mouse.focusedThing;
+      mat = &model->mat;
+    }
+    else if (mouse.focusedType == mousePlaneT) {
+      Picture* plane = (Picture*)mouse.focusedThing;
+      mat = &plane->mat;
+    }
+    else if (mouse.focusedType == mouseLightT) {
+      Light* light = (Light*)mouse.focusedThing;
+      mat = &light->mat;
+    }
 
-      vec3 centroid = {
-	(model->rt.x+model->lb.x)/2.0f,
-	(model->rt.y+model->lb.y)/2.0f,
-	(model->rt.z+model->lb.z)/2.0f
-      };
-
-      vec3 pads[3] = { {.0f, .0f, .0f}, {.0f, .0f, .0f}, {.0f,.0f,.0f} };
-      
-      for(int i=0;i<3;i++){
-	if(i==0){
-	  uniformVec3(lightSourceShader, "color", (vec3){ redColor });
-	}else if(i==1){
-	  uniformVec3(lightSourceShader, "color", (vec3){ greenColor });
-	}else if(i==2){
-	  uniformVec3(lightSourceShader, "color", (vec3){ blueColor });
-	}
+    if (mat) {
+      for(int i=0;i<gizmosNum[cursorMode-1];i++){
+	uniformVec3(lightSourceShader, "color", gizmosColors[i]);
 	
 	Matrix out2 = IDENTITY_MATRIX;
 
-	out2.m[12] = model->mat.m[12] + pads[i].x;
-	out2.m[13] = model->mat.m[13] + pads[i].y;
-	out2.m[14] = model->mat.m[14] + pads[i].z;
+	out2.m[12] = mat->m[12] + gizmosPaddings[cursorMode-1][i].x;
+	out2.m[13] = mat->m[13] + gizmosPaddings[cursorMode-1][i].y;
+	out2.m[14] = mat->m[14] + gizmosPaddings[cursorMode-1][i].z;
 	
 	uniformMat4(lightSourceShader, "model", out2.m);
-	
-	if(mouse.leftDown && selectedGizmoAxis == i+1){
-	  out2 = IDENTITY_MATRIX;
-      
-	  scale(&out2, 1000.0f, 1000.0f, 1000.0f);
 
-	  out2.m[12] = model->mat.m[12] + pads[i].x;
-	  out2.m[13] = model->mat.m[13] + pads[i].y;
-	  out2.m[14] = model->mat.m[14] + pads[i].z;
-	}
-
-	calculateAABB(out2, rotationGizmos[i].vBuf, rotationGizmos[i].vertexNum, rotationGizmos[i].attrSize,
-		      &rotatingCirclesAABB[0][i], &rotatingCirclesAABB[1][i]);
-
-	glBindBuffer(GL_ARRAY_BUFFER, rotationGizmos[i].VBO);
-	glBindVertexArray(rotationGizmos[i].VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, gizmosGeom[cursorMode - 1][i].VBO);
+	glBindVertexArray(gizmosGeom[cursorMode - 1][i].VAO);
 
 	glDisable(GL_DEPTH_TEST);
-	glDrawArrays(GL_TRIANGLES, 0, rotationGizmos[i].vertexNum);
+	glDrawArrays(GL_TRIANGLES, 0, gizmosGeom[cursorMode - 1][i].vertexNum);
 	glEnable(GL_DEPTH_TEST);
       }
-    
-
-      glBindTexture(GL_TEXTURE_2D, 0);
-      
-      glBindBuffer(GL_ARRAY_BUFFER, 0); 
-      glBindVertexArray(0); 
-
-
-
-      
-
-
-      /*      
-      //    float scaleStep =  max(model->rt.z - centroid.z,max(model->rt.y - centroid.y, model->rt.x - centroid.x)) * 1.2f;
-    
-      uniformVec3(lightSourceShader, "color", (vec3){ redColor });
-
-      Matrix out2 = IDENTITY_MATRIX;
-
-      out2.m[12] = centroid.x;
-      out2.m[13] = centroid.y;
-      out2.m[14] = centroid.z;
-
-      // x axis
-      uniformMat4(lightSourceShader, "model", out2.m);
-      calculateAABB(out2, circle.vBuf, circle.vertexNum,circle.attrSize,
-		    &rotatingCirclesAABB[0][0], &rotatingCirclesAABB[1][0]);
-
-      printf("X axis: RT: %f %f %f LB: %f %f %f \n", argVec3(rotatingCirclesAABB[1][0]), argVec3(rotatingCirclesAABB[0][0]));
-
-      glBindBuffer(GL_ARRAY_BUFFER, circle.VBO);
-      glBindVertexArray(circle.VAO);
-
-      glDisable(GL_DEPTH_TEST);
-      glDrawArrays(GL_LINES, 0, circle.vertexNum);
-      glEnable(GL_DEPTH_TEST);
-
-      float xTemp = out2.m[12];
-      float yTemp = out2.m[13];
-      float zTemp = out2.m[14];
-
-      out2.m[12] = 0;
-      out2.m[13] = 0;
-      out2.m[14] = 0;
-
-      rotateY(&out2, rad(90.0f));
-
-      out2.m[12] = centroid.x;
-      out2.m[13] = centroid.y;
-      out2.m[14] = centroid.z;
-
-      uniformVec3(lightSourceShader, "color", (vec3) { blueColor });
-
-      // z axis
-      uniformMat4(lightSourceShader, "model", out2.m);
-      calculateAABB(out2, circle.vBuf, circle.vertexNum, circle.attrSize,
-		    &rotatingCirclesAABB[0][2], &rotatingCirclesAABB[1][2]);
-
-      printf("X axis: RT: %f %f %f LB: %f %f %f \n", argVec3(rotatingCirclesAABB[1][2]), argVec3(rotatingCirclesAABB[0][2]));
-
-      glDisable(GL_DEPTH_TEST);
-      glDrawArrays(GL_LINES, 0, circle.vertexNum);
-      glEnable(GL_DEPTH_TEST);
-
-      xTemp = out2.m[12];
-      yTemp = out2.m[13];
-      zTemp = out2.m[14];
-
-      out2.m[12] = 0;
-      out2.m[13] = 0;
-      out2.m[14] = 0;
-
-      rotateY(&out2, rad(90.0f));
-      rotateX(&out2, rad(90.0f));
-
-      out2.m[12] = centroid.x;
-      out2.m[13] = centroid.y;
-      out2.m[14] = centroid.z;
-
-      uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
-      // y axis
-      */
-      
     }
 
-  if(cursorMode == moveMode && mouse.focusedType == mouseModelT){
-      glDisable(GL_DEPTH_TEST);
+    glBindTexture(GL_TEXTURE_2D, 0);
       
-      Model* model = mouse.focusedThing;
-      
-      vec3 centroid = {
-	(model->rt.x+model->lb.x)/2.0f,
-	(model->rt.y+model->lb.y)/2.0f,
-	(model->rt.z+model->lb.z)/2.0f
-      };
-
-      static const float padding[6][3] = {{ .5f, .0f, .0f }, { .0f, .5f, .0f}, { .0f, .0f, -.5f},
-					  { .5f, .5f, .0f }, // XY
-					  { .0f, .5f, -.5f}, // ZY
-					  { .5f, .0f, -.5f}}; // XZ
-      
-      for(int i=0;i<axisCounter-1;i++){
-	if(i+1 == XCircle || i+1 == XZPlane){
-	  uniformVec3(lightSourceShader, "color", (vec3){ redColor });
-	}else if(i+1 == YCircle || i+1 == XYPlane){
-	  uniformVec3(lightSourceShader, "color", (vec3){ greenColor });
-	}else if(i+1 == ZCircle || i+1 == ZYPlane){
-	  uniformVec3(lightSourceShader, "color", (vec3){ blueColor });
-	}
-
-	Matrix out2 = IDENTITY_MATRIX;
-	
-	out2.m[12] = centroid.x + padding[i][0];
-	out2.m[13] = centroid.y + padding[i][1];
-	out2.m[14] = centroid.z + padding[i][2];
-
-	uniformMat4(lightSourceShader, "model", out2.m);
-	
-	glBindBuffer(GL_ARRAY_BUFFER, translationGizmos[i].VBO);
-	glBindVertexArray(translationGizmos[i].VAO);
-
-	glDrawArrays(GL_TRIANGLES, 0, translationGizmos[i].vertexNum);
-
-	if(mouse.leftDown && selectedGizmoAxis == i+1){
-	  out2 = IDENTITY_MATRIX;
-      
-	  scale(&out2, 1000.0f, 1000.0f, 1000.0f);
-
-	  out2.m[12] = centroid.x + padding[i][0];
-	  out2.m[13] = centroid.y + padding[i][1];
-	  out2.m[14] = centroid.z + padding[i][2];
-	}
-
-	calculateAABB(out2, translationGizmos[i].vBuf, translationGizmos[i].vertexNum,translationGizmos[i].attrSize,
-		      &translateAABB[0][i], &translateAABB[1][i]);
-      }
-
-      glBindTexture(GL_TEXTURE_2D, 0);
-      
-      glBindBuffer(GL_ARRAY_BUFFER, 0); 
-      glBindVertexArray(0);
-      
-      glEnable(GL_DEPTH_TEST);
-    }
- 
-  
+    glBindBuffer(GL_ARRAY_BUFFER, 0); 
+    glBindVertexArray(0); 
+  }
   
   // lights render
   {
@@ -2677,36 +2065,9 @@ void editor3dRender() {
 
 void editor2dRender(){
   char buf[64];
-  vec3 diffDrag = { curPoss.x - posOfStart.x, curPoss.y - posOfStart.y, curPoss.z - posOfStart.z };
-
-  //  if(cursorMode == rotation)
-  sprintf(buf, "%s - cur %f %f %f", rotatingAxisStr[selectedGizmoAxis], argVec3(curPoss));
-
-  //  sprintf(buf, "%s - cur %f %f %f", rotatingAxisStr[selectedGizmoAxis], argVec3(diffDrag));
+  sprintf(buf, "%s - %d ",gizmosAxisStr[selectedGizmoAxis], cursorMode);
+  renderText(buf, .0f,.0f, 1.0f);
   
-  renderText(buf, 0.0f, 0.0f, 1.0f);
-
-  vec3 axis = {0};
-
-  if(selectedGizmoAxis - 1 == XCircle){
-    axis = (vec3){0,0,1};
-  }else if(selectedGizmoAxis - 1 == YCircle){
-    axis = (vec3){0,1,0};
-  }else if(selectedGizmoAxis - 1 == ZCircle){
-    axis = (vec3){0,1,0};
-  }
-
-  float dotPr = dotf3(diffDrag, axis);
-  float mag = sqrtf(diffDrag.y * diffDrag.y + diffDrag.z * diffDrag.z);
-    
-  float angle = acosf(dotPr/mag) * (180.0f / 3.14159265358979323846);
-  
-  sprintf(buf, "angle %f", angle);
-  renderText(buf, 0.0f, letterH, 1.0f);
-
-  //  sprintf(buf, "cur %f %f %f", argVec3(curPoss));
-  //  renderText(buf, 0.0f, letterH*2, 1.0f);
-    
   // setup context text
   {
     if(mouse.focusedThing){         
@@ -2908,33 +2269,7 @@ void editor2dRender(){
   }
 
   // render selected or focused thing
-  if(mouse.focusedThing && !curMenu && hints){
-    char buf[164];
-      
-    switch(mouse.focusedType){
-    case(mouseModelT):{
-      Model* data = (Model*)mouse.focusedThing;
-	  
-      sprintf(buf, "Focused model: [%s] Mode: [%s] Step:[%f]", loadedModels1D[data->name].name, manipulationModeStr[manipulationMode], manipulationStep);
-	
-      break;
-    }case(mousePlaneT):{
-       Picture* data = (Picture*)mouse.focusedThing;
-	  
-       sprintf(buf, "Focused plane id: [%d] Mode: [%s] Step: [%f]", data->id, manipulationModeStr[manipulationMode], manipulationStep);
-	
-       break;
-     }case(mouseLightT):{
-	Light* light = (Light*)mouse.focusedThing;
-	sprintf(buf, "Focused light [%s:%d] Mode: [%s] Step: [%f]", lightTypesStr[light->type],light->id, manipulationModeStr[manipulationMode], manipulationStep);
-	
-	break;
-      }
-    default: break;
-    }
-
-    renderText(buf, -1.0f, 1.0f - baseYPad, 1.0f);
-  }else if(mouse.selectedThing && !curMenu && hints){ 
+  if(mouse.selectedThing && !curMenu && hints){ 
     char buf[164]; 
 
     switch(mouse.selectedType){
@@ -3051,7 +2386,7 @@ void editor2dRender(){
 
 	//scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f); 
 
-	if(mouse.selectedType == mouseTileT){
+	/*if(mouse.selectedType == mouseTileT){
 	  TileMouseData* tileData =  (TileMouseData*) mouse.selectedThing;
 	  vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
 	    
@@ -3066,8 +2401,22 @@ void editor2dRender(){
 	  curModels[curModelsSize-1].mat.m[12] = (mouse.rayDir.x*modelSize.x*4.0f) +curCamera->pos.x;
 	  curModels[curModelsSize-1].mat.m[13] = mouse.rayDir.y +curCamera->pos.y;
 	  curModels[curModelsSize-1].mat.m[14] = (mouse.rayDir.z*modelSize.z*4.0f) +curCamera->pos.z;
-	}
+	}*/
+
+
+	curModels[curModelsSize-1].mat.m[12] = curCamera->pos.x;
+	curModels[curModelsSize-1].mat.m[13] = curCamera->pos.y;
+	curModels[curModelsSize-1].mat.m[14] = curCamera->pos.z;
+	
 	calculateModelAABB(&curModels[curModelsSize-1]);
+
+	batchModels();
+
+	if(navPointsDraw){
+	  batchGeometry();
+	}
+
+	rerenderShadowsForAllLights();
 	  
 	objectsMenu.open = false;
 	curMenu = NULL;
@@ -4401,16 +3750,16 @@ void editorMouseVS(){
   bool atLeastOneGizmoInter = false;
 
   // check gizmos inter
-  if(cursorMode == rotationMode){
+  if(mouse.focusedThing && cursorMode){
     if(!mouse.leftDown){
       selectedGizmoAxis = 0;
     
       float minDistToCamera = 1000.0f;
       float intersectionDistance;
     
-      for(int i=0;i<3;i++){
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, rotatingCirclesAABB[0][i], rotatingCirclesAABB[1][i], &posOfStart, &intersectionDistance);
-
+      for(int i=0;i<gizmosNum[cursorMode-1];i++){
+	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, gizmosAABB[cursorMode-1][0][i], gizmosAABB[cursorMode-1][1][i], &gizmoStartPos, &intersectionDistance);
+	
 	if(isIntersect && minDistToCamera > intersectionDistance){
 	  selectedGizmoAxis = i+1;
 	  minDistToCamera = intersectionDistance;
@@ -4420,39 +3769,12 @@ void editorMouseVS(){
       }
     }else{
       vec3 inter;
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, rotatingCirclesAABB[0][selectedGizmoAxis-1], rotatingCirclesAABB[1][selectedGizmoAxis-1], &inter, NULL);
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, gizmosAABB[cursorMode-1][0][selectedGizmoAxis-1], gizmosAABB[cursorMode - 1][1][selectedGizmoAxis-1], &inter, NULL);
 
       if(isIntersect){
 	atLeastOneGizmoInter = true;
 	//	printf("%f %f %f \n", argVec3(inter));
-	curPoss = inter;
-      }
-    }
-  }else if(cursorMode == moveMode){
-    if(!mouse.leftDown){
-      selectedGizmoAxis = 0;
-    
-      float minDistToCamera = 1000.0f;
-      float intersectionDistance;
-    
-      for(int i=0;i<axisCounter-1;i++){
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, translateAABB[0][i], translateAABB[1][i], &posOfStart, &intersectionDistance);
-
-	if(isIntersect && minDistToCamera > intersectionDistance){
-	  selectedGizmoAxis = i+1;
-	  minDistToCamera = intersectionDistance;
-
-	  atLeastOneGizmoInter = true;
-	}
-      }
-    }else{
-      vec3 inter;
-      
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, translateAABB[0][selectedGizmoAxis-1],translateAABB[1][selectedGizmoAxis-1], &inter, NULL);
-
-      if(isIntersect){
-	atLeastOneGizmoInter = true;
-	curPoss = inter;
+	gizmoCurPos = inter;
       }
     }
   }
@@ -4639,5 +3961,53 @@ void editorMouseVS(){
 
   if(mouse.selectedType != mouseWallT){
     free(intersWallData);
+  }
+}
+
+void initGizmosAABBFromSelected(){
+  Matrix out2;
+  Matrix* mat = NULL;
+
+  if (mouse.selectedType == mouseModelT) {
+    Model* model  = (Model*)mouse.selectedThing;
+    mat = &model->mat;
+  }
+  else if (mouse.selectedType == mousePlaneT) {
+    Picture* plane = (Picture*)mouse.selectedThing;
+    mat = &plane->mat;
+  }
+  else if (mouse.selectedType == mouseLightT) {
+    Light* light = (Light*)mouse.selectedThing;
+    mat = &light->mat;
+  }
+      
+  if(mat){
+    for(int i=0;i<2;i++){
+      for(int i2=0;i2<gizmosNum[i];i2++){
+	out2 = IDENTITY_MATRIX;
+
+	out2.m[12] = mat->m[12] + gizmosPaddings[i][i2].x;
+	out2.m[13] = mat->m[13] + gizmosPaddings[i][i2].y;
+	out2.m[14] = mat->m[14] + gizmosPaddings[i][i2].z;
+
+	calculateAABB(out2, gizmosGeom[i][i2].vBuf, gizmosGeom[i][i2].vertexNum,gizmosGeom[i][i2].attrSize,
+		      &gizmosAABB[i][0][i2], &gizmosAABB[i][1][i2]);
+      }
+    }
+
+    if(selectedGizmoAxis){
+      out2 = IDENTITY_MATRIX;
+      scale(&out2, 1000.0f, 1000.0f, 1000.0f);
+
+      out2.m[12] = mat->m[12] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].x;
+      out2.m[13] = mat->m[13] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].y;
+      out2.m[14] = mat->m[14] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].z;
+
+      calculateAABB(out2, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vBuf, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vertexNum,gizmosGeom[cursorMode-1][selectedGizmoAxis-1].attrSize,
+		    &gizmosAABB[cursorMode-1][0][selectedGizmoAxis-1], &gizmosAABB[cursorMode-1][1][selectedGizmoAxis-1]);
+    }
+	      
+    mouse.focusedThing = mouse.selectedThing;
+    mouse.focusedType = mouse.selectedType;
   }
 }

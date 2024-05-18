@@ -14,6 +14,8 @@ int navPointsSize;
 vec3* navPoints;
 VPair navPointsMesh;
 
+bool navPointsDraw = false;
+
 //const int SHADOW_WIDTH = 128, SHADOW_HEIGHT = 128;
 const int SHADOW_WIDTH = 512, SHADOW_HEIGHT = 512;  
 unsigned int depthMapFBO;
@@ -31,6 +33,8 @@ vec3 lightPos;// = {}
 
 float near_plane;
 float far_plane;
+
+
 
 const void(*instances[instancesCounter][funcsCounter])() = {
   [editorInstance] = {
@@ -1532,20 +1536,16 @@ int main(int argc, char* argv[]) {
       }
 
       if (event.type == SDL_KEYDOWN && !console.open) {
-	/*                if (event.key.keysym.scancode == SDL_SCANCODE_F11){
-			  fullScreen = !fullScreen;
-
-			  if (fullScreen) {
-			  SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-
-			  }
-			  else {
-			  SDL_SetWindowFullscreen(window, 0);
-			  }
-			  }*/
-
 	if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
 	  exit(1);
+	}
+
+	if (event.key.keysym.scancode == SDL_SCANCODE_F3) {
+	  navPointsDraw = !navPointsDraw;
+	  
+	  if(navPointsDraw){
+	    batchGeometry();
+	  }
 	}
 
 	if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
@@ -1799,8 +1799,7 @@ int main(int argc, char* argv[]) {
 	((void (*)(void))instances[curInstance][render3DFunc])();
 
 	// nav meshes drawing
-	if(false)
-	{
+	if(navPointsDraw){
 	  glUseProgram(shadersId[lightSourceShader]);
 	    
 	  glBindBuffer(GL_ARRAY_BUFFER, navPointsMesh.VBO);
@@ -4289,12 +4288,21 @@ void initGrid(int sx, int sy, int sz){
 }
 
 void rerenderShadowsForAllLights(){
+  GLint curShader = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+
+  glUseProgram(shadersId[pointShadowShader]);
+  glEnable(GL_DEPTH_TEST);
+    
+  //    if(lightsStore[shadowPointLightT])
+  glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
+  glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+  
   int index = 0;
+
+  Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
+  
   for(int i=0;i<lightsStoreSizeByType[shadowPointLightT];i++){
-    //      if(lightsStore[shadowPointLightT][i].off){
-    //	continue;
-    //      }      
-      
     glStencilMask(0xff);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glStencilMask(0x00);
@@ -4305,8 +4313,6 @@ void rerenderShadowsForAllLights(){
 
     static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
 					    {-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
-
-	
 	
     for (int i2 = 6 * i; i2 < 6 * (i+1); ++i2){	      
       Matrix viewMat = IDENTITY_MATRIX;
@@ -4328,17 +4334,24 @@ void rerenderShadowsForAllLights(){
   }
 
   if(lightsStoreSizeByType[shadowPointLightT] > 0){
-    //    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
+    /*    //    glEnable(GL_CULL_FACE);
+	  glCullFace(GL_FRONT);
     
+	  glActiveTexture(GL_TEXTURE0);
+	  renderScene(pointShadowShader);
+
+	  glCullFace(GL_BACK);
+	  //    glDisable(GL_CULL_FACE);
+
+	  glBindFramebuffer(GL_FRAMEBUFFER, 0);*/
+
     glActiveTexture(GL_TEXTURE0);
     renderScene(pointShadowShader);
 
-    glCullFace(GL_BACK);
-    //    glDisable(GL_CULL_FACE);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);   
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
+  
+  glUseProgram(curShader);
 }
 
 void rerenderShadowForLight(int lightId){
