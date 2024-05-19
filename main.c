@@ -3878,13 +3878,13 @@ void assembleDoorBlockVBO() {  // wallBlock buf
   };
 
   float topPlane[] = {
-    0.0f,h, d,   0.0f, capRatio,
     w, h, -t,    1.0f, 0.0f,
+    0.0f,h, d,   0.0f, capRatio,
     0.0f, h, -t, 0.0f, 0.0f,
 
-    0.0f,h,d,    0.0f, capRatio,
-    w,h,d,       1.0f, capRatio,
     w, h, -t,    1.0f, 0.0f,
+    w,h,d,       1.0f, capRatio,
+    0.0f,h,d,    0.0f, capRatio,
   };
 
   float innerSide[] = {
@@ -4504,6 +4504,28 @@ void batchGeometry(){
   int* geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(int));
   const int vertexSize = 8;
 
+  bool** wallMap = calloc(gridZ * 2,sizeof(bool*));
+
+  for(int i=0;i<gridZ*2;i++){
+    wallMap[i] = calloc(gridX * 2,sizeof(bool));
+  }
+
+  /*  if(top){
+    wallMap[(z+1)*2][(x+1)*2] = true;
+  }
+
+  if(left){
+    wallMap[(z*2)+1][x*2] = true;
+  }*/
+
+  /*for(int z=0;z<gridZ;z++){
+    for(int x=0;x<gridX;x++){
+      printf("%d ", wallMap[z][x]);
+    }
+    
+    printf("\n");
+  }*/
+
   if (batchedGeometryIndexes) {
     for (int i = 0; i < batchedGeometryIndexesSize; i++) {
       if (batchedGeometryIndexes[i].wallsSize > 0) {
@@ -4533,9 +4555,9 @@ void batchGeometry(){
 	    
 	    geomentyByTxCounter[txIndex] += sizeof(texturedTileVerts);
 
-	    if(!grid[y][z][x]->block){
-	      navPointsSize++;
-	    }
+	    //	    if(!grid[y][z][x]->block){
+	      //	      navPointsSize++;
+	      //   }
 
 	    if(!batchedIndexWasAssigned){
 	      batchedGeometryIndexesSize++;
@@ -4559,17 +4581,55 @@ void batchGeometry(){
 	    }
 	  }
 
+	  //	  if (grid[y][z][x]->walls[left].planes && grid[y][z][x]->walls[top].planes && type == texturedTile) {
+	  //	    navPointsSize++;
+	  //	  }
+
+	  if(!grid[y][z][x]->block && type == texturedTile){
+	    GroundType type = valueIn(grid[y][z][x]->ground, 0);
+	    vec3 tile = xyz_indexesToCoords(x, y, z);
+	       
+	    //	    if(!grid[y][z][x]->walls[i3].planes && type == texturedTile && (i3 == top || i3 == left)){
+
+	    bool farRightCor = grid[y][z][x]->walls[left].planes && grid[y][z][x]->walls[top].planes;
+	    bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && grid[y][z][x]->walls[top].planes;
+
+	    bool farLeftCor = grid[y][z][x]->walls[left].planes && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
+	    bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
+	    
+	    if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
+	      static const vec2 paddd[2] = {
+		[top] = {0.5f,0.0f}, [left] = { 0.0f, 0.5f } 
+	      };
+
+	      //	      navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
+
+	//      navPoints[navPointsSize] = (vec3){tile.x,tile.y,tile.z};
+	      navPointsSize++;
+	    }
+	  }
+	  
 	  // walls
 	  for(int i=0;i<basicSideCounter;i++){
 	    if (!grid[y][z][x]->block) {
               vec3 tile = xyz_indexesToCoords(x, y, z);
 
-              if (!grid[y][z][x]->walls[i].planes && type == texturedTile && (i==top || i==left)) {
-		navPointsSize++;
-              }
+              //if (!grid[y][z][x]->walls[i].planes && type == texturedTile && (i==top || i==left)) {
+	      //		navPointsSize++;
+	      //              }
+
+	      
 	    }
 
 	    if(grid[y][z][x]->walls[i].planes){
+	      if(y==12){
+		if(i == top){
+		  wallMap[(z+1)*2][(x+1)*2] = true;
+		}else if(i == left){
+		  wallMap[(z*2)+1][x*2] = true;
+		}
+	      }
+	      
 	      if(!batchedIndexWasAssigned){
 		batchedGeometryIndexesSize++;
 		batchedIndexWasAssigned= true;
@@ -4606,6 +4666,15 @@ void batchGeometry(){
     }
   }
 
+  /*for(int z=0;z<gridZ*2;z++){
+    for(int x=0;x<gridX*2;x++){
+      printf("%d ", wallMap[z][x]);
+    }
+    
+    printf("\n");
+  }*/
+
+  printf("navPointsSize: %d \n", navPointsSize);
 
   if(!navPoints){
     navPoints = malloc(sizeof(vec3) * navPointsSize);
@@ -4667,10 +4736,10 @@ void batchGeometry(){
 	      
 	    vec3 tile = xyz_indexesToCoords(x,y,z);
 
-	    if(!grid[y][z][x]->block){
+	    /*if(!grid[y][z][x]->block){
 	      navPoints[navPointsSize] = (vec3){tile.x+0.5f,tile.y,tile.z+0.5f};
 	      navPointsSize++;
-	    }
+	    }*/
 	    
 	    int txIndex = valueIn(grid[y][z][x]->ground, 2); 
 
@@ -4734,6 +4803,42 @@ void batchGeometry(){
 
 	      geomentyByTxCounter[txIndex] += blocksVPairs[type].pairs[i2].vertexNum * vertexSize;
 	      //}
+	    }
+	  }
+
+	  
+	  if(!grid[y][z][x]->block && type == texturedTile){
+	    GroundType type = valueIn(grid[y][z][x]->ground, 0);
+	    vec3 tile = xyz_indexesToCoords(x, y, z);
+	       
+	    //	    if(!grid[y][z][x]->walls[i3].planes && type == texturedTile && (i3 == top || i3 == left)){
+
+
+	    bool farRightCor = grid[y][z][x]->walls[left].planes && grid[y][z][x]->walls[top].planes;
+	    bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && grid[y][z][x]->walls[top].planes;
+
+	    bool farLeftCor = grid[y][z][x]->walls[left].planes && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
+	    bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
+	    
+	    if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
+
+	      if(farRightCor){
+		navPoints[navPointsSize] = (vec3){tile.x + 0.25f ,tile.y,tile.z + 0.25f};
+	      }else if(nearRightCor){
+		navPoints[navPointsSize] = (vec3){tile.x + 0.75f ,tile.y,tile.z + 0.25f};
+	      }else if(farLeftCor){
+		navPoints[navPointsSize] = (vec3){tile.x + 0.25f ,tile.y,tile.z + 0.75f};
+	      }else if(nearLeftCor){
+		navPoints[navPointsSize] = (vec3){tile.x + 0.75f ,tile.y,tile.z + 0.75f};
+	      }
+	      
+	      static const vec2 paddd[2] = {
+		[top] = {0.5f,0.0f}, [left] = { 0.0f, 0.5f } 
+	      };
+
+	      //	      navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
+
+	      navPointsSize++;
 	    }
 	  }
 
@@ -4801,20 +4906,23 @@ void batchGeometry(){
           }
 
 	  
-
+	  /*
 	  if(!grid[y][z][x]->block){
 	    GroundType type = valueIn(grid[y][z][x]->ground, 0);
 	    vec3 tile = xyz_indexesToCoords(x, y, z);
 	       
-	    if(!grid[y][z][x]->walls[i3].planes && type == texturedTile && (i3 == top || i3 == left)){
+	    //	    if(!grid[y][z][x]->walls[i3].planes && type == texturedTile && (i3 == top || i3 == left)){
+	    if (grid[y][z][x]->walls[left].planes && grid[y][z][x]->walls[top].planes && type == texturedTile) {
 	      static const vec2 paddd[2] = {
 		[top] = {0.5f,0.0f}, [left] = { 0.0f, 0.5f } 
 	      };
 
-	      navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
+	      //	      navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
+
+	      navPoints[navPointsSize] = (vec3){tile.x,tile.y,tile.z};
 	      navPointsSize++;
 	    }
-	  }
+	    }*/
 
 	  if(grid[y][z][x]->jointExist[i3]){
 	      // remember wall that exist
@@ -4910,7 +5018,8 @@ void batchGeometry(){
   free(geomentyByTxCounter);
 
   // check for object collision on nav points
-  int index2 = 0;
+  
+  /*int index2 = 0;
   float padAroundObj = 0.25f;
   
   for(int i=0;i<navPointsSize;i++){
@@ -4936,6 +5045,7 @@ void batchGeometry(){
 
   navPointsSize = index2;
   navPoints = realloc(navPoints, sizeof(vec3) * navPointsSize);
+  */
     
   if(navPointsMesh.vBuf){
     free(navPointsMesh.vBuf);

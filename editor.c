@@ -948,6 +948,8 @@ void editorEvents(SDL_Event event){
 	     curFloor++;
 	   }
 	 }
+
+	 printf("%d \n", curFloor);
 		 
 
 	 break; 
