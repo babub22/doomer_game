@@ -62,7 +62,7 @@ void gamePreFrame(float deltaTime){
       //   targetPos.x;
       //    targetPos.y;
 
-      vec3 playerPos = {
+      vec3 playerPos = { 
 	player->mat.m[12],
 	0.0f,
 	player->mat.m[14]

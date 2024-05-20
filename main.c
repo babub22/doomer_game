@@ -11,7 +11,7 @@ int renderCapYLayer;
 EngineInstance curInstance = editorInstance;
 
 int navPointsSize;
-vec3* navPoints;
+NavCornerPoint* navPoints;
 VPair navPointsMesh;
 
 bool navPointsDraw = false;
@@ -4677,9 +4677,12 @@ void batchGeometry(){
   printf("navPointsSize: %d \n", navPointsSize);
 
   if(!navPoints){
-    navPoints = malloc(sizeof(vec3) * navPointsSize);
+    navPoints = calloc(navPointsSize, sizeof(NavCornerPoint));
   }else{
-    navPoints = realloc(navPoints, sizeof(vec3) * navPointsSize);
+    free(navPoints);
+    navPoints = calloc(navPointsSize, sizeof(NavCornerPoint));
+    //    navPoints = realloc(navPoints, sizeof(NavCornerPoint) * navPointsSize);
+
   }
 
   navPointsSize = 0;
@@ -4823,21 +4826,21 @@ void batchGeometry(){
 	    if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
 
 	      if(farRightCor){
-		navPoints[navPointsSize] = (vec3){tile.x + 0.25f ,tile.y,tile.z + 0.25f};
+		navPoints[navPointsSize].type = farRightCorT;
+		navPoints[navPointsSize].pos = (vec3){tile.x + 0.25f ,tile.y,tile.z + 0.25f};
 	      }else if(nearRightCor){
-		navPoints[navPointsSize] = (vec3){tile.x + 0.75f ,tile.y,tile.z + 0.25f};
+		navPoints[navPointsSize].type = nearRightCorT;
+		navPoints[navPointsSize].pos = (vec3){tile.x + 0.75f ,tile.y,tile.z + 0.25f};
 	      }else if(farLeftCor){
-		navPoints[navPointsSize] = (vec3){tile.x + 0.25f ,tile.y,tile.z + 0.75f};
+		navPoints[navPointsSize].type = farLeftCorT;
+		navPoints[navPointsSize].pos = (vec3){tile.x + 0.25f ,tile.y,tile.z + 0.75f};
 	      }else if(nearLeftCor){
-		navPoints[navPointsSize] = (vec3){tile.x + 0.75f ,tile.y,tile.z + 0.75f};
+		navPoints[navPointsSize].type = nearLeftCorT;
+		navPoints[navPointsSize].pos = (vec3){tile.x + 0.75f ,tile.y,tile.z + 0.75f};
 	      }
+
+	      //	      printf("pretype %d %d %d %d\n",farRightCor, nearRightCor, farLeftCor, nearLeftCor);
 	      
-	      static const vec2 paddd[2] = {
-		[top] = {0.5f,0.0f}, [left] = { 0.0f, 0.5f } 
-	      };
-
-	      //	      navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
-
 	      navPointsSize++;
 	    }
 	  }
@@ -5046,6 +5049,150 @@ void batchGeometry(){
   navPointsSize = index2;
   navPoints = realloc(navPoints, sizeof(vec3) * navPointsSize);
   */
+
+  vec3** triColl = NULL;// = calloc(navPointsSize, sizeof(vec3*));
+  int triCollSize = 0;
+
+  for(int i=0;i<navPointsSize;i++){
+    if(navPoints[i].used){
+      continue;
+    }
+    
+    float lowestZ = 1000.0f;
+    float lowestX = 1000.0f;
+
+    vec3 lowestPointZ = {0};
+    vec3 lowestPointX = {0};
+    
+  //  rectCollections[i] = calloc(4, sizeof(vec3));
+
+    int zSetted = -1;
+    int xSetted = -1;
+
+
+    
+    for(int i2=0;i2<navPointsSize;i2++){
+      if(i2 == i){
+	continue;
+      }
+
+      if(navPoints[i2].used){
+	continue;
+      }
+
+      if(navPoints[i2].pos.y != navPoints[i].pos.y){
+	continue;
+      }
+
+      
+      if(navPoints[i].type == nearLeftCorT){
+	if(navPoints[i2].type == nearRightCorT){
+	  //	  printf("con %d %d\n", navPoints[i2].pos.z == navPoints[i].pos.z, navPoints[i2].type == nearRightCorT);
+	  printf("con 1:(z:%f x:%f) 2:(z:%f x:%f)\n", navPoints[i2].pos.z, navPoints[i2].pos.x, navPoints[i].pos.z, navPoints[i].pos.x);
+	}
+	
+	if(navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == nearRightCorT){
+	  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
+
+	  if(dist < lowestX){
+	    lowestX = dist;
+	    lowestPointX = navPoints[i].pos;
+	    xSetted = i2;
+	  }
+	}else if(navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == farLeftCorT){
+	  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
+
+	  if(dist < lowestZ){
+	    lowestZ = dist;
+	    lowestPointZ = navPoints[i].pos;
+	    zSetted = i2;
+	  }
+	}
+      }else if(navPoints[i].type == farLeftCorT){
+	if(navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == nearLeftCorT){
+	  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
+	
+	  if(dist < lowestZ){
+	    lowestZ = dist;
+	    lowestPointZ = navPoints[i].pos;
+	    zSetted = i2;
+	  }
+	}else if(navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == farRightCorT){
+	  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
+
+	  if(dist < lowestX){
+	    lowestX = dist;
+	    lowestPointX = navPoints[i].pos;
+	    xSetted = i2;
+	  }
+	}
+      }else if(navPoints[i].type == nearRightCorT){
+	//	printf("c1 %d c2 %d \n", navPoints[i2].pos.x == navPoints[i].pos.x, navPoints[i2].type == nearLeftCor);
+	if(navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == nearLeftCorT){ 
+	  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
+	
+	  if(dist < lowestX){
+	    lowestX = dist;
+	    lowestPointX = navPoints[i].pos;
+	    xSetted = i2;
+	  }
+	}else if(navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == farRightCorT){
+	  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
+	
+	  if(dist < lowestZ){
+	    lowestZ = dist;
+	    lowestPointZ = navPoints[i].pos;
+	    zSetted = i2;
+	  }
+	}
+      }else if(navPoints[i].type == farRightCorT){
+	if(navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == farLeftCorT){
+	  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
+	
+	  if(dist < lowestX){
+	    lowestX = dist;
+	    lowestPointX = navPoints[i].pos;
+	    xSetted = i2;
+	  }
+	}else if(navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == nearRightCorT){
+	  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
+	
+	  if(dist < lowestZ){
+	    lowestZ = dist;
+	    lowestPointZ = navPoints[i].pos;
+	    zSetted = i2;
+	  }
+	}
+      }
+    }
+
+    printf("nav %d %f %f\n", zSetted, lowestX, lowestZ);
+    
+    navPoints[i].used = true;
+
+    if(zSetted != -1 && xSetted != -1){
+      navPoints[zSetted].used = true;
+      navPoints[xSetted].used = true;
+
+      triCollSize++;
+
+      if(!triColl){
+	triColl = malloc(sizeof(vec3*));
+      }else{
+	triColl = realloc(triColl, sizeof(vec3*) * triCollSize);
+      }
+
+      triColl[triCollSize-1] = malloc(sizeof(vec3) * 3);
+      
+      triColl[triCollSize-1][0]= navPoints[i].pos;
+      triColl[triCollSize-1][1]= navPoints[zSetted].pos;
+      triColl[triCollSize-1][2]= navPoints[xSetted].pos;
+    }
+  }
+
+  for(int i=0;i<triCollSize;i++){
+    printf("Tri %d - (%f %f %f) (%f %f %f) (%f %f %f)\n", i, argVec3(triColl[i][0]),argVec3(triColl[i][1]),argVec3(triColl[i][2]));
+  }
     
   if(navPointsMesh.vBuf){
     free(navPointsMesh.vBuf);
@@ -5053,14 +5200,48 @@ void batchGeometry(){
   }
 
   navPointsMesh.vBuf = malloc(sizeof(float) * 3 * cube.vertexNum * navPointsSize);
+  /*
+  vec3* rect[4];
+  int* ind;
+
+  ind =calloc(navPointsSize, sizeof(int));
+  
+  rect[0]= calloc(navPointsSize, sizeof(vec3));
+  rect[1]= calloc(navPointsSize, sizeof(vec3));
+  rect[2]= calloc(navPointsSize, sizeof(vec3));
+  rect[3]= calloc(navPointsSize, sizeof(vec3));
+  
+  for(int i=0;i<navPointsSize;i++){
+    
+    for(int i2=0;i2<navPointsSize;i2++){
+      for(int i3=0;i3<4;i3++){
+	if(navPoints[i].y == rect[i3][i2].y){
+	  if(navPoints[i].z == rect[i3][i2].z || navPoints[i].x == rect[i3][i2].x){
+	    rect[i3][ind[i2]] = navPoints[i];
+	    ind[i2]++;
+	  }else{
+	    rect[i3][1] = navPoints[i];
+	  }
+	}else{
+	  rect[i3][0] = navPoints[i];
+	  //	  ind[i2]++;
+	}
+      }
+    }
+    
+  }*/
+
+  //for(int i=0;i<navPointsSize;i++){
+   // printf("R%d: (%f %f %f)  (%f %f %f)  (%f %f %f)  (%f %f %f) \n", argVec3(rect[0][i]), argVec3(rect[1][i]), argVec3(rect[2][i]), argVec3(rect[3][i]));
+ // }
 
   // asseble navPointsMesh
   int index = 0;
   for(int i=0;i<navPointsSize*cube.vertexNum*3;i+=cube.vertexNum*3){
     for(int i2=0;i2<cube.vertexNum*3;i2+=3){
-      navPointsMesh.vBuf[i + i2 + 0] = cube.vBuf[i2 + 0] + (float)navPoints[index].x;
-      navPointsMesh.vBuf[i + i2 + 1] = cube.vBuf[i2 + 1] + (float)navPoints[index].y;
-      navPointsMesh.vBuf[i + i2 + 2] = cube.vBuf[i2 + 2] + (float)navPoints[index].z;
+      navPointsMesh.vBuf[i + i2 + 0] = cube.vBuf[i2 + 0] + (float)navPoints[index].pos.x;
+      navPointsMesh.vBuf[i + i2 + 1] = cube.vBuf[i2 + 1] + (float)navPoints[index].pos.y;
+      navPointsMesh.vBuf[i + i2 + 2] = cube.vBuf[i2 + 2] + (float)navPoints[index].pos.z;
 
       //   printf("%f %f %f \n", navPointsMesh.vBuf[i + i2 + 0], navPointsMesh.vBuf[i + i2 + 1], navPointsMesh.vBuf[i + i2 + 2]);
     }

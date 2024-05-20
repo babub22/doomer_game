@@ -2327,7 +2327,7 @@ void editor2dRender(){
 
 	  if(data->tile){
 	    int tileTx = valueIn(data->tile->ground, data->groundInter);
-	    sprintf(buf, "Selected tile tx: [%s]", loadedTexturesNames[tileTx]);
+	    sprintf(buf, "Selected tile tx: [%s] grid:[%f %f %f]", loadedTexturesNames[tileTx], argVec3(data->intersection));
 	  }else{
 	    sprintf(buf, "Selected empty tile");  
 	  }

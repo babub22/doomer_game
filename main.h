@@ -1,5 +1,15 @@
 #pragma once
 
+typedef enum{
+  farRightCorT, nearRightCorT, farLeftCorT,	     nearLeftCorT
+} CornerType;
+
+typedef struct{
+  CornerType type;
+  vec3 pos;
+  bool used;
+} NavCornerPoint;
+
 typedef struct{
   GLuint tx;
   
