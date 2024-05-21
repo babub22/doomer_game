@@ -435,6 +435,8 @@ typedef enum{
   texturedTile,
 } GroundType;
 
+bool isAlreadyNavPoint(vec3 point);
+
 vec2* netTileAABB;
 int netTileSize;
 

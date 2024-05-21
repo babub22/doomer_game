@@ -12,7 +12,9 @@ EngineInstance curInstance = editorInstance;
 
 int navPointsSize;
 NavCornerPoint* navPoints;
+
 VPair navPointsMesh;
+VPair navPointsConnMesh;
 
 bool navPointsDraw = false;
 
@@ -404,6 +406,15 @@ int main(int argc, char* argv[]) {
   {
     glGenBuffers(1, &navPointsMesh.VBO);
     glBindBuffer(GL_ARRAY_BUFFER, navPointsMesh.VBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // nav meshes
+  {
+    glGenBuffers(1, &navPointsConnMesh.VBO);
+    glGenVertexArrays(1, &navPointsConnMesh.VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -1811,6 +1822,20 @@ int main(int argc, char* argv[]) {
 	  uniformMat4(lightSourceShader, "model", out.m);
 
 	  glDrawArrays(GL_TRIANGLES, 0, navPointsMesh.vertexNum);
+
+	  {
+	    
+	    glBindBuffer(GL_ARRAY_BUFFER, 0);
+	    glBindVertexArray(0);
+
+	    Matrix out = IDENTITY_MATRIX;
+	    uniformMat4(lightSourceShader, "model", out.m);
+	  
+	    glBindBuffer(GL_ARRAY_BUFFER, navPointsConnMesh.VBO);
+	    glBindVertexArray(navPointsConnMesh.VAO);
+
+	    glDrawArrays(GL_LINES, 0, navPointsConnMesh.vertexNum);
+	  }
 
 	  glBindBuffer(GL_ARRAY_BUFFER, 0);
 	  glBindVertexArray(0);
@@ -4598,6 +4623,7 @@ void batchGeometry(){
 	    bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
 	    
 	    if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
+	    //	      if ((farLeftCor)) {
 	      static const vec2 paddd[2] = {
 		[top] = {0.5f,0.0f}, [left] = { 0.0f, 0.5f } 
 	      };
@@ -4824,6 +4850,7 @@ void batchGeometry(){
 	    bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
 	    
 	    if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
+	    //    if ((farLeftCor)) {
 
 	      if(farRightCor){
 		navPoints[navPointsSize].type = farRightCorT;
@@ -5053,6 +5080,173 @@ void batchGeometry(){
   vec3** triColl = NULL;// = calloc(navPointsSize, sizeof(vec3*));
   int triCollSize = 0;
 
+  int extentedNavPointsSize = navPointsSize;
+  
+  for(int i=0;i<navPointsSize;i++){
+    //   if(navPoints[i].type == nearLeftCorT){
+      float exX = navPoints[i].pos.x;
+      float exZ = navPoints[i].pos.z;
+
+      int x = navPoints[i].pos.x;
+      int z = navPoints[i].pos.z;
+      int y = navPoints[i].pos.y;
+
+      if(navPoints[i].type == farRightCorT){
+	exX++;
+      }
+
+      if(navPoints[i].type == farLeftCorT){
+	exX++;
+      }
+
+      if(navPoints[i].type != nearLeftCorT && navPoints[i].type != nearRightCorT){
+	while(exX < gridX && grid[y][z][(int)exX] && !grid[y][z][(int)exX]->walls[left].planes){
+	  exX++;
+	}
+
+	vec3 n1 = {exX-1, navPoints[i].pos.y, navPoints[i].pos.z};
+
+	if(navPoints[i].type == farRightCorT){
+	  n1.x += 0.5f;
+	}
+
+	if(navPoints[i].type == farLeftCorT){
+	  n1.x += 0.5f;
+	}
+      
+	if(n1.x != navPoints[i].pos.x && !isAlreadyNavPoint(n1)){
+	  extentedNavPointsSize++;
+	  navPoints = realloc(navPoints, sizeof(navPoints[0]) * extentedNavPointsSize);
+	  navPoints[extentedNavPointsSize-1].pos = n1;
+	  navPoints[extentedNavPointsSize-1].used = false;
+
+	  if(navPoints[i].type == farRightCorT){
+	    navPoints[extentedNavPointsSize-1].type = nearRightCorT;
+	  }
+
+	  if(navPoints[i].type == farLeftCorT){
+	    navPoints[extentedNavPointsSize-1].type = nearLeftCorT;
+	  }
+
+	}
+      }
+      
+      exX = navPoints[i].pos.x;
+
+      if(navPoints[i].type != farRightCorT && navPoints[i].type != farLeftCorT){
+	while(exX >= 0 && grid[y][z][(int)exX] && !grid[y][z][(int)exX]->walls[left].planes){
+	  exX--;
+	}
+
+	//      vec3 n2 = {exX - 0.75f, navPoints[i].pos.y, navPoints[i].pos.z};
+	vec3 n2 = {exX, navPoints[i].pos.y, navPoints[i].pos.z};
+
+	if(navPoints[i].type == nearLeftCorT){
+	  n2.x -= 0.5f;
+	}
+
+	if(navPoints[i].type == nearRightCorT){
+	  n2.x -= 0.5f;
+	}
+
+	if(n2.x != navPoints[i].pos.x && !isAlreadyNavPoint(n2)){
+	  extentedNavPointsSize++;
+	  navPoints = realloc(navPoints, sizeof(navPoints[0]) * extentedNavPointsSize);
+	  navPoints[extentedNavPointsSize-1].pos = n2;
+	  navPoints[extentedNavPointsSize-1].used = false;
+
+	  if(navPoints[i].type == nearRightCorT){
+	    navPoints[extentedNavPointsSize-1].type = farRightCorT;
+	  }
+
+	  if(navPoints[i].type == nearLeftCorT){
+	    navPoints[extentedNavPointsSize-1].type = farLeftCorT;
+	  }
+	}
+      }
+
+      if(navPoints[i].type == farRightCorT){
+	exZ++;
+      }
+
+      if(navPoints[i].type == nearRightCorT){
+	exZ++;
+      }
+      
+      if(navPoints[i].type != nearLeftCorT && navPoints[i].type != farLeftCorT){
+	while(exZ < gridZ && grid[y][(int)exZ][x] && !grid[y][(int)exZ][x]->walls[top].planes){
+	  exZ++;
+	}
+
+	vec3 n3 = {navPoints[i].pos.x, navPoints[i].pos.y, exZ-1 };
+
+	if(navPoints[i].type == farRightCorT){
+	  n3.z += 0.5f;
+	}
+
+	if(navPoints[i].type == nearRightCorT){
+	  n3.z += 0.5f;
+	}
+
+	if(n3.z != navPoints[i].pos.z && !isAlreadyNavPoint(n3)){
+	  extentedNavPointsSize++;
+	  navPoints = realloc(navPoints, sizeof(navPoints[0]) * extentedNavPointsSize);
+	  navPoints[extentedNavPointsSize-1].pos = n3;
+	  navPoints[extentedNavPointsSize-1].used = false;
+
+	  if(navPoints[i].type == farRightCorT){
+	    navPoints[extentedNavPointsSize-1].type = farLeftCorT;
+	  }
+
+	  if(navPoints[i].type == nearRightCorT){
+	    navPoints[extentedNavPointsSize-1].type = nearLeftCorT;
+	  }
+	}
+      }
+
+      exZ = navPoints[i].pos.z;
+      
+      //exZ++;
+      if(navPoints[i].type != farRightCorT && navPoints[i].type != nearRightCorT){
+	while(exZ >= 0 && grid[y][(int)exZ][x] && !grid[y][(int)exZ][x]->walls[top].planes){
+	  exZ--;
+	}
+
+	vec3 n4 = {navPoints[i].pos.x, navPoints[i].pos.y, exZ - 0.5f};
+
+	if(n4.z != navPoints[i].pos.z && !isAlreadyNavPoint(n4)){
+	  extentedNavPointsSize++;
+	  navPoints = realloc(navPoints, sizeof(navPoints[0]) * extentedNavPointsSize);
+	  navPoints[extentedNavPointsSize-1].pos = n4;
+	  navPoints[extentedNavPointsSize-1].used = false;
+
+	  if(navPoints[i].type == farLeftCorT){
+	    navPoints[extentedNavPointsSize-1].type = farRightCorT;
+	  }
+
+	  if(navPoints[i].type == nearLeftCorT){
+	    navPoints[extentedNavPointsSize-1].type = nearRightCorT;
+	  }
+	}
+      }
+
+      //  }
+      //      printf("new: (%f)")
+
+      
+      /*
+      
+    }else if(navPoints[i].type == farLeftCorT){
+	    
+    }else if(navPoints[i].type == nearRightCorT){
+	    
+    }else if(navPoints[i].type == farRightCorT){
+
+    }*/
+  }
+
+  navPointsSize = extentedNavPointsSize;
+  
   for(int i=0;i<navPointsSize;i++){
     if(navPoints[i].used){
       continue;
@@ -5094,36 +5288,36 @@ void batchGeometry(){
 	if(navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == nearRightCorT){
 	  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
 
-	  if(dist < lowestX){
-	    lowestX = dist;
-	    lowestPointX = navPoints[i].pos;
-	    xSetted = i2;
+	  if(dist < lowestZ){
+	    lowestZ = dist;
+	    //	    lowestPointX = navPoints[i].pos;
+	    zSetted = i2;
 	  }
 	}else if(navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == farLeftCorT){
 	  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
 
-	  if(dist < lowestZ){
-	    lowestZ = dist;
-	    lowestPointZ = navPoints[i].pos;
-	    zSetted = i2;
+	  if(dist < lowestX){
+	    lowestX = dist;
+	    //	    lowestPointZ = navPoints[i].pos;
+	    xSetted = i2;
 	  }
 	}
       }else if(navPoints[i].type == farLeftCorT){
 	if(navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == nearLeftCorT){
 	  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
 	
-	  if(dist < lowestZ){
-	    lowestZ = dist;
-	    lowestPointZ = navPoints[i].pos;
-	    zSetted = i2;
+	  if(dist < lowestX){
+	    lowestX = dist;
+	    //	    lowestPointZ = navPoints[i].pos;
+	    xSetted = i2;
 	  }
 	}else if(navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == farRightCorT){
 	  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
 
-	  if(dist < lowestX){
-	    lowestX = dist;
-	    lowestPointX = navPoints[i].pos;
-	    xSetted = i2;
+	  if(dist < lowestZ){
+	    lowestZ = dist;
+	    //	    lowestPointX = navPoints[i].pos;
+	    zSetted = i2;
 	  }
 	}
       }else if(navPoints[i].type == nearRightCorT){
@@ -5131,42 +5325,42 @@ void batchGeometry(){
 	if(navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == nearLeftCorT){ 
 	  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
 	
-	  if(dist < lowestX){
-	    lowestX = dist;
-	    lowestPointX = navPoints[i].pos;
-	    xSetted = i2;
+	  if(dist < lowestZ){
+	    lowestZ = dist;
+	    //	    lowestPointX = navPoints[i].pos;
+	    zSetted = i2;
 	  }
 	}else if(navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == farRightCorT){
 	  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
 	
-	  if(dist < lowestZ){
-	    lowestZ = dist;
-	    lowestPointZ = navPoints[i].pos;
-	    zSetted = i2;
+	  if(dist < lowestX){
+	    lowestX = dist;
+	    //	    lowestPointZ = navPoints[i].pos;
+	    xSetted = i2;
 	  }
 	}
       }else if(navPoints[i].type == farRightCorT){
 	if(navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == farLeftCorT){
 	  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
 	
-	  if(dist < lowestX){
-	    lowestX = dist;
-	    lowestPointX = navPoints[i].pos;
-	    xSetted = i2;
+	  if(dist < lowestZ){
+	    lowestZ = dist;
+	    //lowestPointX = navPoints[i].pos;
+	    zSetted = i2;
 	  }
 	}else if(navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == nearRightCorT){
 	  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
 	
-	  if(dist < lowestZ){
-	    lowestZ = dist;
-	    lowestPointZ = navPoints[i].pos;
-	    zSetted = i2;
+	  if(dist < lowestX){
+	    lowestX = dist;
+	    xSetted = i2;
+	    //	    lowestPointZ = navPoints[i].pos;
 	  }
 	}
       }
     }
 
-    printf("nav %d %f %f\n", zSetted, lowestX, lowestZ);
+    //    printf("nav %d %f %f\n", zSetted, lowestX, lowestZ);
     
     navPoints[i].used = true;
 
@@ -5187,11 +5381,89 @@ void batchGeometry(){
       triColl[triCollSize-1][0]= navPoints[i].pos;
       triColl[triCollSize-1][1]= navPoints[zSetted].pos;
       triColl[triCollSize-1][2]= navPoints[xSetted].pos;
+
+      // try to find 4 corner
+      
+
     }
   }
 
-  for(int i=0;i<triCollSize;i++){
-    printf("Tri %d - (%f %f %f) (%f %f %f) (%f %f %f)\n", i, argVec3(triColl[i][0]),argVec3(triColl[i][1]),argVec3(triColl[i][2]));
+  // conn mesh
+  {
+    navPointsConnMesh.vBuf = malloc(sizeof(float) * (triCollSize) * 10 * 3);
+    
+    // asseble navPointsMesh
+    int index = 0;
+    for(int i=0;i<(triCollSize) * 10 * 3;i+=10*3){
+      // 1
+	navPointsConnMesh.vBuf[i + 0] = triColl[index][0].x;
+	navPointsConnMesh.vBuf[i + 1] = triColl[index][0].y;
+	navPointsConnMesh.vBuf[i + 2] = triColl[index][0].z;
+
+	navPointsConnMesh.vBuf[i + 3] = triColl[index][1].x;
+	navPointsConnMesh.vBuf[i + 4] = triColl[index][1].y;
+	navPointsConnMesh.vBuf[i + 5] = triColl[index][1].z;
+
+	// 2
+	navPointsConnMesh.vBuf[i + 6] = triColl[index][1].x;
+	navPointsConnMesh.vBuf[i + 7] = triColl[index][1].y;
+	navPointsConnMesh.vBuf[i + 8] = triColl[index][1].z;
+
+	navPointsConnMesh.vBuf[i + 9] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 10] = triColl[index][2].y;
+	navPointsConnMesh.vBuf[i + 11] = triColl[index][2].z;
+
+	// 3
+	navPointsConnMesh.vBuf[i + 12] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 13] = triColl[index][2].y;
+	navPointsConnMesh.vBuf[i + 14] = triColl[index][2].z;
+
+	navPointsConnMesh.vBuf[i + 15] = triColl[index][0].x;
+	navPointsConnMesh.vBuf[i + 16] = triColl[index][0].y;
+	navPointsConnMesh.vBuf[i + 17] = triColl[index][0].z;
+
+	// 4
+	navPointsConnMesh.vBuf[i + 18] = triColl[index][1].x;
+	navPointsConnMesh.vBuf[i + 19] = triColl[index][1].y;
+	navPointsConnMesh.vBuf[i + 20] = triColl[index][1].z;
+	
+	navPointsConnMesh.vBuf[i + 21] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 22] = triColl[index][0].y;
+	navPointsConnMesh.vBuf[i + 23] = triColl[index][1].z;
+
+	// 5
+	navPointsConnMesh.vBuf[i + 24] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 25] = triColl[index][2].y;
+	navPointsConnMesh.vBuf[i + 26] = triColl[index][2].z;
+
+	navPointsConnMesh.vBuf[i + 27] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 28] = triColl[index][0].y;
+	navPointsConnMesh.vBuf[i + 29] = triColl[index][1].z;
+
+	printf("(%f %f %f) - (%f %f %f) | (%f %f %f) - (%f %f %f) | (%f %f %f) - (%f %f %f) \n",
+	       navPointsConnMesh.vBuf[i + 0], navPointsConnMesh.vBuf[i + 1], navPointsConnMesh.vBuf[i + 2],
+	       navPointsConnMesh.vBuf[i + 3],navPointsConnMesh.vBuf[i + 4], navPointsConnMesh.vBuf[i + 5],
+	       navPointsConnMesh.vBuf[i + 6], navPointsConnMesh.vBuf[i + 7], navPointsConnMesh.vBuf[i + 8],
+	       navPointsConnMesh.vBuf[i + 9], navPointsConnMesh.vBuf[i + 10], navPointsConnMesh.vBuf[i + 11],
+	       navPointsConnMesh.vBuf[i + 12], navPointsConnMesh.vBuf[i + 13], navPointsConnMesh.vBuf[i + 14],
+	       navPointsConnMesh.vBuf[i + 15], navPointsConnMesh.vBuf[i + 16], navPointsConnMesh.vBuf[i + 17]);
+	
+	index++;
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, navPointsConnMesh.VBO);
+    glBindVertexArray(navPointsConnMesh.VAO);
+
+    navPointsConnMesh.vertexNum = (triCollSize) * 10;
+    navPointsConnMesh.attrSize = 3;
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (triCollSize) * 10 * 3, navPointsConnMesh.vBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+  
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
   }
     
   if(navPointsMesh.vBuf){
@@ -5200,41 +5472,7 @@ void batchGeometry(){
   }
 
   navPointsMesh.vBuf = malloc(sizeof(float) * 3 * cube.vertexNum * navPointsSize);
-  /*
-  vec3* rect[4];
-  int* ind;
-
-  ind =calloc(navPointsSize, sizeof(int));
   
-  rect[0]= calloc(navPointsSize, sizeof(vec3));
-  rect[1]= calloc(navPointsSize, sizeof(vec3));
-  rect[2]= calloc(navPointsSize, sizeof(vec3));
-  rect[3]= calloc(navPointsSize, sizeof(vec3));
-  
-  for(int i=0;i<navPointsSize;i++){
-    
-    for(int i2=0;i2<navPointsSize;i2++){
-      for(int i3=0;i3<4;i3++){
-	if(navPoints[i].y == rect[i3][i2].y){
-	  if(navPoints[i].z == rect[i3][i2].z || navPoints[i].x == rect[i3][i2].x){
-	    rect[i3][ind[i2]] = navPoints[i];
-	    ind[i2]++;
-	  }else{
-	    rect[i3][1] = navPoints[i];
-	  }
-	}else{
-	  rect[i3][0] = navPoints[i];
-	  //	  ind[i2]++;
-	}
-      }
-    }
-    
-  }*/
-
-  //for(int i=0;i<navPointsSize;i++){
-   // printf("R%d: (%f %f %f)  (%f %f %f)  (%f %f %f)  (%f %f %f) \n", argVec3(rect[0][i]), argVec3(rect[1][i]), argVec3(rect[2][i]), argVec3(rect[3][i]));
- // }
-
   // asseble navPointsMesh
   int index = 0;
   for(int i=0;i<navPointsSize*cube.vertexNum*3;i+=cube.vertexNum*3){
@@ -5820,4 +6058,15 @@ void checkMouseVSEntities(){
   if(mouse.selectedType != mouseWallT){
     free(intersWallData);
   }
+}
+
+
+bool isAlreadyNavPoint(vec3 point){
+  for(int i=0;i<navPointsSize;i++){
+    if(point.x == navPoints[i].pos.x && point.y == navPoints[i].pos.y && point.z == navPoints[i].pos.z){
+      return true;
+    }
+  }
+
+  return false;
 }
