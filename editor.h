@@ -8,6 +8,8 @@ void editorMatsSetup(int curShader);
 void editorMouseVS();
 
 void createLight(vec3 pos, int type);
+void createModel(int index, ModelType type);
 void uniformLights();
 
 void initGizmosAABBFromSelected();
+

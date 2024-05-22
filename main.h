@@ -1,7 +1,7 @@
 #pragma once
 
 typedef enum{
-  farRightCorT, nearRightCorT, farLeftCorT,	     nearLeftCorT
+  farRightCorT, nearRightCorT, farLeftCorT, nearLeftCorT, doorFrameT
 } CornerType;
 
 typedef struct{
@@ -86,6 +86,9 @@ typedef enum{
   doorT,
   windowT,
   wallJointT,
+  
+  hiddenWallT,
+  hiddenJointT,
 
   wallTypeCounter,
 } WallType;
@@ -199,6 +202,7 @@ typedef struct{
   Plane* planes;
   
   WallType type;
+  WallType prevType;
 
   Matrix mat;
 
@@ -408,6 +412,7 @@ struct Tile{
 
   Wall walls[4];
 
+  //  WallType jointType;
   Plane joint[4][jointPlaneCounter];
   bool jointExist[4];
   Matrix jointsMat[4];
@@ -442,7 +447,7 @@ int netTileSize;
 
 typedef enum{
   objectModelType,
-  characterModelType,
+  playerModelT,
   modelTypeCounter
 } ModelType;
 
@@ -453,7 +458,7 @@ typedef struct{
 
 ModelsTypesInfo modelsTypesInfo[];/* = {
   [objectModelType] = {"Obj",0},
-  [characterModelType] = {"Char", 0}
+  [playerModelT] = {"Char", 0}
   };*/
 
 typedef struct Dialog Dialog;
@@ -563,6 +568,7 @@ typedef enum {
   mouseTextureBrushT,
   mouseTileBrushT,
   mouseBlockBrushT,
+  mousePlayerBrushT,
 } MouseBrushType;
 
 const char* mouseBrushTypeStr[];/* = {
@@ -1112,3 +1118,10 @@ typedef struct {
 
 BatchedTile* batchedGeometryIndexes;
 int batchedGeometryIndexesSize;
+
+Model* playerModel;
+
+void assembleHideWallBlockVBO();
+void assembleHalfWallJointVBO();
+//Model* playerModel;
+

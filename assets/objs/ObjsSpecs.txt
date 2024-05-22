@@ -13,4 +13,4 @@ Table.obj Wood.png Obj
 Sigi.obj Sigi.png Obj
 Book.obj Books.png Obj
 Bookshelf.obj Bookshelves.png Obj
-Doomer.obj Doomer.png Char
+Doomer.obj Doomer.png Player

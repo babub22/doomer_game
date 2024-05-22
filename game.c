@@ -242,7 +242,7 @@ void gameEvents(SDL_Event event){
       if(mouse.selectedType == mouseModelT){
 	Model* model = (Model*)mouse.selectedThing;
 
-	if(loadedModels1D[model->name].type == characterModelType){
+	if(loadedModels1D[model->name].type == playerModelT){
 	  printf("Dada\n");
 	  player = model;
 	}

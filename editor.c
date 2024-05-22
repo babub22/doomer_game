@@ -113,8 +113,8 @@ void editorOnSetInstance(){
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
   renderCapYLayer = gridY;
-  batchGeometry();
-}
+  batchGeometry();}
+
 
 void editorPreLoop(){
   // circle buf
@@ -1061,7 +1061,19 @@ void editorEvents(SDL_Event event){
 	  if(data->type == wallJointT){
 	    data->tile->jointExist[data->side] = !data->tile->jointExist[data->side];
 	  }else{
-	    data->tile->walls[data->side].planes[data->plane].hide = !data->tile->walls[data->side].planes[data->plane].hide;
+	    if(data->tile->walls[data->side].type == doorT){
+	      data->tile->walls[data->side].planes[doorTopPlane].hide = !data->tile->walls[data->side].planes[doorTopPlane].hide;
+	      data->tile->walls[data->side].planes[doorFrontPlane].hide = !data->tile->walls[data->side].planes[doorFrontPlane].hide;
+	      data->tile->walls[data->side].planes[doorBackPlane].hide = !data->tile->walls[data->side].planes[doorBackPlane].hide;
+	      data->tile->walls[data->side].planes[doorInnerTopPlane].hide = !data->tile->walls[data->side].planes[doorInnerTopPlane].hide;
+	    }else{
+	      if(data->tile->walls[data->side].type != hiddenWallT){
+		data->tile->walls[data->side].prevType = data->tile->walls[data->side].type;
+		data->tile->walls[data->side].type = hiddenWallT;
+	      }else{
+		data->tile->walls[data->side].type = data->tile->walls[data->side].prevType;
+	      }
+	    }
 	  }
 
 	  batchGeometry();
@@ -1808,7 +1820,9 @@ void editor3dRender() {
 
     static vec3 prevTile = {-1,-1,-1};
 
-    if(mouse.brushType == mouseBlockBrushT){
+    if(mouse.brushType == mousePlayerBrushT){
+      Model* block = (Model*) mouse.brushThing;
+    }else if(mouse.brushType == mouseBlockBrushT){
       TileBlock* block = (TileBlock*) mouse.brushThing;
 	  
       if((prevTile.x != -1 && prevTile.y != -1 && prevTile.z != -1)
@@ -1927,7 +1941,7 @@ void editor3dRender() {
 	wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
 
 	if(!tileData->tile){
-	  printf("Calllllllll\n");
+	  //	  printf("Calllllllll\n");
 	  grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
 	  tileData->tile = grid[curFloor][tileData->grid.z][tileData->grid.x];
 	}
@@ -2363,54 +2377,8 @@ void editor2dRender(){
       if(mouse.clickL){
 	mouse.focusedThing = NULL;
 	mouse.focusedType = 0;
-	  
-	curModelsSize++;
 
-	if(curModels){ 
-	  curModels = realloc(curModels, curModelsSize * sizeof(Model));
-	  printf("Calloc moder\n");
-	}else{
-	  curModels = malloc(sizeof(Model));
-	  printf("Calloc moder\n");
-	}
-
-	curModels[curModelsSize-1].id = curModelsSize-1;
-
-	int index1D = loadedModels2D[objectsMenuSelectedType][selectedIndex - 1].index1D;
-
-	curModels[curModelsSize-1].name = index1D;
-	curModels[curModelsSize-1].characterId = -1; 
-
-	// if type == char add new character
-	  
-	  
-	curModels[curModelsSize-1].mat = IDENTITY_MATRIX;  
-
-	//scale(&curModels[curModelsSize-1].mat, 0.25f, 0.25f, 0.25f); 
-
-	/*if(mouse.selectedType == mouseTileT){
-	  TileMouseData* tileData =  (TileMouseData*) mouse.selectedThing;
-	  vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
-	    
-	  curModels[curModelsSize-1].mat.m[12] = tile.x;
-	  curModels[curModelsSize-1].mat.m[13] = tile.y;
-	  curModels[curModelsSize-1].mat.m[14] = tile.z;
-	  
-	  curModels[curModelsSize-1].mat.m[13] += loadedModels2D[objectsMenuSelectedType][selectedIndex - 1].modelSizes.y;
-	}else{
-	  vec3 modelSize = loadedModels2D[objectsMenuSelectedType][selectedIndex - 1].modelSizes;
-	  
-	  curModels[curModelsSize-1].mat.m[12] = (mouse.rayDir.x*modelSize.x*4.0f) +curCamera->pos.x;
-	  curModels[curModelsSize-1].mat.m[13] = mouse.rayDir.y +curCamera->pos.y;
-	  curModels[curModelsSize-1].mat.m[14] = (mouse.rayDir.z*modelSize.z*4.0f) +curCamera->pos.z;
-	}*/
-
-
-	curModels[curModelsSize-1].mat.m[12] = curCamera->pos.x;
-	curModels[curModelsSize-1].mat.m[13] = curCamera->pos.y;
-	curModels[curModelsSize-1].mat.m[14] = curCamera->pos.z;
-	
-	calculateModelAABB(&curModels[curModelsSize-1]);
+	createModel(selectedIndex - 1, objectsMenuSelectedType);
 
 	batchModels();
 
@@ -2422,9 +2390,12 @@ void editor2dRender(){
 	  
 	objectsMenu.open = false;
 	curMenu = NULL;
-      };
+	  
+    //  }
 
-      setSolidColorTx(redColor, 1.0f);
+    };
+
+    setSolidColorTx(redColor, 1.0f);
       
       glBindVertexArray(hudRect.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
@@ -2462,13 +2433,13 @@ void editor2dRender(){
       float baseX = objectsMenuWidth;
 
       // change selection
-      {
+      //{
 	if((mouse.cursor.x >= baseX && mouse.cursor.x <= baseX + typeButtonW) && selectedIndex <= modelTypeCounter){
 	  if(mouse.clickL){
 	    objectsMenuSelectedType = selectedIndex - 1; 
 	  }
 	}
-      }
+      //}
 	
       glBindVertexArray(hudRect.VAO);
       glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
@@ -4012,4 +3983,46 @@ void initGizmosAABBFromSelected(){
     mouse.focusedThing = mouse.selectedThing;
     mouse.focusedType = mouse.selectedType;
   }
+}
+
+void createModel(int index, ModelType type){
+  if(objectsMenuSelectedType != playerModelT || (objectsMenuSelectedType == playerModelT && !playerModel)){
+    curModelsSize++;
+
+    if(curModels){ 
+      curModels = realloc(curModels, curModelsSize * sizeof(Model));
+      printf("Calloc moder\n");
+    }else{
+      curModels = malloc(sizeof(Model));
+      printf("Calloc moder\n");
+    }
+
+  
+    curModels[curModelsSize-1].id = curModelsSize-1;
+
+    int index1D = loadedModels2D[type][index].index1D;
+
+    curModels[curModelsSize-1].name = index1D;
+    curModels[curModelsSize-1].characterId = -1; 
+	  
+    curModels[curModelsSize-1].mat = IDENTITY_MATRIX;
+  }
+
+  if(objectsMenuSelectedType == playerModelT){
+    if(!playerModel){
+      playerModel = &curModels[curModelsSize-1];
+    }
+    
+    playerModel->mat.m[12] = (int)curCamera->pos.x;
+    playerModel->mat.m[13] = (int)curCamera->pos.y;
+    playerModel->mat.m[14] = (int)curCamera->pos.z;
+	    
+  }else{
+    curModels[curModelsSize-1].mat.m[12] = curCamera->pos.x;
+    curModels[curModelsSize-1].mat.m[13] = curCamera->pos.y;
+    curModels[curModelsSize-1].mat.m[14] = curCamera->pos.z;
+  }
+	
+  calculateModelAABB(&curModels[curModelsSize-1]);
+
 }
