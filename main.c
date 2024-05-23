@@ -7,6 +7,8 @@
 #define FAST_OBJ_IMPLEMENTATION
 #include "fast_obj.h"
 
+GeomFin* finalGeom;
+
 int renderCapYLayer;
 EngineInstance curInstance = editorInstance;
 
@@ -17,6 +19,20 @@ VPair navPointsMesh;
 VPair navPointsConnMesh;
 
 bool navPointsDraw = false;
+
+Matrix wallJointsMat[4];
+
+Wall** wallsStorage[2];
+int wallsStorageSize[2];
+
+WallJoint** jointsStorage[4];
+int jointsStorageSize[4];
+
+TileBlock** blocksStorage;
+int blocksStorageSize;
+
+Tile** tilesStorage;
+int tilesStorageSize;
 
 //const int SHADOW_WIDTH = 128, SHADOW_HEIGHT = 128;
 const int SHADOW_WIDTH = 512, SHADOW_HEIGHT = 512;  
@@ -432,6 +448,38 @@ int main(int argc, char* argv[]) {
   {
     glGenBuffers(1, &planePairs.VBO);
     glGenVertexArrays(1, &planePairs.VAO);
+    
+    planePairs.vertexNum = 8;
+
+    float plane[] = {
+      bBlockW, bBlockD, 0.0f , 0.0f, 1.0f, -0.000000, 1.000000, -0.000000,
+      0.0f, bBlockD, 0.0f , 1.0f, 1.0f, -0.000000, 1.000000, -0.000000, 
+      bBlockW, 0.0f, 0.0f , 0.0f, 0.0f, -0.000000, 1.000000, -0.000000,
+      
+      0.0f, bBlockD, 0.0f , 1.0f, 1.0f, 0.000000, 1.000000, 0.000000,
+      bBlockW, 0.0f, 0.0f , 0.0f, 0.0f, 0.000000, 1.000000, 0.000000,
+      0.0f, 0.0f, 0.0f , 1.0f, 0.0f,  0.000000, 1.000000, 0.000000,
+    };
+
+    planePairs.vBuf = malloc(sizeof(plane));
+    memcpy(planePairs.vBuf,plane,sizeof(plane));
+    
+    planePairs.vertexNum = 6;
+
+    glBindVertexArray(planePairs.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, planePairs.VBO);
+
+    // printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
+    glBufferData(GL_ARRAY_BUFFER, sizeof(plane), planePairs.vBuf, GL_STATIC_DRAW);
+  
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -1364,6 +1412,8 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(size_t));
+  
   modelsBatch = calloc(loadedModelsTxSize, sizeof(Geometry));
   
   for (int i = 0; i < loadedModelsTxSize; i++) {
@@ -1433,6 +1483,19 @@ int main(int argc, char* argv[]) {
     glBindVertexArray(0);
   }
 
+  finalGeom = malloc(sizeof(GeomFin) * loadedTexturesCounter);
+    
+  for (int i = 0; i < loadedTexturesCounter; i++) {
+    glGenVertexArrays(1, &finalGeom[i].VAO);
+    glBindVertexArray(finalGeom[i].VAO);
+
+    glGenBuffers(1, &finalGeom[i].VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
+
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+  }
+
   {
     glGenTextures(1, &fontAtlas);
 
@@ -1487,7 +1550,8 @@ int main(int argc, char* argv[]) {
   //    lightPos = (vec3){gridX /2.0f,2.0f,gridZ/2.0f};
 
   renderCapYLayer = gridY;
-  batchGeometry();
+  //  batchGeometry();
+  batchAllGeometry();
   batchModels();
 
   // set up camera
@@ -1957,7 +2021,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, 0);
-	
+	 
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
 	glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST); 
@@ -2588,6 +2652,7 @@ bool loadSave(char* saveName){
       
       free(grid[y]);
     }
+    
     free(grid);
     grid = NULL;
 
@@ -2614,12 +2679,38 @@ bool loadSave(char* saveName){
 
   int blockCounter,jointsCounter,wallCounter,tileCounter;
   int wallsCounter = -1;
-  
-  fscanf(map, "Walls used: %d b:%d j:%d w:%d t:%d", &wallsCounter, &blockCounter,&jointsCounter,&wallCounter,&tileCounter);
+
+  int topWallsCounter;
+  int leftWallsCounter;
+
+  int tlsCounter;
+  int blckCounter;
+  int jntCounter[4];
+ 
+  fscanf(map, "Walls used: %d(lw%d rw%d tl%d bck%d joi(%d %d %d %d)) b:%d j:%d w:%d t:%d", &wallsCounter,
+	 &leftWallsCounter,
+	 &topWallsCounter,
+	 &tlsCounter,
+	 &blckCounter,
+	 &jntCounter[0], &jntCounter[1], &jntCounter[2], &jntCounter[3], 
+	 &blockCounter,
+	 &jointsCounter,
+	 &wallCounter,
+	 &tileCounter);
+
+  printf("Walls: left %d top %d \n", leftWallsCounter, topWallsCounter);
+
+  wallsStorage[left] = malloc(sizeof(Wall*) * leftWallsCounter);
+  wallsStorage[top] = malloc(sizeof(Wall*) * topWallsCounter);
+
+  for(int i=0;i<basicSideCounter;i++){
+    jointsStorage[i] = malloc(sizeof(WallJoint*) * jntCounter[i]);
+  }
+
+  blocksStorage = malloc(sizeof(TileBlock*) * blckCounter);
+  tilesStorage = malloc(sizeof(Tile*) * wallsCounter);
 
   initGrid(gridZ, gridY, gridZ);
-
-  
 
   /*	{
 	float texturedTileVerts[] = {
@@ -2675,7 +2766,7 @@ bool loadSave(char* saveName){
 
 	glGenBuffers(1, grid[y][z][x]->groundVAO);
   */
-   
+  printf("waaaaa %d \n", wallsCounter);
   for (int i = 0; i < wallsCounter; i++) {
     int x = -1,y = -1,z = -1;
     
@@ -2684,19 +2775,29 @@ bool loadSave(char* saveName){
     int sidesCounter = 0;
 
     grid[y][z][x] = calloc(1, sizeof(Tile));
+
+    tilesStorage[tilesStorageSize] = grid[y][z][x];
+    grid[y][z][x]->pos = (vec3)xyz_indexesToCoords(x,y,z);
+    grid[y][z][x]->id = tilesStorageSize;
+    //tilesStorageSize++;
+    
     Tile* tile = grid[y][z][x]; 
 
     float groundLiftDELETEIT;
 
     fscanf(map, "%d %f %d ", &tile->ground, &groundLiftDELETEIT, &sidesCounter);
 
-    vec3 grid = xyz_indexesToCoords(x,y,z);
+    //    vec3 grid = xyz_indexesToCoords(x,y,z);
 
-    tile->pos = grid;
+    //    tile->pos = grid;
 
     GroundType type = valueIn(tile->ground, 0);
 
     GroundType tx2 = valueIn(tile->ground, 2);  
+
+    if(type != netTileT){
+      geomentyByTxCounter[tx2] += sizeof(float) * 8 * 6;
+    }
     
     if(y == 0 && (type == netTileT || type == 0)){
       setIn(tile->ground, 0, texturedTile); 
@@ -2711,23 +2812,41 @@ bool loadSave(char* saveName){
 	  
     WallType wType = -1;
 
+
     // walls
-    for(int i2=0;i2<sidesCounter;i2++){  
+   // for(int i2=0;i2<sidesCounter;i2++){  
+    for(int i2=0;i2< sidesCounter;i2++){
       fscanf(map, "%d %d ", &side, &wType);
 
-      tile->walls[side].type = wType;       
-      tile->walls[side].planes = calloc(planesInfo[tile->walls[side].type], sizeof(Plane));
+     // if (wType == 0) {
+       //   continue;
+     // }
+
+      tile->wall[side] = malloc(sizeof(Wall));
+      tile->wall[side]->id = wallsStorageSize[side];
+      tile->wall[side]->tileId = tilesStorageSize;
+      
+      wallsStorage[side][wallsStorageSize[side]] = tile->wall[side];
+      wallsStorageSize[side]++;
+      
+      tile->wall[side]->type = wType;       
+      tile->wall[side]->planes = calloc(planesInfo[tile->wall[side]->type], sizeof(Plane));
 
       for(int i2=0;i2<wallsVPairs[wType].planesNum;i2++){
-	fscanf(map, "%d %d ", &tile->walls[side].planes[i2].txIndex, &tile->walls[side].planes[i2].hide);
+	fscanf(map, "%d %d ", &tile->wall[side]->planes[i2].txIndex, &tile->wall[side]->planes[i2].hide);
+
+	if(!tile->wall[side]->planes[i2].hide){
+	  //        printf("attr size %d ", wallsVPairs[wType].pairs[i2].attrSize);
+	  geomentyByTxCounter[tile->wall[side]->planes[i2].txIndex] += wallsVPairs[wType].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[wType].pairs[i2].attrSize;
+	}
       }
 
       for(int mat=0;mat<16;mat++){
-	fscanf(map, "%f ", &tile->walls[side].mat.m[mat]);
+	fscanf(map, "%f ", &tile->wall[side]->mat.m[mat]);
       }
 
       for (int i = 0; i < wallsVPairs[wType].planesNum; i++) {
-	calculateAABB(tile->walls[side].mat, wallsVPairs[wType].pairs[i].vBuf, wallsVPairs[wType].pairs[i].vertexNum, wallsVPairs[wType].pairs[i].attrSize, &tile->walls[side].planes[i].lb, &tile->walls[side].planes[i].rt);
+	calculateAABB(tile->wall[side]->mat, wallsVPairs[wType].pairs[i].vBuf, wallsVPairs[wType].pairs[i].vertexNum, wallsVPairs[wType].pairs[i].attrSize, &tile->wall[side]->planes[i].lb, &tile->wall[side]->planes[i].rt);
       }
     }
 
@@ -2738,19 +2857,51 @@ bool loadSave(char* saveName){
       
       fscanf(map, "%d %d ", &jointSide, &exist);
 
-      tile->jointExist[jointSide] = exist;
+     // tile->jointExist[jointSide] = exist;
 
       if(exist){
-	for(int i2=0;i2<jointPlaneCounter;i2++){
-	  fscanf(map, "%d %d ", &tile->joint[jointSide][i2].txIndex, &tile->joint[jointSide][i2].hide);
-	}
+          tile->joint[jointSide] = malloc(sizeof(WallJoint));
+	  
+	  tile->joint[jointSide]->id = jointsStorageSize[i2];
+	  tile->joint[jointSide]->tileId = tilesStorageSize;
+	  tile->joint[jointSide]->type = wallJointT;
+	  
+	  jointsStorage[i2][jointsStorageSize[i2]] = tile->joint[jointSide];
+	  jointsStorageSize[i2]++;
+	  
+          tile->joint[jointSide]->type = wallJointT;
 
-	for(int mat=0;mat<16;mat++){
-	  fscanf(map, "%f ", &tile->jointsMat[jointSide].m[mat]);
+	  for(int i2=0;i2<jointPlaneCounter;i2++){
+	    fscanf(map, "%d %d ", &tile->joint[jointSide]->plane[i2].txIndex, &tile->joint[jointSide]->plane[i2].hide);
+
+	    if(!tile->joint[jointSide]->plane[i2].hide){
+	      geomentyByTxCounter[tile->joint[jointSide]->plane[i2].txIndex] += wallsVPairs[wallJointT].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[wallJointT].pairs[i2].attrSize;
+	      printf("%d: \n", jointSide);
+	    }
+	  }
+
+	  for(int mat=0;mat<16;mat++){
+	    Matrix mockMat = IDENTITY_MATRIX;
+	  fscanf(map, "%f ", &mockMat.m[mat]);
+	 // printf("%f ", tile->jointsMat[jointSide].m[mat]);
 	}
+	static const int pad[4][2] = {
+	  [top] = { 0, 1 },
+	  [right] = { 0, 0 },
+
+	  [bot] = { 1, 0 },
+	  [left] = {1, 0 }
+	};
+
+	Matrix jointMat;
+	memcpy(jointMat.m, wallJointsMat[i2].m, sizeof(float)*16);
+	  
+	jointMat.m[12] = x + pad[i2][0];
+	jointMat.m[13] = y;
+	jointMat.m[14] = z + pad[i2][1];
 	
 	for (int i = 0; i < wallsVPairs[wallJointT].planesNum; i++) {
-	  calculateAABB(tile->jointsMat[jointSide], wallsVPairs[wallJointT].pairs[i].vBuf, wallsVPairs[wallJointT].pairs[i].vertexNum, wallsVPairs[wallJointT].pairs[i].attrSize, &tile->joint[jointSide][i].lb, &tile->joint[jointSide][i].rt);
+	  calculateAABB(jointMat, wallsVPairs[wallJointT].pairs[i].vBuf, wallsVPairs[wallJointT].pairs[i].vertexNum, wallsVPairs[wallJointT].pairs[i].attrSize, &tile->joint[jointSide]->plane[i].lb, &tile->joint[jointSide]->plane[i].rt);
 	}
       }
     }
@@ -2761,6 +2912,10 @@ bool loadSave(char* saveName){
     if(blockExists){
       TileBlock* newBlock = malloc(sizeof(TileBlock));
 
+      blocksStorage[blocksStorageSize] = newBlock;
+      newBlock->id = blocksStorageSize;
+      blocksStorageSize++;
+      
       int txIndex;
       int blockType;
       int rotateAngle;
@@ -2770,7 +2925,9 @@ bool loadSave(char* saveName){
       newBlock->txIndex = txIndex;
       newBlock->rotateAngle = rotateAngle;
       newBlock->type = blockType;
-      newBlock->tile = tile;
+      newBlock->tileId = tilesStorageSize;
+      
+      geomentyByTxCounter[newBlock->txIndex] += blocksVPairs[newBlock->type].pairs[0].vertexNum * sizeof(float) * blocksVPairs[newBlock->type].pairs[0].attrSize;
 
       //      newBlock->vpair.VBO
 
@@ -2785,6 +2942,8 @@ bool loadSave(char* saveName){
 
       tile->block = newBlock;
     }
+
+    tilesStorageSize++;
   }
     
   fscanf(map, "\nUsed models: %d\n", &curModelsSize);
@@ -2850,270 +3009,320 @@ bool loadSave(char* saveName){
   
   }
 
-  fscanf(map, "\nUsed planes: %d\n", &createdPlanesSize);
+  fscanf(map, "\nUsed planes: %d\n", &picturesStorageSize);
 
-  if (curModelsSize != 0) { 
-    createdPlanes = malloc(createdPlanesSize * sizeof(Model));
+  if (curModelsSize != 0) {
+      picturesStorage = malloc(picturesStorageSize * sizeof(Model));
 
-    for (int i = 0; i < createdPlanesSize; i++) {
-      int tx = -1;
-      float w, h;
-      
-      fscanf(map, "%d %f %f ", &tx, &w, &h);
+      for (int i = 0; i < picturesStorageSize; i++) {
+          int tx = -1;
+          float w, h;
 
-      if (tx >= loadedTexturesCounter || tx < 0) {
-	printf("Models parsing error, model name (%d) doesnt exist \n", tx);
-	exit(0);
+          fscanf(map, "%d %f %f ", &tx, &w, &h);
+
+          if (tx >= loadedTexturesCounter || tx < 0) {
+              printf("Models parsing error, model name (%d) doesnt exist \n", tx);
+              exit(0);
+          }
+
+          picturesStorage[i].w = w;
+          picturesStorage[i].h = h;
+          picturesStorage[i].txIndex = tx;
+          picturesStorage[i].id = i;
+          picturesStorage[i].characterId = -1;
+
+          fgetc(map); // read [
+
+          for (int mat = 0; mat < 16; mat++) {
+              fscanf(map, "%f ", &picturesStorage[i].mat.m[mat]);
+          }
+
+          //   calculateModelAABB(&curModels[i]);
+
+          fgetc(map); // read ]\n
+
+          char ch = fgetc(map);
+
+          if (ch == '1') {
+              charactersSize++;
+
+              if (!characters) {
+                  characters = malloc(charactersSize * sizeof(Character));
+              }
+              else {
+                  characters = realloc(characters, charactersSize * sizeof(Character));
+              }
+
+              memset(&characters[charactersSize - 1], 0, sizeof(Character));
+
+              picturesStorage[i].characterId = charactersSize - 1;
+              characters->id = charactersSize - 1;
+
+              char named[32];
+              int nameType = -1;
+
+              fscanf(map, "%s %d ", &named, &nameType);
+
+              characters[charactersSize - 1].name = malloc(sizeof(char) * (strlen(named) + 1));
+              strcpy(characters[charactersSize - 1].name, named);
+
+              deserializeDialogTree(&characters[charactersSize - 1].dialogs, NULL, map);
+              //	fgetc(map);
+          }
+          else if (ch != '\n') {
+              fgetc(map);
+          }
       }
 
-      createdPlanes[i].w = w;
-      createdPlanes[i].h = h;
-      createdPlanes[i].txIndex = tx;
-      createdPlanes[i].id = i;
-      createdPlanes[i].characterId = -1;
-
-      fgetc(map); // read [
-
-      for (int mat = 0; mat < 16; mat++) {
-	fscanf(map, "%f ", &createdPlanes[i].mat.m[mat]); 
-      }
-
-      //   calculateModelAABB(&curModels[i]);
-
-      fgetc(map); // read ]\n
-
-      char ch = fgetc(map);
-
-      if (ch == '1') {  
-	charactersSize++; 
-
-	if (!characters) { 
-	  characters = malloc(charactersSize * sizeof(Character));
-	}
-	else {
-	  characters = realloc(characters, charactersSize * sizeof(Character));
-	}
-
-	memset(&characters[charactersSize - 1], 0, sizeof(Character));
-
-	createdPlanes[i].characterId = charactersSize - 1;
-	characters->id = charactersSize - 1;
-
-	char named[32];
-	int nameType = -1;
-
-	fscanf(map, "%s %d ", &named, &nameType);
-
-	characters[charactersSize-1].name = malloc(sizeof(char) * (strlen(named) + 1));
-	strcpy(characters[charactersSize-1].name, named);  
-
-	deserializeDialogTree(&characters[charactersSize-1].dialogs, NULL, map);
-	//	fgetc(map);
-      }
-      else if(ch != '\n'){
-	fgetc(map);
-      }
-    }
-  
   }
 
- 
+
   printf("Save %s loaded! \n", save);
   fclose(map);
-  
+
   strcpy(curSaveName, saveName);
   free(save);
-   
+
   initSnowParticles();
-  
+
+  for (int i = 0; i < loadedTexturesCounter; i++) {
+      printf("%d: %d \n", i, geomentyByTxCounter[i]);
+  }
+
   return true;
 }
 
-bool saveMap(char *saveName){
-  char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char)); 
+bool saveMap(char* saveName) {
+    char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char));
 
-  strcat(save, saveName);
-  strcat(save, ".doomer"); 
+    strcat(save, saveName);
+    strcat(save, ".doomer");
 
-  FILE* map = fopen(save, "w+");
-   
-  fprintf(map, "%d %d %d \n", gridY, gridZ, gridX);
-  
-  int wallsCounter = 0;
-  vec3i* wallsIndexes = malloc(sizeof(vec3i) * gridY * gridX * gridZ);
+    FILE* map = fopen(save, "w+");
 
-  int textureOfGround = texture1DIndexByName("Zemlia1");
+    fprintf(map, "%d %d %d \n", gridY, gridZ, gridX);
 
-  if (textureOfGround == -1) {
-    printf("Specify texture of ground");
-    exit(-1);
-  }
+    int wallsCounter = 0;
+    vec3i* wallsIndexes = malloc(sizeof(vec3i) * gridY * gridX * gridZ);
 
-  int blockCounter = 0;
-  int jointsCounter = 0;
-  int wallCounter = 0;
-  int tileCounter = 0;
+    int textureOfGround = texture1DIndexByName("Zemlia1");
 
-  for (int y = 0; y < gridY; y++) {
-    for (int z = 0; z < gridZ; z++) {
-      for (int x = 0; x < gridX; x++) {
-	Tile* tile = grid[y][z][x];
-
-	if (!tile) continue;
-
-	GroundType type = valueIn(tile->ground, 0);
-	int tx1 = valueIn(tile->ground, 1);
-	int tx2 = valueIn(tile->ground, 2);
-
-	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || (y != 0 && type == texturedTile);
-
-	if(tile->walls[0].planes || tile->walls[1].planes || tile->walls[2].planes || tile->walls[3].planes){
-	  wallsIndexes[wallsCounter] = (vec3i){x,y,z};
-	  wallsCounter++;
-	  wallCounter++;
-	}else if (tile->jointExist[0] || tile->jointExist[1] || tile->jointExist[2] || tile->jointExist[3]) {
-	  wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
-	  wallsCounter++;
-	  jointsCounter++;
-	}else if (acceptTile) {
-	  wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
-	  wallsCounter++;
-	  tileCounter++;
-	}else if (tile->block) {
-	  wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
-	  wallsCounter++;
-	  blockCounter++;
-	}
-      }
-    }
-  }
-
-  fprintf(map, "Walls used: %d b:%d j:%d w:%d t:%d", blockCounter+jointsCounter+wallCounter+tileCounter, blockCounter,jointsCounter,wallCounter,tileCounter);
-  
-  for (int i = 0; i < wallsCounter; i++) {
-    fprintf(map, "\n");
-      
-    int x = wallsIndexes[i].x;
-    int y = wallsIndexes[i].y; 
-    int z = wallsIndexes[i].z;
-    
-    Tile* tile = grid[y][z][x];
-
-    int sidesAvaible = 0;
-    
-    if(tile->walls[0].planes){
-      sidesAvaible++;
+    if (textureOfGround == -1) {
+        printf("Specify texture of ground");
+        exit(-1);
     }
 
-    if(tile->walls[1].planes){
-      sidesAvaible++;
+    int blockCounter = 0;
+    int jointsCounter = 0;
+    int wallCounter = 0;
+    int wallCounterBySide[2] = { 0 };
+    int tileCounter = 0;
+
+    int blckCounter = 0;
+    int jntCounter[4] = { 0 };
+    int tlsCounter = 0;
+
+    for (int y = 0; y < gridY; y++) {
+        for (int z = 0; z < gridZ; z++) {
+            for (int x = 0; x < gridX; x++) {
+                Tile* tile = grid[y][z][x];
+
+                if (!tile) continue;
+
+                GroundType type = valueIn(tile->ground, 0);
+                int tx1 = valueIn(tile->ground, 1);
+                int tx2 = valueIn(tile->ground, 2);
+
+                //	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || (y != 0 && type == texturedTile);
+                bool acceptTile = type == texturedTile;
+
+                if (tile->block) {
+                    blckCounter++;
+                }
+
+                if (acceptTile) {
+                    tlsCounter++;
+                }
+
+                if (tile->joint[0]) {
+                    jntCounter[0]++;
+                }
+
+                if (tile->joint[1]) {
+                    jntCounter[1]++;
+                }
+                if (tile->joint[2]) {
+                    jntCounter[2]++;
+                }
+
+                if (tile->joint[3]) {
+                    jntCounter[3]++;
+                }
+
+                if (tile->wall[0]) {
+                    wallCounterBySide[0]++;
+                }
+
+                if (tile->wall[1]) {
+                    wallCounterBySide[1]++;
+                }
+
+
+                if (tile->wall[0] || tile->wall[1]) {
+                    wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
+                    wallsCounter++;
+                    wallCounter++;
+                }
+                else if (tile->joint[0] || tile->joint[1] || tile->joint[2] || tile->joint[3]) {
+                    wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
+                    wallsCounter++;
+                    jointsCounter++;
+                }
+                else if (acceptTile) {
+                    wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
+                    wallsCounter++;
+                    tileCounter++;
+                }
+                else if (tile->block) {
+                    wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
+                    wallsCounter++;
+                    blockCounter++;
+                }
+            }
+        }
     }
 
-    if(tile->walls[2].planes){
-      sidesAvaible++;
+    fprintf(map, "Walls used: %d(lw%d rw%d tl%d bck%d joi(%d %d %d %d)) b:%d j:%d w:%d t:%d", blockCounter + jointsCounter + wallCounter + tileCounter,
+        wallCounterBySide[0],
+        wallCounterBySide[1],
+        tlsCounter,
+        blckCounter,
+        jntCounter[0], jntCounter[1], jntCounter[2], jntCounter[3],
+        blockCounter,
+        jointsCounter,
+        wallCounter,
+        tileCounter);
+
+    for (int i = 0; i < wallsCounter; i++) {
+        fprintf(map, "\n");
+
+        int x = wallsIndexes[i].x;
+        int y = wallsIndexes[i].y;
+        int z = wallsIndexes[i].z;
+
+        Tile* tile = grid[y][z][x];
+
+        int sidesAvaible = 0;
+
+        if (tile->wall[0]) {
+            sidesAvaible++;
+        }
+
+        if (tile->wall[1]) {
+            sidesAvaible++;
+        }
+
+        float liftDELETEIT;
+
+        fprintf(map, "%d %d %d %d %f %d ", x, y, z, grid[y][z][x]->ground, &liftDELETEIT, sidesAvaible);
+
+        // walls
+      //  for(int i1=0;i1<basicSideCounter;i1++){
+        for (int i1 = 0; i1 < 2; i1++) {
+
+            if (tile->wall[i1]) {
+                fprintf(map, "%d %d ", i1, tile->wall[i1]->type);
+
+                // plane data save
+                for (int i2 = 0; i2 < planesInfo[tile->wall[i1]->type]; i2++) {
+                    fprintf(map, "%d %d ", tile->wall[i1]->planes[i2].txIndex,
+                        tile->wall[i1]->planes[i2].hide);
+                }
+
+                for (int mat = 0; mat < 16; mat++) {
+                    fprintf(map, "%f ", tile->wall[i1]->mat.m[mat]);
+                }
+            }
+        }
+
+        // joints
+        for (int i1 = 0; i1 < basicSideCounter; i1++) {
+            fprintf(map, "%d %d ", i1, (int)tile->joint[i1]);
+
+            if (tile->joint[i1]) {
+                // plane data save
+                for (int i2 = 0; i2 < jointPlaneCounter; i2++) {
+                    fprintf(map, "%d %d ", tile->joint[i1]->plane[i2].txIndex,
+                        tile->joint[i1]->plane[i2].hide);
+                }
+
+                for (int mat = 0; mat < 16; mat++) {
+                    Matrix mockMat = IDENTITY_MATRIX;
+                    fprintf(map, "%f ", mockMat.m[mat]);
+                }
+            }
+        }
+
+        if (tile->block) {
+            fprintf(map, "%d ", 1); // block exists
+            fprintf(map, "%d %d %d %d ", tile->block->type, tile->block->rotateAngle, tile->block->txIndex);
+
+            //      for(int i2=0;i2<tile->block->vertexesSize*5;i2++){
+            //	fprintf(map, "%f ",tile->block->vertexes[i2]);
+            //      }
+
+            for (int mat = 0; mat < 16; mat++) {
+                fprintf(map, "%f ", tile->block->mat.m[mat]);
+            }
+        }
+        else {
+            fprintf(map, "%d ", 0); // block doesnt exists
+        }
     }
 
-    if(tile->walls[3].planes){
-      sidesAvaible++;
+    free(wallsIndexes);
+
+    fprintf(map, "\nUsed models: %d\n", curModelsSize);
+
+    for (int i = 0; i < curModelsSize; i++) {
+        fprintf(map, "%d ", curModels[i].name);
+
+        fprintf(map, "[");
+
+        for (int mat = 0; mat < 16; mat++) {
+            fprintf(map, "%f ", curModels[i].mat.m[mat]);
+        }
+
+        fprintf(map, "]");
+
+        if (curModels[i].characterId != -1) {
+            fprintf(map, "1");
+            fprintf(map, "%s %d ", characters[curModels[i].characterId].name ? characters[curModels[i].characterId].name : "None", characters[curModels[i].characterId].modelName);
+            serializeDialogTree(&characters[curModels[i].characterId].dialogs, map);
+            fprintf(map, "\n");
+        }
+        else {
+            fprintf(map, "0\n");
+        }
     }
 
-    float liftDELETEIT;
+    fprintf(map, "Used planes: %d\n", picturesStorageSize);
 
-    fprintf(map, "%d %d %d %d %f %d ",x,y,z, grid[y][z][x]->ground, &liftDELETEIT, sidesAvaible);
+    for (int i = 0; i < picturesStorageSize; i++) {
+        fprintf(map, "%d %f %f ", picturesStorage[i].txIndex, picturesStorage[i].w, picturesStorage[i].h);
 
-    // walls
-    for(int i1=0;i1<basicSideCounter;i1++){
-      if(tile->walls[i1].planes){
-	fprintf(map, "%d %d ",i1,tile->walls[i1].type);
+        fprintf(map, "[");
 
-	// plane data save
-	for(int i2=0;i2<planesInfo[tile->walls[i1].type];i2++){
-	  fprintf(map, "%d %d ", tile->walls[i1].planes[i2].txIndex,
-		  tile->walls[i1].planes[i2].hide);
-	}
+        for (int mat = 0; mat < 16; mat++) {
+            fprintf(map, "%f ", picturesStorage[i].mat.m[mat]);
+        }
 
-	for(int mat=0;mat<16;mat++){
-	  fprintf(map, "%f ", tile->walls[i1].mat.m[mat]);
-	}
-      }
-    }
+        fprintf(map, "]");
 
-    // joints
-    for(int i1=0;i1<basicSideCounter;i1++){
-      fprintf(map, "%d %d ",i1, tile->jointExist[i1]);
-      
-      if(tile->jointExist[i1]){
-	// plane data save
-	for(int i2=0;i2<jointPlaneCounter;i2++){
-	  fprintf(map, "%d %d ",tile->joint[i1][i2].txIndex,
-		  tile->joint[i1][i2].hide);
-	}
-
-	for(int mat=0;mat<16;mat++){
-	  fprintf(map, "%f ", tile->jointsMat[i1].m[mat]);
-	}
-      }
-    }
-
-    if(tile->block){
-      fprintf(map, "%d ", 1); // block exists
-      fprintf(map, "%d %d %d %d ",tile->block->type, tile->block->rotateAngle, tile->block->txIndex);
-
-      //      for(int i2=0;i2<tile->block->vertexesSize*5;i2++){
-      //	fprintf(map, "%f ",tile->block->vertexes[i2]);
-      //      }
-
-      for(int mat=0;mat<16;mat++){
-	fprintf(map, "%f ", tile->block->mat.m[mat]);
-      }
-    }else{
-      fprintf(map, "%d ", 0); // block doesnt exists
-    }
-  }
-
-  free(wallsIndexes);
-
-  fprintf(map, "\nUsed models: %d\n",curModelsSize);
-	
-  for(int i=0; i<curModelsSize; i++){    
-    fprintf(map, "%d ", curModels[i].name);
-
-    fprintf(map, "[");
-
-    for(int mat=0;mat<16;mat++){
-      fprintf(map, "%f ", curModels[i].mat.m[mat]);
-    }
-	  
-    fprintf(map, "]");
-
-    if (curModels[i].characterId != -1) { 
-      fprintf(map, "1");
-      fprintf(map, "%s %d ", characters[curModels[i].characterId].name ? characters[curModels[i].characterId].name : "None", characters[curModels[i].characterId].modelName);
-      serializeDialogTree(&characters[curModels[i].characterId].dialogs, map);  
-      fprintf(map, "\n");
-    }
-    else {
-      fprintf(map, "0\n");
-    }
-  }
-
-  fprintf(map, "Used planes: %d\n",createdPlanesSize);
-  
-  for(int i=0; i<createdPlanesSize; i++){    
-    fprintf(map, "%d %f %f ", createdPlanes[i].txIndex, createdPlanes[i].w, createdPlanes[i].h);
-
-    fprintf(map, "[");
-
-    for(int mat=0;mat<16;mat++){
-      fprintf(map, "%f ", createdPlanes[i].mat.m[mat]);
-    }
-	  
-    fprintf(map, "]");
-
-    if (createdPlanes[i].characterId != -1) { 
-      fprintf(map, "1");
-      fprintf(map, "%s %d ", characters[createdPlanes[i].characterId].name ? characters[createdPlanes[i].characterId].name : "None", characters[createdPlanes[i].characterId].modelName);
-      serializeDialogTree(&characters[createdPlanes[i].characterId].dialogs, map);  
+        if (picturesStorage[i].characterId != -1) {
+            fprintf(map, "1");
+            fprintf(map, "%s %d ", characters[picturesStorage[i].characterId].name ? characters[picturesStorage[i].characterId].name : "None", characters[picturesStorage[i].characterId].modelName);
+            serializeDialogTree(&characters[picturesStorage[i].characterId].dialogs, map);
       fprintf(map, "\n");
     }
     else {
@@ -3219,6 +3428,9 @@ void initSnowParticles(){
 	snowParticle[loop].z = (float)(rand() % gridZ) + (float)(rand() % 100 / 1000.0f);
       }
   }
+
+
+  printf("tiles %d \n",tilesStorageSize);
 }
 
 int lastCharPos(char* str, char ch){
@@ -3473,7 +3685,7 @@ TileBlock* constructNewBlock(int type, int angle){
   if(mouse.selectedType == mouseTileT){
     TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
 
-    vec3 tile = xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
+    vec3 tile = tilesStorage[tileData->tileId]->pos;// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
     
     newBlock->mat.m[12] = tile.x;
     newBlock->mat.m[13] = tile.y;
@@ -3481,7 +3693,7 @@ TileBlock* constructNewBlock(int type, int angle){
 
     printf("newBlock %f %f %f \n", argVec3(tile));
 	 
-    newBlock->tile = tileData->tile;
+   // newBlock->tile = tileData->tile;
   }
   
   newBlock->rotateAngle = angle;
@@ -3777,6 +3989,15 @@ void assembleWallJointVBO(){
   for(int i=0;i<wallsVPairs[wallJointT].planesNum;i++){
     attachNormalsToBuf(wallsVPairs[wallJointT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
   }
+
+  // hadrdcode mats to avoid rotation
+  wallJointsMat[left] = (Matrix){{ 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, -1.000000, 0.000000, 0.000000, 0.000000, 57.000000, 6.000000, 75.000000, 1.000000 }};
+  
+  wallJointsMat[top] = (Matrix){{ -0.000000, 0.000000, -1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 1.000000, 0.000000, -0.000000, 0.000000, 54.000000, 6.000000, 74.000000, 1.000000 }};
+  
+  wallJointsMat[right] = (Matrix){{ 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 56.000000, 6.000000, 73.000000, 1.000000 }};
+  
+  wallJointsMat[bot] = (Matrix){{ -1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 0.000000, -1.000000, 0.000000, 55.000000, 6.000000, 76.000000, 1.000000} };
 }
 
 
@@ -4398,32 +4619,23 @@ void assembleWindowBlockVBO(){
 
 
 void setupAABBAndMatForJoint(vec2i vec, Side side){
-  static const int pad[4][3] = {
-    [top] = { 90, 0, 1 },
-    [right] = { 0, 0, 0 },
+  static const int pad[4][2] = {
+    [top] = { 0, 1 },
+    [right] = { 0, 0 },
 
-    [bot] = { 180, 1, 0 },
-    [left] = { 270, 1, 0 }
+    [bot] = { 1, 0 },
+    [left] = {1, 0 }
   };
 
-  grid[curFloor][vec.z][vec.x]->jointsMat[side] = IDENTITY_MATRIX;
-
-  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[12] = vec.x + pad[side][1];
-  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[13] = curFloor;
-  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[14] = vec.z + pad[side][2];
-
-  float xTemp = grid[curFloor][vec.z][vec.x]->jointsMat[side].m[12];
-  float yTemp = grid[curFloor][vec.z][vec.x]->jointsMat[side].m[13];
-  float zTemp = grid[curFloor][vec.z][vec.x]->jointsMat[side].m[14];
-
-  rotateY(grid[curFloor][vec.z][vec.x]->jointsMat[side].m, rad(pad[side][0]));
-
-  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[12] = xTemp;
-  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[13] = yTemp;
-  grid[curFloor][vec.z][vec.x]->jointsMat[side].m[14] = zTemp;
+  Matrix jointMat; 
+  memcpy(jointMat.m, wallJointsMat[side].m, sizeof(float)*16);
+  
+  jointMat.m[12] = vec.x + pad[side][0];
+  jointMat.m[13] = curFloor;
+  jointMat.m[14] = vec.z + pad[side][1];
 
   for (int i = 0; i < jointPlaneCounter; i++) {
-    calculateAABB(grid[curFloor][vec.z][vec.x]->jointsMat[side], wallsVPairs[wallJointT].pairs[i].vBuf, wallsVPairs[wallJointT].pairs[i].vertexNum, wallsVPairs[wallJointT].pairs[i].attrSize, &grid[curFloor][vec.z][vec.x]->joint[side][i].lb, &grid[curFloor][vec.z][vec.x]->joint[side][i].rt); 
+    calculateAABB(jointMat, wallsVPairs[wallJointT].pairs[i].vBuf, wallsVPairs[wallJointT].pairs[i].vertexNum, wallsVPairs[wallJointT].pairs[i].attrSize, &grid[curFloor][vec.z][vec.x]->joint[side]->plane[i].lb, &grid[curFloor][vec.z][vec.x]->joint[side]->plane[i].rt);
   }
 };
 
@@ -4673,187 +4885,59 @@ void batchGeometry(){
     0.0f, 0.0f, 0.0f , 1.0f, 0.0f,  0.000000, 1.000000, 0.000000,
   };
   
-  int* geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(int));
+  //  int* geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(int));
   const int vertexSize = 8;
-
-  bool** wallMap = calloc(gridZ * 2,sizeof(bool*));
-
-  for(int i=0;i<gridZ*2;i++){
-    wallMap[i] = calloc(gridX * 2,sizeof(bool));
-  }
-
-  /*  if(top){
-    wallMap[(z+1)*2][(x+1)*2] = true;
-  }
-
-  if(left){
-    wallMap[(z*2)+1][x*2] = true;
-  }*/
-
-  /*for(int z=0;z<gridZ;z++){
-    for(int x=0;x<gridX;x++){
-      printf("%d ", wallMap[z][x]);
-    }
-    
-    printf("\n");
-  }*/
-
-  if (batchedGeometryIndexes) {
-    for (int i = 0; i < batchedGeometryIndexesSize; i++) {
-      if (batchedGeometryIndexes[i].wallsSize > 0) {
-	free(batchedGeometryIndexes[i].wallsIndexes);
-	batchedGeometryIndexes[i].wallsSize = 0;
-      }
-
-      if (batchedGeometryIndexes[i].jointsSize > 0) {
-	free(batchedGeometryIndexes[i].jointsIndexes);
-	batchedGeometryIndexes[i].jointsSize = 0;
-      }
-    }
-  }
 
   navPointsSize=0;
   
-  for (int y = 0; y < renderCapYLayer; y++) {
-    for (int z = 0; z < gridZ; z++) {
-      for (int x = 0; x < gridX; x++) {
-	if(grid[y][z][x]){
-	  bool batchedIndexWasAssigned = false;
-	    
-	  GroundType type = valueIn(grid[y][z][x]->ground, 0);
-
-	  if(type == texturedTile){
-	    int txIndex = valueIn(grid[y][z][x]->ground, 2);
-	    
-	    geomentyByTxCounter[txIndex] += sizeof(texturedTileVerts);
-
-	    //	    if(!grid[y][z][x]->block){
-	      //	      navPointsSize++;
-	      //   }
-
-	    if(!batchedIndexWasAssigned){
-	      batchedGeometryIndexesSize++;
-	      batchedIndexWasAssigned= true;
-	    }
-	  }
-
-	  // block
-	  if(grid[y][z][x]->block){
-	    if(!batchedIndexWasAssigned){
-	      batchedGeometryIndexesSize++;
-	      batchedIndexWasAssigned= true;
-	    }
-
-	    TileBlocksTypes type = grid[y][z][x]->block->type;
-	    int txIndex = grid[y][z][x]->block->txIndex;
-	    
-	    for(int i2=0;i2<blocksVPairs[type].planesNum;i2++){
-	      //if(!grid[y][z][x]->blockplanes[i2].hide){
-	      geomentyByTxCounter[txIndex] += blocksVPairs[type].pairs[i2].vertexNum * sizeof(float) * vertexSize;
-	    }
-	  }
-
-	  //	  if (grid[y][z][x]->walls[left].planes && grid[y][z][x]->walls[top].planes && type == texturedTile) {
-	  //	    navPointsSize++;
-	  //	  }
-
+  /*	  
+	  for (int y = 0; y < renderCapYLayer; y++) {
+	  for (int z = 0; z < gridZ; z++) {
+	  for (int x = 0; x < gridX; x++) {
+	  if(grid[y][z][x]){
 	  if(!grid[y][z][x]->block && type == texturedTile){
-	    GroundType type = valueIn(grid[y][z][x]->ground, 0);
-	    vec3 tile = xyz_indexesToCoords(x, y, z);
+	  GroundType type = valueIn(grid[y][z][x]->ground, 0);
+	  vec3 tile = xyz_indexesToCoords(x, y, z);
 	       
-	    //	    if(!grid[y][z][x]->walls[i3].planes && type == texturedTile && (i3 == top || i3 == left)){
+	  //	    if(!grid[y][z][x]->walls[i3].planes && type == texturedTile && (i3 == top || i3 == left)){
 
-	    bool farRightCor = grid[y][z][x]->walls[left].planes && grid[y][z][x]->walls[top].planes;
-	    bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && grid[y][z][x]->walls[top].planes;
+	  bool farRightCor = grid[y][z][x]->wall[left]&& grid[y][z][x]->wall[top];
+	  bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && grid[y][z][x]->wall[top];
 
-	    bool farLeftCor = grid[y][z][x]->walls[left].planes && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
-	    bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
+	  bool farLeftCor = grid[y][z][x]->wall[left]&& (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
+	  bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
 	    
-	    if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
-	    //	      if ((farLeftCor)) {
-	      static const vec2 paddd[2] = {
-		[top] = {0.5f,0.0f}, [left] = { 0.0f, 0.5f } 
-	      };
+	  if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
+	  //	      if ((farLeftCor)) {
+	  static const vec2 paddd[2] = {
+	  [top] = {0.5f,0.0f}, [left] = { 0.0f, 0.5f } 
+	  };
 
-	      //	      navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
+	  //	      navPoints[navPointsSize] = (vec3){tile.x+paddd[i3].x,tile.y,tile.z+paddd[i3].z};
 
-	      //      navPoints[navPointsSize] = (vec3){tile.x,tile.y,tile.z};
+	  //      navPoints[navPointsSize] = (vec3){tile.x,tile.y,tile.z};
 
-	      // doors detection
+	  // doors detection
 	    
-	      navPointsSize++;
-	    }
-	    
-	      if(grid[y][z][x]->walls[left].type == doorT && grid[y][z][x]->walls[left].planes){
-		navPointsSize++;
-	      }
-
-	      if(grid[y][z][x]->walls[top].type == doorT && grid[y][z][x]->walls[top].planes){
-		navPointsSize++;
-	      }
+	  navPointsSize++;
 	  }
-	  
-	  // walls
-	  for(int i=0;i<basicSideCounter;i++){
-	    if (!grid[y][z][x]->block) {
-              vec3 tile = xyz_indexesToCoords(x, y, z);
-
-              //if (!grid[y][z][x]->walls[i].planes && type == texturedTile && (i==top || i==left)) {
-	      //		navPointsSize++;
-	      //              }
-
-	      
-	    }
-
-	    if(grid[y][z][x]->walls[i].planes){
-	      if(!batchedIndexWasAssigned){
-		batchedGeometryIndexesSize++;
-		batchedIndexWasAssigned= true;
-	      }
-		
-	      WallType type = grid[y][z][x]->walls[i].type;
-	      
-	      for(int i2=0;i2<wallsVPairs[type].planesNum;i2++){
-		if(!grid[y][z][x]->walls[i].planes[i2].hide){
-		  int txIndex = grid[y][z][x]->walls[i].planes[i2].txIndex;
-		  geomentyByTxCounter[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * sizeof(float) * vertexSize;
-		}
-	      }
-	    }
-
-	    //	    if(grid[y][z][x]->jointExist[i]){
-	    //	      if(!batchedIndexWasAssigned && grid[y][z][x]->jointExist[i]){
-	    if(!batchedIndexWasAssigned){
-	      batchedGeometryIndexesSize++;
-	      batchedIndexWasAssigned= true;
-	    }
-
-	    WallType jointType = grid[y][z][x]->jointExist[i] ? wallJointT : hiddenJointT;
-	      
-	    for(int i2=0;i2<wallsVPairs[jointType].planesNum;i2++){
-	      int txIndex = grid[y][z][x]->joint[i][i2].txIndex;
-	      geomentyByTxCounter[txIndex] += wallsVPairs[jointType].pairs[i2].vertexNum * sizeof(float) * vertexSize;
-	    }
-	    //}
+	    
+	  if(grid[y][z][x]->wall[left] == doorT && grid[y][z][x]->wall[left] ){
+	  navPointsSize++;
 	  }
 
-
-
+	  if(grid[y][z][x]->wall[top] == doorT && grid[y][z][x]->wall[top] ){
+	  navPointsSize++;
+	  }
+	  }
 	  
-	}
-      }
-    }
-  }
+	  }
+	  }
+	  }
+	  }
+	  */
 
-  /*for(int z=0;z<gridZ*2;z++){
-    for(int x=0;x<gridX*2;x++){
-      printf("%d ", wallMap[z][x]);
-    }
-    
-    printf("\n");
-  }*/
-
-  printf("navPointsSize: %d \n", navPointsSize);
+  //  printf("navPointsSize: %d \n", navPointsSize);
 
   if(!navPoints){
     navPoints = calloc(navPointsSize, sizeof(NavCornerPoint));
@@ -4871,21 +4955,18 @@ void batchGeometry(){
   if(!batchedGeometryIndexes){
     batchedGeometryIndexes = calloc(batchedGeometryIndexesSize, sizeof(BatchedTile));
   }else{
-    
-    
     batchedGeometryIndexes = realloc(batchedGeometryIndexes, sizeof(BatchedTile) * batchedGeometryIndexesSize);
     memset(batchedGeometryIndexes, 0, sizeof(BatchedTile) * batchedGeometryIndexesSize);
   }
 
   batchedGeometryIndexesSize = 0;
   
-
   for(int i=0;i<loadedTexturesCounter;i++){  
     if(geomentyByTxCounter[i] != 0){
       geometry[i].size = geomentyByTxCounter[i];
 
       if(geometry[i].verts){
-	geometry[i].verts = realloc(geometry[i].verts, geomentyByTxCounter[i]);
+	geometry[i].verts = realloc(geometry[i].verts, geomentyByTxCounter[i]); 
       }else{
 	geometry[i].verts = malloc(geomentyByTxCounter[i]);
       }
@@ -4988,16 +5069,16 @@ void batchGeometry(){
 	    }
 	  }
 
-	  if(!grid[y][z][x]->block && type == texturedTile){
+	  /* if(!grid[y][z][x]->block && type == texturedTile){
 	    // rooms borders detection
 	    GroundType type = valueIn(grid[y][z][x]->ground, 0);
 	    vec3 tile = xyz_indexesToCoords(x, y, z);
 
-	    bool farRightCor = grid[y][z][x]->walls[left].planes && grid[y][z][x]->walls[top].planes;
-	    bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && grid[y][z][x]->walls[top].planes;
+	    bool farRightCor = grid[y][z][x]->wall[left]&& grid[y][z][x]->wall[top];
+	    bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && grid[y][z][x]->wall[top];
 
-	    bool farLeftCor = grid[y][z][x]->walls[left].planes && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
-	    bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->walls[left].planes) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->walls[top].planes);
+	    bool farLeftCor = grid[y][z][x]->wall[left]&& (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
+	    bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
 	    
 	    if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
 	      if(farRightCor){
@@ -5018,26 +5099,26 @@ void batchGeometry(){
 	    }
 	    
 	    // doors detection
-	    if(grid[y][z][x]->walls[left].type == doorT && grid[y][z][x]->walls[left].planes){
+	    if(grid[y][z][x]->wall[left] && grid[y][z][x]->wall[left]->type == doorT){
 	      navPoints[navPointsSize].type = doorFrameT;
 	      //navPoints[navPointsSize].pos = (vec3){tile.x ,tile.y,tile.z};
 	      navPoints[navPointsSize].pos = (vec3){tile.x ,tile.y,tile.z + 0.5f};
 	      navPointsSize++;
 	    }
 
-	    if(grid[y][z][x]->walls[top].type == doorT && grid[y][z][x]->walls[top].planes){
+	    if(grid[y][z][x]->wall[top] && grid[y][z][x]->wall[top]->type == doorT){
 	      navPoints[navPointsSize].type = doorFrameT;
 	      navPoints[navPointsSize].pos = (vec3){tile.x + 0.5f ,tile.y,tile.z};
 	      //navPoints[navPointsSize].pos = (vec3){tile.x ,tile.y,tile.z };
 	      navPointsSize++;
 	    }
 	    
-	  }
+	  }*/
 
 
 	  // walls
-	  for(int i3=0;i3<basicSideCounter;i3++){
-          if (grid[y][z][x]->walls[i3].planes) {
+	  for(int i3=0;i3<2;i3++){
+          if (grid[y][z][x]->wall[i3]) {
               // remember wall that exist
               {
                   batchedGeometryIndexes[batchedGeometryIndexesSize].wallsSize++;
@@ -5054,26 +5135,26 @@ void batchGeometry(){
               }
 
               //	      if(!batchedIndexWasAssigned){
+
               batchedIndexWasAssigned = true;
               batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){ x,y,z };
-
               //		batchedGeometryIndexesSize++;
               //	      }
 
-              WallType type = grid[y][z][x]->walls[i3].type;
+              WallType type = grid[y][z][x]->wall[i3]->type;
 
               for (int i2 = 0; i2 < wallsVPairs[type].planesNum; i2++) {
-                  if (!grid[y][z][x]->walls[i3].planes[i2].hide) {
-                      int txIndex = grid[y][z][x]->walls[i3].planes[i2].txIndex;
+                  if (!grid[y][z][x]->wall[i3]->planes[i2].hide) {
+                      int txIndex = grid[y][z][x]->wall[i3]->planes[i2].txIndex;
 
-		      if(grid[y][z][x]->walls[i3].type == hiddenWallT){
-			if(grid[y][z][x]->walls[i3].prevType == windowT){
+		      if(grid[y][z][x]->wall[i3]->type == hiddenWallT){
+			if(grid[y][z][x]->wall[i3]->prevType == windowT){
 			  if(i2 == wBackPlane){
-			    txIndex = grid[y][z][x]->walls[i3].planes[winFrontBotPlane].txIndex;
+			    txIndex = grid[y][z][x]->wall[i3]->planes[winFrontBotPlane].txIndex;
 			  }else if(i2 == wFrontPlane){
-			    txIndex = grid[y][z][x]->walls[i3].planes[winBackBotPlane].txIndex;
+			    txIndex = grid[y][z][x]->wall[i3]->planes[winBackBotPlane].txIndex;
 			  }else if(i2 == wTopPlane){
-			    txIndex = grid[y][z][x]->walls[i3].planes[winTopPlane].txIndex;
+			    txIndex = grid[y][z][x]->wall[i3]->planes[winTopPlane].txIndex;
 			  }
 			}
 		      }
@@ -5081,12 +5162,12 @@ void batchGeometry(){
                       for (int i = 0; i < wallsVPairs[type].pairs[i2].vertexNum * vertexSize; i += vertexSize) {
                           vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i], wallsVPairs[type].pairs[i2].vBuf[i + 1], wallsVPairs[type].pairs[i2].vBuf[i + 2], 1.0f };
 
-                          vec4 transf = mulmatvec4(grid[y][z][x]->walls[i3].mat, vert);
+                          vec4 transf = mulmatvec4(grid[y][z][x]->wall[i3]->mat, vert);
 
                           vec4 normal = { wallsVPairs[type].pairs[i2].vBuf[i + 5], wallsVPairs[type].pairs[i2].vBuf[i + 6], wallsVPairs[type].pairs[i2].vBuf[i + 7], 1.0f };
 
                           Matrix inversedWallModel = IDENTITY_MATRIX;
-                          inverse(grid[y][z][x]->walls[i3].mat.m, inversedWallModel.m);
+                          inverse(grid[y][z][x]->wall[i3]->mat.m, inversedWallModel.m);
 
                           Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
                           mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
@@ -5131,61 +5212,87 @@ void batchGeometry(){
 
 	 // if(grid[y][z][x]->jointExist[i3]){
 	      // remember wall that exist
-	      {
-                batchedGeometryIndexes[batchedGeometryIndexesSize].jointsSize++;
-		int newSize = batchedGeometryIndexes[batchedGeometryIndexesSize].jointsSize;
-
-		if(!batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes){
-		  batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes = malloc(sizeof(uint8_t));
-		}else{
-		  batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes = realloc(batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes, sizeof(uint8_t) * newSize);
-		}
-		
-		batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes[newSize-1] = i3;
-	      }
 	      
 	      //	      if(!batchedIndexWasAssigned){
-	      batchedIndexWasAssigned = true;
-	      batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z}; 
-	      //		batchedGeometryIndexesSize++;
-	      //	      }
+	  }
 
-	      WallType jointType = grid[y][z][x]->jointExist[i3] ? wallJointT : hiddenJointT;
-	      
-	      for(int i2=0;i2<wallsVPairs[jointType].planesNum;i2++){
-		int txIndex = grid[y][z][x]->joint[i3][i2].txIndex;
-		
-		for(int i=0;i<wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;i+=vertexSize){
-		  vec4 vert = { wallsVPairs[jointType].pairs[i2].vBuf[i], wallsVPairs[jointType].pairs[i2].vBuf[i+1], wallsVPairs[jointType].pairs[i2].vBuf[i+2], 1.0f };
-
-		  vec4 transf = mulmatvec4(grid[y][z][x]->jointsMat[i3], vert);
-
-		  vec4 normal = { wallsVPairs[jointType].pairs[i2].vBuf[i+5], wallsVPairs[jointType].pairs[i2].vBuf[i+6], wallsVPairs[jointType].pairs[i2].vBuf[i+7], 1.0f };
-
-		  Matrix inversedWallModel = IDENTITY_MATRIX;
-		  inverse(grid[y][z][x]->jointsMat[i3].m, inversedWallModel.m);
-
-		  Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
-		  mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
-		  
-		  vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
-
-		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i] = transf.x; 
-		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+1] = transf.y;
-		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+2] = transf.z;
-
-		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+3] = wallsVPairs[jointType].pairs[i2].vBuf[i+3];
-		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+4] = wallsVPairs[jointType].pairs[i2].vBuf[i+4];
-
-		  
-		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+5] = transfNormal.x;
-		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+6] = transfNormal.y;
-		  geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+7] = transfNormal.z;
-		}
-		
-		geomentyByTxCounter[txIndex] += wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;
-	      }
+	  for(int i3=0;i3<basicSideCounter;i3++){
+	    if(!grid[y][z][x]->joint[i3]){
+	      continue;
 	    }
+	    
+	    batchedIndexWasAssigned = true;
+	    batchedGeometryIndexes[batchedGeometryIndexesSize].indx = (vec3i){x,y,z}; 
+	    //		batchedGeometryIndexesSize++;
+	    //	      }
+	    {
+	      batchedGeometryIndexes[batchedGeometryIndexesSize].jointsSize++;
+	      int newSize = batchedGeometryIndexes[batchedGeometryIndexesSize].jointsSize;
+
+	      if(!batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes){
+		batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes = malloc(sizeof(uint8_t));
+	      }else{
+		batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes = realloc(batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes, sizeof(uint8_t) * newSize);
+	      }
+		
+	      batchedGeometryIndexes[batchedGeometryIndexesSize].jointsIndexes[newSize-1] = i3;
+	    }
+
+	    WallType jointType = grid[y][z][x]->joint[i3]->type;
+	      
+	    for (int i2 = 0; i2<wallsVPairs[jointType].planesNum; i2++) {
+	      int txIndex = grid[y][z][x]->joint[i3]->plane[i2].txIndex;
+		
+	      for(int i=0;i<wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;i+=vertexSize){
+		vec4 vert = { wallsVPairs[jointType].pairs[i2].vBuf[i], wallsVPairs[jointType].pairs[i2].vBuf[i+1], wallsVPairs[jointType].pairs[i2].vBuf[i+2], 1.0f };
+		
+		static const int pad[4][2] = {
+		  [top] = { 0, 1 },
+		  [right] = { 0, 0 },
+
+		  [bot] = { 1, 0 },
+		  [left] = {1, 0 }
+		};
+
+		Matrix jointMat; 
+		memcpy(jointMat.m, wallJointsMat[i3].m, sizeof(float)*16);
+
+		jointMat.m[12] = x + pad[i3][0];
+		jointMat.m[13] = y;
+		jointMat.m[14] = z + pad[i3][1];
+
+		vec4 transf = mulmatvec4(jointMat, vert);
+
+		vec4 normal = { wallsVPairs[jointType].pairs[i2].vBuf[i+5], wallsVPairs[jointType].pairs[i2].vBuf[i+6], wallsVPairs[jointType].pairs[i2].vBuf[i+7], 1.0f };
+
+		Matrix inversedWallModel = IDENTITY_MATRIX;
+
+		//printf("%s: %f %f %f %f \n %f %f %f %f \n %f %f %f %f \n %f %f %f %f \n", sidesToStr[i3],
+			// spreadMat4(grid[y][z][x]->jointsMat[i3].m));
+		  
+		inverse(jointMat.m, inversedWallModel.m);
+
+		Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+		mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+		  
+		vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+		geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i] = transf.x; 
+		geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+1] = transf.y;
+		geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+2] = transf.z;
+
+		geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+3] = wallsVPairs[jointType].pairs[i2].vBuf[i+3];
+		geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+4] = wallsVPairs[jointType].pairs[i2].vBuf[i+4];
+
+		  
+		geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+5] = transfNormal.x;
+		geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+6] = transfNormal.y;
+		geometry[txIndex].verts[geomentyByTxCounter[txIndex]+i+7] = transfNormal.z;
+	      }
+		
+	      geomentyByTxCounter[txIndex] += wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;
+	    }
+	  }
 	//  }
 
 	  if(batchedIndexWasAssigned){
@@ -5278,12 +5385,12 @@ void batchGeometry(){
 	exX++;
       }
 
-      if(navPoints[i].type == farLeftCorT){
+      if(navPoints[i].type == farLeftCorT){ 
 	exX++;
       }
 
       if(navPoints[i].type != nearLeftCorT && navPoints[i].type != nearRightCorT){
-	while(exX < gridX && grid[y][z][(int)exX] && !grid[y][z][(int)exX]->walls[left].planes){
+	while(exX < gridX && grid[y][z][(int)exX] && !grid[y][z][(int)exX]->wall[left]){
 	  exX++;
 	}
 
@@ -5317,7 +5424,7 @@ void batchGeometry(){
       exX = navPoints[i].pos.x;
 
       if(navPoints[i].type != farRightCorT && navPoints[i].type != farLeftCorT){
-	while(exX >= 0 && grid[y][z][(int)exX] && !grid[y][z][(int)exX]->walls[left].planes){
+	while(exX >= 0 && grid[y][z][(int)exX] && !grid[y][z][(int)exX]->wall[left]){
 	  exX--;
 	}
 
@@ -5357,7 +5464,7 @@ void batchGeometry(){
       }
       
       if(navPoints[i].type != nearLeftCorT && navPoints[i].type != farLeftCorT){
-	while(exZ < gridZ && grid[y][(int)exZ][x] && !grid[y][(int)exZ][x]->walls[top].planes){
+	while(exZ < gridZ && grid[y][(int)exZ][x] && !grid[y][(int)exZ][x]->wall[top]){
 	  exZ++;
 	}
 
@@ -5391,7 +5498,7 @@ void batchGeometry(){
       
       //exZ++;
       if(navPoints[i].type != farRightCorT && navPoints[i].type != nearRightCorT){
-	while(exZ >= 0 && grid[y][(int)exZ][x] && !grid[y][(int)exZ][x]->walls[top].planes){
+	while(exZ >= 0 && grid[y][(int)exZ][x] && !grid[y][(int)exZ][x]->wall[top]){
 	  exZ--;
 	}
 
@@ -6005,10 +6112,10 @@ void renderScene(GLuint curShader){
     //      glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, loadedTextures1D[i].tx);
 
-    glBindBuffer(GL_ARRAY_BUFFER, geometry[i].pairs.VBO);
-    glBindVertexArray(geometry[i].pairs.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
+    glBindVertexArray(finalGeom[i].VAO);
 
-    glDrawArrays(GL_TRIANGLES, 0, geometry[i].tris);
+    glDrawArrays(GL_TRIANGLES, 0, finalGeom[i].tris);
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -6096,9 +6203,9 @@ void checkMouseVSEntities(){
       bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
 
       if (isIntersect && minDistToCamera > intersectionDistance) {
-	intersTileData->tile = bBlock;
+	//intersTileData->tile = bBlock;
 
-	intersTileData->grid = (vec2i){ ind.x,ind.z };
+	//intersTileData->grid = (vec2i){ ind.x,ind.z };
 	intersTileData->intersection = intersection;
 	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
@@ -6115,23 +6222,22 @@ void checkMouseVSEntities(){
 	for(int i2=0;i2<batchedGeometryIndexes[i].wallsSize;i2++){
 	  int wallIndex = batchedGeometryIndexes[i].wallsIndexes[i2];
 	  
-	  WallType type = bBlock->walls[wallIndex].type;
+	  WallType type = bBlock->wall[wallIndex]->type;
 	  
 	  float intersectionDistance;
 
 	  for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->walls[wallIndex].planes[i3].lb, bBlock->walls[wallIndex].planes[i3].rt, NULL, &intersectionDistance);
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->wall[wallIndex]->planes[i3].lb, bBlock->wall[wallIndex]->planes[i3].rt, NULL, &intersectionDistance);
 
 	    if (isIntersect && minDistToCamera > intersectionDistance) {
 	      intersWallData->side = wallIndex;
-	      intersWallData->grid = ind;
 
-	      int tx = bBlock->walls[wallIndex].planes[i3].txIndex;
+	      int tx = bBlock->wall[wallIndex]->planes[i3].txIndex;
 
 	      intersWallData->txIndex = tx;
-	      intersWallData->tile = bBlock;
+	    //  intersWallData->tile = bBlock;
 
-	      intersWallData->type = type;
+	   //   intersWallData->type = type;
 	      intersWallData->plane = i3;
 
 	      mouse.selectedType = mouseWallT;
@@ -6150,16 +6256,12 @@ void checkMouseVSEntities(){
 	  float intersectionDistance;
 	    
 	  for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex][i3].lb, bBlock->joint[jointIndex][i3].rt, NULL, &intersectionDistance);
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex]->plane[i3].lb, bBlock->joint[jointIndex]->plane[i3].rt, NULL, &intersectionDistance);
 
 	    if (isIntersect && minDistToCamera > intersectionDistance) {
 
 	      intersWallData->side = jointIndex;
-	      intersWallData->grid = ind;
-	      intersWallData->txIndex = bBlock->joint[jointIndex][i3].txIndex;
-	      intersWallData->tile = bBlock;
-
-	      intersWallData->type = wallJointT;
+	      intersWallData->txIndex = bBlock->joint[jointIndex]->plane[i3].txIndex;
 	      intersWallData->plane = i3;
 
 	      mouse.selectedType = mouseWallT;
@@ -6220,9 +6322,9 @@ void checkMouseVSEntities(){
 
       if (isIntersect && minDistToCamera > intersectionDistance) {
           vec3i gridInd = xyz_coordsToIndexes(netTileAABB[i].x, curFloor, netTileAABB[i].z);
-	intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
+	//intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
 
-	intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
+	//intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
 	intersTileData->intersection = intersection;
 	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
@@ -6252,4 +6354,238 @@ bool isAlreadyNavPoint(vec3 point){
   }
 
   return false;
+}
+
+float texturedTileVerts[] = {
+  bBlockW, 0.0f, bBlockD , 0.0f, 1.0f, -0.000000, 1.000000, -0.000000,
+  0.0f, 0.0f, bBlockD , 1.0f, 1.0f, -0.000000, 1.000000, -0.000000, 
+  bBlockW, 0.0f, 0.0f , 0.0f, 0.0f, -0.000000, 1.000000, -0.000000,
+      
+  0.0f, 0.0f, bBlockD , 1.0f, 1.0f, 0.000000, 1.000000, 0.000000,
+  bBlockW, 0.0f, 0.0f , 0.0f, 0.0f, 0.000000, 1.000000, 0.000000,
+  0.0f, 0.0f, 0.0f , 1.0f, 0.0f,  0.000000, 1.000000, 0.000000,
+};
+
+void batchAllGeometry(){
+  //  for(int)
+  int vertexSize = 8;
+  
+  //finalGeom = malloc(sizeof(GeomFin) * loadedTexturesCounter);
+  Geom* preGeom = malloc(sizeof(Geom) * loadedTexturesCounter);
+  int* txLastIndex = calloc(loadedTexturesCounter, sizeof(int));
+  
+  for(int i=0;i<loadedTexturesCounter;i++){
+    preGeom[i].buf = calloc(geomentyByTxCounter[i],1);
+    
+    //printf("Alloced: %d \n", geomentyByTxCounter[i]);
+    
+    preGeom[i].size = geomentyByTxCounter[i];
+
+    finalGeom[i].tris = geomentyByTxCounter[i] / (float)vertexSize / sizeof(float);
+  }
+
+  // tiles
+  for(int i=0;i<tilesStorageSize;i++){
+    int type = valueIn(tilesStorage[i]->ground, 0);
+
+    if (type != texturedTile){
+      continue;
+    }
+
+    int txIndex = valueIn(tilesStorage[i]->ground, 2);
+
+    for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i]->pos.x; 
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+1] = texturedTileVerts[i2+1] + tilesStorage[i]->pos.y;
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+2] = texturedTileVerts[i2+2] + tilesStorage[i]->pos.z; 
+
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+3] = texturedTileVerts[i2+3];
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+4] = texturedTileVerts[i2+4];
+
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+5] = texturedTileVerts[i2+5];
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+6] = texturedTileVerts[i2+6];
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+7] = texturedTileVerts[i2+7];
+    }
+
+    txLastIndex[txIndex] += sizeof(texturedTileVerts) / sizeof(float);
+  }
+
+  // blocks
+  for(int i=0;i<blocksStorageSize;i++){
+    TileBlocksTypes type = blocksStorage[i]->type;
+    int txIndex = blocksStorage[i]->txIndex;
+
+    for(int i2=0;i2<blocksVPairs[type].planesNum;i2++){
+      for(int i3=0;i3<blocksVPairs[type].pairs[i2].vertexNum * vertexSize;i3+=vertexSize){
+	vec4 vert = { blocksVPairs[type].pairs[i2].vBuf[i3], blocksVPairs[type].pairs[i2].vBuf[i3+1], blocksVPairs[type].pairs[i2].vBuf[i3+2], 1.0f };
+
+	vec4 transf = mulmatvec4(blocksStorage[i]->mat, vert);
+
+	vec4 normal = { blocksVPairs[type].pairs[i2].vBuf[i3+5], blocksVPairs[type].pairs[i2].vBuf[i3+6], blocksVPairs[type].pairs[i2].vBuf[i3+7], 1.0f };
+
+	Matrix inversedWallModel = IDENTITY_MATRIX;
+	inverse(blocksStorage[i]->mat.m, inversedWallModel.m);
+
+	Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+	mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+		  
+	vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3] = transf.x;
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 1] = transf.y;
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 2] = transf.z;
+
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 3] = blocksVPairs[type].pairs[i2].vBuf[i3 + 3];
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 4] = blocksVPairs[type].pairs[i2].vBuf[i3 + 4];
+
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 5] = transfNormal.x;
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 6] = transfNormal.y;
+	preGeom[txIndex].buf[txLastIndex[txIndex]+ i3 +7] = transfNormal.z;
+      }
+
+      txLastIndex[txIndex] += blocksVPairs[type].pairs[i2].vertexNum * vertexSize;
+    }
+  }
+
+  // walls
+  for(int side=0;side<2;side++){
+    for(int i=0;i<wallsStorageSize[side];i++){
+      WallType type = wallsStorage[side][i]->type;
+
+      for (int i2 = 0; i2 < wallsVPairs[type].planesNum; i2++) {
+	if (!wallsStorage[side][i]->planes[i2].hide) {
+	  int txIndex = wallsStorage[side][i]->planes[i2].txIndex;
+
+	  /*if(wallsStorage[side][i]->type == hiddenWallT){
+	    if(wallsStorage[side][i]->prevType == windowT){
+	      if(i2 == wBackPlane){
+		txIndex = wallsStorage[side][i]->planes[winFrontBotPlane].txIndex;
+	      }else if(i2 == wFrontPlane){
+		txIndex = wallsStorage[side][i]->planes[winBackBotPlane].txIndex;
+	      }else if(i2 == wTopPlane){
+		txIndex = wallsStorage[side][i]->planes[winTopPlane].txIndex;
+	      }
+	    }
+	  }*/
+
+	  for (int i3 = 0; i3 < wallsVPairs[type].pairs[i2].vertexNum * vertexSize; i3 += vertexSize) {
+	    vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i3], wallsVPairs[type].pairs[i2].vBuf[i3 + 1], wallsVPairs[type].pairs[i2].vBuf[i3 + 2], 1.0f };
+
+	    vec4 transf = mulmatvec4(wallsStorage[side][i]->mat, vert);
+
+	    vec4 normal = { wallsVPairs[type].pairs[i2].vBuf[i3 + 5], wallsVPairs[type].pairs[i2].vBuf[i3 + 6], wallsVPairs[type].pairs[i2].vBuf[i3 + 7], 1.0f };
+
+	    Matrix inversedWallModel = IDENTITY_MATRIX;
+	    inverse(wallsStorage[side][i]->mat.m, inversedWallModel.m); 
+
+	    Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+	    mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+
+	    vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3] = transf.x;
+	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 1] = transf.y;
+	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 2] = transf.z;
+
+	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 3] = wallsVPairs[type].pairs[i2].vBuf[i3 + 3];
+	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 4] = wallsVPairs[type].pairs[i2].vBuf[i3 + 4];
+
+	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 5] = transfNormal.x;
+	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 6] = transfNormal.y;
+	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 7] = transfNormal.z;
+	  }
+
+	  txLastIndex[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * vertexSize;
+	}
+      }
+    }
+  }
+
+  // joints
+  for(int side=0;side<basicSideCounter;side++){
+    for(int i=0;i<jointsStorageSize[side];i++){
+      WallType jointType = jointsStorage[side][i]->type;
+	      
+      for (int i2 = 0; i2<wallsVPairs[jointType].planesNum; i2++) {
+	int txIndex = jointsStorage[side][i]->plane[i2].txIndex;
+		
+	for(int i3=0;i3<wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;i3+=vertexSize){
+	  //	  printf("jt: %d \n",txIndex);
+	  vec4 vert = { wallsVPairs[jointType].pairs[i2].vBuf[i3], wallsVPairs[jointType].pairs[i2].vBuf[i3+1], wallsVPairs[jointType].pairs[i2].vBuf[i3+2], 1.0f };
+		
+	  static const int pad[4][2] = {
+	    [top] = { 0, 1 },
+	    [right] = { 0, 0 },
+
+	    [bot] = { 1, 0 },
+	    [left] = {1, 0 }
+	  };
+
+	  Matrix jointMat; 
+	  memcpy(jointMat.m, wallJointsMat[side].m, sizeof(float)*16);
+
+	  vec3 tile = tilesStorage[jointsStorage[side][i]->tileId]->pos;
+
+	  jointMat.m[12] = (int)tile.x + pad[side][0];
+	  jointMat.m[13] = (int)tile.y;
+	  jointMat.m[14] = (int)tile.z + pad[side][1];
+
+	  vec4 transf = mulmatvec4(jointMat, vert);
+
+	  vec4 normal = { wallsVPairs[jointType].pairs[i2].vBuf[i3+5], wallsVPairs[jointType].pairs[i2].vBuf[i3+6], wallsVPairs[jointType].pairs[i2].vBuf[i3+7], 1.0f };
+
+	  Matrix inversedWallModel = IDENTITY_MATRIX;
+
+	  //printf("%s: %f %f %f %f \n %f %f %f %f \n %f %f %f %f \n %f %f %f %f \n", sidesToStr[i3],
+	  // spreadMat4(grid[y][z][x]->jointsMat[i3].m));
+		  
+	  inverse(jointMat.m, inversedWallModel.m);
+
+	  Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+	  mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+		  
+	  vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+	  preGeom[txIndex].buf[txLastIndex[txIndex]+i3] = transf.x; 
+	  preGeom[txIndex].buf[txLastIndex[txIndex]+i3+1] = transf.y;
+	  preGeom[txIndex].buf[txLastIndex[txIndex]+i3+2] = transf.z;
+
+	  preGeom[txIndex].buf[txLastIndex[txIndex]+i3+3] = wallsVPairs[jointType].pairs[i2].vBuf[i3+3];
+	  preGeom[txIndex].buf[txLastIndex[txIndex]+i3+4] = wallsVPairs[jointType].pairs[i2].vBuf[i3+4];
+
+	  preGeom[txIndex].buf[txLastIndex[txIndex]+i3+5] = transfNormal.x;
+	  preGeom[txIndex].buf[txLastIndex[txIndex]+i3+6] = transfNormal.y;
+	  preGeom[txIndex].buf[txLastIndex[txIndex]+i3+7] = transfNormal.z;
+	}
+
+	printf("jointType: %d \n", jointType);
+	txLastIndex[txIndex] += wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;
+      }
+    }
+  }
+  
+  for(int i=0;i<loadedTexturesCounter;i++){
+    glBindVertexArray(finalGeom[i].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
+
+    printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
+    glBufferData(GL_ARRAY_BUFFER, preGeom[i].size, preGeom[i].buf, GL_STATIC_DRAW);
+  
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);  
+    glBindVertexArray(0);
+
+    free(preGeom[i].buf);
+  }
+
+  free(preGeom);
+  free(txLastIndex);
 }

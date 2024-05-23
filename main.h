@@ -206,7 +206,8 @@ typedef struct{
 
   Matrix mat;
 
-  size_t geomIndex;
+  int id;
+  int tileId;
 } Wall;
 
 void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, int attrSize, vec3* lb, vec3* rt);
@@ -363,11 +364,14 @@ typedef struct {
   int txIndex;
 
   // assign
-  Tile* tile;
+  //  Tile* tile;
   Matrix mat;
   
   vec3 lb;
   vec3 rt;
+
+  int id;
+  int tileId;
 } TileBlock;
 
 typedef struct{
@@ -397,11 +401,20 @@ typedef struct{
   bool txHidden;
 } WallVertexBuffer;
 
-#define spreadMat4(mat) mat[0], mat[1], mat[2], mat[0];
+#define spreadMat4(mat) mat[0], mat[1], mat[2], mat[3], mat[4], mat[5], mat[6], mat[7], mat[8], mat[9], mat[10], mat[11], mat[12], mat[13], mat[14], mat[15]
 
+typedef struct{
+  Plane plane[jointPlaneCounter];
+  WallType type;
+  
+  int id;
+  int tileId;
+} WallJoint;
 
 struct Tile{
   TileBlock* block;
+  Wall* wall[2];
+  WallJoint* joint[4];
 
   // 1 byte - empty/net/textured
   // 2 byte - under texture id
@@ -410,27 +423,41 @@ struct Tile{
   int ground;
   vec3 pos;
 
-  Wall walls[4];
+  int id;
 
   //  WallType jointType;
-  Plane joint[4][jointPlaneCounter];
-  bool jointExist[4];
-  Matrix jointsMat[4];
+  //  Plane joint[4][jointPlaneCounter];
+  //  bool jointExist[4];
+
+  //  Matrix jointsMat[4];
 };
 
 typedef struct{
   int side;
-  vec3i grid;
-  int txIndex;
-  Tile* tile;
   
-  WallType type;
+  //  vec3i grid;
+  int txIndex;
+
+  Wall* wall;
+  WallJoint* joint;
+  
   int plane;
 } WallMouseData;
 
+typedef enum{
+  netTileT2,
+  texturedTileT2,
+} GroundType2;
+
 typedef struct{
-  Tile* tile;
-  vec2i grid;
+  //  Tile* tile;
+  
+  //  vec2i grid;
+
+  int tileId;
+  GroundType2 type;
+  vec3 pos;
+  
   vec3 intersection;
   int groundInter;
 } TileMouseData;
@@ -439,6 +466,7 @@ typedef enum{
   netTileT = 1,
   texturedTile,
 } GroundType;
+
 
 bool isAlreadyNavPoint(vec3 point);
 
@@ -1017,9 +1045,6 @@ int lightsStoreSize;
 
 Light lightDef;/* = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .constant = 1.0f, .linear = .09f, .quadratic = .032f, .dir = {0,-1, 0} };*/
 
-Picture* createdPlanes;
-int createdPlanesSize;
-
 Model* curModels;
 size_t curModelsSize;
 
@@ -1125,3 +1150,37 @@ void assembleHideWallBlockVBO();
 void assembleHalfWallJointVBO();
 //Model* playerModel;
 
+
+Wall** wallsStorage[2];
+int wallsStorageSize[2];
+
+WallJoint** jointsStorage[4];
+int jointsStorageSize[4];
+
+TileBlock** blocksStorage;
+int blocksStorageSize;
+
+Tile** tilesStorage;
+int tilesStorageSize;
+
+Picture* picturesStorage;
+int picturesStorageSize;
+
+size_t* geomentyByTxCounter;
+
+
+typedef struct{
+  float* buf;
+  size_t size;
+} Geom;
+
+typedef struct{
+  int VAO;
+  int VBO;
+  int tris;
+} GeomFin;
+
+GeomFin* finalGeom;
+
+void batchAllGeometry();
+VPair planePairs;

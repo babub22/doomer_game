@@ -207,7 +207,7 @@ void gameEvents(SDL_Event event){
     mouse.clickL = event.button.button == SDL_BUTTON_LEFT;
     mouse.clickR = event.button.button == SDL_BUTTON_RIGHT;
 
-    if(mouse.clickL && mouse.selectedType == mouseTileT){
+    /*if (mouse.clickL && mouse.selectedType == mouseTileT) {
       TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
       
       targetPos.x = tileData->grid.x;
@@ -215,7 +215,7 @@ void gameEvents(SDL_Event event){
       targetPos.z = tileData->grid.z;
 
       printf("%f %f %f \n", argVec3(targetPos));
-    }
+    }*/
 
     // if click missing foucedThing reset focus
     if(mouse.focusedThing != mouse.selectedThing){
@@ -298,9 +298,9 @@ void gameMouseVS(){
       bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
 
       if (isIntersect && minDistToCamera > intersectionDistance) {
-	intersTileData->tile = bBlock;
+	//intersTileData->tile = bBlock;
 
-	intersTileData->grid = (vec2i){ ind.x,ind.z };
+	//intersTileData->grid = (vec2i){ ind.x,ind.z };
 	intersTileData->intersection = intersection;
 	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
@@ -315,25 +315,24 @@ void gameMouseVS(){
       // walls
       {
 	for(int i2=0;i2<batchedGeometryIndexes[i].wallsSize;i2++){
-	  int wallIndex = batchedGeometryIndexes[i].wallsIndexes[i2];
+	  int wallSide = batchedGeometryIndexes[i].wallsIndexes[i2];
 	  
-	  WallType type = bBlock->walls[wallIndex].type;
+	  WallType type = bBlock->wall[wallSide]->type;
 	  
 	  float intersectionDistance;
 
 	  for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->walls[wallIndex].planes[i3].lb, bBlock->walls[wallIndex].planes[i3].rt, NULL, &intersectionDistance);
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->wall[wallSide]->planes[i3].lb, bBlock->wall[wallSide]->planes[i3].rt, NULL, &intersectionDistance);
 
 	    if (isIntersect && minDistToCamera > intersectionDistance) {
-	      intersWallData->side = wallIndex;
-	      intersWallData->grid = ind;
+	      intersWallData->side = wallSide;
 
-	      int tx = bBlock->walls[wallIndex].planes[i3].txIndex;
+	      int tx = bBlock->wall[wallSide]->planes[i3].txIndex;
 
 	      intersWallData->txIndex = tx;
-	      intersWallData->tile = bBlock;
+	      //intersWallData->tile = bBlock;
 
-	      intersWallData->type = type;
+	      //intersWallData->type = type;
 	      intersWallData->plane = i3;
 
 	      mouse.selectedType = mouseWallT;
@@ -352,16 +351,15 @@ void gameMouseVS(){
 	  float intersectionDistance;
 	    
 	  for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex][i3].lb, bBlock->joint[jointIndex][i3].rt, NULL, &intersectionDistance);
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex]->plane[i3].lb, bBlock->joint[jointIndex]->plane[i3].rt, NULL, &intersectionDistance);
 
 	    if (isIntersect && minDistToCamera > intersectionDistance) {
 
 	      intersWallData->side = jointIndex;
-	      intersWallData->grid = ind;
-	      intersWallData->txIndex = bBlock->joint[jointIndex][i3].txIndex;
-	      intersWallData->tile = bBlock;
+	      intersWallData->txIndex = bBlock->joint[jointIndex]->plane[i3].txIndex;
+	      //intersWallData->tile = bBlock;
 
-	      intersWallData->type = wallJointT;
+	     // intersWallData->type = wallJointT;
 	      intersWallData->plane = i3;
 
 	      mouse.selectedType = mouseWallT;
@@ -422,9 +420,9 @@ void gameMouseVS(){
 
       if (isIntersect && minDistToCamera > intersectionDistance) {
           vec3i gridInd = xyz_coordsToIndexes(netTileAABB[i].x, curFloor, netTileAABB[i].z);
-	intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
+	//intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
 
-	intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
+	//intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
 	intersTileData->intersection = intersection;
 	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
