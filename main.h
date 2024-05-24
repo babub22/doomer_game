@@ -118,7 +118,7 @@ typedef enum{
 } MenuTypes;
 
 typedef enum{
-  pointLightT, shadowPointLightT,// dirLightT,
+  pointLightT, shadowLightT, dirLightT,
   lightsTypeCounter
 } LightType;
 
@@ -406,6 +406,7 @@ typedef struct{
 typedef struct{
   Plane plane[jointPlaneCounter];
   WallType type;
+  Side side;
   
   int id;
   int tileId;
@@ -696,6 +697,31 @@ typedef enum{
 
 typedef struct{
   int id;
+  
+  vec3 pos;
+  vec3 color;
+  
+  vec3 dir;
+  LightType type;
+
+  Matrix mat;
+
+  // TODO: Remove constant, linear, quad replace it with curLight
+  int curLightPresetIndex;
+
+  float rad;
+  float cutOff;
+
+  bool off; // on/off light
+
+  vec3 lb;
+  vec3 rt;
+
+  int cubemapIndex;
+} DirLight;
+
+typedef struct{
+  int id;
   vec3 pos;
   vec3 color;
   
@@ -883,7 +909,7 @@ typedef enum{
 } EngineInstanceFunc;
 
 typedef enum{
-  lightSourceShader, hudShader, mainShader, borderShader, screenShader, pointShadowShader, shadersCounter
+  lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
@@ -1039,11 +1065,12 @@ GLuint fontAtlas;
 
 int curFloor;
 
-Light* lightsStore[lightsTypeCounter];
-int lightsStoreSizeByType[lightsTypeCounter];
-int lightsStoreSize;
+//Light* pointlightStorage;
+Light* lightStorage[lightsTypeCounter];
+int lightStorageSize[lightsTypeCounter];
+int lightStorageSizeByType[lightsTypeCounter];
 
-Light lightDef;/* = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .constant = 1.0f, .linear = .09f, .quadratic = .032f, .dir = {0,-1, 0} };*/
+Light lightDef[lightsTypeCounter];/* = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .constant = 1.0f, .linear = .09f, .quadratic = .032f, .dir = {0,-1, 0} };*/
 
 Model* curModels;
 size_t curModelsSize;
@@ -1151,11 +1178,11 @@ void assembleHalfWallJointVBO();
 //Model* playerModel;
 
 
-Wall** wallsStorage[2];
-int wallsStorageSize[2];
+Wall** wallsStorage;
+int wallsStorageSize;
 
-WallJoint** jointsStorage[4];
-int jointsStorageSize[4];
+WallJoint** jointsStorage;
+int jointsStorageSize;
 
 TileBlock** blocksStorage;
 int blocksStorageSize;

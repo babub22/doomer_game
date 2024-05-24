@@ -377,13 +377,13 @@ void gameMouseVS(){
 
   // lights
   for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
-    for (int i = 0; i < lightsStoreSizeByType[i2]; i++) {
+    for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
       float intersectionDistance;
 
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightsStore[i2][i].lb, lightsStore[i2][i].rt, NULL, &intersectionDistance);
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightStorage[i2][i].lb, lightStorage[i2][i].rt, NULL, &intersectionDistance);
 
       if (isIntersect && minDistToCamera > intersectionDistance) {
-	mouse.selectedThing = &lightsStore[i2][i];
+	mouse.selectedThing = &lightStorage[i2][i];
 	mouse.selectedType = mouseLightT;
 	
 	minDistToCamera = intersectionDistance;

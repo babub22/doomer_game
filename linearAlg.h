@@ -90,7 +90,7 @@ Matrix perspective(float fovy, float aspect_ratio, float near_plane, float far_p
 
 Matrix orthogonal(float l, float r, float b, float t, float n, float f);
 
-Matrix lookAt(vec3 eye, vec3 center, vec3 up);
+Matrix lookAt(vec3 eye, vec3 target, vec3 up);
 
 #define vec3ToVec4(vec3, vec4) (vec4){ vec3.x, vec3.y, vec3.z, 1.0f} 
 

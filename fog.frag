@@ -2,7 +2,8 @@
 uniform vec3 cameraPos;
 
 uniform sampler2D colorMap;
-uniform samplerCubeArray depthMapsArray;
+uniform sampler2D shadowMap;
+//uniform samplerCubeArray depthMapsArray;
 
 uniform float radius;
 
@@ -11,6 +12,7 @@ uniform vec3 lightPoss;
 in vec2 TexCoord;
 in vec3 Normal;
 in vec3 FragPos;
+in vec4 FragPosLightSpace;
 
 struct PointLight{
 vec3  pos;
@@ -21,6 +23,10 @@ float linear;
 float quadratic;
 
 int cubemapIndex;
+
+vec3 dir;
+float rad;
+float cutOff;	
 };
 
 struct DirLight{
@@ -45,7 +51,7 @@ uniform int shadowPointLightsSize;
 uniform PointLight shadowPointLights[MAX_LIGHTS];
 
 uniform int dirLightsSize;  
-uniform DirLight dirLights[MAX_LIGHTS];
+uniform PointLight dirLights[MAX_LIGHTS];
 
 in vec3 vertexToPlayer;
 
@@ -63,6 +69,39 @@ vec3(1, 0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1, 0, -1),
 vec3(0, 1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0, 1, -1)
 );
 
+
+float shadowCalc(vec3 lightPos, vec3 norm)
+{
+    // perform perspective divide
+    vec3 projCoords = FragPosLightSpace.xyz / FragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5;
+
+    float closestDepth = texture(shadowMap, projCoords.xy).r; 
+    float currentDepth = projCoords.z;
+
+    vec3 lightDir = normalize(lightPos - FragPos);
+    float bias = max(0.05 * (1.0 - dot(norm, lightDir)), 0.005);
+
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+        }    
+    }
+    shadow /= 9.0;
+    
+    // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+    if(projCoords.z > 1.0)
+        shadow = 0.0;
+        
+    return shadow;
+}	
+
+/*
 float shadowCalc(vec3 lightDir, vec3 lightPos, int cubemapIndex){
 
 vec3 fragToLight = FragPos - lightPos;
@@ -82,18 +121,12 @@ shadow += 1.0;
 }
 shadow /= float(samples);
 
-/*float closestDepth = texture(depthMapsArray, vec4(fragToLight, cubemapIndex)).r;
-closestDepth *= far_plane;
 
-
-float bias = 0.05;
-
-float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;*/
 
 //gl_FragColor = vec4(res * color,tex.a);
 
 return shadow;
-}
+}*/
 
 
 vec3 pointLightCalc(PointLight light, vec3 norm, vec3 viewDir){
@@ -147,15 +180,15 @@ ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
-float shadow = shadowCalc(lightDir, light.pos, light.cubemapIndex);
+//float shadow = shadowCalc(light.pos, light.cubemapIndex);
 
 //ambient += (1.0 - shadow);
 
-return (ambient + (diffuse + specular) * (1.0 - shadow));
+return (ambient + (diffuse + specular));// * (1.0 - shadow));
 }
 
-/*
-vec3 dirLightCalc(DirLight light, vec3 norm, vec3 viewDir){
+
+vec3 dirLightCalc(PointLight light, vec3 norm, vec3 viewDir){
 vec3 lightDir = normalize(light.pos - FragPos);
 // diffuse shading
 float diff = max(dot(norm, lightDir), 0.0);
@@ -167,7 +200,6 @@ float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
 vec3 ambient  = ambientC * light.color;
 vec3 diffuse  = diff * light.color;
 vec3 specular = specularC * spec * light.color;
-
 
 float theta = dot(lightDir, normalize(-light.dir));
 float epsilon   = light.rad - light.cutOff;
@@ -184,13 +216,10 @@ ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
-float shadow = shadowCalc(lightDir, light.pos);
+float shadow = shadowCalc(light.pos, norm);
 
-//ambient += (1.0 - shadow);
-
-return (ambient + diffuse + specular);
-
-} */ 
+return (ambient + (1.0f - shadow) * (diffuse + specular));
+} 
 
 void main(void){
 vec4 tex = texture2D(colorMap, TexCoord);
@@ -206,18 +235,18 @@ vec3 norm = normalize(Normal);
 vec3 res;
 //res = vec3(ambientC * vec3(112.0f / 255.f, 117.0f, 113.0f) );
 
-//for(int i=0;i<dirLightsSize;i++){
-//res+= dirLightCalc(dirLights[i], norm, viewDir);
-//}
+for(int i=0;i<dirLightsSize;i++){
+res+= dirLightCalc(dirLights[i], norm, viewDir);
+}
 
 // shadows;
-for(int i=0;i<shadowPointLightsSize;i++){
+/*for(int i=0;i<shadowPointLightsSize;i++){
 res+= pointLightCalcShadow(shadowPointLights[i], norm, viewDir);
 }
 
 for(int i=0;i<pointLightsSize;i++){
 res+= pointLightCalc(pointLights[i], norm, viewDir);
-}
+}*/
 
 float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);

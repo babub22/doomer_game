@@ -14,3 +14,5 @@ Sigi.obj Sigi.png Obj
 Book.obj Books.png Obj
 Bookshelf.obj Bookshelves.png Obj
 Doomer.obj Doomer.png Player
+Snus.obj Snus.png Obj
+Milka.obj Milka.png Obj

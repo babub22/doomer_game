@@ -4,16 +4,26 @@
 static const double PI = 3.14159265358979323846;
 
 Matrix multiplymat4(Matrix m1, Matrix m2) {
-	Matrix out = IDENTITY_MATRIX;
-	unsigned int row, column, row_offset;
+  Matrix out = IDENTITY_MATRIX;
+  //  unsigned int row, column, row_offset;
 
-	for (row = 0, row_offset = row * 4; row < 4; ++row, row_offset = row * 4)
+  for (unsigned int row = 0; row < 4; ++row) {
+    for (unsigned int column = 0; column < 4; ++column) {
+      out.m[row * 4 + column] =
+	(m1.m[row * 4 + 0] * m2.m[column + 0]) +
+	(m1.m[row * 4 + 1] * m2.m[column + 4]) +
+	(m1.m[row * 4 + 2] * m2.m[column + 8]) +
+	(m1.m[row * 4 + 3] * m2.m[column + 12]);
+    }
+  }
+
+	/*	for (row = 0, row_offset = row * 4; row < 4; ++row, row_offset = row * 4)
 		for (column = 0; column < 4; ++column)
 			out.m[row_offset + column] =
 				(m1.m[row_offset + 0] * m2.m[column + 0]) +
 				(m1.m[row_offset + 1] * m2.m[column + 4]) +
 				(m1.m[row_offset + 2] * m2.m[column + 8]) +
-				(m1.m[row_offset + 3] * m2.m[column + 12]);
+				(m1.m[row_offset + 3] * m2.m[column + 12]);*/
 
 	return out;
 }
@@ -151,27 +161,15 @@ Matrix perspective(float fovy, float aspect_ratio, float near_plane, float far_p
 Matrix orthogonal(float l, float r, float b, float t, float n, float f)
 {
   Matrix M = IDENTITY_MATRIX;
-  
-    M.m[0] = 2.f / (r - l);
-    M.m[1] = 0.f;
-    M.m[2] = 0.f;
-    M.m[3] = 0.f;
 
-    M.m[4] = 0.f;
-    M.m[5] = 2.f / (t - b);
-    M.m[6] = 0.f;
-    M.m[7] = 0.f;
-
-    M.m[8] = 0.f;
-    M.m[9] = 0.f;
-    M.m[10] = -2.f / (f - n);
-    M.m[11] = 0.f;
+    M.m[0] = 2.0f / (r - l);
+    M.m[5] = 2.0f / (t - b);
+    M.m[10] = -2.0f / (f - n);
+    M.m[15] = 1.0f;
 
     M.m[12] = -(r + l) / (r - l);
     M.m[13] = -(t + b) / (t - b);
     M.m[14] = -(f + n) / (f - n);
-    M.m[15] = 1.f;
-
     return M;
 }
 
@@ -206,34 +204,39 @@ vec3 subtract(vec3 a, vec3 b) {
     return result;
 }
 
-Matrix lookAt(vec3 eye, vec3 center, vec3 up) {
-  vec3 f = normalize3(subtract(center, eye));
-  vec3 u = normalize3(up);
-  vec3 s = normalize3(cross3(f, u));
-  u = cross3(s,f);
-
+Matrix lookAt(vec3 eye, vec3 target, vec3 up) {
   Matrix mat = IDENTITY_MATRIX;
-  mat.m[0] = s.x;
-  mat.m[1] = u.x;
-  mat.m[2] = -f.x;
-  //mat.m[3] = 0.0f;
+    //void lookAt(Vector3 eye, Vector3 target, Vector3 up, float *matrix) {
+    // Compute forward direction
+    vec3 forward = normalize3(subtract(target, eye));
 
-  mat.m[4] = s.y;
-  mat.m[5] = u.y;
-  mat.m[6] = -f.y;
-  //mat.m[7] = 0.0f;
+    // Compute right direction
+    vec3 right = normalize3(cross3(forward, up));
 
-  mat.m[8] = s.z;
-  mat.m[9] = u.z;
-  mat.m[10] = -f.z;
-  //mat.m[11] = 0.0f;
+    // Compute up direction
+    vec3 newUp = cross3(right, forward);
 
-  mat.m[12] = -dotf3(s, eye);
-  mat.m[13] = -dotf3(u, eye);
-  mat.m[14] = dotf3(f, eye);
-  mat.m[15] = 1.0f;
-  
-  return mat;  
+    // Set the rotation part of the matrix
+    mat.m[0] = right.x;
+    mat.m[1] = newUp.x;
+    mat.m[2] = -forward.x;
+    mat.m[3] = 0.0f;
+    mat.m[4] = right.y;
+    mat.m[5] = newUp.y;
+    mat.m[6] = -forward.y;
+    mat.m[7] = 0.0f;
+    mat.m[8] = right.z;
+    mat.m[9] = newUp.z;
+    mat.m[10] = -forward.z;
+    mat.m[11] = 0.0f;
+
+    // Set the translation part of the mat.m
+    mat.m[12] = -dotf3(right, eye);
+    mat.m[13] = -dotf3(newUp, eye);
+    mat.m[14] = dotf3(forward, eye);
+    mat.m[15] = 1.0f;
+
+    return mat;
 }
 
 void inverse(float M[], float T[]) {

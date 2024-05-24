@@ -11,3 +11,4 @@ Door.png Tex
 Okno.png Tex
 Ikona.png Vyveski
 Bratok.png Vyveski
+Sef.png Vyveski

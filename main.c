@@ -22,11 +22,11 @@ bool navPointsDraw = false;
 
 Matrix wallJointsMat[4];
 
-Wall** wallsStorage[2];
-int wallsStorageSize[2];
+Wall** wallsStorage;
+int wallsStorageSize;
 
-WallJoint** jointsStorage[4];
-int jointsStorageSize[4];
+WallJoint** jointsStorage;
+int jointsStorageSize;
 
 TileBlock** blocksStorage;
 int blocksStorageSize;
@@ -37,7 +37,7 @@ int tilesStorageSize;
 //const int SHADOW_WIDTH = 128, SHADOW_HEIGHT = 128;
 const int SHADOW_WIDTH = 512, SHADOW_HEIGHT = 512;  
 unsigned int depthMapFBO;
-unsigned int depthCubemap;
+unsigned int depthMaps;
 
 void glErrorCheck(){
   GLenum er = glGetError();
@@ -85,7 +85,7 @@ const char* wallTypeStr[] = {
 
 const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps",[angledRoofT] = "Angle Roof" };
 
-const char* lightTypesStr[] = { [shadowPointLightT] = "Point light(shadow)",[pointLightT] = "Point light" };
+const char* lightTypesStr[] = { [shadowLightT] = "Point light(shadow)",[pointLightT] = "Point light", [dirLightT] = "Dir light" };
 
 const char* wallPlanesStr[] = {
   [wTopPlane] = "Top plane",
@@ -145,7 +145,7 @@ ModelsTypesInfo modelsTypesInfo[] = {
   [playerModelT] = {"Player", 0}
 };
 
-const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [pointShadowShader] = "pointShadowDepth" };
+const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth" };
 const char sdlScancodesToACII[] = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',[55] = '.'
 };
@@ -259,7 +259,11 @@ Camera* curCamera = &camera1;
 
 bool fullScreen = 0;
 
-Light lightDef = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 7 };
+Light lightDef[lightsTypeCounter] = {
+  [pointLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 7},
+  [shadowLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 7},
+  [dirLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 7}
+};
 
 Menu dialogViewer = { .type = dialogViewerT };
 Menu dialogEditor = { .type = dialogEditorT };
@@ -329,8 +333,10 @@ int texture1DIndexByName(char* txName) {
 
 
 int main(int argc, char* argv[]) {
-  lightDef.rad = cosf(rad(12.5f));
-  lightDef.cutOff = cosf(rad(17.5f));
+    for (int i = 0; i < lightsTypeCounter; i++) {
+  lightDef[i].rad = cosf(rad(12.5f));
+  lightDef[i].cutOff = cosf(rad(17.5f));
+    }
 
   SDL_Init(SDL_INIT_VIDEO);
 
@@ -449,7 +455,7 @@ int main(int argc, char* argv[]) {
     glGenBuffers(1, &planePairs.VBO);
     glGenVertexArrays(1, &planePairs.VAO);
     
-    planePairs.vertexNum = 8;
+    planePairs.attrSize = 8;
 
     float plane[] = {
       bBlockW, bBlockD, 0.0f , 0.0f, 1.0f, -0.000000, 1.000000, -0.000000,
@@ -1429,33 +1435,44 @@ int main(int argc, char* argv[]) {
 
   
 
-  {
+ {
     glGenFramebuffers(1, &depthMapFBO);
     // create depth cubemap texture
     //	glActiveTexture(GL_TEXTURE1);
-    glGenTextures(1, &depthCubemap);
-    glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, depthCubemap);
-	
-    //    for (unsigned int i = 0; i < 6; ++i){
-      //      glTexImage2D(GL_TEXTURE_CUBE_MAP_ARRAY_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-      //    }
-	
-    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glGenTextures(1, &depthMaps);
 
-    glTexImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 6 * 6, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-
-    //	glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    ///	glTexParameteri(GL_TEXTURE_CUBE_MAP_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-
-	
+    glBindTexture(GL_TEXTURE_2D, depthMaps);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     // attach depth texture as FBO's depth buffer
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMaps, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+ }
+    
+    /* glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
+	
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+    glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 6 * 6, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    
+    // attach depth texture as FBO's depth buffer
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthMaps, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
 
@@ -1468,7 +1485,7 @@ int main(int argc, char* argv[]) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, 0);
     //	glActiveTexture(GL_TEXTURE0);
-  }
+  }*/
 
   geometry = calloc(loadedTexturesCounter, sizeof(Geometry));
 
@@ -1597,12 +1614,12 @@ int main(int argc, char* argv[]) {
   near_plane = 0.01f;
   far_plane  = 120.0f;
   
-  glUseProgram(shadersId[pointShadowShader]);
-  uniformFloat(pointShadowShader, "far_plane", far_plane);
+  glUseProgram(shadersId[dirShadowShader]);
+  uniformFloat(dirShadowShader, "far_plane", far_plane);
   
   glUseProgram(shadersId[mainShader]);
   uniformInt(mainShader, "colorMap", 0); 
-  uniformInt(mainShader, "depthMapsArray", 1);
+  uniformInt(mainShader, "shadowMap", 1);
   uniformFloat(mainShader, "far_plane", far_plane);
 
   while (!quit) {
@@ -1805,16 +1822,16 @@ int main(int argc, char* argv[]) {
     glStencilMask(0x00);
 	
     // render to depth cubemap
-    glUseProgram(shadersId[pointShadowShader]);
+    glUseProgram(shadersId[dirShadowShader]);
     glEnable(GL_DEPTH_TEST);
     
-    //    if(lightsStore[shadowPointLightT])
+    //    if(lightStorage[shadowLightT])
     glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);*/
 
     /*    int index = 0;
-    for(int i=0;i<lightsStoreSizeByType[shadowPointLightT];i++){
-      //      if(lightsStore[shadowPointLightT][i].off){
+    for(int i=0;i<lightStorageSizeByType[shadowLightT];i++){
+      //      if(lightStorage[shadowLightT][i].off){
 	//	continue;
 	//      }      
       
@@ -1824,7 +1841,7 @@ int main(int argc, char* argv[]) {
 
 	Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
 
-	vec3 negPos = { -lightsStore[shadowPointLightT][i].mat.m[12], -lightsStore[shadowPointLightT][i].mat.m[13], -lightsStore[shadowPointLightT][i].mat.m[14] };
+	vec3 negPos = { -lightStorage[shadowLightT][i].mat.m[12], -lightStorage[shadowLightT][i].mat.m[13], -lightStorage[shadowLightT][i].mat.m[14] };
 
 	static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
 						{-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
@@ -1846,19 +1863,19 @@ int main(int argc, char* argv[]) {
 
 	  sprintf(buf, "shadowMatrices[%d]", i2);
 
-	  uniformMat4(pointShadowShader, buf, shadowTransforms.m);
+	  uniformMat4(dirShadowShader, buf, shadowTransforms.m);
 	}
       }
 
-    if(lightsStoreSizeByType[shadowPointLightT] > 0){
+    if(lightStorageSizeByType[shadowLightT] > 0){
 	glActiveTexture(GL_TEXTURE0);
-	renderScene(pointShadowShader);
+	renderScene(dirShadowShader);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);   
     }*/
 
     
-    //  if (lightsStore)
+    //  if (lightStorage)
       {
 	glViewport(0, 0, windowW, windowH);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -1876,11 +1893,12 @@ int main(int argc, char* argv[]) {
         glUniform3f(cameraPos, argVec3(curCamera->pos));
         uniformFloat(mainShader, "far_plane", far_plane);
 
-	//	vec3 modelXLight = {lightsStore[0].mat.m[12], lightsStore[0].mat.m[13], lightsStore[0].mat.m[14]};
+	//	vec3 modelXLight = {lightStorage[0].mat.m[12], lightStorage[0].mat.m[13], lightStorage[0].mat.m[14]};
         //uniformVec3(mainShader, "lightPoss", modelXLight);
 
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, depthCubemap);
+	//	glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
+	glBindTexture(GL_TEXTURE_2D, depthMaps);
 
 	glActiveTexture(GL_TEXTURE0);
 	renderScene(mainShader);
@@ -2108,7 +2126,7 @@ void renderCube(vec3 pos, int lightId){
   glBindBuffer(GL_ARRAY_BUFFER, cube.VBO); 
   glBindVertexArray(cube.VAO);
 
-  //  glUniformMatrix4fv(lightModelLoc, 1, GL_FALSE, lightsStore[lightId].mat.m);
+  //  glUniformMatrix4fv(lightModelLoc, 1, GL_FALSE, lightStorage[lightId].mat.m);
 
 
 
@@ -2700,12 +2718,11 @@ bool loadSave(char* saveName){
 
   printf("Walls: left %d top %d \n", leftWallsCounter, topWallsCounter);
 
-  wallsStorage[left] = malloc(sizeof(Wall*) * leftWallsCounter);
-  wallsStorage[top] = malloc(sizeof(Wall*) * topWallsCounter);
+  wallsStorage = malloc(sizeof(Wall*) * (topWallsCounter + leftWallsCounter));
 
-  for(int i=0;i<basicSideCounter;i++){
-    jointsStorage[i] = malloc(sizeof(WallJoint*) * jntCounter[i]);
-  }
+  jointsStorage = malloc(sizeof(WallJoint*) * (jntCounter[0]+jntCounter[1]+jntCounter[2]+jntCounter[3]));
+  //  for(int i=0;i<basicSideCounter;i++){
+    //}
 
   blocksStorage = malloc(sizeof(TileBlock*) * blckCounter);
   tilesStorage = malloc(sizeof(Tile*) * wallsCounter);
@@ -2823,11 +2840,12 @@ bool loadSave(char* saveName){
      // }
 
       tile->wall[side] = malloc(sizeof(Wall));
-      tile->wall[side]->id = wallsStorageSize[side];
+      tile->wall[side]->id = wallsStorageSize;
       tile->wall[side]->tileId = tilesStorageSize;
       
-      wallsStorage[side][wallsStorageSize[side]] = tile->wall[side];
-      wallsStorageSize[side]++;
+      //      wallsStorage[side][wallsStorageSize[side]] = tile->wall[side];
+      wallsStorage[wallsStorageSize] = tile->wall[side];
+      wallsStorageSize++;
       
       tile->wall[side]->type = wType;       
       tile->wall[side]->planes = calloc(planesInfo[tile->wall[side]->type], sizeof(Plane));
@@ -2862,22 +2880,23 @@ bool loadSave(char* saveName){
       if(exist){
           tile->joint[jointSide] = malloc(sizeof(WallJoint));
 	  
-	  tile->joint[jointSide]->id = jointsStorageSize[i2];
+	  tile->joint[jointSide]->id = jointsStorageSize;
 	  tile->joint[jointSide]->tileId = tilesStorageSize;
 	  tile->joint[jointSide]->type = wallJointT;
+	  tile->joint[jointSide]->side = i2;
 	  
-	  jointsStorage[i2][jointsStorageSize[i2]] = tile->joint[jointSide];
-	  jointsStorageSize[i2]++;
+	  jointsStorage[jointsStorageSize] = tile->joint[jointSide];
+	  jointsStorageSize++;
 	  
           tile->joint[jointSide]->type = wallJointT;
 
 	  for(int i2=0;i2<jointPlaneCounter;i2++){
 	    fscanf(map, "%d %d ", &tile->joint[jointSide]->plane[i2].txIndex, &tile->joint[jointSide]->plane[i2].hide);
 
-	    if(!tile->joint[jointSide]->plane[i2].hide){
+	    //	    if(!tile->joint[jointSide]->plane[i2].hide){
 	      geomentyByTxCounter[tile->joint[jointSide]->plane[i2].txIndex] += wallsVPairs[wallJointT].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[wallJointT].pairs[i2].attrSize;
-	      printf("%d: \n", jointSide);
-	    }
+	      //	      printf("%d: \n", jointSide);
+	      //    }
 	  }
 
 	  for(int mat=0;mat<16;mat++){
@@ -3387,7 +3406,7 @@ bool createMap(int newX, int newY, int newZ){
   
   initSnowParticles();
 
-  batchGeometry();
+  batchAllGeometry();
 
   return true;
 }
@@ -4675,25 +4694,25 @@ void rerenderShadowsForAllLights(){
   GLint curShader = 0;
   glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
 
-  glUseProgram(shadersId[pointShadowShader]);
+  glUseProgram(shadersId[dirShadowShader]);
   glEnable(GL_DEPTH_TEST);
     
-  //    if(lightsStore[shadowPointLightT])
+  //    if(lightStorage[shadowLightT])
   glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
   glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
   
-  int index = 0;
+  //int index = 0;
 
-  Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
+  //  Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
   
-  for(int i=0;i<lightsStoreSizeByType[shadowPointLightT];i++){
+  /* for(int i=0;i<lightStorageSizeByType[shadowLightT];i++){
     glStencilMask(0xff);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glStencilMask(0x00);
 
     Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
 
-    vec3 negPos = { -lightsStore[shadowPointLightT][i].mat.m[12], -lightsStore[shadowPointLightT][i].mat.m[13], -lightsStore[shadowPointLightT][i].mat.m[14] };
+    vec3 negPos = { -lightStorage[shadowLightT][i].mat.m[12], -lightStorage[shadowLightT][i].mat.m[13], -lightStorage[shadowLightT][i].mat.m[14] };
 
     static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
 					    {-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
@@ -4713,39 +4732,98 @@ void rerenderShadowsForAllLights(){
 
       sprintf(buf, "shadowMatrices[%d]", i2);
 
-      uniformMat4(pointShadowShader, buf, shadowTransforms.m);
+      uniformMat4(dirShadowShader, buf, shadowTransforms.m);
     }
-  }
+  }*/
 
-  if(lightsStoreSizeByType[shadowPointLightT] > 0){
+  //  if(lightStorageSizeByType[shadowLightT] > 0){
     /*    //    glEnable(GL_CULL_FACE);
 	  glCullFace(GL_FRONT);
     
 	  glActiveTexture(GL_TEXTURE0);
-	  renderScene(pointShadowShader);
+	  renderScene(dirShadowShader);
 
 	  glCullFace(GL_BACK);
 	  //    glDisable(GL_CULL_FACE);
 
 	  glBindFramebuffer(GL_FRAMEBUFFER, 0);*/
 
+  
+  for (int i = 0; i < lightStorageSizeByType[dirLightT]; i++) {
+    vec3 negPos = { -lightStorage[dirLightT][i].mat.m[12], -lightStorage[dirLightT][i].mat.m[13], -lightStorage[dirLightT][i].mat.m[14] };
+
+    glStencilMask(0xff);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glStencilMask(0x00);
+
+    Matrix proj = orthogonal(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
+    
+   Matrix view = lookAt((vec3){lightStorage[dirLightT][i].mat.m[12], lightStorage[dirLightT][i].mat.m[13], lightStorage[dirLightT][i].mat.m[14]},
+			(vec3){0.0f,0.0f,0.0f},
+			(vec3){0.0f,1.0f,0.0f});
+
+   Matrix view2 = IDENTITY_MATRIX;
+
+   //    Matrix view = lookAt(negPos,//(vec3){0.0f,0.0f,0.0f},
+   //  			 (vec3){lightStorage[dirLightT][i].mat.m[0], lightStorage[dirLightT][i].mat.m[1], lightStorage[dirLightT][i].mat.m[2]},
+   //			 (vec3){0.0f,1.0f,0.0f});
+
+
+   //view.m[12] = -negPos.x;
+   //view.m[13] = -negPos.y;
+   //view.m[14] = -negPos.z;
+
+   //    Matrix view2 = IDENTITY_MATRIX;
+   //    memcpy(view2.m, lightStorage[dirLightT][i].mat.m, sizeof(float) * 16);
+
+   //    view2.m[12]=0.0f;
+   //    view2.m[13]=0.0f;
+   //    view2.m[14]=0.0f;
+
+   view2.m[12] = -negPos.x;
+   view2.m[13] = -negPos.y;
+   view2.m[14] = -negPos.z;
+   
+   // rotateX(&view2, rad(-90.0f));
+
+   rotateX(&view2, asinf(lightStorage[dirLightT][i].mat.m[1]));
+   rotateY(&view2, atan2f(lightStorage[dirLightT][i].mat.m[2], lightStorage[dirLightT][i].mat.m[0]));
+
+        printf("\n light mat: %f %f %f %f \n%f %f %f %f \n%f %f %f %f\n %f %f %f %f\n", spreadMat4(view.m));
+
+        printf("\n view mat: %f %f %f %f \n%f %f %f %f \n%f %f %f %f\n %f %f %f %f\n", spreadMat4(view2.m));
+    
+    //Matrix view2 = multiplymat4(view, lightStorage[dirLightT][i].mat);
+    //    view2 = multiplymat4(view2, view);
+
+    
+    Matrix shadowTransforms = multiplymat4(view, proj);
+    //Matrix shadowTransforms = multiplymat4(proj, view);
+
+    char buf[128];
+    sprintf(buf, "lightSpaceMatrix", 0);
+    uniformMat4(dirShadowShader, buf, shadowTransforms.m);
+
     glActiveTexture(GL_TEXTURE0);
-    renderScene(pointShadowShader);
+    renderScene(dirShadowShader);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glUseProgram(shadersId[mainShader]);
+    uniformMat4(mainShader, buf, shadowTransforms.m);
+    
+    glUseProgram(curShader);
   }
-  
-  glUseProgram(curShader);
 }
 
 void rerenderShadowForLight(int lightId){
   GLint curShader = 0;
   glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
 
-  glUseProgram(shadersId[pointShadowShader]);
+  glUseProgram(shadersId[dirShadowShader]);
   glEnable(GL_DEPTH_TEST);
     
-  //    if(lightsStore[shadowPointLightT])
+  //    if(lightStorage[shadowLightT])
   glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
   glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 
@@ -4757,7 +4835,7 @@ void rerenderShadowForLight(int lightId){
 
   Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
 
-  vec3 negPos = { -lightsStore[shadowPointLightT][lightId].mat.m[12], -lightsStore[shadowPointLightT][lightId].mat.m[13], -lightsStore[shadowPointLightT][lightId].mat.m[14] };
+  vec3 negPos = { -lightStorage[shadowLightT][lightId].mat.m[12], -lightStorage[shadowLightT][lightId].mat.m[13], -lightStorage[shadowLightT][lightId].mat.m[14] };
 
   static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
 					  {-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
@@ -4770,18 +4848,18 @@ void rerenderShadowForLight(int lightId){
     rotateX(&viewMat, rad(shadowRotation[i2 - (6 * lightId)].x));
     rotateY(&viewMat, rad(shadowRotation[i2 - (6 * lightId)].y));
     rotateZ(&viewMat, rad(shadowRotation[i2 - (6 * lightId)].z));
-
+    
     Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
 
     char buf[128];
 
     sprintf(buf, "shadowMatrices[%d]", i2);
 
-    uniformMat4(pointShadowShader, buf, shadowTransforms.m);
+    uniformMat4(dirShadowShader, buf, shadowTransforms.m);
   }
 
   glActiveTexture(GL_TEXTURE0);
-  renderScene(pointShadowShader);
+  renderScene(dirShadowShader);
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -5116,7 +5194,7 @@ void batchGeometry(){
 	  }*/
 
 
-	  // walls
+	  // walls 
 	  for(int i3=0;i3<2;i3++){
           if (grid[y][z][x]->wall[i3]) {
               // remember wall that exist
@@ -6279,13 +6357,13 @@ void checkMouseVSEntities(){
 
   // lights
   for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
-    for (int i = 0; i < lightsStoreSizeByType[i2]; i++) {
+    for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
       float intersectionDistance;
 
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightsStore[i2][i].lb, lightsStore[i2][i].rt, NULL, &intersectionDistance);
+      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightStorage[i2][i].lb, lightStorage[i2][i].rt, NULL, &intersectionDistance);
 
       if (isIntersect && minDistToCamera > intersectionDistance) {
-	mouse.selectedThing = &lightsStore[i2][i];
+	mouse.selectedThing = &lightStorage[i2][i];
 	mouse.selectedType = mouseLightT;
 	
 	minDistToCamera = intersectionDistance;
@@ -6384,6 +6462,40 @@ void batchAllGeometry(){
     finalGeom[i].tris = geomentyByTxCounter[i] / (float)vertexSize / sizeof(float);
   }
 
+  // planes
+  for(int i=0;i<picturesStorageSize;i++){
+    int txIndex = picturesStorage[i].txIndex;
+
+    for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
+      vec4 vert = { planePairs.vBuf[i2], planePairs.vBuf[i2+1], planePairs.vBuf[i2+2], 1.0f };
+
+      vec4 transf = mulmatvec4(picturesStorage[i].mat, vert);
+
+      vec4 normal = { planePairs.vBuf[i2+5], planePairs.vBuf[i2+6], planePairs.vBuf[i2+7], 1.0f };
+
+      Matrix inversedWallModel = IDENTITY_MATRIX;
+      inverse(picturesStorage[i].mat.m, inversedWallModel.m);
+
+      Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+      mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+		  
+      vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2] = transf.x;
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 1] = transf.y;
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 2] = transf.z;
+
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 3] = planePairs.vBuf[i2 + 3];
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 4] = planePairs.vBuf[i2 + 4];
+
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 5] = transfNormal.x;
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 6] = transfNormal.y;
+      preGeom[txIndex].buf[txLastIndex[txIndex]+ i2 + 7] = transfNormal.z;
+    }
+
+    txLastIndex[txIndex] += 6 * 8;
+  }
+
   // tiles
   for(int i=0;i<tilesStorageSize;i++){
     int type = valueIn(tilesStorage[i]->ground, 0);
@@ -6448,22 +6560,21 @@ void batchAllGeometry(){
   }
 
   // walls
-  for(int side=0;side<2;side++){
-    for(int i=0;i<wallsStorageSize[side];i++){
-      WallType type = wallsStorage[side][i]->type;
+    for(int i=0;i<wallsStorageSize;i++){
+      WallType type = wallsStorage[i]->type;
 
       for (int i2 = 0; i2 < wallsVPairs[type].planesNum; i2++) {
-	if (!wallsStorage[side][i]->planes[i2].hide) {
-	  int txIndex = wallsStorage[side][i]->planes[i2].txIndex;
+	if (!wallsStorage[i]->planes[i2].hide) {
+	  int txIndex = wallsStorage[i]->planes[i2].txIndex;
 
-	  /*if(wallsStorage[side][i]->type == hiddenWallT){
-	    if(wallsStorage[side][i]->prevType == windowT){
+	  /*if(wallsStorage[i]->type == hiddenWallT){
+	    if(wallsStorage[i]->prevType == windowT){
 	      if(i2 == wBackPlane){
-		txIndex = wallsStorage[side][i]->planes[winFrontBotPlane].txIndex;
+		txIndex = wallsStorage[i]->planes[winFrontBotPlane].txIndex;
 	      }else if(i2 == wFrontPlane){
-		txIndex = wallsStorage[side][i]->planes[winBackBotPlane].txIndex;
+		txIndex = wallsStorage[i]->planes[winBackBotPlane].txIndex;
 	      }else if(i2 == wTopPlane){
-		txIndex = wallsStorage[side][i]->planes[winTopPlane].txIndex;
+		txIndex = wallsStorage[i]->planes[winTopPlane].txIndex;
 	      }
 	    }
 	  }*/
@@ -6471,12 +6582,12 @@ void batchAllGeometry(){
 	  for (int i3 = 0; i3 < wallsVPairs[type].pairs[i2].vertexNum * vertexSize; i3 += vertexSize) {
 	    vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i3], wallsVPairs[type].pairs[i2].vBuf[i3 + 1], wallsVPairs[type].pairs[i2].vBuf[i3 + 2], 1.0f };
 
-	    vec4 transf = mulmatvec4(wallsStorage[side][i]->mat, vert);
+	    vec4 transf = mulmatvec4(wallsStorage[i]->mat, vert);
 
 	    vec4 normal = { wallsVPairs[type].pairs[i2].vBuf[i3 + 5], wallsVPairs[type].pairs[i2].vBuf[i3 + 6], wallsVPairs[type].pairs[i2].vBuf[i3 + 7], 1.0f };
 
 	    Matrix inversedWallModel = IDENTITY_MATRIX;
-	    inverse(wallsStorage[side][i]->mat.m, inversedWallModel.m); 
+	    inverse(wallsStorage[i]->mat.m, inversedWallModel.m); 
 
 	    Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
 	    mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
@@ -6499,15 +6610,13 @@ void batchAllGeometry(){
 	}
       }
     }
-  }
 
   // joints
-  for(int side=0;side<basicSideCounter;side++){
-    for(int i=0;i<jointsStorageSize[side];i++){
-      WallType jointType = jointsStorage[side][i]->type;
+    for(int i=0;i<jointsStorageSize;i++){
+      WallType jointType = jointsStorage[i]->type;
 	      
       for (int i2 = 0; i2<wallsVPairs[jointType].planesNum; i2++) {
-	int txIndex = jointsStorage[side][i]->plane[i2].txIndex;
+	int txIndex = jointsStorage[i]->plane[i2].txIndex;
 		
 	for(int i3=0;i3<wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;i3+=vertexSize){
 	  //	  printf("jt: %d \n",txIndex);
@@ -6522,13 +6631,13 @@ void batchAllGeometry(){
 	  };
 
 	  Matrix jointMat; 
-	  memcpy(jointMat.m, wallJointsMat[side].m, sizeof(float)*16);
+	  memcpy(jointMat.m, wallJointsMat[jointsStorage[i]->side].m, sizeof(float) * 16);
 
-	  vec3 tile = tilesStorage[jointsStorage[side][i]->tileId]->pos;
+	  vec3 tile = tilesStorage[jointsStorage[i]->tileId]->pos;
 
-	  jointMat.m[12] = (int)tile.x + pad[side][0];
+	  jointMat.m[12] = (int)tile.x + pad[jointsStorage[i]->side][0];
 	  jointMat.m[13] = (int)tile.y;
-	  jointMat.m[14] = (int)tile.z + pad[side][1];
+	  jointMat.m[14] = (int)tile.z + pad[jointsStorage[i]->side][1];
 
 	  vec4 transf = mulmatvec4(jointMat, vert);
 
@@ -6558,11 +6667,10 @@ void batchAllGeometry(){
 	  preGeom[txIndex].buf[txLastIndex[txIndex]+i3+7] = transfNormal.z;
 	}
 
-	printf("jointType: %d \n", jointType);
+	//	printf("jointType: %d \n", jointType);
 	txLastIndex[txIndex] += wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;
       }
     }
-  }
   
   for(int i=0;i<loadedTexturesCounter;i++){
     glBindVertexArray(finalGeom[i].VAO);
