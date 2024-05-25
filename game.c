@@ -121,11 +121,11 @@ void gameMatsSetup(int curShader){
 
     glUseProgram(shadersId[curShader]);
 
-    vec3 front  = ((vec3){ view.m[8], view.m[9], view.m[10] });
+   // vec3 front  = ((vec3){ view.m[8], view.m[9], view.m[10] });
 
-    curCamera->Z = normalize3((vec3) { front.x * -1.0f, front.y * 1.0f, front.z * 1.0f });
-    curCamera->X = normalize3(cross3(curCamera->Z, curCamera->up));
-    curCamera->Y = (vec3){ 0,dotf3(curCamera->X, curCamera->Z),0 };
+   // curCamera->Z = normalize3((vec3) { front.x * -1.0f, front.y * 1.0f, front.z * 1.0f });
+   // curCamera->X = normalize3(cross3(curCamera->Z, curCamera->up));
+   // curCamera->Y = (vec3){ 0,dotf3(curCamera->X, curCamera->Z),0 };
 
     // cursor things
     {

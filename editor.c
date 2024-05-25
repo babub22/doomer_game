@@ -9,6 +9,8 @@ int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
 
+bool lightView = false;
+
 const float lightPresetTable[][2] = { {0.0014, 0.000007},
 				      {0.007, 0.0002},
 				      {0.014, 0.0007},
@@ -632,6 +634,9 @@ void editorEvents(SDL_Event event){
       case(SDL_SCANCODE_Q): {
 	curCamera->pos.y += .1f ;
 	  
+	break;
+      }case(SDL_SCANCODE_U):{
+	lightView = !lightView;
 	break;
       }
       case(SDL_SCANCODE_F): {
@@ -1433,11 +1438,15 @@ void editorEvents(SDL_Event event){
 	if (curCamera->yaw < -180.0f)
 	  curCamera->yaw = 180.0f;
 
-	curCamera->dir.x = cos(rad(curCamera->yaw)) * cos(rad(curCamera->pitch));
-	curCamera->dir.y = sin(rad(curCamera->pitch));
-	curCamera->dir.z = sin(rad(curCamera->yaw)) * cos(rad(curCamera->pitch));
+	vec3 dir;
+	dir.x = cosf(rad(curCamera->yaw)) * cosf(rad(curCamera->pitch));
+	dir.y = sinf(rad(curCamera->pitch));
+	dir.z = (sinf(rad(curCamera->yaw)) * cosf(rad(curCamera->pitch)));
 
-	curCamera->front = normalize3(curCamera->dir);
+	curCamera->front = normalize3(dir);
+
+	curCamera->right = normalize3(cross3(curCamera->front, (vec3){0.0f,1.0f,0.0f}));
+	curCamera->up = normalize3(cross3(curCamera->right, curCamera->front));
       }
     }
   }
@@ -1445,13 +1454,72 @@ void editorEvents(SDL_Event event){
 
 void editorMatsSetup(int curShader) {
   {
-    editorView = IDENTITY_MATRIX;
-    vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
+    //editorView = IDENTITY_MATRIX;
+    vec3 negPos = { curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
 
-    translate(&editorView, argVec3(negPos));
+    vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
+	///*
+    if(lightView){
+      editorProj = orthogonal(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
+      
+      vec3 lightPos = { lightStorage[dirLightT][0].mat.m[12],
+	-lightStorage[dirLightT][0].mat.m[13],
+	-lightStorage[dirLightT][0].mat.m[14]
+      };
+      vec3 lightDir = { lightStorage[dirLightT][0].mat.m[0] + 0.001f, lightStorage[dirLightT][0].mat.m[1], lightStorage[dirLightT][0].mat.m[2] };
 
-    rotateY(&editorView, rad(curCamera->yaw));
-    rotateX(&editorView, rad(curCamera->pitch));
+      // printf("d %f %f %f \n", argVec3(lightDir));
+      // printf("p %f %f %f \n", argVec3(lightPos));
+
+      editorView = lookAt(lightPos,
+			  (vec3) {
+			    lightPos.x + lightDir.x,
+			    lightPos.y + lightDir.y,
+			    lightPos.z + lightDir.z
+			  },
+			  (vec3){0.0f, 1.0f, 0.0f});
+
+    }else{
+      //   printf("d %f %f %f \n", argVec3(negPos));
+      //   printf("p %f %f %f \n", argVec3(curCamera->front));
+					
+      // editorView = fpsView(curCamera->pos, curCamera->pitch, curCamera->yaw);/*lookAt(curCamera->pos,
+        editorProj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
+	
+      editorView = lookAt(negPos,
+			  (vec3) {
+			    negPos.x + curCamera->front.x,
+			    negPos.y + curCamera->front.y,
+			    negPos.z + curCamera->front.z
+			  },
+			  (vec3){0.0f, 1.0f, 0.0f});
+    }
+
+    /*    editorView = lookAt((vec3){0.01f, -1.0f, .0f},
+			(vec3) {
+			  0.0f + 0.0f,
+			  -1.0f -1.0f,
+			  0.0f + 0.0f
+			},
+			(vec3){0.0f, 1.0f, 0.0f});*/
+    
+    // */
+      //}
+    //    }
+    //(vec3){0.0f, 1.0f, 0.0f});
+
+    /*
+      editorView = lookAt((vec3){0.0f, 0.0f, 0.0f},
+      (vec3){ curCamera->front.x,
+			   curCamera->front.y,
+			   curCamera->front.z},
+			(vec3){0.0f, 1.0f, 0.0f});
+
+  */
+      //    translate(&editorView, argVec3(negPos));
+
+       // rotateY(&editorView, rad(curCamera->yaw));
+      // rotateX(&editorView, rad(curCamera->pitch));
 
     for (int i = 0; i < shadersCounter; i++) {
       glUseProgram(shadersId[i]);
@@ -1461,11 +1529,11 @@ void editorMatsSetup(int curShader) {
 
     glUseProgram(shadersId[curShader]);
 
-    vec3 front = (vec3){ editorView.m[8], editorView.m[9], editorView.m[10] };
+    //    vec3 front = (vec3){ editorView.m[8], editorView.m[9], editorView.m[10] };
 
-    curCamera->Z = normalize3((vec3) { front.x * -1.0f, front.y * 1.0f, front.z * 1.0f });
-    curCamera->X = normalize3(cross3(curCamera->Z, curCamera->up));
-    curCamera->Y = (vec3){ 0,dotf3(curCamera->X, curCamera->Z),0 };
+    //    curCamera->Z = normalize3((vec3) { front.x * -1.0f, front.y * 1.0f, front.z * 1.0f });
+    //    curCamera->X = normalize3(cross3(curCamera->Z, curCamera->up));
+    //    curCamera->Y = (vec3){ 0,dotf3(curCamera->X, curCamera->Z),0 };
 
     // cursor things
     {
@@ -1725,22 +1793,22 @@ void editorPreFrame(float deltaTime) {
 
     if (currentKeyStates[SDL_SCANCODE_W]) {
       if (curCamera) {//cameraMode){
-	vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
+	//	vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
 
-	curCamera->pos.x -= cameraSpeed * normFront.x;
-	curCamera->pos.y -= cameraSpeed * normFront.y;
-	curCamera->pos.z -= cameraSpeed * normFront.z;
+	curCamera->pos.x += cameraSpeed * curCamera->front.x;
+	curCamera->pos.z += cameraSpeed * curCamera->front.z;
       }
     }
     else if (currentKeyStates[SDL_SCANCODE_S])
       {
 	if (curCamera) {//cameraMode){
 
-	  vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
+	  //	  vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
 
-	  curCamera->pos.x += cameraSpeed * normFront.x;
-	  curCamera->pos.y += cameraSpeed * normFront.y;
-	  curCamera->pos.z += cameraSpeed * normFront.z;
+	  curCamera->pos.x -= cameraSpeed * curCamera->front.x;
+	  curCamera->pos.z -= cameraSpeed * curCamera->front.z;
+	  
+	  //	  curCamera->pos.y -= cameraSpeed * curCamera->front.y;
 
 	  //	    glUniform3f(cameraPos, argVec3(curCamera->pos));
 	}
@@ -1752,8 +1820,10 @@ void editorPreFrame(float deltaTime) {
     else if (currentKeyStates[SDL_SCANCODE_D])
       {
 	if (curCamera) {//cameraMode){
-	  curCamera->pos.x += cameraSpeed * curCamera->front.x;
-	  curCamera->pos.z += cameraSpeed * curCamera->front.z;
+	  vec3 right = normalize3(cross3(curCamera->front, curCamera->up));
+	  
+	  curCamera->pos.x += cameraSpeed * curCamera->right.x;
+	  curCamera->pos.z += cameraSpeed * curCamera->right.z;
 
 	  //	    glUniform3f(cameraPos, argVec3(curCamera->pos));
 	}
@@ -1761,11 +1831,10 @@ void editorPreFrame(float deltaTime) {
     else if (currentKeyStates[SDL_SCANCODE_A])
       {
 	if (curCamera) {//cameraMode){
-	  vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
+	  //	  vec3 curCamera->right = normalize3(cross3(curCamera->front, curCamera->up));
 
-	  curCamera->pos.x -= cameraSpeed * curCamera->front.x;
-	  //			  curCamera->pos.y -= cameraSpeed * curCamera->front.y;
-	  curCamera->pos.z -= cameraSpeed * curCamera->front.z;
+	  curCamera->pos.x -= cameraSpeed * curCamera->right.x;
+	  curCamera->pos.z -= cameraSpeed * curCamera->right.z;
 	  //glUniform3f(cameraPos, argVec3(curCamera->pos));
 	}
       }

@@ -48,7 +48,9 @@ typedef struct{
 
 #define argVec4(vec) vec.x, vec.y, vec.z, vec.w 
 #define argVec3(vec) vec.x, vec.y, vec.z
-#define argVec2(vec) vec.x, vec.z 
+#define argVec2(vec) vec.x, vec.z
+
+Matrix fpsView(vec3 eye, float pitch, float yaw);
 
 #define rad(deg) deg * 3.14159265358979323846/180.0
 

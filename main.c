@@ -35,7 +35,7 @@ Tile** tilesStorage;
 int tilesStorageSize;
 
 //const int SHADOW_WIDTH = 128, SHADOW_HEIGHT = 128;
-const int SHADOW_WIDTH = 512, SHADOW_HEIGHT = 512;  
+const int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;  
 unsigned int depthMapFBO;
 unsigned int depthMaps;
 
@@ -1041,11 +1041,12 @@ int main(int argc, char* argv[]) {
 
     glEnable(GL_TEXTURE_2D);
 
-    //    glEnable(GL_CULL_FACE);
-    //    glCullFace(GL_FRONT);
+    //          glEnable(GL_CULL_FACE);
+       //glCullFace(GL_BACK);
+	  //    glCullFace(GL_FRONT);
 
 	
-    //	glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
 
     //	   glEnable(GL_TEXTURE_2D);
     //    glShadeModel(GL_SMOOTH);
@@ -1889,7 +1890,6 @@ int main(int argc, char* argv[]) {
 	((void (*)(int))instances[curInstance][matsSetup])(mainShader);
 
 	glUseProgram(shadersId[mainShader]); 
-		
         glUniform3f(cameraPos, argVec3(curCamera->pos));
         uniformFloat(mainShader, "far_plane", far_plane);
 
@@ -2267,10 +2267,10 @@ inline bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSide){
   return false;
 }
 
-inline bool radarCheck(vec3 point){
+/*inline bool radarCheck(vec3 point) {
   vec3 v = { point.x - camera1.pos.x, point.y - camera1.pos.y, point.z - camera1.pos.z };
 
-  vec3 minusZ = { -camera1.Z.x, -camera1.Z.y, -camera1.Z.z };
+     vec3 minusZ = { -camera1.x, -camera1.Z.y, -camera1.Z.z };
       
   float pcz = dotf3(v, minusZ);
 
@@ -2295,7 +2295,7 @@ inline bool radarCheck(vec3 point){
   return true;
   // false - out camera
   // true - in camera
-}
+}*/
 
 ModelInfo* loadOBJ(char* path, char* texturePath){
   fastObjMesh* mesh = fast_obj_read(path);
@@ -4757,9 +4757,19 @@ void rerenderShadowsForAllLights(){
     glStencilMask(0x00);
 
     Matrix proj = orthogonal(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
+
+    vec3 lightPos = { lightStorage[dirLightT][0].mat.m[12],
+      -lightStorage[dirLightT][0].mat.m[13],
+      -lightStorage[dirLightT][0].mat.m[14]
+    };
+    vec3 lightDir = { lightStorage[dirLightT][0].mat.m[0] + 0.001f, lightStorage[dirLightT][0].mat.m[1], lightStorage[dirLightT][0].mat.m[2] };
     
-   Matrix view = lookAt((vec3){lightStorage[dirLightT][i].mat.m[12], lightStorage[dirLightT][i].mat.m[13], lightStorage[dirLightT][i].mat.m[14]},
-			(vec3){0.0f,0.0f,0.0f},
+    Matrix view = lookAt(lightPos,
+			 (vec3){
+			   lightPos.x + lightDir.x,
+			   lightPos.y + lightDir.y,
+			   lightPos.z + lightDir.z
+			 },
 			(vec3){0.0f,1.0f,0.0f});
 
    Matrix view2 = IDENTITY_MATRIX;
@@ -4784,10 +4794,10 @@ void rerenderShadowsForAllLights(){
    view2.m[13] = -negPos.y;
    view2.m[14] = -negPos.z;
    
-   // rotateX(&view2, rad(-90.0f));
+   rotateX(&view2, rad(-90.0f));
 
-   rotateX(&view2, asinf(lightStorage[dirLightT][i].mat.m[1]));
-   rotateY(&view2, atan2f(lightStorage[dirLightT][i].mat.m[2], lightStorage[dirLightT][i].mat.m[0]));
+   //rotateX(&view2, asinf(lightStorage[dirLightT][i].mat.m[1]));
+   //   rotateY(&view2, atan2f(lightStorage[dirLightT][i].mat.m[2], lightStorage[dirLightT][i].mat.m[0]));
 
         printf("\n light mat: %f %f %f %f \n%f %f %f %f \n%f %f %f %f\n %f %f %f %f\n", spreadMat4(view.m));
 

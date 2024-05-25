@@ -218,8 +218,6 @@ typedef enum{
 
 typedef struct{
   vec3 pos;
-  vec3 target;
-  vec3 dir;
 
   vec3 front;
   vec3 up;
@@ -227,12 +225,6 @@ typedef struct{
 
   float yaw;
   float pitch;
-  
-  vec3 X;
-  vec3 Y;
-  vec3 Z;
-
-  CameraType type; 
 } Camera;
 
 typedef enum{

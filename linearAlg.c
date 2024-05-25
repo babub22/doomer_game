@@ -131,31 +131,34 @@ void translate(const Matrix* m, float x, float y, float z) {
 	memcpy(m->m, multiplymat4(*m, translation).m, sizeof(m->m));
 }
 
-Matrix perspective(float fovy, float aspect_ratio, float near_plane, float far_plane) {
-	Matrix mat;
-    float f = 1.0f / tanf(fovy * 0.5f);
-    float rangeInv = 1.0f / (near_plane - far_plane);
+Matrix perspective(float fovy, float aspect_ratio, float n, float f) {
+  Matrix mat;
+  float const a = 1.f / tanf(fovy / 2.f);
 
-    mat.m[0] = f / aspect_ratio;
-    mat.m[1] = 0.0f;
-    mat.m[2] = 0.0f;
-    mat.m[3] = 0.0f;
+  mat.m[0] = a / aspect_ratio;
+  // mat.m[0] = a / aspect_ratio;
+  mat.m[1] = 0.f;
+  mat.m[2] = 0.f;
+  mat.m[3] = 0.f;
 
-    mat.m[4] = 0.0f;
-    mat.m[5] = f;
-    mat.m[6] = 0.0f;
-    mat.m[7] = 0.0f;
+  mat.m[4] = 0.f;
+  mat.m[5] = a;
+  mat.m[6] = 0.f;
+  mat.m[7] = 0.f;
 
-    mat.m[8] = 0.0f;
-    mat.m[9] = 0.0f;
-    mat.m[10] = (far_plane + near_plane) * rangeInv;
-    mat.m[11] = -1.0f;
+  mat.m[8] = 0.f;
+  mat.m[9] = 0.f;
+  mat.m[10] = -((f + n) / (f - n));
+  //mat.m[11] = -((2.f * f * n) / (f - n));
+  mat.m[11] = -1.f;
 
-    mat.m[12] = 0.0f;
-    mat.m[13] = 0.0f;
-    mat.m[14] = 2.0f * far_plane * near_plane * rangeInv;
-    mat.m[15] = 0.0f;
-    return mat;
+  mat.m[12] = 0.f;
+  mat.m[13] = 0.f;
+  mat.m[14] = -1.f;
+  //mat.m[14] = -((2.f * f * n) / (f - n));
+  mat.m[15] = 0.f;
+
+  return mat;
 }
 
 Matrix orthogonal(float l, float r, float b, float t, float n, float f)
@@ -206,37 +209,74 @@ vec3 subtract(vec3 a, vec3 b) {
 
 Matrix lookAt(vec3 eye, vec3 target, vec3 up) {
   Matrix mat = IDENTITY_MATRIX;
-    //void lookAt(Vector3 eye, Vector3 target, Vector3 up, float *matrix) {
-    // Compute forward direction
-    vec3 forward = normalize3(subtract(target, eye));
+  
+  vec3 Z = normalize3(subtract(eye, target)); // Z
+  //  vec3 s = normalize3(cross3(up, f));
+  vec3 X = normalize3(cross3(up, Z)); // x
+  vec3 Y = cross3(Z, X); // y
 
-    // Compute right direction
-    vec3 right = normalize3(cross3(forward, up));
+  mat.m[0] = X.x;
+  mat.m[1] = Y.x;
+  mat.m[2] = Z.x;
+  mat.m[3] = 0.f;
 
-    // Compute up direction
-    vec3 newUp = cross3(right, forward);
+  mat.m[4] = X.y;
+  mat.m[5] = Y.y;
+  mat.m[6] = Z.y;
+  mat.m[7] = 0.f;
 
-    // Set the rotation part of the matrix
-    mat.m[0] = right.x;
-    mat.m[1] = newUp.x;
-    mat.m[2] = -forward.x;
-    mat.m[3] = 0.0f;
-    mat.m[4] = right.y;
-    mat.m[5] = newUp.y;
-    mat.m[6] = -forward.y;
-    mat.m[7] = 0.0f;
-    mat.m[8] = right.z;
-    mat.m[9] = newUp.z;
-    mat.m[10] = -forward.z;
-    mat.m[11] = 0.0f;
+  mat.m[8] = X.z;
+  mat.m[9] = Y.z;
+  mat.m[10] = Z.z;
+  mat.m[11] = 0.f;
 
-    // Set the translation part of the mat.m
-    mat.m[12] = -dotf3(right, eye);
-    mat.m[13] = -dotf3(newUp, eye);
-    mat.m[14] = dotf3(forward, eye);
-    mat.m[15] = 1.0f;
+  //  mat.m[12] = -dotf3(X, eye);
+  //  mat.m[13] = -dotf3(Y, eye);
+  //  mat.m[14] = -dotf3(Z, eye);
 
-    return mat;
+  mat.m[12] = -dotf3(X, eye);
+  mat.m[13] = -dotf3(Y, eye);
+  mat.m[14] = -dotf3(Z, eye);
+  mat.m[15] =  1.f;
+
+  //  mat4x4_translate_in_place(m, -eye[0], -eye[1], -eye[2]);
+
+  return mat;
+}
+
+Matrix fpsView(vec3 eye, float pitch, float yaw){
+  float cosPitch = cosf(rad(pitch));
+  float sinPitch = sinf(rad(pitch));
+  float cosYaw = cosf(rad(yaw));
+  float sinYaw = sinf(rad(yaw));
+
+  vec3 xaxis = { cosYaw, 0, -sinYaw };
+  vec3 yaxis = { sinYaw * sinPitch, cosPitch, cosYaw * sinPitch };
+  vec3 zaxis = { sinYaw * cosPitch, -sinPitch, cosPitch * cosYaw };
+
+  Matrix mat;
+
+  mat.m[0] = xaxis.x;
+  mat.m[1] = yaxis.x;
+  mat.m[2] = zaxis.x;
+  mat.m[3] = 0.f;
+
+  mat.m[4] = xaxis.y;
+  mat.m[5] = yaxis.y;
+  mat.m[6] = zaxis.y;
+  mat.m[7] = 0.f;
+
+  mat.m[8] = xaxis.z;
+  mat.m[9] = yaxis.z;
+  mat.m[10] = zaxis.z;
+  mat.m[11] = 0.f;
+  
+  mat.m[12] = -dotf3(xaxis, eye);
+  mat.m[13] = -dotf3(yaxis, eye);
+  mat.m[14] = -dotf3(zaxis, eye);
+  mat.m[15] =  1.f;
+
+  return mat;
 }
 
 void inverse(float M[], float T[]) {

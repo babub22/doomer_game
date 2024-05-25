@@ -70,9 +70,32 @@ vec3(0, 1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0, 1, -1)
 );
 
 
-float shadowCalc(vec3 lightPos, vec3 norm)
+float shadowCalc(vec3 lightPos, vec3 lightDir, vec3 norm)
 {
-    // perform perspective divide
+vec3 projCoords = FragPosLightSpace.xyz / FragPosLightSpace.w;
+projCoords = projCoords * 0.5 + 0.5;
+float closestDepth = texture(shadowMap, projCoords.xy).r; 
+float currentDepth = projCoords.z;
+
+float bias = 0.0005f;//max(0.05 * (1.0 - dot(norm, lightDir)), 0.005);  
+float shadow = 0.0f;//currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+
+vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+for(int x = -1; x <= 1; ++x)
+{
+for(int y = -1; y <= 1; ++y)
+{
+float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+}    
+}
+shadow /= 9.0;
+
+if(projCoords.z > 1.0)
+shadow = 0.0;
+
+return shadow;
+/*    // perform perspective divide
     vec3 projCoords = FragPosLightSpace.xyz / FragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
 
@@ -94,11 +117,10 @@ float shadowCalc(vec3 lightPos, vec3 norm)
     }
     shadow /= 9.0;
     
-    // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
     if(projCoords.z > 1.0)
         shadow = 0.0;
         
-    return shadow;
+    return shadow;*/
 }	
 
 /*
@@ -144,7 +166,7 @@ float attenuation = 1.0 / (light.constant + light.linear * distance +
 light.quadratic * (distance * distance));    
 
 // combine results
-vec3 ambient  = ambientC * light.color;
+vec3 ambient  = .05f * light.color;
 vec3 diffuse  = diff * light.color;
 vec3 specular = specularC * spec * light.color;
 
@@ -180,7 +202,7 @@ ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
-//float shadow = shadowCalc(light.pos, light.cubemapIndex);
+//float shadow = shadowCalc(light.pos, lightDir, light.cubemapIndex);
 
 //ambient += (1.0 - shadow);
 
@@ -216,7 +238,7 @@ ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
-float shadow = shadowCalc(light.pos, norm);
+float shadow = shadowCalc(light.pos, lightDir, norm);
 
 return (ambient + (1.0f - shadow) * (diffuse + specular));
 } 
