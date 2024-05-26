@@ -22,7 +22,8 @@ const float lightPresetTable[][2] = { {0.0014, 0.000007},
 				      {0.14, 0.07},
 				      {0.22, 0.20},
 				      {0.35, 0.44},
-				      {0.7, 1.8} };
+				      {0.7, 1.8}
+};
 
 #define lightsPresetMax 12
 
@@ -1067,7 +1068,7 @@ void editorEvents(SDL_Event event){
 		break;
 	      }case(SDL_SCANCODE_T):{
 		 const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-			      
+		 
 		 if((!curMenu || curMenu->type == texturesMenuT) && !currentKeyStates[SDL_SCANCODE_LCTRL]){
 		   texturesMenu.open = !texturesMenu.open;
 		   curMenu = texturesMenu.open ? &texturesMenu : NULL;
@@ -1347,11 +1348,28 @@ void editorEvents(SDL_Event event){
 	    light->curLightPresetIndex = temp;
 	  }
 	}else if(light->type == dirLightT){
+	  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+
+	  
 	  if (event.wheel.y > 0) {
-	    light->rad -= 0.001f;
+	    if(currentKeyStates[SDL_SCANCODE_LALT]){
+	      light->rad -= 0.01f;
+	    }else if(currentKeyStates[SDL_SCANCODE_LSHIFT]){
+	      if(light->curLightPresetIndex > 0)
+		light->curLightPresetIndex--;
+	    }else{
+	      light->cutOff -= 0.001f;
+	    }
 	  }
 	  else if (event.wheel.y < 0) {
-	    light->rad += 0.001f;
+	    if(currentKeyStates[SDL_SCANCODE_LALT]){
+	      light->rad += 0.01f;
+	    }else if(currentKeyStates[SDL_SCANCODE_LSHIFT]){
+	      if(light->curLightPresetIndex < 12)
+		light->curLightPresetIndex++;
+	    }else{
+	      light->cutOff += 0.001f;
+	    }
 	  }
 	}
 
@@ -1460,7 +1478,8 @@ void editorMatsSetup(int curShader) {
     vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
 	///*
     if(lightView){
-      editorProj = orthogonal(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
+      //      editorProj = orthogonal(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
+      editorProj = perspective(rad(90.0f), 1.0f, 0.01f, 1000.0f);
       
       vec3 lightPos = { lightStorage[dirLightT][0].mat.m[12],
 	-lightStorage[dirLightT][0].mat.m[13],

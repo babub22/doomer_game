@@ -194,11 +194,11 @@ float attenuation = 1.0 / (light.constant + light.linear * distance +
 light.quadratic * (distance * distance));    
 
 // combine results
-vec3 ambient  = ambientC * light.color;
+vec3 ambient  = vec3(0.0f);//ambientC * light.color;
 vec3 diffuse  = diff * light.color;
 vec3 specular = specularC * spec * light.color;
 
-ambient  *= attenuation;
+//ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
@@ -212,20 +212,59 @@ return (ambient + (diffuse + specular));// * (1.0 - shadow));
 
 vec3 dirLightCalc(PointLight light, vec3 norm, vec3 viewDir){
 vec3 lightDir = normalize(light.pos - FragPos);
-// diffuse shading
+float theta = dot(lightDir, normalize(-light.dir));
+
+//if(theta>light.cutOff){
+float diff = max(dot(norm, lightDir), 0.0);
+
+vec3 reflectDir = reflect(-lightDir, norm);
+float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+
+vec3 ambient  = ambientC * light.color;
+vec3 diffuse  = diff * light.color;
+vec3 specular = specularC * spec * light.color;
+
+//float theta = dot(lightDir, normalize(-light.dir)); 
+float epsilon = (light.rad - light.cutOff);
+float intensity = clamp((theta - light.cutOff) / epsilon, 0.0, 1.0);
+diffuse  *= intensity;
+specular *= intensity;
+
+float distance    = length(light.pos - FragPos);
+float attenuation = 1.0 / (light.constant + light.linear * distance + 
+light.quadratic * (distance * distance));
+
+ambient *= attenuation;
+diffuse *= attenuation;
+specular *= attenuation;
+
+float shadow = shadowCalc(light.pos, lightDir, norm);
+
+return 	(ambient + (1.0f - shadow) * (diffuse + specular));
+//}
+
+//return vec3(0.0f);//ambientC * light.color;
+
+
+
+/*vec3 lightDir = normalize(light.pos - FragPos);
+
 float diff = max(dot(norm, lightDir), 0.0);
 // specular shading
 vec3 reflectDir = reflect(-lightDir, norm);
 float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
 
 // combine results
-vec3 ambient  = ambientC * light.color;
+vec3 ambient  = 0.0f;//ambientC * light.color;
 vec3 diffuse  = diff * light.color;
 vec3 specular = specularC * spec * light.color;
 
 float theta = dot(lightDir, normalize(-light.dir));
-float epsilon   = light.rad - light.cutOff;
-float intensity = clamp((theta - light.cutOff) / epsilon, 0.0, 1.0);
+if(thera > light.cutOff){
+
+}
+//float epsilon   = light.rad - light.cutOff;
+//float intensity = clamp((theta - light.cutOff) / epsilon, 0.0, 1.0);
 
 diffuse  *= intensity;
 specular *= intensity;
@@ -234,17 +273,18 @@ float distance    = length(light.pos - FragPos);
 float attenuation = 1.0 / (light.constant + light.linear * distance + 
 light.quadratic * (distance * distance));
 
-ambient  *= attenuation; 
+//ambient  *= attenuation; 
 diffuse  *= attenuation;
 specular *= attenuation;
 
 float shadow = shadowCalc(light.pos, lightDir, norm);
 
-return (ambient + (1.0f - shadow) * (diffuse + specular));
+return (ambient + (1.0f - shadow) * (diffuse + specular));*/
 } 
 
 void main(void){
-vec4 tex = texture2D(colorMap, TexCoord);
+//vec4 tex = texture2D(colorMap, TexCoord);
+vec4 tex = texture(colorMap, TexCoord);
 vec3 color = tex.rgb;	
 
 if(tex.a == 0.0){

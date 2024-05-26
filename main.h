@@ -689,31 +689,6 @@ typedef enum{
 
 typedef struct{
   int id;
-  
-  vec3 pos;
-  vec3 color;
-  
-  vec3 dir;
-  LightType type;
-
-  Matrix mat;
-
-  // TODO: Remove constant, linear, quad replace it with curLight
-  int curLightPresetIndex;
-
-  float rad;
-  float cutOff;
-
-  bool off; // on/off light
-
-  vec3 lb;
-  vec3 rt;
-
-  int cubemapIndex;
-} DirLight;
-
-typedef struct{
-  int id;
   vec3 pos;
   vec3 color;
   

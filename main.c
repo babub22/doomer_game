@@ -260,9 +260,9 @@ Camera* curCamera = &camera1;
 bool fullScreen = 0;
 
 Light lightDef[lightsTypeCounter] = {
-  [pointLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 7},
-  [shadowLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 7},
-  [dirLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 7}
+  [pointLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11},
+  [shadowLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11},
+  [dirLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11}
 };
 
 Menu dialogViewer = { .type = dialogViewerT };
@@ -335,7 +335,7 @@ int texture1DIndexByName(char* txName) {
 int main(int argc, char* argv[]) {
     for (int i = 0; i < lightsTypeCounter; i++) {
   lightDef[i].rad = cosf(rad(12.5f));
-  lightDef[i].cutOff = cosf(rad(17.5f));
+  lightDef[i].cutOff = cosf(rad(17.f));
     }
 
   SDL_Init(SDL_INIT_VIDEO);
@@ -1055,12 +1055,12 @@ int main(int argc, char* argv[]) {
     glDepthFunc(GL_LEQUAL);
     //    glDepthFunc(GL_LESS);
     
-    glEnable(GL_STENCIL_TEST);
-    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+    //    glEnable(GL_STENCIL_TEST);
+    //    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
     //    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     //    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
     //    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-      glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    //glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     
     //GL_GEQUAL
     //    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
@@ -1090,8 +1090,12 @@ int main(int argc, char* argv[]) {
     //    glStencilFunc(GL_EQUAL, 1, 0xFF);
 
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //        glEnable(GL_BLEND);
+    //    glAlphaFunc(GL_GREATER, 0.01);
+    //glEnable(GL_ALPHA_TEST);
+	// glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+//    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     //    glEnable(GL_MULTISAMPLE);  
   }
@@ -1575,7 +1579,9 @@ int main(int argc, char* argv[]) {
   // set up camera
   GLint cameraPos = glGetUniformLocation(shadersId[mainShader], "cameraPos");
   {
-    camera1.pos = (vec3)xyz_indexesToCoords(gridX / 2, 2, gridZ / 2);
+    //    camera1.pos = (vec3)xyz_indexesToCoords(gridX / 2, 10, gridZ / 2);
+    //    camera1.pos = (vec3)xyz_indexesToCoords(29, 14, 56);
+    camera1.pos = (vec3){35, 16, 63};
     //camera2.pos = (vec3)xyz_indexesToCoords(gridX/2, 2, gridZ/2);
     camera1.up = (vec3){ 0.0f, 1.0f, 0.0f };
     //  camera2.up = (vec3){ 0.0f, 1.0f, 0.0f };
@@ -1881,9 +1887,9 @@ int main(int argc, char* argv[]) {
 	glViewport(0, 0, windowW, windowH);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-	glStencilMask(0xff);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT  | GL_STENCIL_BUFFER_BIT);
-	glStencilMask(0x00);
+	//	glStencilMask(0xff);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//	glStencilMask(0x00);
 	
 	glEnable(GL_DEPTH_TEST);
 	
@@ -1896,8 +1902,73 @@ int main(int argc, char* argv[]) {
 	//	vec3 modelXLight = {lightStorage[0].mat.m[12], lightStorage[0].mat.m[13], lightStorage[0].mat.m[14]};
         //uniformVec3(mainShader, "lightPoss", modelXLight);
 
+		// highlight selected model with stencil
+	if(true)
+	{
+	  if(mouse.selectedType == mouseModelT){
+	    glEnable(GL_STENCIL_TEST);
+
+	    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+	    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+	    glStencilMask(0xFF);
+
+	    glDepthMask(GL_FALSE); 
+	    glClear(GL_STENCIL_BUFFER_BIT);
+
+        Model* model = (Model*)mouse.selectedThing;
+        int name = model->name;
+	    
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+	    // 1 draw
+	    {
+	      glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
+
+	      glBindVertexArray(loadedModels1D[name].VAO);
+	      glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
+
+	      uniformMat4(mainShader, "model", model->mat.m);
+
+	      glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
+	    }
+
+	    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+	    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+	    glStencilMask(0x00);
+	    glDepthMask(GL_TRUE); 
+	    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+	    
+	    
+	    
+	    // higlight
+	    {
+	      glUseProgram(shadersId[borderShader]);
+      
+	      //glDisable(GL_DEPTH_TEST);
+      
+	      uniformMat4(borderShader, "model", model->mat.m);
+	      uniformVec3(borderShader, "borderColor", (vec3){ redColor });
+	      glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
+
+	      //	      glEnable(GL_DEPTH_TEST);
+
+	      glUseProgram(shadersId[mainShader]);
+
+	      //    glStencilMask(0x00);
+	    }
+	    
+	    glBindBuffer(GL_ARRAY_BUFFER, 0);
+	    glBindVertexArray(0);
+
+	    glBindTexture(GL_TEXTURE_2D, 0);
+	  }
+
+	  glDisable(GL_STENCIL_TEST);
+	}
+
 	glActiveTexture(GL_TEXTURE1);
-	//	glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
 	glBindTexture(GL_TEXTURE_2D, depthMaps);
 
 	glActiveTexture(GL_TEXTURE0);
@@ -1939,103 +2010,38 @@ int main(int argc, char* argv[]) {
 	  glUseProgram(shadersId[mainShader]);
 	}
 
-	
-	// highlight selected model with stencil
-	if(false)
-	{
-	  if(mouse.selectedType == mouseModelT){
-	    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-	    glStencilMask(0xFF);
 
+	// higlight
+	if(false && mouse.selectedType == mouseModelT){
+	  {
 	    Model* model = (Model*)mouse.selectedThing;
 	    int name = model->name;
-	    
-	    glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
-
-	    glBindVertexArray(loadedModels1D[name].VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
-
-	    uniformMat4(mainShader, "model", model->mat.m);
-
-	    glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
 
 	    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+	    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+	    //	    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+	    //	    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	  
+	    glUseProgram(shadersId[borderShader]);
+      
+	    //	    glDisable(GL_DEPTH_TEST);
+      
+	    uniformMat4(borderShader, "model", model->mat.m);
+	    uniformVec3(borderShader, "borderColor", (vec3){ redColor });
+	    glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
+
+	    //	    glEnable(GL_DEPTH_TEST);
+
+	    glUseProgram(shadersId[mainShader]);
+
 	    glStencilMask(0x00);
-	    
-	    // higlight
-	    {
-	      glUseProgram(shadersId[borderShader]);
-	    
-	      //	      glStencilFunc(GL_NOTEQUAL	, 1, 0xFF);
-	      //	      glStencilMask(0x00);
-      
-	      glDisable(GL_DEPTH_TEST);
-      
-	      uniformMat4(borderShader, "model", model->mat.m);
-	      uniformVec3(borderShader, "borderColor", (vec3){ redColor });
-	      glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
-
-	      glEnable(GL_DEPTH_TEST);
-
-	      glUseProgram(shadersId[mainShader]);
-
-	      glStencilMask(0x00);
-	    }
-	    
-	    glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    glBindVertexArray(0);
-
-	    glBindTexture(GL_TEXTURE_2D, 0);
-	  }else if(false && mouse.selectedType == mouseLightT){
-	    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-	    glStencilMask(0xFF);
-	    
-	    Light* light = (Light*)mouse.selectedThing;
-
-	    glUseProgram(shadersId[lightSourceShader]);
-	    
-	    uniformVec3(lightSourceShader, "color", light->color);
-
-	    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
-	    glBindVertexArray(cube.VAO);
-
-	    uniformMat4(lightSourceShader, "model", light->mat.m);
-
-	    glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
-	    
-	    // higlight
-	    {
-	      //	      glUseProgram(shadersId[lightSourceShader]);
-	    
-	      glStencilFunc(GL_NOTEQUAL	, 1, 0xFF);
-	      glStencilMask(0x00);
-      
-	      glDisable(GL_DEPTH_TEST);
-
-	      //Matrix out = IDENTITY_MATRIX;
-	      //  memcpy(out.m, light->mat.m, sizeof(float) * 16);
-
-	      scale(&light->mat, 1.9f,1.9f,1.9f);
-      
-	      uniformMat4(borderShader, "model", light->mat.m);
-
-	      scale(&light->mat, 1.0f/1.9f,1.0f/1.9f,1.0f/1.9f);
-	      
-	      uniformVec3(borderShader, "color", (vec3){ redColor }); 
-	      glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
-
-	      glEnable(GL_DEPTH_TEST);
-
-	      glUseProgram(shadersId[mainShader]);
-
-	      glStencilMask(0x00);
-	    }
-
-	    glBindTexture(GL_TEXTURE_2D, 0);
-      
-	    glBindBuffer(GL_ARRAY_BUFFER, 0); 
-	    glBindVertexArray(0); 
 	  }
+	    
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+
+	  glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
 	glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, 0);
@@ -2511,6 +2517,8 @@ void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, int attrSize, 
 const float atlasStep =  0.0625;
 
 void renderText(char* text, float x, float y, float scale){
+  glEnable(GL_BLEND);
+  
   //  if(true) return;
   if(!text) return;
 
@@ -2613,6 +2621,8 @@ void renderText(char* text, float x, float y, float scale){
   glBindVertexArray(0);
   
   glBindTexture(GL_TEXTURE_2D, 0);
+
+  glDisable(GL_BLEND);
 }
 
 int strcut(char *str, int begin, int len)
@@ -2704,7 +2714,8 @@ bool loadSave(char* saveName){
   int tlsCounter;
   int blckCounter;
   int jntCounter[4];
- 
+
+  /*
   fscanf(map, "Walls used: %d(lw%d rw%d tl%d bck%d joi(%d %d %d %d)) b:%d j:%d w:%d t:%d", &wallsCounter,
 	 &leftWallsCounter,
 	 &topWallsCounter,
@@ -2715,6 +2726,16 @@ bool loadSave(char* saveName){
 	 &jointsCounter,
 	 &wallCounter,
 	 &tileCounter);
+*/
+
+  
+  fscanf(map, "Used tiles: %d leftW: %d rightW: %d aBlock: %d aJoint: (%d %d %d %d)",
+	 &wallsCounter,
+	 &leftWallsCounter,
+	 &topWallsCounter,
+	 &blckCounter,
+	 &jntCounter[0], &jntCounter[1], &jntCounter[2], &jntCounter[3]);
+
 
   printf("Walls: left %d top %d \n", leftWallsCounter, topWallsCounter);
 
@@ -2722,7 +2743,7 @@ bool loadSave(char* saveName){
 
   jointsStorage = malloc(sizeof(WallJoint*) * (jntCounter[0]+jntCounter[1]+jntCounter[2]+jntCounter[3]));
   //  for(int i=0;i<basicSideCounter;i++){
-    //}
+  //}
 
   blocksStorage = malloc(sizeof(TileBlock*) * blckCounter);
   tilesStorage = malloc(sizeof(Tile*) * wallsCounter);
@@ -3210,17 +3231,13 @@ bool saveMap(char* saveName) {
             }
         }
     }
-
-    fprintf(map, "Walls used: %d(lw%d rw%d tl%d bck%d joi(%d %d %d %d)) b:%d j:%d w:%d t:%d", blockCounter + jointsCounter + wallCounter + tileCounter,
-        wallCounterBySide[0],
-        wallCounterBySide[1],
-        tlsCounter,
-        blckCounter,
-        jntCounter[0], jntCounter[1], jntCounter[2], jntCounter[3],
-        blockCounter,
-        jointsCounter,
-        wallCounter,
-        tileCounter);
+    
+    fprintf(map, "Used tiles: %d leftW: %d rightW: %d aBlock: %d aJoint: (%d %d %d %d)",
+	    wallsCounter,
+	    wallCounterBySide[0],
+	    wallCounterBySide[1],
+	    blckCounter,
+	    jntCounter[0], jntCounter[1], jntCounter[2], jntCounter[3]);
 
     for (int i = 0; i < wallsCounter; i++) {
         fprintf(map, "\n");
@@ -4756,7 +4773,8 @@ void rerenderShadowsForAllLights(){
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glStencilMask(0x00);
 
-    Matrix proj = orthogonal(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
+    //    Matrix proj = orthogonal(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
+     Matrix proj = perspective(rad(90.0f), 1.0f, 0.01f, 1000.0f);
 
     vec3 lightPos = { lightStorage[dirLightT][0].mat.m[12],
       -lightStorage[dirLightT][0].mat.m[13],
@@ -5991,11 +6009,11 @@ void createTexture(int* tx,int w,int h, void*px){
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w,
 	       h, 0, GL_RGBA,
 	       GL_UNSIGNED_BYTE, px);
-
+  
   glGenerateMipmap(GL_TEXTURE_2D);
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
  
   glBindTexture(GL_TEXTURE_2D, 0);
 }; 

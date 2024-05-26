@@ -15,6 +15,11 @@ void main(void)
 {
 TexCoord= aTexCoord;
 
+vec3 scaledPosition = aPos + aNorm * 0.01f;
+
 FragPos = vec3(model * vec4(aPos, 1.0));
-gl_Position = proj * view * vec4(FragPos + aNorm*0.01, 1.0);	
+
+gl_Position = proj * view * model * vec4(scaledPosition, 1.0);
+
+//gl_Position = proj * view * vec4(FragPos + aNorm*0.01, //1.0);	
 }
