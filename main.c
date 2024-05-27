@@ -85,7 +85,7 @@ const char* wallTypeStr[] = {
 
 const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps",[angledRoofT] = "Angle Roof" };
 
-const char* lightTypesStr[] = { [shadowLightT] = "Point light(shadow)",[pointLightT] = "Point light", [dirLightT] = "Dir light" };
+const char* lightTypesStr[] = { [pointLightT] = "Point light", [dirLightShadowT] = "Dir light(shadow)", [dirLightT] = "Dir light" };
 
 const char* wallPlanesStr[] = {
   [wTopPlane] = "Top plane",
@@ -261,7 +261,7 @@ bool fullScreen = 0;
 
 Light lightDef[lightsTypeCounter] = {
   [pointLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11},
-  [shadowLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11},
+  [dirLightShadowT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11},
   [dirLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11}
 };
 
@@ -351,9 +351,9 @@ int main(int argc, char* argv[]) {
   windowW = DM.w;
   windowH = DM.h;
 
-  printf("def %d %d \n", windowH, windowW);
+  //  printf("def %d %d \n", windowH, windowW);
   //    printf(" %d %d \n",);
-  printf("Usable %d %d \n", r1.h, r1.w);
+  //  printf("Usable %d %d \n", r1.h, r1.w);
     
 
   char windowTitle[100] = game;
@@ -426,7 +426,7 @@ int main(int argc, char* argv[]) {
   // nav meshes
   {
     glGenBuffers(1, &navPointsMesh.VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, navPointsMesh.VBO);
+    glGenVertexArrays(1, &navPointsMesh.VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -1438,29 +1438,34 @@ int main(int argc, char* argv[]) {
     glBindVertexArray(0);
   }
 
-  
-
- {
+  {
     glGenFramebuffers(1, &depthMapFBO);
-    // create depth cubemap texture
-    //	glActiveTexture(GL_TEXTURE1);
     glGenTextures(1, &depthMaps);
 
-    glBindTexture(GL_TEXTURE_2D, depthMaps);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT32, SHADOW_WIDTH, SHADOW_HEIGHT, 8, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
     float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    // attach depth texture as FBO's depth buffer
+    glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, borderColor);
+
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMaps, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthMaps, 0);
+
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      printf("main fbo creation failed! With %d \n", glCheckFramebufferStatus(GL_FRAMEBUFFER));
+      exit(0);
+    }
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
- }
+  }
     
     /* glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
 	
@@ -1653,11 +1658,35 @@ int main(int argc, char* argv[]) {
 	  exit(1);
 	}
 
+	if(event.key.keysym.scancode == SDL_SCANCODE_F4){
+	  static bool hiddenWallsShown = true;
+
+	  hiddenWallsShown = !hiddenWallsShown;
+
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  batchAllGeometry();
+	  
+	  //	  if(hiddenWallsShown){
+	  //	    batchAllGeometry();
+	  //	  }else{
+	    //	    batchAllGeometryNoHidden();
+	  //	  }
+	}
+
 	if (event.key.keysym.scancode == SDL_SCANCODE_F3) {
 	  navPointsDraw = !navPointsDraw;
 	  
 	  if(navPointsDraw){
-	    batchGeometry();
+	    assembleNavigation();
 	  }
 	}
 
@@ -1897,12 +1926,13 @@ int main(int argc, char* argv[]) {
 
 	glUseProgram(shadersId[mainShader]); 
         glUniform3f(cameraPos, argVec3(curCamera->pos));
+	
         uniformFloat(mainShader, "far_plane", far_plane);
 
 	//	vec3 modelXLight = {lightStorage[0].mat.m[12], lightStorage[0].mat.m[13], lightStorage[0].mat.m[14]};
         //uniformVec3(mainShader, "lightPoss", modelXLight);
 
-		// highlight selected model with stencil
+	// highlight selected model with stencil
 	if(true)
 	{
 	  if(mouse.selectedType == mouseModelT){
@@ -1915,10 +1945,10 @@ int main(int argc, char* argv[]) {
 	    glDepthMask(GL_FALSE); 
 	    glClear(GL_STENCIL_BUFFER_BIT);
 
-        Model* model = (Model*)mouse.selectedThing;
-        int name = model->name;
+	    Model* model = (Model*)mouse.selectedThing;
+	    int name = model->name;
 	    
-	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
 	    // 1 draw
 	    {
@@ -1939,9 +1969,6 @@ int main(int argc, char* argv[]) {
 	    glDepthMask(GL_TRUE); 
 	    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-	    
-	    
-	    
 	    // higlight
 	    {
 	      glUseProgram(shadersId[borderShader]);
@@ -1969,7 +1996,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, depthMaps);
+	glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
 
 	glActiveTexture(GL_TEXTURE0);
 	renderScene(mainShader);
@@ -1991,7 +2018,6 @@ int main(int argc, char* argv[]) {
 	  glDrawArrays(GL_TRIANGLES, 0, navPointsMesh.vertexNum);
 
 	  {
-	    
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
 	    glBindVertexArray(0);
 
@@ -2850,32 +2876,27 @@ bool loadSave(char* saveName){
 	  
     WallType wType = -1;
 
-
     // walls
-   // for(int i2=0;i2<sidesCounter;i2++){  
     for(int i2=0;i2< sidesCounter;i2++){
       fscanf(map, "%d %d ", &side, &wType);
-
-     // if (wType == 0) {
-       //   continue;
-     // }
 
       tile->wall[side] = malloc(sizeof(Wall));
       tile->wall[side]->id = wallsStorageSize;
       tile->wall[side]->tileId = tilesStorageSize;
-      
-      //      wallsStorage[side][wallsStorageSize[side]] = tile->wall[side];
+      tile->wall[side]->side = i2;
+
       wallsStorage[wallsStorageSize] = tile->wall[side];
       wallsStorageSize++;
       
-      tile->wall[side]->type = wType;       
+      tile->wall[side]->type = wType;
+      tile->wall[side]->prevType = wType;
+      
       tile->wall[side]->planes = calloc(planesInfo[tile->wall[side]->type], sizeof(Plane));
 
       for(int i2=0;i2<wallsVPairs[wType].planesNum;i2++){
 	fscanf(map, "%d %d ", &tile->wall[side]->planes[i2].txIndex, &tile->wall[side]->planes[i2].hide);
 
 	if(!tile->wall[side]->planes[i2].hide){
-	  //        printf("attr size %d ", wallsVPairs[wType].pairs[i2].attrSize);
 	  geomentyByTxCounter[tile->wall[side]->planes[i2].txIndex] += wallsVPairs[wType].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[wType].pairs[i2].attrSize;
 	}
       }
@@ -2895,8 +2916,6 @@ bool loadSave(char* saveName){
       int exist = -1;
       
       fscanf(map, "%d %d ", &jointSide, &exist);
-
-     // tile->jointExist[jointSide] = exist;
 
       if(exist){
           tile->joint[jointSide] = malloc(sizeof(WallJoint));
@@ -4209,6 +4228,7 @@ void assembleWallBlockVBO() {  // wallBlock buf
 void assembleHideWallBlockVBO() {  // wallBlock buf
   float w = 1;
   float h = 0.15f;
+  float hiddenH = 2.0f - 0.15f;//0.15f;
 
   float capRatio = 0.12f;
 
@@ -4216,7 +4236,28 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
   
   float t = (float)1 / 8;
 
-  float d = t;   
+  float d = t;
+
+  float frontPlaneHidden[] = {
+    0.0f, h, -t,            0.0f, 0.0f,
+    0.0f, hiddenH, -t,      0.0f, 0.0f,
+    w, hiddenH, -t,         0.0f, 0.0f,
+
+    0.0f, h, -t,            0.0f, 0.0f, // 1
+    w, hiddenH, -t,         0.0f, 0.0f, // 3
+    w, h, -t,               0.0f, 0.0f, // 2
+  };
+  
+  float backPlaneHidden[] = {
+    0.0f, h , d,           0.0f, 0.0f,
+    w, hiddenH, d,         0.0f, 0.0f,
+    0.0f, hiddenH, d,      0.0f, 0.0f,
+
+    0.0f, h, d,            0.0f, 0.0f,
+    w, h, d,               0.0f, 0.0f,
+    w, hiddenH, d,         0.0f, 0.0f,
+  };
+
    
   float frontPlane[] = {
     0.0f, 0.0f , -t,  0.0f, 0.0f,
@@ -4225,7 +4266,17 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
 
     0.0f, 0.0f , -t,  0.0f, 0.0f, // 1
     w, h, -t,         1.0f, yTex, // 3
-    w, 0.0f , -t,     1.0f, 0.0f, // 2
+    w, 0.0f , -t,     1.0f, 0.0f, // 2 
+
+    /*    
+    0.0f, h, -t,            0.0f, 0.0f,
+    0.0f, hiddenH, -t,      0.0f, 0.0f,
+    w, hiddenH, -t,         0.0f, 0.0f,
+
+    0.0f, h, -t,            0.0f, 0.0f, // 1
+    w, hiddenH, -t,         0.0f, 0.0f, // 3
+    w, h, -t,               0.0f, 0.0f, // 2
+*/
   };
 
   float topPlane[] = {
@@ -4246,6 +4297,16 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
     0.0f, 0.0f , d,  0.0f, 0.0f,
     w, 0.0f , d,     1.0f, 0.0f,
     w, h, d,         1.0f, yTex,
+
+    /*
+    0.0f, h , d,           0.0f, 0.0f,
+    w, hiddenH, d,         0.0f, 0.0f,
+    0.0f, hiddenH, d,      0.0f, 0.0f,
+
+    0.0f, h, d,            0.0f, 0.0f,
+    w, h, d,               0.0f, 0.0f,
+    w, hiddenH, d,         0.0f, 0.0f,
+    */
   };
 
   /* 
@@ -4270,11 +4331,24 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
      };
   */
 
-  float* wallPlanes[wPlaneCounter] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane };
-  int wallPlanesSize[wPlaneCounter] = { [wTopPlane] = sizeof(topPlane), [wFrontPlane] = sizeof(frontPlane), [wBackPlane] = sizeof(backPlane) };
+  float* wallPlanes[whPlaneCounter] = {
+    [whTopPlane] = topPlane,
+    [whFrontPlane] = frontPlane,
+    [whBackPlane] = backPlane,
+  //  [whBackHiddenPlane] = backPlaneHidden,
+   // [whFrontHiddenPlane] = frontPlaneHidden
+  };
+  
+  int wallPlanesSize[whPlaneCounter] = {
+    [whTopPlane] = sizeof(topPlane),
+    [whFrontPlane] = sizeof(frontPlane),
+    [whBackPlane] = sizeof(backPlane),
+   // [whBackHiddenPlane] = sizeof(backPlaneHidden),
+  //  [whFrontHiddenPlane] = sizeof(frontPlaneHidden)
+  };
 
-  wallsVPairs[hiddenWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
-  wallsVPairs[hiddenWallT].planesNum = wPlaneCounter;
+  wallsVPairs[hiddenWallT].pairs = malloc(sizeof(VPair) * whPlaneCounter);    
+  wallsVPairs[hiddenWallT].planesNum = whPlaneCounter;
 
   for(int i=0;i<wallsVPairs[hiddenWallT].planesNum;i++){
     attachNormalsToBuf(wallsVPairs[hiddenWallT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
@@ -4714,73 +4788,27 @@ void rerenderShadowsForAllLights(){
   glUseProgram(shadersId[dirShadowShader]);
   glEnable(GL_DEPTH_TEST);
     
-  //    if(lightStorage[shadowLightT])
   glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
   glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+
+  batchAllGeometryNoHidden();
   
-  //int index = 0;
+  for (int i = 0; i < lightStorageSizeByType[dirLightShadowT]; i++) {
+    glUseProgram(shadersId[dirShadowShader]);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthMaps, 0, i);
+	    
+    vec3 negPos = { -lightStorage[dirLightShadowT][i].mat.m[12], -lightStorage[dirLightShadowT][i].mat.m[13], -lightStorage[dirLightShadowT][i].mat.m[14] };
 
-  //  Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
-  
-  /* for(int i=0;i<lightStorageSizeByType[shadowLightT];i++){
-    glStencilMask(0xff);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    glStencilMask(0x00);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
+    Matrix proj = perspective(rad(90.0f), 1.0f, 0.01f, 1000.0f);
 
-    vec3 negPos = { -lightStorage[shadowLightT][i].mat.m[12], -lightStorage[shadowLightT][i].mat.m[13], -lightStorage[shadowLightT][i].mat.m[14] };
-
-    static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
-					    {-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
-	
-    for (int i2 = 6 * i; i2 < 6 * (i+1); ++i2){	      
-      Matrix viewMat = IDENTITY_MATRIX;
-
-      translate(&viewMat, argVec3(negPos));
-
-      rotateX(&viewMat, rad(shadowRotation[i2 - (6 * i)].x));
-      rotateY(&viewMat, rad(shadowRotation[i2 - (6 * i)].y));
-      rotateZ(&viewMat, rad(shadowRotation[i2 - (6 * i)].z));
-
-      Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
-
-      char buf[128];
-
-      sprintf(buf, "shadowMatrices[%d]", i2);
-
-      uniformMat4(dirShadowShader, buf, shadowTransforms.m);
-    }
-  }*/
-
-  //  if(lightStorageSizeByType[shadowLightT] > 0){
-    /*    //    glEnable(GL_CULL_FACE);
-	  glCullFace(GL_FRONT);
-    
-	  glActiveTexture(GL_TEXTURE0);
-	  renderScene(dirShadowShader);
-
-	  glCullFace(GL_BACK);
-	  //    glDisable(GL_CULL_FACE);
-
-	  glBindFramebuffer(GL_FRAMEBUFFER, 0);*/
-
-  
-  for (int i = 0; i < lightStorageSizeByType[dirLightT]; i++) {
-    vec3 negPos = { -lightStorage[dirLightT][i].mat.m[12], -lightStorage[dirLightT][i].mat.m[13], -lightStorage[dirLightT][i].mat.m[14] };
-
-    glStencilMask(0xff);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    glStencilMask(0x00);
-
-    //    Matrix proj = orthogonal(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
-     Matrix proj = perspective(rad(90.0f), 1.0f, 0.01f, 1000.0f);
-
-    vec3 lightPos = { lightStorage[dirLightT][0].mat.m[12],
-      -lightStorage[dirLightT][0].mat.m[13],
-      -lightStorage[dirLightT][0].mat.m[14]
+    vec3 lightPos = { lightStorage[dirLightShadowT][i].mat.m[12],
+      -lightStorage[dirLightShadowT][i].mat.m[13],
+      -lightStorage[dirLightShadowT][i].mat.m[14]
     };
-    vec3 lightDir = { lightStorage[dirLightT][0].mat.m[0] + 0.001f, lightStorage[dirLightT][0].mat.m[1], lightStorage[dirLightT][0].mat.m[2] };
+    
+    vec3 lightDir = { lightStorage[dirLightShadowT][i].mat.m[0] + 0.001f, lightStorage[dirLightShadowT][i].mat.m[1], lightStorage[dirLightShadowT][i].mat.m[2] };
     
     Matrix view = lookAt(lightPos,
 			 (vec3){
@@ -4788,60 +4816,24 @@ void rerenderShadowsForAllLights(){
 			   lightPos.y + lightDir.y,
 			   lightPos.z + lightDir.z
 			 },
-			(vec3){0.0f,1.0f,0.0f});
-
-   Matrix view2 = IDENTITY_MATRIX;
-
-   //    Matrix view = lookAt(negPos,//(vec3){0.0f,0.0f,0.0f},
-   //  			 (vec3){lightStorage[dirLightT][i].mat.m[0], lightStorage[dirLightT][i].mat.m[1], lightStorage[dirLightT][i].mat.m[2]},
-   //			 (vec3){0.0f,1.0f,0.0f});
-
-
-   //view.m[12] = -negPos.x;
-   //view.m[13] = -negPos.y;
-   //view.m[14] = -negPos.z;
-
-   //    Matrix view2 = IDENTITY_MATRIX;
-   //    memcpy(view2.m, lightStorage[dirLightT][i].mat.m, sizeof(float) * 16);
-
-   //    view2.m[12]=0.0f;
-   //    view2.m[13]=0.0f;
-   //    view2.m[14]=0.0f;
-
-   view2.m[12] = -negPos.x;
-   view2.m[13] = -negPos.y;
-   view2.m[14] = -negPos.z;
-   
-   rotateX(&view2, rad(-90.0f));
-
-   //rotateX(&view2, asinf(lightStorage[dirLightT][i].mat.m[1]));
-   //   rotateY(&view2, atan2f(lightStorage[dirLightT][i].mat.m[2], lightStorage[dirLightT][i].mat.m[0]));
-
-        printf("\n light mat: %f %f %f %f \n%f %f %f %f \n%f %f %f %f\n %f %f %f %f\n", spreadMat4(view.m));
-
-        printf("\n view mat: %f %f %f %f \n%f %f %f %f \n%f %f %f %f\n %f %f %f %f\n", spreadMat4(view2.m));
+			 (vec3){0.0f,1.0f,0.0f});
     
-    //Matrix view2 = multiplymat4(view, lightStorage[dirLightT][i].mat);
-    //    view2 = multiplymat4(view2, view);
-
-    
-    Matrix shadowTransforms = multiplymat4(view, proj);
-    //Matrix shadowTransforms = multiplymat4(proj, view);
+    Matrix lightSpaceMatrix = multiplymat4(view, proj);
 
     char buf[128];
-    sprintf(buf, "lightSpaceMatrix", 0);
-    uniformMat4(dirShadowShader, buf, shadowTransforms.m);
+    sprintf(buf, "lightSpaceMatrix");
+    uniformMat4(dirShadowShader, buf, lightSpaceMatrix.m);
 
     glActiveTexture(GL_TEXTURE0);
     renderScene(dirShadowShader);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glUseProgram(shadersId[mainShader]);
-    uniformMat4(mainShader, buf, shadowTransforms.m);
     
-    glUseProgram(curShader);
+    glUseProgram(shadersId[mainShader]);
+    sprintf(buf, "lightSpaceMatrix[%d]", i);
+    uniformMat4(mainShader, buf, lightSpaceMatrix.m);
   }
+
+  batchAllGeometry();
+  glUseProgram(curShader);
 }
 
 void rerenderShadowForLight(int lightId){
@@ -4851,46 +4843,49 @@ void rerenderShadowForLight(int lightId){
   glUseProgram(shadersId[dirShadowShader]);
   glEnable(GL_DEPTH_TEST);
     
-  //    if(lightStorage[shadowLightT])
   glViewport(0,0, SHADOW_WIDTH, SHADOW_HEIGHT);
   glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 
-  int index = 0;
-      
-  glStencilMask(0xff);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  glStencilMask(0x00);
+  glUseProgram(shadersId[dirShadowShader]);
+  glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthMaps, 0, lightId);
 
-  Matrix shadowProj = perspective(rad(90.0f), 1.0f, near_plane, far_plane); 
+  batchAllGeometryNoHidden();
+	    
+  vec3 negPos = { -lightStorage[dirLightShadowT][lightId].mat.m[12], -lightStorage[dirLightShadowT][lightId].mat.m[13], -lightStorage[dirLightShadowT][lightId].mat.m[14] };
 
-  vec3 negPos = { -lightStorage[shadowLightT][lightId].mat.m[12], -lightStorage[shadowLightT][lightId].mat.m[13], -lightStorage[shadowLightT][lightId].mat.m[14] };
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  static const vec3 shadowRotation[6] = { {180.0f, 90.0f, 0.0f}, {180.0f, -90.0f, 0.0f}, {90.0f, 0.0f, 0.0f},
-					  {-90.0f, 0.0f, 0.0f}, {180.0f, 0.0f, 0.0f}, { 0.0f, 0.0f, 180.0f}};
-	
-  for (int i2 = 6 * lightId; i2 < 6 * (lightId+1); ++i2){	      
-    Matrix viewMat = IDENTITY_MATRIX;
+  Matrix proj = perspective(rad(90.0f), 1.0f, 0.01f, 1000.0f);
 
-    translate(&viewMat, argVec3(negPos));
-
-    rotateX(&viewMat, rad(shadowRotation[i2 - (6 * lightId)].x));
-    rotateY(&viewMat, rad(shadowRotation[i2 - (6 * lightId)].y));
-    rotateZ(&viewMat, rad(shadowRotation[i2 - (6 * lightId)].z));
+  vec3 lightPos = { lightStorage[dirLightShadowT][lightId].mat.m[12],
+    -lightStorage[dirLightShadowT][lightId].mat.m[13],
+    -lightStorage[dirLightShadowT][lightId].mat.m[14]
+  };
     
-    Matrix shadowTransforms = multiplymat4(viewMat, shadowProj);
+  vec3 lightDir = { lightStorage[dirLightShadowT][lightId].mat.m[0] + 0.001f, lightStorage[dirLightShadowT][lightId].mat.m[1], lightStorage[dirLightShadowT][lightId].mat.m[2] };
+    
+  Matrix view = lookAt(lightPos,
+		       (vec3){
+			 lightPos.x + lightDir.x,
+			 lightPos.y + lightDir.y,
+			 lightPos.z + lightDir.z
+		       },
+		       (vec3){0.0f,1.0f,0.0f});
+    
+  Matrix lightSpaceMatrix = multiplymat4(view, proj);
 
-    char buf[128];
-
-    sprintf(buf, "shadowMatrices[%d]", i2);
-
-    uniformMat4(dirShadowShader, buf, shadowTransforms.m);
-  }
+  char buf[128];
+  sprintf(buf, "lightSpaceMatrix");
+  uniformMat4(dirShadowShader, buf, lightSpaceMatrix.m);
 
   glActiveTexture(GL_TEXTURE0);
   renderScene(dirShadowShader);
+    
+  glUseProgram(shadersId[mainShader]);
+  sprintf(buf, "lightSpaceMatrix[%d]", lightId);
+  uniformMat4(mainShader, buf, lightSpaceMatrix.m);
 
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+  batchAllGeometry();
   glUseProgram(curShader);
 }
 
@@ -4981,6 +4976,9 @@ void batchModels(){
 }
 
 void batchGeometry(){
+
+  printf("\n\n\n IDI NAXUI \n\n");
+  
   float texturedTileVerts[] = {
     bBlockW, 0.0f, bBlockD , 0.0f, 1.0f, -0.000000, 1.000000, -0.000000,
     0.0f, 0.0f, bBlockD , 1.0f, 1.0f, -0.000000, 1.000000, -0.000000, 
@@ -5467,7 +5465,7 @@ void batchGeometry(){
   navPoints = realloc(navPoints, sizeof(vec3) * navPointsSize);
   */
 
-  vec3** triColl = NULL;// = calloc(navPointsSize, sizeof(vec3*));
+  vec3** triColl = NULL;
   int triCollSize = 0;
 
   int extentedNavPointsSize = navPointsSize;
@@ -6472,24 +6470,259 @@ float texturedTileVerts[] = {
   0.0f, 0.0f, 0.0f , 1.0f, 0.0f,  0.000000, 1.000000, 0.000000,
 };
 
-void batchAllGeometry(){
-  //  for(int)
+
+void batchAllGeometryNoHidden(){
   int vertexSize = 8;
   
-  //finalGeom = malloc(sizeof(GeomFin) * loadedTexturesCounter);
+  Geom* preGeom = malloc(sizeof(Geom) * loadedTexturesCounter);
+  int* txLastIndex = calloc(loadedTexturesCounter, sizeof(int));
+  
+  for(int i=0;i<loadedTexturesCounter;i++){
+    preGeom[i].buf = calloc(geomentyByTxCounter[i],1);
+    preGeom[i].size = geomentyByTxCounter[i];
+    finalGeom[i].tris = geomentyByTxCounter[i] / (float)vertexSize / sizeof(float);
+  }
+  
+  // planes
+  for(int i=0;i<picturesStorageSize;i++){
+    int txIndex = picturesStorage[i].txIndex;
+
+    for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
+      vec4 vert = { planePairs.vBuf[i2], planePairs.vBuf[i2+1], planePairs.vBuf[i2+2], 1.0f };
+
+      vec4 transf = mulmatvec4(picturesStorage[i].mat, vert);
+
+      vec4 normal = { planePairs.vBuf[i2+5], planePairs.vBuf[i2+6], planePairs.vBuf[i2+7], 1.0f };
+
+      Matrix inversedWallModel = IDENTITY_MATRIX;
+      inverse(picturesStorage[i].mat.m, inversedWallModel.m);
+
+      Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+      mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+		  
+      vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2] = transf.x;
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 1] = transf.y;
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 2] = transf.z;
+
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 3] = planePairs.vBuf[i2 + 3];
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 4] = planePairs.vBuf[i2 + 4];
+
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 5] = transfNormal.x;
+      preGeom[txIndex].buf[txLastIndex[txIndex] + i2 + 6] = transfNormal.y;
+      preGeom[txIndex].buf[txLastIndex[txIndex]+ i2 + 7] = transfNormal.z;
+    }
+
+    txLastIndex[txIndex] += 6 * 8;
+  }
+
+  // tiles
+  for(int i=0;i<tilesStorageSize;i++){
+    int type = valueIn(tilesStorage[i]->ground, 0);
+
+    if (type != texturedTile){
+      continue;
+    }
+
+    int txIndex = valueIn(tilesStorage[i]->ground, 2);
+
+    for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i]->pos.x; 
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+1] = texturedTileVerts[i2+1] + tilesStorage[i]->pos.y;
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+2] = texturedTileVerts[i2+2] + tilesStorage[i]->pos.z; 
+
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+3] = texturedTileVerts[i2+3];
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+4] = texturedTileVerts[i2+4];
+
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+5] = texturedTileVerts[i2+5];
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+6] = texturedTileVerts[i2+6];
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+7] = texturedTileVerts[i2+7];
+    }
+
+    txLastIndex[txIndex] += sizeof(texturedTileVerts) / sizeof(float);
+  }
+
+  // blocks
+  for(int i=0;i<blocksStorageSize;i++){
+    TileBlocksTypes type = blocksStorage[i]->type;
+    int txIndex = blocksStorage[i]->txIndex;
+
+    for(int i2=0;i2<blocksVPairs[type].planesNum;i2++){
+      for(int i3=0;i3<blocksVPairs[type].pairs[i2].vertexNum * vertexSize;i3+=vertexSize){
+	vec4 vert = { blocksVPairs[type].pairs[i2].vBuf[i3], blocksVPairs[type].pairs[i2].vBuf[i3+1], blocksVPairs[type].pairs[i2].vBuf[i3+2], 1.0f };
+
+	vec4 transf = mulmatvec4(blocksStorage[i]->mat, vert);
+
+	vec4 normal = { blocksVPairs[type].pairs[i2].vBuf[i3+5], blocksVPairs[type].pairs[i2].vBuf[i3+6], blocksVPairs[type].pairs[i2].vBuf[i3+7], 1.0f };
+
+	Matrix inversedWallModel = IDENTITY_MATRIX;
+	inverse(blocksStorage[i]->mat.m, inversedWallModel.m);
+
+	Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+	mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+		  
+	vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3] = transf.x;
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 1] = transf.y;
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 2] = transf.z;
+
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 3] = blocksVPairs[type].pairs[i2].vBuf[i3 + 3];
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 4] = blocksVPairs[type].pairs[i2].vBuf[i3 + 4];
+
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 5] = transfNormal.x;
+	preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 6] = transfNormal.y;
+	preGeom[txIndex].buf[txLastIndex[txIndex]+ i3 +7] = transfNormal.z;
+      }
+
+      txLastIndex[txIndex] += blocksVPairs[type].pairs[i2].vertexNum * vertexSize;
+    }
+  }
+
+  // walls
+  for(int i=0;i<wallsStorageSize;i++){
+    WallType type = wallsStorage[i]->prevType;
+
+    for (int i2 = 0; i2 < wallsVPairs[type].planesNum; i2++) {
+      if (!wallsStorage[i]->planes[i2].hide) {
+	int txIndex = wallsStorage[i]->planes[i2].txIndex;
+
+	for (int i3 = 0; i3 < wallsVPairs[type].pairs[i2].vertexNum * vertexSize; i3 += vertexSize) {
+	  vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i3], wallsVPairs[type].pairs[i2].vBuf[i3 + 1], wallsVPairs[type].pairs[i2].vBuf[i3 + 2], 1.0f };
+
+	  vec4 transf = mulmatvec4(wallsStorage[i]->mat, vert);
+
+	  vec4 normal = { wallsVPairs[type].pairs[i2].vBuf[i3 + 5], wallsVPairs[type].pairs[i2].vBuf[i3 + 6], wallsVPairs[type].pairs[i2].vBuf[i3 + 7], 1.0f };
+
+	  Matrix inversedWallModel = IDENTITY_MATRIX;
+	  inverse(wallsStorage[i]->mat.m, inversedWallModel.m); 
+
+	  Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+	  mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+
+	  vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3] = transf.x;
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 1] = transf.y;
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 2] = transf.z;
+
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 3] = wallsVPairs[type].pairs[i2].vBuf[i3 + 3];
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 4] = wallsVPairs[type].pairs[i2].vBuf[i3 + 4];
+
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 5] = transfNormal.x;
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 6] = transfNormal.y;
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 7] = transfNormal.z;
+	}
+
+	txLastIndex[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * vertexSize;
+    }
+    }
+  }
+
+  // joints
+  for(int i=0;i<jointsStorageSize;i++){
+    WallType jointType = jointsStorage[i]->type;
+	      
+    for (int i2 = 0; i2<wallsVPairs[jointType].planesNum; i2++) {
+      int txIndex = jointsStorage[i]->plane[i2].txIndex;
+		
+      for(int i3=0;i3<wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;i3+=vertexSize){
+	//	  printf("jt: %d \n",txIndex);
+	vec4 vert = { wallsVPairs[jointType].pairs[i2].vBuf[i3], wallsVPairs[jointType].pairs[i2].vBuf[i3+1], wallsVPairs[jointType].pairs[i2].vBuf[i3+2], 1.0f };
+		
+	static const int pad[4][2] = {
+	  [top] = { 0, 1 },
+	  [right] = { 0, 0 },
+
+	  [bot] = { 1, 0 },
+	  [left] = {1, 0 }
+	};
+
+	Matrix jointMat; 
+	memcpy(jointMat.m, wallJointsMat[jointsStorage[i]->side].m, sizeof(float) * 16);
+
+	vec3 tile = tilesStorage[jointsStorage[i]->tileId]->pos;
+
+	jointMat.m[12] = (int)tile.x + pad[jointsStorage[i]->side][0];
+	jointMat.m[13] = (int)tile.y;
+	jointMat.m[14] = (int)tile.z + pad[jointsStorage[i]->side][1];
+
+	vec4 transf = mulmatvec4(jointMat, vert);
+
+	vec4 normal = { wallsVPairs[jointType].pairs[i2].vBuf[i3+5], wallsVPairs[jointType].pairs[i2].vBuf[i3+6], wallsVPairs[jointType].pairs[i2].vBuf[i3+7], 1.0f };
+
+	Matrix inversedWallModel = IDENTITY_MATRIX;
+
+	//printf("%s: %f %f %f %f \n %f %f %f %f \n %f %f %f %f \n %f %f %f %f \n", sidesToStr[i3],
+	// spreadMat4(grid[y][z][x]->jointsMat[i3].m));
+		  
+	inverse(jointMat.m, inversedWallModel.m);
+
+	Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+	mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+		  
+	vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+	preGeom[txIndex].buf[txLastIndex[txIndex]+i3] = transf.x; 
+	preGeom[txIndex].buf[txLastIndex[txIndex]+i3+1] = transf.y;
+	preGeom[txIndex].buf[txLastIndex[txIndex]+i3+2] = transf.z;
+
+	preGeom[txIndex].buf[txLastIndex[txIndex]+i3+3] = wallsVPairs[jointType].pairs[i2].vBuf[i3+3];
+	preGeom[txIndex].buf[txLastIndex[txIndex]+i3+4] = wallsVPairs[jointType].pairs[i2].vBuf[i3+4];
+
+	preGeom[txIndex].buf[txLastIndex[txIndex]+i3+5] = transfNormal.x;
+	preGeom[txIndex].buf[txLastIndex[txIndex]+i3+6] = transfNormal.y;
+	preGeom[txIndex].buf[txLastIndex[txIndex]+i3+7] = transfNormal.z;
+      }
+
+      //	printf("jointType: %d \n", jointType);
+      txLastIndex[txIndex] += wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;
+    }
+  }
+  
+  for(int i=0;i<loadedTexturesCounter;i++){
+    glBindVertexArray(finalGeom[i].VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
+
+    printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
+    glBufferData(GL_ARRAY_BUFFER, preGeom[i].size, preGeom[i].buf, GL_STATIC_DRAW);
+  
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);  
+    glBindVertexArray(0);
+
+    free(preGeom[i].buf);
+  }
+
+  free(preGeom);
+  free(txLastIndex);
+}
+
+
+void batchAllGeometry(){
+  int vertexSize = 8;
+  
   Geom* preGeom = malloc(sizeof(Geom) * loadedTexturesCounter);
   int* txLastIndex = calloc(loadedTexturesCounter, sizeof(int));
   
   for(int i=0;i<loadedTexturesCounter;i++){
     preGeom[i].buf = calloc(geomentyByTxCounter[i],1);
     
-    //printf("Alloced: %d \n", geomentyByTxCounter[i]);
-    
     preGeom[i].size = geomentyByTxCounter[i];
 
     finalGeom[i].tris = geomentyByTxCounter[i] / (float)vertexSize / sizeof(float);
-  }
 
+    //  free(preGeom[i].buf);
+  }
   // planes
   for(int i=0;i<picturesStorageSize;i++){
     int txIndex = picturesStorage[i].txIndex;
@@ -6595,17 +6828,25 @@ void batchAllGeometry(){
 	if (!wallsStorage[i]->planes[i2].hide) {
 	  int txIndex = wallsStorage[i]->planes[i2].txIndex;
 
-	  /*if(wallsStorage[i]->type == hiddenWallT){
+	  if(wallsStorage[i]->type == hiddenWallT){
 	    if(wallsStorage[i]->prevType == windowT){
-	      if(i2 == wBackPlane){
+	      if(i2 == whBackPlane){
 		txIndex = wallsStorage[i]->planes[winFrontBotPlane].txIndex;
-	      }else if(i2 == wFrontPlane){
+	      }else if(i2 == whFrontPlane){
 		txIndex = wallsStorage[i]->planes[winBackBotPlane].txIndex;
-	      }else if(i2 == wTopPlane){
+	      }else if(i2 == whTopPlane){
 		txIndex = wallsStorage[i]->planes[winTopPlane].txIndex;
 	      }
+	    }else if(wallsStorage[i]->prevType == wallT){
+	      if(i2 == whBackPlane){
+		txIndex = wallsStorage[i]->planes[wBackPlane].txIndex;
+	      }else if(i2 == whFrontPlane){
+		txIndex = wallsStorage[i]->planes[wFrontPlane].txIndex;
+	      }else if(i2 == whTopPlane){
+		txIndex = wallsStorage[i]->planes[wTopPlane].txIndex;
+	      }
 	    }
-	  }*/
+	  }
 
 	  for (int i3 = 0; i3 < wallsVPairs[type].pairs[i2].vertexNum * vertexSize; i3 += vertexSize) {
 	    vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i3], wallsVPairs[type].pairs[i2].vBuf[i3 + 1], wallsVPairs[type].pairs[i2].vBuf[i3 + 2], 1.0f };
@@ -6698,30 +6939,557 @@ void batchAllGeometry(){
 	//	printf("jointType: %d \n", jointType);
 	txLastIndex[txIndex] += wallsVPairs[jointType].pairs[i2].vertexNum * vertexSize;
       }
+    }   
+  
+    for(int i=0;i<loadedTexturesCounter;i++){
+      // glDeleteVertexArrays(1, &finalGeom[i].VAO);
+      //      glDeleteBuffers(1, &finalGeom[i].VBO);
+
+      //      glGenVertexArrays(1, &finalGeom[i].VAO);
+      //      glBindVertexArray(finalGeom[i].VAO);
+
+      // Generate and bind new VBO
+      // glGenBuffers(1, &finalGeom[i].VBO);
+      //      glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
+ 
+      glBindVertexArray(finalGeom[i].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
+
+      printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
+      glBufferData(GL_ARRAY_BUFFER, preGeom[i].size, preGeom[i].buf, GL_STATIC_DRAW);
+      /*
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+      glEnableVertexAttribArray(1);
+
+      glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+      glEnableVertexAttribArray(2);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);  
+      glBindVertexArray(0);*/
+
+      free(preGeom[i].buf);
     }
   
-  for(int i=0;i<loadedTexturesCounter;i++){
-    glBindVertexArray(finalGeom[i].VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
+    free(preGeom);
+    free(txLastIndex);
+}
 
-    printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
-    glBufferData(GL_ARRAY_BUFFER, preGeom[i].size, preGeom[i].buf, GL_STATIC_DRAW);
-  
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);  
-    glBindVertexArray(0);
-
-    free(preGeom[i].buf);
+void assembleNavigation(){
+  if(navPoints){
+    free(navPoints);
+    navPoints = NULL;
   }
 
-  free(preGeom);
-  free(txLastIndex);
+  navPointsSize = 0;
+  
+  for(int i=0;i<tilesStorageSize;i++){
+      GroundType type = valueIn(tilesStorage[i]->ground, 0);
+
+    if(!tilesStorage[i]->block && type == texturedTile){
+      int x = tilesStorage[i]->pos.x; int y = (int)tilesStorage[i]->pos.y; int z = (int)tilesStorage[i]->pos.z;
+
+      vec3 tile = tilesStorage[i]->pos;//xyz_indexesToCoords((int)tilesStorage[i]->pos.x, (int)tilesStorage[i]->pos.y, (int)tilesStorage[i]->pos.z);
+
+      bool farRightCor = tilesStorage[i]->wall[left]&& tilesStorage[i]->wall[top];
+      bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && tilesStorage[i]->wall[top];
+
+      bool farLeftCor = tilesStorage[i]->wall[left]&& (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
+      bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
+	    
+      if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
+	navPointsSize++;
+      }
+	    
+      if(tilesStorage[i]->wall[left] && tilesStorage[i]->wall[left]->type == doorT){
+	navPointsSize++;
+      }
+
+      if(tilesStorage[i]->wall[top] && tilesStorage[i]->wall[top]->type == doorT){
+	navPointsSize++;
+      }
+    }
+  }
+
+
+  printf("pre navPointsSize %d \n", navPointsSize);
+  navPoints = calloc(navPointsSize, sizeof(NavCornerPoint));
+  navPointsSize = 0;
+
+  for(int i=0;i<tilesStorageSize;i++){
+      GroundType type = valueIn(tilesStorage[i]->ground, 0);
+
+    if(!tilesStorage[i]->block && type == texturedTile){
+        int x = tilesStorage[i]->pos.x; int y = (int)tilesStorage[i]->pos.y; int z = (int)tilesStorage[i]->pos.z;
+
+      // rooms borders detection
+      GroundType type = valueIn(tilesStorage[i]->ground, 0);
+      vec3 tile = tilesStorage[i]->pos;//xyz_indexesToCoords((int)tilesStorage[i]->pos.x, (int)tilesStorage[i]->pos.y, (int)tilesStorage[i]->pos.z);
+
+      bool farRightCor = tilesStorage[i]->wall[left]&& tilesStorage[i]->wall[top];
+      bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && tilesStorage[i]->wall[top];
+
+      bool farLeftCor = tilesStorage[i]->wall[left]&& (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
+      bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
+	    
+      if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
+	if(farRightCor){
+	  navPoints[navPointsSize].type = farRightCorT;
+	  navPoints[navPointsSize].pos = (vec3){tile.x + 0.25f ,tile.y,tile.z + 0.25f};
+	}else if(nearRightCor){
+	  navPoints[navPointsSize].type = nearRightCorT;
+	  navPoints[navPointsSize].pos = (vec3){tile.x + 0.75f ,tile.y,tile.z + 0.25f};
+	}else if(farLeftCor){
+	  navPoints[navPointsSize].type = farLeftCorT;
+	  navPoints[navPointsSize].pos = (vec3){tile.x + 0.25f ,tile.y,tile.z + 0.75f};
+	}else if(nearLeftCor){
+	  navPoints[navPointsSize].type = nearLeftCorT;
+	  navPoints[navPointsSize].pos = (vec3){tile.x + 0.75f ,tile.y,tile.z + 0.75f};
+	}
+
+	navPointsSize++;
+      }
+	    
+      // doors detection
+      if(tilesStorage[i]->wall[left] && tilesStorage[i]->wall[left]->type == doorT){
+	navPoints[navPointsSize].type = doorFrameT;
+	navPoints[navPointsSize].pos = (vec3){tile.x ,tile.y,tile.z + 0.5f};
+	
+	navPointsSize++;
+      }
+
+      if(tilesStorage[i]->wall[top] && tilesStorage[i]->wall[top]->type == doorT){
+	navPoints[navPointsSize].type = doorFrameT;
+	navPoints[navPointsSize].pos = (vec3){tile.x + 0.5f ,tile.y,tile.z};
+	
+	navPointsSize++;
+      }
+    }
+  }
+
+  printf("post navPointsSize %d \n", navPointsSize);
+
+  vec3** triColl = NULL;
+  int triCollSize = 0;
+
+  //  /*
+   int extentedNavPointsSize = navPointsSize;
+  
+   for (int i = 0; i < navPointsSize; i++) {
+       //   if(navPoints[i].type == nearLeftCorT){
+
+       if (navPoints[i].type == doorFrameT) {
+           continue;
+
+       }
+
+       float exX = navPoints[i].pos.x;
+       float exZ = navPoints[i].pos.z;
+
+       int x = navPoints[i].pos.x;
+       int z = navPoints[i].pos.z;
+       int y = navPoints[i].pos.y;
+
+       if (navPoints[i].type == farRightCorT) {
+           exX++;
+       }
+
+       if (navPoints[i].type == farLeftCorT) {
+           exX++;
+       }
+
+       if (navPoints[i].type != nearLeftCorT && navPoints[i].type != nearRightCorT) {
+           while (exX < gridX && grid[y][z][(int)exX] && !grid[y][z][(int)exX]->wall[left]) {
+               exX++;
+           }
+
+           vec3 n1 = { exX - 1, navPoints[i].pos.y, navPoints[i].pos.z };
+
+           if (navPoints[i].type == farRightCorT) {
+               n1.x += 0.5f;
+           }
+
+           if (navPoints[i].type == farLeftCorT) {
+               n1.x += 0.5f;
+           }
+
+           if (n1.x != navPoints[i].pos.x && !isAlreadyNavPoint(n1)) {
+               extentedNavPointsSize++;
+               navPoints = realloc(navPoints, sizeof(navPoints[0]) * extentedNavPointsSize);
+               navPoints[extentedNavPointsSize - 1].pos = n1;
+               navPoints[extentedNavPointsSize - 1].used = false;
+
+               if (navPoints[i].type == farRightCorT) {
+                   navPoints[extentedNavPointsSize - 1].type = nearRightCorT;
+               }
+
+               if (navPoints[i].type == farLeftCorT) {
+                   navPoints[extentedNavPointsSize - 1].type = nearLeftCorT;
+               }
+
+           }
+       }
+
+       exX = navPoints[i].pos.x;
+
+       if (navPoints[i].type != farRightCorT && navPoints[i].type != farLeftCorT) {
+           while (exX >= 0 && grid[y][z][(int)exX] && !grid[y][z][(int)exX]->wall[left]) {
+               exX--;
+           }
+
+           //      vec3 n2 = {exX - 0.75f, navPoints[i].pos.y, navPoints[i].pos.z};
+           vec3 n2 = { exX, navPoints[i].pos.y, navPoints[i].pos.z };
+
+           if (navPoints[i].type == nearLeftCorT) {
+               n2.x -= 0.5f;
+           }
+
+           if (navPoints[i].type == nearRightCorT) {
+               n2.x -= 0.5f;
+           }
+
+           if (n2.x != navPoints[i].pos.x && !isAlreadyNavPoint(n2)) {
+               extentedNavPointsSize++;
+               navPoints = realloc(navPoints, sizeof(navPoints[0]) * extentedNavPointsSize);
+               navPoints[extentedNavPointsSize - 1].pos = n2;
+               navPoints[extentedNavPointsSize - 1].used = false;
+
+               if (navPoints[i].type == nearRightCorT) {
+                   navPoints[extentedNavPointsSize - 1].type = farRightCorT;
+               }
+
+               if (navPoints[i].type == nearLeftCorT) {
+                   navPoints[extentedNavPointsSize - 1].type = farLeftCorT;
+               }
+           }
+       }
+
+       if (navPoints[i].type == farRightCorT) {
+           exZ++;
+       }
+
+       if (navPoints[i].type == nearRightCorT) {
+           exZ++;
+       }
+
+       if (navPoints[i].type != nearLeftCorT && navPoints[i].type != farLeftCorT) {
+           while (exZ < gridZ && grid[y][(int)exZ][x] && !grid[y][(int)exZ][x]->wall[top]) {
+               exZ++;
+           }
+
+           vec3 n3 = { navPoints[i].pos.x, navPoints[i].pos.y, exZ - 1 };
+
+           if (navPoints[i].type == farRightCorT) {
+               n3.z += 0.5f;
+           }
+
+           if (navPoints[i].type == nearRightCorT) {
+               n3.z += 0.5f;
+           }
+
+           if (n3.z != navPoints[i].pos.z && !isAlreadyNavPoint(n3)) {
+               extentedNavPointsSize++;
+               navPoints = realloc(navPoints, sizeof(navPoints[0]) * extentedNavPointsSize);
+               navPoints[extentedNavPointsSize - 1].pos = n3;
+               navPoints[extentedNavPointsSize - 1].used = false;
+
+               if (navPoints[i].type == farRightCorT) {
+                   navPoints[extentedNavPointsSize - 1].type = farLeftCorT;
+               }
+
+               if (navPoints[i].type == nearRightCorT) {
+                   navPoints[extentedNavPointsSize - 1].type = nearLeftCorT;
+               }
+           }
+       }
+
+       exZ = navPoints[i].pos.z;
+
+       //exZ++;
+       if (navPoints[i].type != farRightCorT && navPoints[i].type != nearRightCorT) {
+           while (exZ >= 0 && grid[y][(int)exZ][x] && !grid[y][(int)exZ][x]->wall[top]) {
+               exZ--;
+           }
+
+           vec3 n4 = { navPoints[i].pos.x, navPoints[i].pos.y, exZ - 0.5f };
+
+           if (n4.z != navPoints[i].pos.z && !isAlreadyNavPoint(n4)) {
+               extentedNavPointsSize++;
+               navPoints = realloc(navPoints, sizeof(navPoints[0]) * extentedNavPointsSize);
+               navPoints[extentedNavPointsSize - 1].pos = n4;
+               navPoints[extentedNavPointsSize - 1].used = false;
+
+               if (navPoints[i].type == farLeftCorT) {
+                   navPoints[extentedNavPointsSize - 1].type = farRightCorT;
+               }
+
+               if (navPoints[i].type == nearLeftCorT) {
+                   navPoints[extentedNavPointsSize - 1].type = nearRightCorT;
+               }
+           }
+       }
+   }
+  
+  navPointsSize = extentedNavPointsSize;
+  
+  for (int i = 0; i < navPointsSize; i++) {
+      if (navPoints[i].used) {
+          continue;
+      }
+
+      float lowestZ = 1000.0f;
+      float lowestX = 1000.0f;
+
+      vec3 lowestPointZ = { 0 };
+      vec3 lowestPointX = { 0 };
+
+      //  rectCollections[i] = calloc(4, sizeof(vec3));
+
+      int zSetted = -1;
+      int xSetted = -1;
+
+
+
+      for (int i2 = 0; i2 < navPointsSize; i2++) {
+          if (i2 == i) {
+              continue;
+          }
+
+          if (navPoints[i2].used) {
+              continue;
+          }
+
+          if (navPoints[i2].pos.y != navPoints[i].pos.y) {
+              continue;
+          }
+
+
+          if (navPoints[i].type == nearLeftCorT) {
+              if (navPoints[i2].type == nearRightCorT) {
+                  //	  printf("con %d %d\n", navPoints[i2].pos.z == navPoints[i].pos.z, navPoints[i2].type == nearRightCorT);
+                  printf("con 1:(z:%f x:%f) 2:(z:%f x:%f)\n", navPoints[i2].pos.z, navPoints[i2].pos.x, navPoints[i].pos.z, navPoints[i].pos.x);
+              }
+
+              if (navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == nearRightCorT) {
+                  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
+
+                  if (dist < lowestZ) {
+                      lowestZ = dist;
+                      //	    lowestPointX = navPoints[i].pos;
+                      zSetted = i2;
+                  }
+              }
+              else if (navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == farLeftCorT) {
+                  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
+
+                  if (dist < lowestX) {
+                      lowestX = dist;
+                      //	    lowestPointZ = navPoints[i].pos;
+                      xSetted = i2;
+                  }
+              }
+          }
+          else if (navPoints[i].type == farLeftCorT) {
+              if (navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == nearLeftCorT) {
+                  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
+
+                  if (dist < lowestX) {
+                      lowestX = dist;
+                      //	    lowestPointZ = navPoints[i].pos;
+                      xSetted = i2;
+                  }
+              }
+              else if (navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == farRightCorT) {
+                  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
+
+                  if (dist < lowestZ) {
+                      lowestZ = dist;
+                      //	    lowestPointX = navPoints[i].pos;
+                      zSetted = i2;
+                  }
+              }
+          }
+          else if (navPoints[i].type == nearRightCorT) {
+              //	printf("c1 %d c2 %d \n", navPoints[i2].pos.x == navPoints[i].pos.x, navPoints[i2].type == nearLeftCor);
+              if (navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == nearLeftCorT) {
+                  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
+
+                  if (dist < lowestZ) {
+                      lowestZ = dist;
+                      //	    lowestPointX = navPoints[i].pos;
+                      zSetted = i2;
+                  }
+              }
+              else if (navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == farRightCorT) {
+                  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
+
+                  if (dist < lowestX) {
+                      lowestX = dist;
+                      //	    lowestPointZ = navPoints[i].pos;
+                      xSetted = i2;
+                  }
+              }
+          }
+          else if (navPoints[i].type == farRightCorT) {
+              if (navPoints[i2].pos.x == navPoints[i].pos.x && navPoints[i2].type == farLeftCorT) {
+                  float dist = fabs(navPoints[i].pos.z - navPoints[i2].pos.z);
+
+                  if (dist < lowestZ) {
+                      lowestZ = dist;
+                      //lowestPointX = navPoints[i].pos;
+                      zSetted = i2;
+                  }
+              }
+              else if (navPoints[i2].pos.z == navPoints[i].pos.z && navPoints[i2].type == nearRightCorT) {
+                  float dist = fabs(navPoints[i].pos.x - navPoints[i2].pos.x);
+
+                  if (dist < lowestX) {
+                      lowestX = dist;
+                      xSetted = i2;
+                      //	    lowestPointZ = navPoints[i].pos;
+                  }
+              }
+          }
+      }
+
+    //    printf("nav %d %f %f\n", zSetted, lowestX, lowestZ);
+    
+    navPoints[i].used = true;
+
+    if(zSetted != -1 && xSetted != -1){
+      navPoints[zSetted].used = true;
+      navPoints[xSetted].used = true;
+
+      triCollSize++;
+
+      if(!triColl){
+	triColl = malloc(sizeof(vec3*));
+      }else{
+	triColl = realloc(triColl, sizeof(vec3*) * triCollSize);
+      }
+
+      triColl[triCollSize-1] = malloc(sizeof(vec3) * 3);
+      
+      triColl[triCollSize-1][0]= navPoints[i].pos;
+      triColl[triCollSize-1][1]= navPoints[zSetted].pos;
+      triColl[triCollSize-1][2]= navPoints[xSetted].pos;
+    }
+  }
+
+  // conn mesh
+  {
+    navPointsConnMesh.vBuf = malloc(sizeof(float) * (triCollSize) * 10 * 3);
+    
+    // asseble navPointsMesh
+    int index = 0;
+    for(int i=0;i<(triCollSize) * 10 * 3;i+=10*3){
+      // 1
+	navPointsConnMesh.vBuf[i + 0] = triColl[index][0].x;
+	navPointsConnMesh.vBuf[i + 1] = triColl[index][0].y;
+	navPointsConnMesh.vBuf[i + 2] = triColl[index][0].z;
+
+	navPointsConnMesh.vBuf[i + 3] = triColl[index][1].x;
+	navPointsConnMesh.vBuf[i + 4] = triColl[index][1].y;
+	navPointsConnMesh.vBuf[i + 5] = triColl[index][1].z;
+
+	// 2
+	navPointsConnMesh.vBuf[i + 6] = triColl[index][1].x;
+	navPointsConnMesh.vBuf[i + 7] = triColl[index][1].y;
+	navPointsConnMesh.vBuf[i + 8] = triColl[index][1].z;
+
+	navPointsConnMesh.vBuf[i + 9] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 10] = triColl[index][2].y;
+	navPointsConnMesh.vBuf[i + 11] = triColl[index][2].z;
+
+	// 3
+	navPointsConnMesh.vBuf[i + 12] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 13] = triColl[index][2].y;
+	navPointsConnMesh.vBuf[i + 14] = triColl[index][2].z;
+
+	navPointsConnMesh.vBuf[i + 15] = triColl[index][0].x;
+	navPointsConnMesh.vBuf[i + 16] = triColl[index][0].y;
+	navPointsConnMesh.vBuf[i + 17] = triColl[index][0].z;
+
+	// 4
+	navPointsConnMesh.vBuf[i + 18] = triColl[index][1].x;
+	navPointsConnMesh.vBuf[i + 19] = triColl[index][1].y;
+	navPointsConnMesh.vBuf[i + 20] = triColl[index][1].z;
+	
+	navPointsConnMesh.vBuf[i + 21] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 22] = triColl[index][0].y;
+	navPointsConnMesh.vBuf[i + 23] = triColl[index][1].z;
+
+	// 5
+	navPointsConnMesh.vBuf[i + 24] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 25] = triColl[index][2].y;
+	navPointsConnMesh.vBuf[i + 26] = triColl[index][2].z;
+
+	navPointsConnMesh.vBuf[i + 27] = triColl[index][2].x;
+	navPointsConnMesh.vBuf[i + 28] = triColl[index][0].y;
+	navPointsConnMesh.vBuf[i + 29] = triColl[index][1].z;
+
+	printf("(%f %f %f) - (%f %f %f) | (%f %f %f) - (%f %f %f) | (%f %f %f) - (%f %f %f) \n",
+	       navPointsConnMesh.vBuf[i + 0], navPointsConnMesh.vBuf[i + 1], navPointsConnMesh.vBuf[i + 2],
+	       navPointsConnMesh.vBuf[i + 3],navPointsConnMesh.vBuf[i + 4], navPointsConnMesh.vBuf[i + 5],
+	       navPointsConnMesh.vBuf[i + 6], navPointsConnMesh.vBuf[i + 7], navPointsConnMesh.vBuf[i + 8],
+	       navPointsConnMesh.vBuf[i + 9], navPointsConnMesh.vBuf[i + 10], navPointsConnMesh.vBuf[i + 11],
+	       navPointsConnMesh.vBuf[i + 12], navPointsConnMesh.vBuf[i + 13], navPointsConnMesh.vBuf[i + 14],
+	       navPointsConnMesh.vBuf[i + 15], navPointsConnMesh.vBuf[i + 16], navPointsConnMesh.vBuf[i + 17]);
+	
+	index++;
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, navPointsConnMesh.VBO);
+    glBindVertexArray(navPointsConnMesh.VAO);
+
+    navPointsConnMesh.vertexNum = (triCollSize) * 10;
+    navPointsConnMesh.attrSize = 3;
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * (triCollSize) * 10 * 3, navPointsConnMesh.vBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+  
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  // /*
+  if(navPointsMesh.vBuf){
+    free(navPointsMesh.vBuf);
+    navPointsMesh.vBuf = NULL;
+  }
+
+  navPointsMesh.vBuf = malloc(sizeof(float) * 3 * cube.vertexNum * navPointsSize);
+  
+  // asseble navPointsMesh
+  int index = 0;
+  for(int i=0;i<navPointsSize*cube.vertexNum*3;i+=cube.vertexNum*3){
+    for(int i2=0;i2<cube.vertexNum*3;i2+=3){
+      navPointsMesh.vBuf[i + i2 + 0] = cube.vBuf[i2 + 0] + (float)navPoints[index].pos.x;
+      navPointsMesh.vBuf[i + i2 + 1] = cube.vBuf[i2 + 1] + (float)navPoints[index].pos.y;
+      navPointsMesh.vBuf[i + i2 + 2] = cube.vBuf[i2 + 2] + (float)navPoints[index].pos.z;
+
+      //   printf("%f %f %f \n", navPointsMesh.vBuf[i + i2 + 0], navPointsMesh.vBuf[i + i2 + 1], navPointsMesh.vBuf[i + i2 + 2]);
+    }
+    
+    index++;
+  }
+
+  glBindBuffer(GL_ARRAY_BUFFER, navPointsMesh.VBO);
+  glBindVertexArray(navPointsMesh.VAO);
+
+  navPointsMesh.vertexNum = navPointsSize * cube.vertexNum;
+  navPointsMesh.attrSize = 3;
+
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * cube.vertexNum * navPointsSize, navPointsMesh.vBuf, GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+  glEnableVertexAttribArray(0);
+  
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+  
 }

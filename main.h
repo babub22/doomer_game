@@ -118,14 +118,16 @@ typedef enum{
 } MenuTypes;
 
 typedef enum{
-  pointLightT, shadowLightT, dirLightT,
+  dirLightShadowT,
+  dirLightT,
+  pointLightT,
   lightsTypeCounter
 } LightType;
 
 const char* tileBlocksStr[];
 /*= { [roofBlockT] = "Roof",[stepsBlockT] = "Steps", [angledRoofT] = "Angle Roof" };*/
 
-const char* lightTypesStr[];// = { [dirLightT] = "Dir light", [pointLightT] = "Point light" };
+const char* lightTypesStr[];// = { [dirLightShadowT] = "Dir light", [pointLightT] = "Point light" };
 
 typedef struct{
   bool opened;
@@ -142,6 +144,14 @@ typedef struct{
   // TODO: unhardcode VBOsize in VBO generator
   int VBOsize;
 } MeshBuffer;
+
+
+typedef enum{
+  whTopPlane, whFrontPlane, whBackPlane,
+  // whFrontHiddenPlane, whBackHiddenPlane,
+  
+  whPlaneCounter
+} HiddenWallPlanes;
 
 typedef enum{
   wTopPlane, wFrontPlane, wBackPlane,
@@ -203,7 +213,8 @@ typedef struct{
   
   WallType type;
   WallType prevType;
-
+  Side side;
+  
   Matrix mat;
 
   int id;
@@ -428,8 +439,8 @@ struct Tile{
 typedef struct{
   int side;
   
-  //  vec3i grid;
   int txIndex;
+  int tileId;
 
   Wall* wall;
   WallJoint* joint;
@@ -708,7 +719,7 @@ typedef struct{
   vec3 lb;
   vec3 rt;
 
-  int cubemapIndex;
+  //  int depthTxIndex;
 } Light;
 
 bool navPointsDraw;
@@ -1177,4 +1188,7 @@ typedef struct{
 GeomFin* finalGeom;
 
 void batchAllGeometry();
+void batchAllGeometryNoHidden();
 VPair planePairs;
+
+void assembleNavigation();

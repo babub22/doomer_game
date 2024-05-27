@@ -13,15 +13,14 @@ layout (location = 2) in vec3 aNormal;
 out vec2 TexCoord;
 out vec3 Normal;
 out vec3 FragPos;
-out vec4 FragPosLightSpace;  
+out vec4 FragPosLightSpace[8];  
 
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
 
-uniform mat4 lightSpaceMatrix;
-
-//uniform vec3 mapCenter;
+uniform mat4 lightSpaceMatrix[8];
+uniform int dirShadowLightsSize;  
 
 void main(void)
 {
@@ -31,7 +30,9 @@ Normal = aNormal;
 FragPos = vec3(model * vec4(aPos, 1.0));
 gl_Position = proj * view  * model * vec4(aPos, 1.0);
 
-FragPosLightSpace = lightSpaceMatrix * vec4(FragPos,1.0f);
+for(int i=0;i<dirShadowLightsSize;i++){
+FragPosLightSpace[i] = lightSpaceMatrix[i] * vec4(FragPos,1.0f);
+}
 
 vertexToPlayer = cameraPos - FragPos;
 }
