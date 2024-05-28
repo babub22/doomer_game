@@ -175,6 +175,10 @@ if(tex.a == 0.0){
 discard;
 }
 
+//if(tex.a != 1.0f){
+//discard;
+//}
+
 vec3 viewDir = normalize(cameraPos - FragPos);
 vec3 norm = normalize(Normal);
 

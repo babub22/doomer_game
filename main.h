@@ -82,13 +82,23 @@ typedef struct{
 } AnimTimer;
 
 typedef enum{
-  wallT,  
+  normWallT,
+  LRWallT,
+  LWallT,
+  RWallT,
+  
   doorT,
   windowT,
-  wallJointT,
+  //  wallJointT,
+  
+  halfWallT,
   
   hiddenWallT,
-  hiddenJointT,
+  hiddenLRWallT,
+  hiddenLWallT,
+  hiddenRWallT,
+  
+  //  hiddenJointT,
 
   wallTypeCounter,
 } WallType;
@@ -156,7 +166,8 @@ typedef enum{
 typedef enum{
   wTopPlane, wFrontPlane, wBackPlane,
   // wLeftPlane, wRightPlane,
-  wPlaneCounter
+  //  wLeftExPlane, wRightExPlane,
+  wPlaneCounter,
 } WallPlanes;
 
 const char* wallPlanesStr[];/* = {
@@ -406,19 +417,9 @@ typedef struct{
 
 #define spreadMat4(mat) mat[0], mat[1], mat[2], mat[3], mat[4], mat[5], mat[6], mat[7], mat[8], mat[9], mat[10], mat[11], mat[12], mat[13], mat[14], mat[15]
 
-typedef struct{
-  Plane plane[jointPlaneCounter];
-  WallType type;
-  Side side;
-  
-  int id;
-  int tileId;
-} WallJoint;
-
 struct Tile{
   TileBlock* block;
   Wall* wall[2];
-  WallJoint* joint[4];
 
   // 1 byte - empty/net/textured
   // 2 byte - under texture id
@@ -428,12 +429,6 @@ struct Tile{
   vec3 pos;
 
   int id;
-
-  //  WallType jointType;
-  //  Plane joint[4][jointPlaneCounter];
-  //  bool jointExist[4];
-
-  //  Matrix jointsMat[4];
 };
 
 typedef struct{
@@ -443,7 +438,7 @@ typedef struct{
   int tileId;
 
   Wall* wall;
-  WallJoint* joint;
+  // WallJoint* joint;
   
   int plane;
 } WallMouseData;
@@ -1006,7 +1001,7 @@ const vec2i englLettersMap[];/* = {
 
 const char* sidesToStr[];// = { [top]= "Top", [bot]="Bot", [right]="Right", [left]"Left"};
 
-void setupAABBAndMatForJoint(vec2i grid, Side side);
+void setupAABBAndMatForJoint(vec2i pos, Side side);
 void batchGeometry();
 void initGrid(int sx, int sy, int sz);
 
@@ -1159,8 +1154,8 @@ void assembleHalfWallJointVBO();
 Wall** wallsStorage;
 int wallsStorageSize;
 
-WallJoint** jointsStorage;
-int jointsStorageSize;
+//WallJoint** jointsStorage;
+//int jointsStorageSize;
 
 TileBlock** blocksStorage;
 int blocksStorageSize;
@@ -1191,4 +1186,7 @@ void batchAllGeometry();
 void batchAllGeometryNoHidden();
 VPair planePairs;
 
+bool showHiddenWalls;
+
 void assembleNavigation();
+void assembleHalfWallBlockVBO();

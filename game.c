@@ -344,34 +344,6 @@ void gameMouseVS(){
 	}
       }
 
-      // joints
-      {
-	for (int i2 = 0; i2 < batchedGeometryIndexes[i].jointsSize; i2++) {
-	  int jointIndex = batchedGeometryIndexes[i].jointsIndexes[i2];
-	  float intersectionDistance;
-	    
-	  for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex]->plane[i3].lb, bBlock->joint[jointIndex]->plane[i3].rt, NULL, &intersectionDistance);
-
-	    if (isIntersect && minDistToCamera > intersectionDistance) {
-
-	      intersWallData->side = jointIndex;
-	      intersWallData->txIndex = bBlock->joint[jointIndex]->plane[i3].txIndex;
-	      //intersWallData->tile = bBlock;
-
-	     // intersWallData->type = wallJointT;
-	      intersWallData->plane = i3;
-
-	      mouse.selectedType = mouseWallT;
-	      mouse.selectedThing = intersWallData;
-
-	      minDistToCamera = intersectionDistance;
-	    }
-
-	  }
-	}
-	  
-      }
     }
   }
 

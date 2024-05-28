@@ -637,9 +637,9 @@ void editorEvents(SDL_Event event){
 	  
 	break;
       }case(SDL_SCANCODE_U):{
-	lightView = !lightView;
-	break;
-      }
+	 lightView = !lightView;
+	 break;
+       }
       case(SDL_SCANCODE_F): {
 	// do i need focuse something without cursorMode
 	if(false){
@@ -716,9 +716,9 @@ void editorEvents(SDL_Event event){
 	      uniformLights();
 	    
 	      //	      if(light->type == shadowLightT){
-		rerenderShadowsForAllLights();
-		//		rerenderShadowForLight(light->id);
-		//	      }
+	      rerenderShadowsForAllLights();
+	      //		rerenderShadowForLight(light->id);
+	      //	      }
 	    }
 
 	    if(model){
@@ -871,18 +871,18 @@ void editorEvents(SDL_Event event){
 	   }else if(mouse.brushType == mouseWallBrushT){
 	     WallType* type = mouse.brushThing;
 
-	     if(type == windowT){
+	     if(type == LRWallT){
 	       mouse.brushType = 0;
 	       free(mouse.brushThing);
 	       mouse.brushThing = NULL;
 	     }else{
-	       *type = windowT;
+	       *type = LRWallT;
 	     }
 	   }else{
 	     mouse.brushType = mouseWallBrushT;
 
 	     WallType* type = malloc(sizeof(WallType));
-	     *type = windowT;
+	     *type = LRWallT;
 		 
 	     mouse.brushThing = type;
 	   }
@@ -895,18 +895,18 @@ void editorEvents(SDL_Event event){
 	    }else if(mouse.brushType == mouseWallBrushT){
 	      WallType* type = mouse.brushThing;
 
-	      if(type == wallT){
+	      if(type == normWallT){
 		mouse.brushType = 0;
 		free(mouse.brushThing);
 		mouse.brushThing = NULL;
 	      }else{
-		*type = wallT;
+		*type = normWallT;
 	      }
 	    }else{
 	      mouse.brushType = mouseWallBrushT;
 
 	      WallType* type = malloc(sizeof(WallType));
-	      *type = wallT;
+	      *type = normWallT;
 		 
 	      mouse.brushThing = type;
 	    }
@@ -919,24 +919,120 @@ void editorEvents(SDL_Event event){
 	     }else if(mouse.brushType == mouseWallBrushT){
 	       WallType* type = mouse.brushThing;
 
-	       if(type == doorT){
+	       if(type == LWallT){
 		 mouse.brushType = 0;
 		 free(mouse.brushThing);
 		 mouse.brushThing = NULL;
 	       }else{
-		 *type = doorT;
+		 *type = LWallT;
 	       }
 	     }else{
 	       mouse.brushType = mouseWallBrushT;
 
 	       WallType* type = malloc(sizeof(WallType));
-	       *type = doorT;
+	       *type = LWallT;
 		 
 	       mouse.brushThing = type;
 	     }
 	      
 	     break;
-	   }
+	   }case(SDL_SCANCODE_4):{
+	      if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
+		free(mouse.brushThing);
+		mouse.brushThing = NULL;
+	      }else if(mouse.brushType == mouseWallBrushT){
+		WallType* type = mouse.brushThing;
+
+		if(type == RWallT){
+		  mouse.brushType = 0;
+		  free(mouse.brushThing);
+		  mouse.brushThing = NULL;
+		}else{
+		  *type = RWallT;
+		}
+	      }else{
+		mouse.brushType = mouseWallBrushT;
+
+		WallType* type = malloc(sizeof(WallType));
+		*type = RWallT;
+		 
+		mouse.brushThing = type;
+	      }
+	      
+	      break;
+	    }case(SDL_SCANCODE_5):{
+	       if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
+		 free(mouse.brushThing);
+		 mouse.brushThing = NULL;
+	       }else if(mouse.brushType == mouseWallBrushT){
+		 WallType* type = mouse.brushThing;
+
+		 if(type == windowT){
+		   mouse.brushType = 0;
+		   free(mouse.brushThing);
+		   mouse.brushThing = NULL;
+		 }else{
+		   *type = windowT;
+		 }
+	       }else{
+		 mouse.brushType = mouseWallBrushT;
+
+		 WallType* type = malloc(sizeof(WallType));
+		 *type = windowT;
+		 
+		 mouse.brushThing = type;
+	       }
+	      
+	       break;
+	     }case(SDL_SCANCODE_6):{
+		if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
+		  free(mouse.brushThing);
+		  mouse.brushThing = NULL;
+		}else if(mouse.brushType == mouseWallBrushT){
+		  WallType* type = mouse.brushThing;
+
+		  if(type == doorT){
+		    mouse.brushType = 0;
+		    free(mouse.brushThing);
+		    mouse.brushThing = NULL;
+		  }else{
+		    *type = doorT;
+		  }
+		}else{
+		  mouse.brushType = mouseWallBrushT;
+
+		  WallType* type = malloc(sizeof(WallType));
+		  *type = doorT;
+		 
+		  mouse.brushThing = type;
+		}
+	      
+		break;
+	      }case(SDL_SCANCODE_7):{
+		 if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
+		   free(mouse.brushThing);
+		   mouse.brushThing = NULL;
+		 }else if(mouse.brushType == mouseWallBrushT){
+		   WallType* type = mouse.brushThing;
+
+		   if(type == halfWallT){
+		     mouse.brushType = 0;
+		     free(mouse.brushThing);
+		     mouse.brushThing = NULL;
+		   }else{
+		     *type = halfWallT;
+		   }
+		 }else{
+		   mouse.brushType = mouseWallBrushT;
+
+		   WallType* type = malloc(sizeof(WallType));
+		   *type = halfWallT;
+		 
+		   mouse.brushThing = type;
+		 }
+	      
+		 break;
+	       }
       case(SDL_SCANCODE_C):{
 	/*		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 		
@@ -1092,56 +1188,42 @@ void editorEvents(SDL_Event event){
 	  WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 
 	  if(data->wall){
-	    if(data->wall->type == doorT){
-	      data->wall->planes[doorTopPlane].hide = !data->wall->planes[doorTopPlane].hide;
-	      data->wall->planes[doorFrontPlane].hide = !data->wall->planes[doorFrontPlane].hide;
-	      data->wall->planes[doorBackPlane].hide = !data->wall->planes[doorBackPlane].hide;
-	      data->wall->planes[doorInnerTopPlane].hide = !data->wall->planes[doorInnerTopPlane].hide;
-	    }else{
-	      if(data->wall->type != hiddenWallT){
-		data->wall->prevType = data->wall->type;
-		data->wall->type = hiddenWallT;
-	      }else{
-		data->wall->type = data->wall->prevType;
-	      }
+	    if(data->wall->type == LRWallT){
+	      data->wall->prevType = data->wall->type;
+	      data->wall->type = hiddenLRWallT;
+	    }else if(data->wall->prevType == LRWallT){
+	      data->wall->type = data->wall->prevType;
 	    }
-	  }else if(data->joint){
-	    if(data->joint->type == hiddenJointT){
-	      data->joint->type = wallJointT;
-	    }else{
-	      data->joint->type = hiddenJointT;
+
+	    if(data->wall->type == LWallT){
+	      data->wall->prevType = data->wall->type;
+	      data->wall->type = hiddenLWallT;
+	    }else if(data->wall->prevType == LWallT){
+	      data->wall->type = data->wall->prevType;
+	    }
+
+	    if(data->wall->type == RWallT){
+	      data->wall->prevType = data->wall->type;
+	      data->wall->type = hiddenRWallT;
+	    }else if(data->wall->prevType == RWallT){
+	      data->wall->type = data->wall->prevType;
+	    }
+
+	    if(data->wall->type == normWallT || data->wall->type == windowT){
+	      data->wall->prevType = data->wall->type;
+	      data->wall->type = hiddenWallT;
+	    }else if(data->wall->prevType == normWallT || data->wall->prevType == windowT){
+	      data->wall->type = data->wall->prevType;
 	    }
 	  }
 
-	  //batchAllGeometryHidden();
-	  batchAllGeometry();
-
-	  /*
-	    if(data->type == wallJointT){
-	    data->tile->joint[data->side]->type = hiddenJointT;
-	    } else if(data->type == hiddenJointT){
-	    data->tile->joint[data->side]->type = wallJointT;
-	    }else {
-	    if(data->tile->wall[data->side] & &GroundType typedata->tile->wall[data->side]->type == doorT){
-	    data->tile->wall[data->side]->planes[doorTopPlane].hide = !data->tile->wall[data->side]->planes[doorTopPlane].hide;
-	    data->tile->wall[data->side]->planes[doorFrontPlane].hide = !data->tile->wall[data->side]->planes[doorFrontPlane].hide;
-	    data->tile->wall[data->side]->planes[doorBackPlane].hide = !data->tile->wall[data->side]->planes[doorBackPlane].hide;
-	    data->tile->wall[data->side]->planes[doorInnerTopPlane].hide = !data->tile->wall[data->side]->planes[doorInnerTopPlane].hide;
-	    }else{
-	    if(data->tile->wall[data->side] && data->tile->wall[data->side]->type != hiddenWallT){
-	    data->tile->wall[data->side]->prevType = data->tile->wall[data->side]->type;
-	    data->tile->wall[data->side]->type = hiddenWallT;
-	    }else{
-	    data->tile->wall[data->side]->type = data->tile->wall[data->side]->prevType;
-	    }
-	    }
-	    }*/
-
-	  //	  batchGeometry();
+	  if(showHiddenWalls){
+	    batchAllGeometry();
+	  }else{
+	    batchAllGeometryNoHidden();
+	  }
 	}
-	    
-	//highlighting = !highlighting;
-	    
+
 	break;
       }
       case(SDL_SCANCODE_DELETE): {
@@ -1380,8 +1462,8 @@ void editorEvents(SDL_Event event){
 
 	//	if (light->type == shadowLightT) {
 	rerenderShadowsForAllLights();
-	  //	  rerenderShadowForLight(light->id);
-	  //	}
+	//	  rerenderShadowForLight(light->id);
+	//	}
       }
 
       if (model) {
@@ -1479,7 +1561,7 @@ void editorMatsSetup(int curShader) {
     vec3 negPos = { curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
 
     vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
-	///*
+    ///*
     if(lightView){
       //      editorProj = orthogonal(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
       editorProj = perspective(rad(90.0f), 1.0f, 0.01f, 1000.0f);
@@ -1506,7 +1588,7 @@ void editorMatsSetup(int curShader) {
       //   printf("p %f %f %f \n", argVec3(curCamera->front));
 					
       // editorView = fpsView(curCamera->pos, curCamera->pitch, curCamera->yaw);/*lookAt(curCamera->pos,
-        editorProj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
+      editorProj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
 	
       editorView = lookAt(negPos,
 			  (vec3) {
@@ -1518,30 +1600,30 @@ void editorMatsSetup(int curShader) {
     }
 
     /*    editorView = lookAt((vec3){0.01f, -1.0f, .0f},
-			(vec3) {
-			  0.0f + 0.0f,
-			  -1.0f -1.0f,
-			  0.0f + 0.0f
-			},
-			(vec3){0.0f, 1.0f, 0.0f});*/
+	  (vec3) {
+	  0.0f + 0.0f,
+	  -1.0f -1.0f,
+	  0.0f + 0.0f
+	  },
+	  (vec3){0.0f, 1.0f, 0.0f});*/
     
     // */
-      //}
+    //}
     //    }
     //(vec3){0.0f, 1.0f, 0.0f});
 
     /*
       editorView = lookAt((vec3){0.0f, 0.0f, 0.0f},
       (vec3){ curCamera->front.x,
-			   curCamera->front.y,
-			   curCamera->front.z},
-			(vec3){0.0f, 1.0f, 0.0f});
+      curCamera->front.y,
+      curCamera->front.z},
+      (vec3){0.0f, 1.0f, 0.0f});
 
-  */
-      //    translate(&editorView, argVec3(negPos));
+    */
+    //    translate(&editorView, argVec3(negPos));
 
-       // rotateY(&editorView, rad(curCamera->yaw));
-      // rotateX(&editorView, rad(curCamera->pitch));
+    // rotateY(&editorView, rad(curCamera->yaw));
+    // rotateX(&editorView, rad(curCamera->pitch));
 
     for (int i = 0; i < shadersCounter; i++) {
       glUseProgram(shadersId[i]);
@@ -1768,9 +1850,9 @@ void editorPreFrame(float deltaTime) {
       uniformLights();
 
       //      if (light->type == shadowLightT) {
-	rerenderShadowsForAllLights();
-	//	rerenderShadowForLight(light->id);
-	//      }
+      rerenderShadowsForAllLights();
+      //	rerenderShadowForLight(light->id);
+      //      }
     }
 
     if (picture) {
@@ -1983,20 +2065,27 @@ void editor3dRender() {
 
     const vec3 tile = tilesStorage[tileData->tileId]->pos;//xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
 
-    if (tileData->intersection.x < tile.x + borderArea && tileData->intersection.x >= tile.x - borderArea) {
+    if (tileData->intersection.x < tile.x + borderArea && tileData->intersection.x >= tile.x) {
       mouse.tileSide = left;
+    }else if(tileData->intersection.x < tile.x + 1.0f && tileData->intersection.x >= tile.x + 1.0f - borderArea) {
+      mouse.tileSide = right;
     }
     else {
-      if (tileData->intersection.z < tile.z + borderArea && tileData->intersection.z >= tile.z - borderArea) {
+      if (tileData->intersection.z < tile.z + borderArea && tileData->intersection.z >= tile.z) {
 	mouse.tileSide = top;
-      }
-      else if (tileData->intersection.z > (tile.z + bBlockD / 2) - borderArea && tileData->intersection.z < (tile.z + bBlockD / 2) + borderArea && tileData->intersection.x >(tile.x + bBlockW / 2) - borderArea && tileData->intersection.x < (tile.x + bBlockW / 2) + borderArea) {
+      }else if(tileData->intersection.z < tile.z + 1.0f && tileData->intersection.z >= tile.z + 1.0f - borderArea) {
+	mouse.tileSide = bot;
+      }else if (tileData->intersection.z > (tile.z + bBlockD / 2) - borderArea && tileData->intersection.z < (tile.z + bBlockD / 2) + borderArea && tileData->intersection.x >(tile.x + bBlockW / 2) - borderArea && tileData->intersection.x < (tile.x + bBlockW / 2) + borderArea) {
 	mouse.tileSide = center;
       }
       else {
 	mouse.tileSide = -1;
       }
     }
+
+    /*   if(mouse.tileSide != -1 && mouse.tileSide != center){
+	 printf("%s \n", sidesToStr[mouse.tileSide]);
+	 }*/
 
     const float selectionW = borderArea * 3;
 
@@ -2086,17 +2175,18 @@ void editor3dRender() {
 	memset(&wal, 0, sizeof(Wall));
 
 	wal.type = *type;
+	wal.prevType = *type;
 	wal.mat = IDENTITY_MATRIX;
 
 	wal.mat.m[12] = tile.x;
-	wal.mat.m[13] = tile.y;
+	wal.mat.m[13] = curFloor;
 	wal.mat.m[14] = tile.z;
       }
 
       static const int rotationPad[4][3] = {
 	[bot] = { 180, 1, 1 },
 	[top] = { 0, 0, 0  },
-	[left] = { 270, 0, 0 },
+	[left] = { -90, 0, 0 },
 	[right] = { 90, 1, 1}//{ 180, 14, 1, 12, 1 }
       };
 
@@ -2109,6 +2199,8 @@ void editor3dRender() {
 	float zTemp = mat->m[14];
 
 	rotateY(wal.mat.m, rad(rotationPad[selectedSide][0]));
+
+	//	printf("%s \n",sidesToStr[selectedSide]);
 
 	mat->m[12] = xTemp;
 	mat->m[13] = yTemp;
@@ -2139,27 +2231,32 @@ void editor3dRender() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
       }
 
-      vec3i gTile = { tilesStorage[tileData->tileId]->pos.x, tilesStorage[tileData->tileId]->pos.y, tilesStorage[tileData->tileId]->pos.z };// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
+      vec3i gTile = { tilesStorage[tileData->tileId]->pos.x, curFloor, tilesStorage[tileData->tileId]->pos.z };// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
 
       if (mouse.clickR) {
 	wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
 
 	if (tileData->type == netTileT2) {
-	  //	  printf("Calllllllll\n");
-	  //grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
-	  // tileData->tile = grid[curFloor][tileData->grid.z][tileData->grid.x];
-	  tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
-	  tilesStorage[tilesStorageSize]->pos = tileData->pos;
 	  tilesStorageSize++;
+	  tilesStorage = realloc(tilesStorage, sizeof(Tile*) * tilesStorageSize);
+
+	  Tile* newTile = calloc(1, sizeof(Tile));
+	  newTile->pos = tileData->pos;
+	  grid[curFloor][(int)tileData->pos.z][(int)tileData->pos.x] = newTile;
+	  tilesStorage[tilesStorageSize-1] = newTile;
+
+	  printf("New tile\n");
 	}
 
 	for (int i = 0; i < wallsVPairs[wal.type].planesNum; i++) {
 	  calculateAABB(wal.mat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, wallsVPairs[wal.type].pairs[i].attrSize, &wal.planes[i].lb, &wal.planes[i].rt);
+	  
+	  geomentyByTxCounter[wal.planes[i].txIndex] += wallsVPairs[wal.type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wal.type].pairs[i].attrSize;
 	}
 
 	vec3 tile = tilesStorage[tileData->tileId]->pos;
-
-	if (selectedSide == left) {
+	/*
+	  if (selectedSide == left) {
 	  bool botInner = tilesStorage[tileData->tileId]->wall[top];
 
 	  bool botOuter = gTile.x - 1 >= 0 && grid[curFloor][gTile.z][gTile.x - 1] && grid[curFloor][gTile.z][gTile.x - 1]->wall[top];
@@ -2167,44 +2264,48 @@ void editor3dRender() {
 	  bool botPar = gTile.z + 1 < gridZ && grid[curFloor][gTile.z + 1][gTile.x] && grid[curFloor][gTile.z + 1][gTile.x]->wall[left];
 
 	  if (botPar) {
-	    free(grid[curFloor][gTile.z + 1][gTile.x]->joint[top]);
-	    grid[curFloor][gTile.z + 1][gTile.x]->joint[top] = NULL;
+	  free(grid[curFloor][gTile.z + 1][gTile.x]->joint[top]);
+	  grid[curFloor][gTile.z + 1][gTile.x]->joint[top] = NULL;
 
-	    if (grid[curFloor][gTile.z + 1][gTile.x - 1]) {
-	      free(grid[curFloor][gTile.z + 1][gTile.x - 1]->joint[right]);
-	      grid[curFloor][gTile.z + 1][gTile.x - 1]->joint[right] = NULL;
-	    }
+	  if (grid[curFloor][gTile.z + 1][gTile.x - 1]) {
+	  free(grid[curFloor][gTile.z + 1][gTile.x - 1]->joint[right]);
+	  grid[curFloor][gTile.z + 1][gTile.x - 1]->joint[right] = NULL;
+	  }
 	  }
 
 	  bool topPar = gTile.x - 1 >= 0 && grid[curFloor][gTile.z - 1][gTile.x] && grid[curFloor][gTile.z - 1][gTile.x]->wall[left];
 
 	  if (topPar) {
-	    if (grid[curFloor][gTile.z - 1][gTile.x - 1]) {
-	      free(grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left]);
-	      grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left] = NULL;
-	    }
+	  if (grid[curFloor][gTile.z - 1][gTile.x - 1]) {
+	  free(grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left]);
+	  grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left] = NULL;
+	  }
 
-	    free(grid[curFloor][gTile.z][gTile.x]->joint[bot]);
-	    grid[curFloor][gTile.z][gTile.x]->joint[bot] = NULL;
+	  free(grid[curFloor][gTile.z][gTile.x]->joint[bot]);
+	  grid[curFloor][gTile.z][gTile.x]->joint[bot] = NULL;
 	  }
 
 	  if ((!botInner || !botOuter) && !topPar) {
-	    if (botInner) {
-	      tilesStorage[tileData->tileId]->joint[top] = malloc(sizeof(WallJoint));
-	      tilesStorage[tileData->tileId]->joint[top]->type = wallJointT;
-	      setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, top);
-	    }
+	  if (botInner) {
+	  tilesStorage[tileData->tileId]->joint[top] = malloc(sizeof(WallJoint));
+	  tilesStorage[tileData->tileId]->joint[top]->type = wallJointT;
+	  //setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, top);
+	      
+	  //  setupAABBAndMatForJoint((vec3i) { gTile.x, curFloor, gTile.z }, grid[curFloor][gTile.z][gTile.x]->joint[top], top);
+	  }
 
-	    if (botOuter) {
-	      if (!grid[curFloor][gTile.z][gTile.x - 1]) {
-		grid[curFloor][gTile.z][gTile.x - 1] = calloc(1, sizeof(Tile));
-	      }
+	  if (botOuter) {
+	  if (!grid[curFloor][gTile.z][gTile.x - 1]) {
+	  grid[curFloor][gTile.z][gTile.x - 1] = calloc(1, sizeof(Tile));
+	  }
 
-	      grid[curFloor][gTile.z][gTile.x - 1]->joint[right] = malloc(sizeof(WallJoint));
-	      grid[curFloor][gTile.z][gTile.x - 1]->joint[right]->type = wallJointT;
+	  grid[curFloor][gTile.z][gTile.x - 1]->joint[right] = malloc(sizeof(WallJoint));
+	  grid[curFloor][gTile.z][gTile.x - 1]->joint[right]->type = wallJointT;
 
-	      setupAABBAndMatForJoint((vec2i) { gTile.x - 1, gTile.z }, right);
-	    }
+	  addNewJointToStorage(grid[curFloor][gTile.z][gTile.x - 1]->joint[right]);
+
+	  //  setupAABBAndMatForJoint((vec3i) { gTile.x - 1, curFloor, gTile.z }, grid[curFloor][gTile.z][gTile.x - 1]->joint[right], right);
+	  }
 	  }
 
 	  bool topOuter = gTile.z + 1 < gridZ && grid[curFloor][gTile.z + 1][gTile.x] && grid[curFloor][gTile.z + 1][gTile.x]->wall[top];
@@ -2212,28 +2313,32 @@ void editor3dRender() {
 	  bool topInner = (gTile.z + 1 < gridZ) && (gTile.x - 1 >= 0) && grid[curFloor][gTile.z + 1][gTile.x - 1] && grid[curFloor][gTile.z + 1][gTile.x - 1]->wall[top];
 
 	  if ((!topInner || !topOuter) && !botPar) {
-	    if (topInner) {
-	      if (!grid[curFloor][gTile.z][gTile.x - 1]) {
-		grid[curFloor][gTile.z][gTile.x - 1] = calloc(1, sizeof(Tile));
-	      }
-
-	      grid[curFloor][gTile.z][gTile.x - 1]->joint[left] = malloc(sizeof(WallJoint));
-	      grid[curFloor][gTile.z][gTile.x - 1]->joint[left]->type = wallJointT;
-	      setupAABBAndMatForJoint((vec2i) { gTile.x - 1, gTile.z }, left);
-	    }
-
-	    if (topOuter) {
-	      if (!grid[curFloor][gTile.z + 1][gTile.x]) {
-		grid[curFloor][gTile.z + 1][gTile.x] = calloc(1, sizeof(Tile));
-	      }
-
-	      grid[curFloor][gTile.z + 1][gTile.x]->joint[bot] = malloc(sizeof(WallJoint));
-	      grid[curFloor][gTile.z + 1][gTile.x]->joint[bot]->type = wallJointT;
-	      setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z + 1 }, bot);
-	    }
+	  if (topInner) {
+	  if (!grid[curFloor][gTile.z][gTile.x - 1]) {
+	  grid[curFloor][gTile.z][gTile.x - 1] = calloc(1, sizeof(Tile));
 	  }
-	}
-	else if (selectedSide == top) {
+
+	  grid[curFloor][gTile.z][gTile.x - 1]->joint[left] = malloc(sizeof(WallJoint));
+	  grid[curFloor][gTile.z][gTile.x - 1]->joint[left]->type = wallJointT;
+
+	  addNewJointToStorage(grid[curFloor][gTile.z][gTile.x - 1]->joint[left]);
+	  setupAABBAndMatForJoint((vec2i) { gTile.x - 1, gTile.z }, left);
+	  }
+
+	  if (topOuter) {
+	  if (!grid[curFloor][gTile.z + 1][gTile.x]) {
+	  grid[curFloor][gTile.z + 1][gTile.x] = calloc(1, sizeof(Tile));
+	  }
+
+	  grid[curFloor][gTile.z + 1][gTile.x]->joint[bot] = malloc(sizeof(WallJoint));
+	  grid[curFloor][gTile.z + 1][gTile.x]->joint[bot]->type = wallJointT;
+
+	  addNewJointToStorage(grid[curFloor][gTile.z + 1][gTile.x]->joint[bot]);
+	  setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z + 1 }, bot);
+	  }
+	  }
+	  }
+	  else if (selectedSide == top) {
 	  bool leftInner = tilesStorage[tileData->tileId]->wall[left];
 
 	  bool leftOuter = gTile.z - 1 >= 0 && grid[curFloor][gTile.z - 1][gTile.x] && grid[curFloor][gTile.z - 1][gTile.x]->wall[left];
@@ -2241,41 +2346,48 @@ void editor3dRender() {
 	  bool leftPar = gTile.x - 1 >= 0 && grid[curFloor][gTile.z][gTile.x - 1] && grid[curFloor][gTile.z][gTile.x - 1]->wall[top];
 
 	  if (leftPar) {
-	    free(grid[curFloor][gTile.z][gTile.x - 1]->joint[right]);
-	    grid[curFloor][gTile.z][gTile.x - 1]->joint[right] = NULL;
+	  deleteJointInStorage(grid[curFloor][gTile.z][gTile.x - 1]->joint[right]->id);
+	  free(grid[curFloor][gTile.z][gTile.x - 1]->joint[right]);
+	  grid[curFloor][gTile.z][gTile.x - 1]->joint[right] = NULL;
 
-	    if (grid[curFloor][gTile.z - 1][gTile.x - 1]) {
-	      free(grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left]);
-	      grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left] = NULL;
-	    }
+	  if (grid[curFloor][gTile.z - 1][gTile.x - 1]) {
+	  deleteJointInStorage(grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left]->id);
+	  free(grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left]);
+	  grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left] = NULL;
+	  }
 	  }
 
 	  bool rightPar = gTile.x + 1 < gridX && grid[curFloor][gTile.z][gTile.x + 1] && grid[curFloor][gTile.z][gTile.x + 1]->wall[top];
 
 	  if (rightPar) {
-	    free(grid[curFloor][gTile.z][gTile.x + 1]->joint[bot]);
-	    grid[curFloor][gTile.z][gTile.x + 1]->joint[bot] = NULL;
+	  deleteJointInStorage(grid[curFloor][gTile.z][gTile.x + 1]->joint[bot]->id);
+	  free(grid[curFloor][gTile.z][gTile.x + 1]->joint[bot]);
+	  grid[curFloor][gTile.z][gTile.x + 1]->joint[bot] = NULL;
 
-	    free(grid[curFloor][gTile.z][gTile.x + 1]->joint[top]);
-	    grid[curFloor][gTile.z][gTile.x + 1]->joint[top] = NULL;
+	  deleteJointInStorage(grid[curFloor][gTile.z][gTile.x + 1]->joint[top]->id);
+	  free(grid[curFloor][gTile.z][gTile.x + 1]->joint[top]);
+	  grid[curFloor][gTile.z][gTile.x + 1]->joint[top] = NULL;
 	  }
 
 	  if ((!leftInner || !leftOuter) && !leftPar) {
-	    if (leftInner) {
-	      printf("Inner\n");
-	      tilesStorage[tileData->tileId]->joint[top] = malloc(sizeof(WallJoint));
-	      tilesStorage[tileData->tileId]->joint[top]->type = wallJointT;
-	      setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, top);
-	    }
+	  if (leftInner) {
+	  printf("Inner\n");
+	  tilesStorage[tileData->tileId]->joint[top] = malloc(sizeof(WallJoint));
+	  tilesStorage[tileData->tileId]->joint[top]->type = wallJointT;
 
-	    if (leftOuter) {
-	      printf("Out\n");
-	      tilesStorage[tileData->tileId]->joint[bot] = malloc(sizeof(WallJoint));
-	      tilesStorage[tileData->tileId]->joint[bot]->type = wallJointT;
-
-	      setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, bot);
-	    }
+	  addNewJointToStorage(tilesStorage[tileData->tileId]->joint[top]);
+	  setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, top);
 	  }
+
+	  if (leftOuter) {
+	    printf("Out\n");
+	    tilesStorage[tileData->tileId]->joint[bot] = malloc(sizeof(WallJoint));
+	    tilesStorage[tileData->tileId]->joint[bot]->type = wallJointT;
+
+	    addNewJointToStorage(tilesStorage[tileData->tileId]->joint[bot]);
+	    setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, bot);
+	  }
+    }
 
 	  bool rightInner = gTile.x + 1 < gridX && grid[curFloor][gTile.z][gTile.x + 1] && grid[curFloor][gTile.z][gTile.x + 1]->wall[left];
 
@@ -2285,6 +2397,8 @@ void editor3dRender() {
 	    if (rightInner) {
 	      tilesStorage[tileData->tileId]->joint[right] = malloc(sizeof(WallJoint));
 	      tilesStorage[tileData->tileId]->joint[right]->type = wallJointT;
+
+	      addNewJointToStorage(tilesStorage[tileData->tileId]->joint[right]);
 	      setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, right);
 	    }
 
@@ -2298,26 +2412,47 @@ void editor3dRender() {
 	      setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z - 1 }, left);
 	    }
 	  }
-	}
+  }*/
 
-	tilesStorage[tileData->tileId]->wall[selectedSide] = malloc(sizeof(Wall));
-	memcpy(tilesStorage[tileData->tileId]->wall[selectedSide], &wal, sizeof(Wall));
-	//tilesStorageSize++;
+	  if(selectedSide == right){
+	    selectedSide = left;
+	  }else if(selectedSide == bot){
+	    selectedSide = top;
+	  }
 
-	//grid[curFloor][(int)curTile.z][(int)curTile.x]->wall[selectedSide] = malloc(sizeof(Wall));
+	  tilesStorage[tileData->tileId]->wall[selectedSide] = malloc(sizeof(Wall));
+	  memcpy(tilesStorage[tileData->tileId]->wall[selectedSide], &wal, sizeof(Wall));
 
-	batchGeometry();
-      }
-    }
+	  wallsStorageSize++;
+	  if (!wallsStorage) {
+	    wallsStorage = malloc(sizeof(Wall*));
+	  }else {
+	    wallsStorage = realloc(wallsStorage, sizeof(Wall*) * wallsStorageSize);
+	  }
+
+	  printf("%s \n", wallTypeStr[tilesStorage[tileData->tileId]->wall[selectedSide]->type]);
+
+	  wallsStorage[wallsStorageSize - 1] = tilesStorage[tileData->tileId]->wall[selectedSide];
+	  //grid[curFloor][(int)curTile.z][(int)curTile.x]->wall[selectedSide] = malloc(sizeof(Wall));
+	
+	  if(showHiddenWalls){
+	    batchAllGeometry();
+	  }else{
+	    batchAllGeometryNoHidden();
+	  }
+}
   }
+}
 }
 //}
 
 void editor2dRender() {
-  //  char buf[64];
-  //  sprintf(buf, "%s - %d ", gizmosAxisStr[selectedGizmoAxis], cursorMode);
-  //  renderText(buf, .0f, .0f, 1.0f);
-
+  if(mouse.tileSide != -1 && mouse.tileSide != center){
+    char buf[64];
+    sprintf(buf, "%s", sidesToStr[mouse.tileSide]);
+    renderText(buf, .0f, .0f, 1.0f);
+  }
+  
   // setup context text
   {
     if (mouse.focusedThing) {
@@ -2442,12 +2577,6 @@ void editor2dRender() {
 
 	    wallData->wall->planes[wallData->plane].txIndex = texture->index1D;
 	  }
-	  else  if (wallData->joint) {
-	    wallData->joint->plane[wallData->plane].txIndex = texture->index1D;
-	  }
-
-
-
 
 	  batchGeometry();
 	}
@@ -2565,25 +2694,18 @@ void editor2dRender() {
 	 if (data->wall->type == doorT) {
 	   plane = doorPlanesStr[data->plane];
 	 }
-	 else if (data->wall->type == wallT) {
+	 else if (data->wall->type == normWallT) {
 	   plane = wallPlanesStr[data->plane];
 	 }
 	 else if (data->wall->type == windowT) {
 	   plane = windowPlanesStr[data->plane];
 	 }
        }
-       else if (data->joint) {
-	 plane = wallJointPlanesStr[data->plane];
-       }
 
        int id;
        int type;
 
-       if (data->joint) {
-	 id = data->joint->id;
-	 type = data->joint->type;
-       }
-       else if (data->wall) {
+       if (data->wall) {
 	 id = data->wall->id;
 	 type = data->wall->type;
 
@@ -3938,8 +4060,8 @@ void createLight(vec3 pos, int type){
   }
 
   //  if (type == shadowLightT) {
-    //rerenderShadowForLight(lightStorage[type][indexOfNew].id);
-    //  }
+  //rerenderShadowForLight(lightStorage[type][indexOfNew].id);
+  //  }
 }
 
 void uniformLights(){
@@ -3990,10 +4112,10 @@ void uniformLights(){
 	      shaderVarSufixStr[i2], i);
 
       //      if(i2 == dirLightShadowT){
-	uniformInt(mainShader, buf, lightStorage[i2][i].id);
-	//      }else{
-	//	uniformInt(mainShader, buf, 0);
-	//      }
+      uniformInt(mainShader, buf, lightStorage[i2][i].id);
+      //      }else{
+      //	uniformInt(mainShader, buf, 0);
+      //      }
 
       sprintf(buf, "%sLights[%i].dir",
 	      shaderVarSufixStr[i2], i);
@@ -4020,11 +4142,11 @@ void uniformLights(){
   //  uniformInt(dirShadowShader, "lightsSize", lightStorageSizeByType[shadowLightT]);
 
   /*  for(int i=0;i<lightStorageSizeByType[shadowLightT];i++){
-    vec3 pos = { lightStorage[shadowLightT][i].mat.m[12], lightStorage[shadowLightT][i].mat.m[13], lightStorage[shadowLightT][i].mat.m[14] };
+      vec3 pos = { lightStorage[shadowLightT][i].mat.m[12], lightStorage[shadowLightT][i].mat.m[13], lightStorage[shadowLightT][i].mat.m[14] };
       
-    sprintf(buf, "lightsPos[%d]", i);
-    uniformVec3(dirShadowShader, buf, pos);
-    }*/
+      sprintf(buf, "lightsPos[%d]", i);
+      uniformVec3(dirShadowShader, buf, pos);
+      }*/
 
   glUseProgram(curShader);
 }
@@ -4109,72 +4231,35 @@ void editorMouseVS(){
     }
   }
 
-  
-  /*  for(int i=0;i<2;i++){
-    for(int i2=0;i2<wallsStorageSize[i];i2++){
-	
-      if (ind.y >= curFloor) {
-	int wallSide = batchedGeometryIndexes[i].wallsIndexes[i2];
-	  
-	WallType type = wallsStorage[i]->type;
-	  
-	float intersectionDistance;
-
-	for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-	  bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, wallsStorage[i]->planes[i3].lb, wallsStorage[i]->planes[i3].rt, NULL, &intersectionDistance);
-
-	  if (isIntersect && minDistToCamera > intersectionDistance) {
-	    intersWallData->side = wallSide;
-	    intersWallData->grid = ind;
-
-	    int tx = wallsStorage[i]->planes[i3].txIndex;
-
-	    intersWallData->txIndex = tx;
-	    //intersWallData->tile = bBlock;
-
-	    intersWallData->type = type;
-	    intersWallData->plane = i3;
-
-	    mouse.selectedType = mouseWallT;
-	    mouse.selectedThing = intersWallData;
-	      
-	    minDistToCamera = intersectionDistance;
-	  }
-	}
-      }
-      }
-      }
-  */
-
   // joints
-  {
+  /*{
     for(int i=0;i<jointsStorageSize;i++){
-      Side jSide = jointsStorage[i]->side;
-	  float intersectionDistance;
+    Side jSide = jointsStorage[i]->side;
+    float intersectionDistance;
       
-      for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, jointsStorage[i]->plane[i3].lb, jointsStorage[i]->plane[i3].rt, NULL, &intersectionDistance);
+    for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
+    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, jointsStorage[i]->plane[i3].lb, jointsStorage[i]->plane[i3].rt, NULL, &intersectionDistance);
 
-	if (isIntersect && minDistToCamera > intersectionDistance) {
-	  intersWallData->wall = NULL;
-	  intersWallData->joint = jointsStorage[i];
+    if (isIntersect && minDistToCamera > intersectionDistance) {
+    intersWallData->wall = NULL;
+    intersWallData->joint = jointsStorage[i];
 	  
-	  intersWallData->side = jSide;
+    intersWallData->side = jSide;
 
-	  intersWallData->txIndex = jointsStorage[i]->plane[i3].txIndex;
-	  intersWallData->tileId = wallsStorage[i]->tileId;
+    intersWallData->txIndex = jointsStorage[i]->plane[i3].txIndex;
+    intersWallData->tileId = wallsStorage[i]->tileId;
 
-	  intersWallData->plane = i3;
+    intersWallData->plane = i3;
 
-	  mouse.selectedType = mouseWallT;
-	  mouse.selectedThing = intersWallData;
+    mouse.selectedType = mouseWallT;
+    mouse.selectedThing = intersWallData;
 
-	  minDistToCamera = intersectionDistance;
-	}
-
-      }
+    minDistToCamera = intersectionDistance;
     }
-  }
+
+    }
+    }
+    }*/
 
   // walls
   {
@@ -4183,6 +4268,10 @@ void editorMouseVS(){
       
       float intersectionDistance;
 
+      if(wallsStorage[i]->mat.m[13] < curFloor){
+	continue;
+      }
+
       for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
 	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, wallsStorage[i]->planes[i3].lb, wallsStorage[i]->planes[i3].rt, NULL, &intersectionDistance);
 
@@ -4190,10 +4279,11 @@ void editorMouseVS(){
 	  int tx = wallsStorage[i]->planes[i3].txIndex;
 
 	  intersWallData->wall = wallsStorage[i];
-	  intersWallData->joint = NULL;
 	  
 	  intersWallData->txIndex = tx;
 	  intersTileData->tileId = wallsStorage[i]->tileId;
+
+	  //	  intersWallData->pos = ;
 
 	  intersWallData->side = wallsStorage[i]->side;
   
@@ -4208,37 +4298,37 @@ void editorMouseVS(){
     }
   }
   
-    /*
-    // joints
-    {
-    for (int i2 = 0; i2 < batchedGeometryIndexes[i].jointsSize; i2++) {
-    int jointIndex = batchedGeometryIndexes[i].jointsIndexes[i2];
-    float intersectionDistance;
+  /*
+  // joints
+  {
+  for (int i2 = 0; i2 < batchedGeometryIndexes[i].jointsSize; i2++) {
+  int jointIndex = batchedGeometryIndexes[i].jointsIndexes[i2];
+  float intersectionDistance;
 	    
-    for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex]->plane[i3].lb, bBlock->joint[jointIndex]->plane[i3].rt, NULL, &intersectionDistance);
+  for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
+  bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex]->plane[i3].lb, bBlock->joint[jointIndex]->plane[i3].rt, NULL, &intersectionDistance);
 
-    if (isIntersect && minDistToCamera > intersectionDistance) {
+  if (isIntersect && minDistToCamera > intersectionDistance) {
 
-    intersWallData->side = jointIndex;
-    //  intersWallData->grid = ind;
-    intersWallData->txIndex = bBlock->joint[jointIndex]->plane[i3].txIndex;
-    intersWallData->tile = bBlock;
+  intersWallData->side = jointIndex;
+  //  intersWallData->grid = ind;
+  intersWallData->txIndex = bBlock->joint[jointIndex]->plane[i3].txIndex;
+  intersWallData->tile = bBlock;
 
-    intersWallData->type = wallJointT;
-    intersWallData->plane = i3;
+  intersWallData->type = wallJointT;
+  intersWallData->plane = i3;
 
-    mouse.selectedType = mouseWallT;
-    mouse.selectedThing = intersWallData;
+  mouse.selectedType = mouseWallT;
+  mouse.selectedThing = intersWallData;
 
-    minDistToCamera = intersectionDistance;
-    }
+  minDistToCamera = intersectionDistance;
+  }
 
-    }
-    }
+  }
+  }
 	  
-    }
-    }
+  }
+  }
   */
 
   for(int i=0;i<tilesStorageSize;i++){
@@ -4264,6 +4354,8 @@ void editorMouseVS(){
 	//	intersTileData->tile = tl;
 	intersTileData->tileId = i;
 	intersTileData->type = texturedTileT2;
+
+	intersTileData->pos = tl->pos;
 
 	//intersTileData->grid = (vec2i){ tl->pos.x, tl->pos.z };
 	intersTileData->intersection = intersection;
@@ -4550,9 +4642,31 @@ void createModel(int index, ModelType type){
 
 }
 
-void deleteGometry(){
-  // tile -> vec3 pos, tx
-  // wall -> wall type, wall preType, mat, tx
-  // block -> block type, mat, tx
+void deleteWallInStorage(int id){
+  int index = 0;
+  for(int i=0;i<wallsStorageSize;i++){
+    if(wallsStorage[i]->id == id){
+      continue;
+    }
+    
+    wallsStorage[index] = wallsStorage[i];
+    index++;
+  }
+  wallsStorageSize--;
 }
 
+void addNewWallStorage(Wall* newWall){
+  wallsStorageSize++;
+  
+  if(!wallsStorage){
+    wallsStorage = malloc(sizeof(Wall*));
+  }else{
+    wallsStorage = realloc(wallsStorage, sizeof(Wall*) * wallsStorageSize);
+  }
+
+  wallsStorage[wallsStorageSize-1] = newWall;
+}
+
+void addTileToStorage(){
+
+}
