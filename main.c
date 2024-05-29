@@ -7,7 +7,7 @@
 #define FAST_OBJ_IMPLEMENTATION
 #include "fast_obj.h"
 
-bool showHiddenWalls;
+bool showHiddenWalls = true;
 
 GeomFin* finalGeom;
 
@@ -4458,125 +4458,126 @@ void assembleDoorBlockVBO() {  // wallBlock buf
   float capRatio = 0.12f;
 
   float capH = h * capRatio;
-  //  float botH = h * 0.4f;
 
   float t = (float)1 / 8;
     
   float d = t;
 
-  float frontPlane[] = {
-    // cap back
-    w, h, -t,         1.0f, capRatio,
-    0.0f, h -capH, -t,  0.0f, 0.0f,
-    0.0f, h, -t,      0.0f, capRatio,
+  {
+    float frontPlane[] = {
+      // cap back
+      w, h, -t,         1.0f, capRatio,
+      0.0f, h -capH, -t,  0.0f, 0.0f,
+      0.0f, h, -t,      0.0f, capRatio,
 
-    w, h, -t,         1.0f, capRatio,
-    w, h -capH, -t,     1.0f, 0.0f,
-    0.0f, h -capH, -t,  0.0f, 0.0f,
-  };
-
-  float topPlane[] = {
-    w, h, -t,    1.0f, 0.0f,
-    0.0f,h, d,   0.0f, capRatio,
-    0.0f, h, -t, 0.0f, 0.0f,
-
-    w, h, -t,    1.0f, 0.0f,
-    w,h,d,       1.0f, capRatio,
-    0.0f,h,d,    0.0f, capRatio,
-  };
-
-  float innerSide[] = {
-    // cap bot
-    w,  h-capH, -t,    1.0f, 0.0f,
-    0.0f, h-capH, d,   0.0f, capRatio,
-    0.0f, h-capH, -t, 0.0f, 0.0f,
-
-    w,  h-capH, -t,    1.0f, 0.0f,
-    w, h-capH,d,       1.0f, capRatio,
-    0.0f, h-capH,d,    0.0f, capRatio,
-  };
-
-  float backSide[] = {
-    // cap front
-    0.0f, h -capH , d,  0.0f, 0.0f,
-    w, h, d,            1.0f, capRatio,
-    0.0f, h, d,         0.0f, capRatio,
-
-    0.0f, h -capH , d,  0.0f, 0.0f,
-    w, h -capH , d,     1.0f, 0.0f,
-    w, h, d,            1.0f, capRatio,
-  };
-
-  float doorPad = t/12;
-      
-  float centerBackPlane[] = {
-    // cap front
-    w, h -capH, -doorPad,         1.0f, 1.0f,
-    0.0f, 0.0f , -doorPad,        0.0f, 0.0f,
-    0.0f, h -capH, -doorPad,      0.0f, 1.0f,
-
-    w, h -capH, -doorPad,         1.0f, 1.0f,
-    w, 0.0f , -doorPad,           1.0f, 0.0f,
-    0.0f, 0.0f , -doorPad,        0.0f, 0.0f,
-  };
-
-  float centerFrontPlane[] = {
-    // cap front
-    0.0f, 0.0f , doorPad,        0.0f, 0.0f,
-    w, h -capH, doorPad,         1.0f, 1.0f,
-    0.0f, h -capH, doorPad,      0.0f, 1.0f,
-
-    0.0f, 0.0f , doorPad,        0.0f, 0.0f,
-    w, 0.0f , doorPad,           1.0f, 0.0f,
-    w, h -capH, doorPad,         1.0f, 1.0f,
-  };
-      
-  /*
-    float leftPlane[] = {
-    0.0f, 0.0f, -t,  0.0f, 0.0f,
-    0.0f, h, -t,     0.0f, 1.0f,
-    0.0f, h , d,     t, 1.0f,
-
-    0.0f, h, d,      t, 1.0f,
-    0.0f, 0.0f, -t,  0.0f, 0.0f,
-    0.0f, 0.0f , d,  t, 0.0f,
+      w, h, -t,         1.0f, capRatio,
+      w, h -capH, -t,     1.0f, 0.0f,
+      0.0f, h -capH, -t,  0.0f, 0.0f,
     };
 
-    float rightPlane[] = {
-    w, 0.0f, -t,     0.0f, 0.0f,
-    w, h, -t,        0.0f, 1.0f,
-    w, h , d,        t, 1.0f,
+    float topPlane[] = {
+      w, h, -t,    1.0f, 0.0f,
+      0.0f,h, d,   0.0f, capRatio,
+      0.0f, h, -t, 0.0f, 0.0f,
 
-    w, h, d,         t, 1.0f,
-    w, 0.0f, -t,     0.0f, 0.0f,
-    w, 0.0f , d,     t, 0.0f,
+      w, h, -t,    1.0f, 0.0f,
+      w,h,d,       1.0f, capRatio,
+      0.0f,h,d,    0.0f, capRatio,
     };
-  */
+
+    float innerSide[] = {
+      // cap bot
+      w,  h-capH, -t,    1.0f, 0.0f,
+      0.0f, h-capH, d,   0.0f, capRatio,
+      0.0f, h-capH, -t, 0.0f, 0.0f,
+
+      w,  h-capH, -t,    1.0f, 0.0f,
+      w, h-capH,d,       1.0f, capRatio,
+      0.0f, h-capH,d,    0.0f, capRatio,
+    };
+
+    float backSide[] = {
+      // cap front
+      0.0f, h -capH , d,  0.0f, 0.0f,
+      w, h, d,            1.0f, capRatio,
+      0.0f, h, d,         0.0f, capRatio,
+
+      0.0f, h -capH , d,  0.0f, 0.0f,
+      w, h -capH , d,     1.0f, 0.0f,
+      w, h, d,            1.0f, capRatio,
+    };
+
+    float doorPad = t/12;
+      
+    float centerBackPlane[] = {
+      // cap front
+      w, h -capH, -doorPad,         1.0f, 1.0f,
+      0.0f, 0.0f , -doorPad,        0.0f, 0.0f,
+      0.0f, h -capH, -doorPad,      0.0f, 1.0f,
+
+      w, h -capH, -doorPad,         1.0f, 1.0f,
+      w, 0.0f , -doorPad,           1.0f, 0.0f,
+      0.0f, 0.0f , -doorPad,        0.0f, 0.0f,
+    };
+
+    float centerFrontPlane[] = {
+      // cap front
+      0.0f, 0.0f , doorPad,        0.0f, 0.0f,
+      w, h -capH, doorPad,         1.0f, 1.0f,
+      0.0f, h -capH, doorPad,      0.0f, 1.0f,
+
+      0.0f, 0.0f , doorPad,        0.0f, 0.0f,
+      w, 0.0f , doorPad,           1.0f, 0.0f,
+      w, h -capH, doorPad,         1.0f, 1.0f,
+    };
+      
+    /*
+      float leftPlane[] = {
+      0.0f, 0.0f, -t,  0.0f, 0.0f,
+      0.0f, h, -t,     0.0f, 1.0f,
+      0.0f, h , d,     t, 1.0f,
+
+      0.0f, h, d,      t, 1.0f,
+      0.0f, 0.0f, -t,  0.0f, 0.0f,
+      0.0f, 0.0f , d,  t, 0.0f,
+      };
+
+      float rightPlane[] = {
+      w, 0.0f, -t,     0.0f, 0.0f,
+      w, h, -t,        0.0f, 1.0f,
+      w, h , d,        t, 1.0f,
+
+      w, h, d,         t, 1.0f,
+      w, 0.0f, -t,     0.0f, 0.0f,
+      w, 0.0f , d,     t, 0.0f,
+      };
+    */
 
   
-  float* wallPlanes[doorPlaneCounter] = {
-    [doorTopPlane] = topPlane,
-    [doorFrontPlane] = frontPlane,
-    [doorBackPlane] = backSide,
-    [doorCenterFrontPlane] = centerFrontPlane,
-    [doorCenterBackPlane] = centerBackPlane,
-    [doorInnerTopPlane] = innerSide,
-  };
+    float* wallPlanes[doorPlaneCounter] = {
+      [doorTopPlane] = topPlane,
+      [doorFrontPlane] = frontPlane,
+      [doorBackPlane] = backSide,
+      [doorCenterFrontPlane] = centerFrontPlane,
+      [doorCenterBackPlane] = centerBackPlane,
+      [doorInnerTopPlane] = innerSide,
+    };
   
-  int wallPlanesSize[doorPlaneCounter] = {
-    [doorTopPlane] = sizeof(topPlane),
-    [doorFrontPlane] = sizeof(frontPlane),
-    [doorBackPlane] = sizeof(backSide),
-    [doorCenterFrontPlane] = sizeof(centerFrontPlane),
-    [doorCenterBackPlane] = sizeof(centerBackPlane),
-    [doorInnerTopPlane] = sizeof(innerSide),
-  };
+    int wallPlanesSize[doorPlaneCounter] = {
+      [doorTopPlane] = sizeof(topPlane),
+      [doorFrontPlane] = sizeof(frontPlane),
+      [doorBackPlane] = sizeof(backSide),
+      [doorCenterFrontPlane] = sizeof(centerFrontPlane),
+      [doorCenterBackPlane] = sizeof(centerBackPlane),
+      [doorInnerTopPlane] = sizeof(innerSide),
+    };
 
-  wallsVPairs[doorT].pairs = malloc(sizeof(VPair) * doorPlaneCounter);
-  wallsVPairs[doorT].planesNum = doorPlaneCounter;
+    wallsVPairs[doorT].pairs = malloc(sizeof(VPair) * doorPlaneCounter);
+    wallsVPairs[doorT].planesNum = doorPlaneCounter;
     
-  for(int i=0;i<wallsVPairs[doorT].planesNum;i++){
-    attachNormalsToBuf(wallsVPairs[doorT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
+    for(int i=0;i<wallsVPairs[doorT].planesNum;i++){
+      attachNormalsToBuf(wallsVPairs[doorT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
+    }
   }
 }
 
@@ -4879,6 +4880,7 @@ void initGrid(int sx, int sy, int sz){
 
 	  geomentyByTxCounter[textureOfGround] += sizeof(float) * 8 * 6;
 	  tilesStorage[tilesStorageSize-1] = grid[y][z][x];
+	  tilesStorage[tilesStorageSize-1]->id = tilesStorageSize-1;
 	  
 	  grid[y][z][x]->pos = tile;
 	  //printf("%f %f %f \n", argVec3(tilesStorage[tilesStorageSize-1]->pos));
@@ -5084,7 +5086,7 @@ void batchModels(){
 
 void batchGeometry(){
     int a = 200;
-    free(a); free(a); free(a);
+free(a); free(a); free(a); 
 }
 
 vec3 calculateNormal(vec3 a, vec3 b, vec3 c){
@@ -5819,12 +5821,8 @@ void batchAllGeometry(){
   
   for(int i=0;i<loadedTexturesCounter;i++){
     preGeom[i].buf = calloc(geomentyByTxCounter[i],1);
-    
     preGeom[i].size = geomentyByTxCounter[i];
-
     finalGeom[i].tris = geomentyByTxCounter[i] / (float)vertexSize / sizeof(float);
-
-    //  free(preGeom[i].buf);
   }
   
   // planes
@@ -5990,6 +5988,7 @@ void batchAllGeometry(){
       glBindVertexArray(finalGeom[i].VAO);
       glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
 
+      printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
       glBufferData(GL_ARRAY_BUFFER, preGeom[i].size, preGeom[i].buf, GL_STATIC_DRAW);
 
       glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);

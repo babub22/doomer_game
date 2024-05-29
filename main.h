@@ -88,6 +88,8 @@ typedef enum{
   RWallT,
   
   doorT,
+  openedDoorT,
+  
   windowT,
   //  wallJointT,
   

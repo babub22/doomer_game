@@ -212,7 +212,7 @@ void editorPreLoop(){
     gizmosPaddings[moveMode -1] = calloc(gizmosNum[moveMode -1], sizeof(VPair));
       
     for(int i=0;i<gizmosNum[moveMode -1];i++){
-      printf("AAA %d \n", i);
+      //      printf("AAA %d \n", i);
       
       gizmosGeom[moveMode -1][i].vertexNum = 6;
       gizmosGeom[moveMode -1][i].attrSize = 3;
@@ -317,11 +317,11 @@ void editorPreLoop(){
       }
       
 	
-      for(int i2=0;i2<6*3;i2++){
-	printf("%f ", gizmosGeom[moveMode -1][i].vBuf[i2]);
-      }
+      //      for(int i2=0;i2<6*3;i2++){
+	//	printf("%f ", gizmosGeom[moveMode -1][i].vBuf[i2]);
+	//      }
 
-      printf("\n");
+      //      printf("\n");
 
       glGenVertexArrays(1, &gizmosGeom[moveMode -1][i].VAO);
       glBindVertexArray(gizmosGeom[moveMode -1][i].VAO);
@@ -1009,30 +1009,30 @@ void editorEvents(SDL_Event event){
 	      
 		break;
 	      }case(SDL_SCANCODE_7):{
-		 if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
-		   free(mouse.brushThing);
-		   mouse.brushThing = NULL;
-		 }else if(mouse.brushType == mouseWallBrushT){
-		   WallType* type = mouse.brushThing;
+		if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
+		  free(mouse.brushThing);
+		  mouse.brushThing = NULL;
+		}else if(mouse.brushType == mouseWallBrushT){
+		  WallType* type = mouse.brushThing;
 
-		   if(type == halfWallT){
-		     mouse.brushType = 0;
-		     free(mouse.brushThing);
-		     mouse.brushThing = NULL;
-		   }else{
-		     *type = halfWallT;
-		   }
-		 }else{
-		   mouse.brushType = mouseWallBrushT;
+		  if(type == halfWallT){
+		    mouse.brushType = 0;
+		    free(mouse.brushThing);
+		    mouse.brushThing = NULL;
+		  }else{
+		    *type = halfWallT;
+		  }
+		}else{
+		  mouse.brushType = mouseWallBrushT;
 
-		   WallType* type = malloc(sizeof(WallType));
-		   *type = halfWallT;
+		  WallType* type = malloc(sizeof(WallType));
+		  *type = halfWallT;
 		 
-		   mouse.brushThing = type;
-		 }
+		  mouse.brushThing = type;
+		}
 	      
-		 break;
-	       }
+		break;
+	      }
       case(SDL_SCANCODE_C):{
 	/*		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 		
@@ -1294,20 +1294,18 @@ void editorEvents(SDL_Event event){
 	  // WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
 	  WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 
+	  deleteWallInStorage(data->wall->id);
+
 	  free(data->wall->planes);
 	  tilesStorage[data->wall->tileId]->wall[data->side] = NULL;
 	  free(data->wall);
-
-	  //data->tile->wall[data->side] = NULL;
-
-	  // data->tile->wall[data->side].planes = NULL;
-
-	  batchGeometry();
+	  
+	  batchAllGeometry();
 	  rerenderShadowsForAllLights();
 	}
 	else if (mouse.selectedType == mouseTileT) {
 	  // WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
-	  TileMouseData* data = (TileMouseData*)mouse.selectedThing;
+	  /*TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
 	  //if(data->tile){
 	  if (data->type == texturedTileT2) {
@@ -1315,7 +1313,7 @@ void editorEvents(SDL_Event event){
 	    setIn(tilesStorage[data->tileId]->ground, 0, netTileT);
 
 	    batchGeometry();
-	  }
+	  }*/
 	}
 	else if (mouse.selectedType == mouseBlockT) {
 	  TileBlock* data = (TileBlock*)mouse.selectedThing;
@@ -2236,12 +2234,22 @@ void editor3dRender() {
       if (mouse.clickR) {
 	wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
 
+	//	  printf("Calllllllll\n");
+	//grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
+	// tileData->tile = grid[curFloor][tileData->grid.z][tileData->grid.x];
+
+	int tileId = tileData->tileId;
+
 	if (tileData->type == netTileT2) {
 	  tilesStorageSize++;
 	  tilesStorage = realloc(tilesStorage, sizeof(Tile*) * tilesStorageSize);
 
 	  Tile* newTile = calloc(1, sizeof(Tile));
 	  newTile->pos = tileData->pos;
+	  newTile->id = tilesStorageSize-1;
+
+	  tileId = newTile->id;
+	  
 	  grid[curFloor][(int)tileData->pos.z][(int)tileData->pos.x] = newTile;
 	  tilesStorage[tilesStorageSize-1] = newTile;
 
@@ -2255,194 +2263,39 @@ void editor3dRender() {
 	}
 
 	vec3 tile = tilesStorage[tileData->tileId]->pos;
-	/*
-	  if (selectedSide == left) {
-	  bool botInner = tilesStorage[tileData->tileId]->wall[top];
-
-	  bool botOuter = gTile.x - 1 >= 0 && grid[curFloor][gTile.z][gTile.x - 1] && grid[curFloor][gTile.z][gTile.x - 1]->wall[top];
-
-	  bool botPar = gTile.z + 1 < gridZ && grid[curFloor][gTile.z + 1][gTile.x] && grid[curFloor][gTile.z + 1][gTile.x]->wall[left];
-
-	  if (botPar) {
-	  free(grid[curFloor][gTile.z + 1][gTile.x]->joint[top]);
-	  grid[curFloor][gTile.z + 1][gTile.x]->joint[top] = NULL;
-
-	  if (grid[curFloor][gTile.z + 1][gTile.x - 1]) {
-	  free(grid[curFloor][gTile.z + 1][gTile.x - 1]->joint[right]);
-	  grid[curFloor][gTile.z + 1][gTile.x - 1]->joint[right] = NULL;
-	  }
-	  }
-
-	  bool topPar = gTile.x - 1 >= 0 && grid[curFloor][gTile.z - 1][gTile.x] && grid[curFloor][gTile.z - 1][gTile.x]->wall[left];
-
-	  if (topPar) {
-	  if (grid[curFloor][gTile.z - 1][gTile.x - 1]) {
-	  free(grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left]);
-	  grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left] = NULL;
-	  }
-
-	  free(grid[curFloor][gTile.z][gTile.x]->joint[bot]);
-	  grid[curFloor][gTile.z][gTile.x]->joint[bot] = NULL;
-	  }
-
-	  if ((!botInner || !botOuter) && !topPar) {
-	  if (botInner) {
-	  tilesStorage[tileData->tileId]->joint[top] = malloc(sizeof(WallJoint));
-	  tilesStorage[tileData->tileId]->joint[top]->type = wallJointT;
-	  //setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, top);
-	      
-	  //  setupAABBAndMatForJoint((vec3i) { gTile.x, curFloor, gTile.z }, grid[curFloor][gTile.z][gTile.x]->joint[top], top);
-	  }
-
-	  if (botOuter) {
-	  if (!grid[curFloor][gTile.z][gTile.x - 1]) {
-	  grid[curFloor][gTile.z][gTile.x - 1] = calloc(1, sizeof(Tile));
-	  }
-
-	  grid[curFloor][gTile.z][gTile.x - 1]->joint[right] = malloc(sizeof(WallJoint));
-	  grid[curFloor][gTile.z][gTile.x - 1]->joint[right]->type = wallJointT;
-
-	  addNewJointToStorage(grid[curFloor][gTile.z][gTile.x - 1]->joint[right]);
-
-	  //  setupAABBAndMatForJoint((vec3i) { gTile.x - 1, curFloor, gTile.z }, grid[curFloor][gTile.z][gTile.x - 1]->joint[right], right);
-	  }
-	  }
-
-	  bool topOuter = gTile.z + 1 < gridZ && grid[curFloor][gTile.z + 1][gTile.x] && grid[curFloor][gTile.z + 1][gTile.x]->wall[top];
-
-	  bool topInner = (gTile.z + 1 < gridZ) && (gTile.x - 1 >= 0) && grid[curFloor][gTile.z + 1][gTile.x - 1] && grid[curFloor][gTile.z + 1][gTile.x - 1]->wall[top];
-
-	  if ((!topInner || !topOuter) && !botPar) {
-	  if (topInner) {
-	  if (!grid[curFloor][gTile.z][gTile.x - 1]) {
-	  grid[curFloor][gTile.z][gTile.x - 1] = calloc(1, sizeof(Tile));
-	  }
-
-	  grid[curFloor][gTile.z][gTile.x - 1]->joint[left] = malloc(sizeof(WallJoint));
-	  grid[curFloor][gTile.z][gTile.x - 1]->joint[left]->type = wallJointT;
-
-	  addNewJointToStorage(grid[curFloor][gTile.z][gTile.x - 1]->joint[left]);
-	  setupAABBAndMatForJoint((vec2i) { gTile.x - 1, gTile.z }, left);
-	  }
-
-	  if (topOuter) {
-	  if (!grid[curFloor][gTile.z + 1][gTile.x]) {
-	  grid[curFloor][gTile.z + 1][gTile.x] = calloc(1, sizeof(Tile));
-	  }
-
-	  grid[curFloor][gTile.z + 1][gTile.x]->joint[bot] = malloc(sizeof(WallJoint));
-	  grid[curFloor][gTile.z + 1][gTile.x]->joint[bot]->type = wallJointT;
-
-	  addNewJointToStorage(grid[curFloor][gTile.z + 1][gTile.x]->joint[bot]);
-	  setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z + 1 }, bot);
-	  }
-	  }
-	  }
-	  else if (selectedSide == top) {
-	  bool leftInner = tilesStorage[tileData->tileId]->wall[left];
-
-	  bool leftOuter = gTile.z - 1 >= 0 && grid[curFloor][gTile.z - 1][gTile.x] && grid[curFloor][gTile.z - 1][gTile.x]->wall[left];
-
-	  bool leftPar = gTile.x - 1 >= 0 && grid[curFloor][gTile.z][gTile.x - 1] && grid[curFloor][gTile.z][gTile.x - 1]->wall[top];
-
-	  if (leftPar) {
-	  deleteJointInStorage(grid[curFloor][gTile.z][gTile.x - 1]->joint[right]->id);
-	  free(grid[curFloor][gTile.z][gTile.x - 1]->joint[right]);
-	  grid[curFloor][gTile.z][gTile.x - 1]->joint[right] = NULL;
-
-	  if (grid[curFloor][gTile.z - 1][gTile.x - 1]) {
-	  deleteJointInStorage(grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left]->id);
-	  free(grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left]);
-	  grid[curFloor][gTile.z - 1][gTile.x - 1]->joint[left] = NULL;
-	  }
-	  }
-
-	  bool rightPar = gTile.x + 1 < gridX && grid[curFloor][gTile.z][gTile.x + 1] && grid[curFloor][gTile.z][gTile.x + 1]->wall[top];
-
-	  if (rightPar) {
-	  deleteJointInStorage(grid[curFloor][gTile.z][gTile.x + 1]->joint[bot]->id);
-	  free(grid[curFloor][gTile.z][gTile.x + 1]->joint[bot]);
-	  grid[curFloor][gTile.z][gTile.x + 1]->joint[bot] = NULL;
-
-	  deleteJointInStorage(grid[curFloor][gTile.z][gTile.x + 1]->joint[top]->id);
-	  free(grid[curFloor][gTile.z][gTile.x + 1]->joint[top]);
-	  grid[curFloor][gTile.z][gTile.x + 1]->joint[top] = NULL;
-	  }
-
-	  if ((!leftInner || !leftOuter) && !leftPar) {
-	  if (leftInner) {
-	  printf("Inner\n");
-	  tilesStorage[tileData->tileId]->joint[top] = malloc(sizeof(WallJoint));
-	  tilesStorage[tileData->tileId]->joint[top]->type = wallJointT;
-
-	  addNewJointToStorage(tilesStorage[tileData->tileId]->joint[top]);
-	  setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, top);
-	  }
-
-	  if (leftOuter) {
-	    printf("Out\n");
-	    tilesStorage[tileData->tileId]->joint[bot] = malloc(sizeof(WallJoint));
-	    tilesStorage[tileData->tileId]->joint[bot]->type = wallJointT;
-
-	    addNewJointToStorage(tilesStorage[tileData->tileId]->joint[bot]);
-	    setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, bot);
-	  }
-    }
-
-	  bool rightInner = gTile.x + 1 < gridX && grid[curFloor][gTile.z][gTile.x + 1] && grid[curFloor][gTile.z][gTile.x + 1]->wall[left];
-
-	  bool rightOuter = (gTile.z - 1 >= 0) && (gTile.x + 1 < gridX) && grid[curFloor][gTile.z - 1][gTile.x + 1] && grid[curFloor][gTile.z - 1][gTile.x + 1]->wall[left];
-
-	  if ((!rightInner || !rightOuter) && !rightPar) {
-	    if (rightInner) {
-	      tilesStorage[tileData->tileId]->joint[right] = malloc(sizeof(WallJoint));
-	      tilesStorage[tileData->tileId]->joint[right]->type = wallJointT;
-
-	      addNewJointToStorage(tilesStorage[tileData->tileId]->joint[right]);
-	      setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z }, right);
-	    }
-
-	    if (rightOuter) {
-	      if (!grid[curFloor][gTile.z - 1][gTile.x]) {
-		grid[curFloor][gTile.z - 1][gTile.x] = calloc(1, sizeof(Tile));
-	      }
-
-	      grid[curFloor][gTile.z - 1][gTile.x]->joint[left] = malloc(sizeof(WallJoint));
-	      grid[curFloor][gTile.z - 1][gTile.x]->joint[left]->type = wallJointT;
-	      setupAABBAndMatForJoint((vec2i) { gTile.x, gTile.z - 1 }, left);
-	    }
-	  }
-  }*/
-
-	  if(selectedSide == right){
-	    selectedSide = left;
-	  }else if(selectedSide == bot){
-	    selectedSide = top;
-	  }
-
-	  tilesStorage[tileData->tileId]->wall[selectedSide] = malloc(sizeof(Wall));
-	  memcpy(tilesStorage[tileData->tileId]->wall[selectedSide], &wal, sizeof(Wall));
-
-	  wallsStorageSize++;
-	  if (!wallsStorage) {
-	    wallsStorage = malloc(sizeof(Wall*));
-	  }else {
-	    wallsStorage = realloc(wallsStorage, sizeof(Wall*) * wallsStorageSize);
-	  }
-
-	  printf("%s \n", wallTypeStr[tilesStorage[tileData->tileId]->wall[selectedSide]->type]);
-
-	  wallsStorage[wallsStorageSize - 1] = tilesStorage[tileData->tileId]->wall[selectedSide];
-	  //grid[curFloor][(int)curTile.z][(int)curTile.x]->wall[selectedSide] = malloc(sizeof(Wall));
 	
-	  if(showHiddenWalls){
-	    batchAllGeometry();
-	  }else{
-	    batchAllGeometryNoHidden();
-	  }
-}
+	if(selectedSide == right){
+	  selectedSide = left;
+	}else if(selectedSide == bot){
+	  selectedSide = top;
+	}
+
+	tilesStorage[tileData->tileId]->wall[selectedSide] = malloc(sizeof(Wall));
+	memcpy(tilesStorage[tileData->tileId]->wall[selectedSide], &wal, sizeof(Wall));
+
+	tilesStorage[tileData->tileId]->wall[selectedSide]->tileId = tileId;
+	tilesStorage[tileData->tileId]->wall[selectedSide]->id = wallsStorageSize;
+	
+	wallsStorageSize++;
+	if (!wallsStorage) {
+	  wallsStorage = malloc(sizeof(Wall*));
+	}else {
+	  wallsStorage = realloc(wallsStorage, sizeof(Wall*) * wallsStorageSize);
+	}
+
+	printf("%s \n", wallTypeStr[tilesStorage[tileData->tileId]->wall[selectedSide]->type]);
+
+	wallsStorage[wallsStorageSize - 1] = tilesStorage[tileData->tileId]->wall[selectedSide];
+	//grid[curFloor][(int)curTile.z][(int)curTile.x]->wall[selectedSide] = malloc(sizeof(Wall));
+	
+	if(showHiddenWalls){
+	  batchAllGeometry();
+	}else{
+	  batchAllGeometryNoHidden();
+	}
+      }
+    }
   }
-}
 }
 //}
 
@@ -2548,6 +2401,8 @@ void editor2dRender() {
 	if (mouse.selectedType == mouseWallT) {
 	  WallMouseData* wallData = (WallMouseData*)mouse.selectedThing;
 
+	  int prevTx;
+
 	  if (wallData->wall) {
 	    if (wallData->wall->type == windowT && wallData->plane <= winCenterBackPlane) {
 	      static const int winPlanePairs[12] = {
@@ -2564,6 +2419,12 @@ void editor2dRender() {
 		[winCenterFrontPlane] = winCenterBackPlane,
 	      };
 
+	      geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
+
+	      prevTx = wallData->wall->planes[winPlanePairs[wallData->plane]].txIndex;
+
+	      geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
+	      
 	      wallData->wall->planes[winPlanePairs[wallData->plane]].txIndex = texture->index1D;
 	    }
 
@@ -2572,29 +2433,56 @@ void editor2dRender() {
 		[doorCenterFrontPlane] = doorCenterBackPlane,
 		[doorCenterBackPlane] = doorCenterFrontPlane,
 	      };
+
+	      geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
+
+	      prevTx = wallData->wall->planes[doorPlanePairs[wallData->plane]].txIndex;
+
+	      geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
+	      
 	      wallData->wall->planes[doorPlanePairs[wallData->plane]].txIndex = texture->index1D;
 	    }
 
+	    geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
+
+	    prevTx = wallData->wall->planes[wallData->plane].txIndex;
+
+	    geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
+	    
 	    wallData->wall->planes[wallData->plane].txIndex = texture->index1D;
 	  }
 
-	  batchGeometry();
+	  //	  for (int i = 0; i < wallsVPairs[wallData->wall->type].planesNum; i++) {
+	  //	    geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[i].attrSize;
+	    
+	  //geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[i].attrSize;
+	    // }
+	  
+	  batchAllGeometry();
 	}
 	else if (mouse.selectedType == mouseTileT) {
 	  TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
+
+	  int tileId = tileData->tileId;
 
 	  if (tileData->type == netTileT2) {
 
 	    tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
 	    tilesStorage[tilesStorageSize]->pos = tileData->pos;
+	    
+	    tileId = tilesStorageSize;	    
 	    tilesStorageSize++;
-	    //grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1, sizeof(Tile));
-	    //printf("Calloc TIle\n");
 	  }
 
-	  setIn(tilesStorage[tilesStorageSize]->ground, 0, texturedTile);
-	  setIn(tilesStorage[tilesStorageSize]->ground, tileData->groundInter, texture->index1D);
-	  batchGeometry();
+	  setIn(tilesStorage[tileId]->ground, 0, texturedTile);
+
+	  int tilePrevTx = valueIn(tilesStorage[tileId]->ground, tileData->groundInter);
+	  geomentyByTxCounter[tilePrevTx] -= sizeof(float) * 8 * 6;
+	  
+	  setIn(tilesStorage[tileId]->ground, tileData->groundInter, texture->index1D);
+	  geomentyByTxCounter[texture->index1D] += sizeof(float) * 8 * 6;
+	  
+	  batchAllGeometry();
 	}
 	else if (mouse.selectedType == mouseBlockT) {
 	  TileBlock* block = (TileBlock*)mouse.selectedThing;
@@ -4234,32 +4122,32 @@ void editorMouseVS(){
   // joints
   /*{
     for(int i=0;i<jointsStorageSize;i++){
-    Side jSide = jointsStorage[i]->side;
-    float intersectionDistance;
+      Side jSide = jointsStorage[i]->side;
+      float intersectionDistance;
       
-    for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, jointsStorage[i]->plane[i3].lb, jointsStorage[i]->plane[i3].rt, NULL, &intersectionDistance);
+      for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
+	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, jointsStorage[i]->plane[i3].lb, jointsStorage[i]->plane[i3].rt, NULL, &intersectionDistance);
 
-    if (isIntersect && minDistToCamera > intersectionDistance) {
-    intersWallData->wall = NULL;
-    intersWallData->joint = jointsStorage[i];
+	if (isIntersect && minDistToCamera > intersectionDistance) {
+	  intersWallData->wall = NULL;
+	  intersWallData->joint = jointsStorage[i];
 	  
-    intersWallData->side = jSide;
+	  intersWallData->side = jSide;
 
-    intersWallData->txIndex = jointsStorage[i]->plane[i3].txIndex;
-    intersWallData->tileId = wallsStorage[i]->tileId;
+	  intersWallData->txIndex = jointsStorage[i]->plane[i3].txIndex;
+	  intersWallData->tileId = wallsStorage[i]->tileId;
 
-    intersWallData->plane = i3;
+	  intersWallData->plane = i3;
 
-    mouse.selectedType = mouseWallT;
-    mouse.selectedThing = intersWallData;
+	  mouse.selectedType = mouseWallT;
+	  mouse.selectedThing = intersWallData;
 
-    minDistToCamera = intersectionDistance;
+	  minDistToCamera = intersectionDistance;
+	}
+
+      }
     }
-
-    }
-    }
-    }*/
+  }*/
 
   // walls
   {
@@ -4282,6 +4170,7 @@ void editorMouseVS(){
 	  
 	  intersWallData->txIndex = tx;
 	  intersTileData->tileId = wallsStorage[i]->tileId;
+	  //	  printf("tileId %d \n", wallsStorage[i]->tileId);
 
 	  //	  intersWallData->pos = ;
 
@@ -4650,6 +4539,7 @@ void deleteWallInStorage(int id){
     }
     
     wallsStorage[index] = wallsStorage[i];
+	wallsStorage[index]->id = index;
     index++;
   }
   wallsStorageSize--;
