@@ -1297,23 +1297,41 @@ void editorEvents(SDL_Event event){
 	  deleteWallInStorage(data->wall->id);
 
 	  free(data->wall->planes);
-	  tilesStorage[data->wall->tileId]->wall[data->side] = NULL;
+	  tilesStorage[data->tileId]->wall[data->side] = NULL;
 	  free(data->wall);
 	  
 	  batchAllGeometry();
 	  rerenderShadowsForAllLights();
 	}
 	else if (mouse.selectedType == mouseTileT) {
-	  // WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
-	  /*TileMouseData* data = (TileMouseData*)mouse.selectedThing;
+	  TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
-	  //if(data->tile){
-	  if (data->type == texturedTileT2) {
-	    setIn(tilesStorage[data->tileId]->ground, data->groundInter, 0);
-	    setIn(tilesStorage[data->tileId]->ground, 0, netTileT);
+	  if (data->type == texturedTileT) {
+	    int tx = tilesStorage[data->tileId]->tx;
 
-	    batchGeometry();
-	  }*/
+	    printf("tx: %d \n", tx);
+	    
+	    geomentyByTxCounter[tx] -= sizeof(float) * 8 * 6;
+	    
+	    tilesStorage[data->tileId]->tx = 0;
+	    tilesStorage[data->tileId]->type = netTileT;
+
+	    if(!tilesStorage[data->tileId]->block && !tilesStorage[data->tileId]->wall[0] && !tilesStorage[data->tileId]->wall[1]){
+	      int tileId = data->tileId;
+	      free(tilesStorage[data->tileId]);
+	      
+	      deleteTileInStorage(tileId);
+
+	      grid[(int)data->pos.y][(int)data->pos.z][(int)data->pos.x] = NULL;
+
+	      mouse.selectedType = 0;
+	      free(mouse.selectedThing);
+	      mouse.selectedThing = NULL;
+	    }
+
+	    batchAllGeometry();
+	    rerenderShadowsForAllLights();
+	  }
 	}
 	else if (mouse.selectedType == mouseBlockT) {
 	  TileBlock* data = (TileBlock*)mouse.selectedThing;
@@ -2061,7 +2079,7 @@ void editor3dRender() {
   if (mouse.selectedType == mouseTileT) {
     TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 
-    const vec3 tile = tilesStorage[tileData->tileId]->pos;//xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
+	const vec3 tile = tileData->pos;//xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
 
     if (tileData->intersection.x < tile.x + borderArea && tileData->intersection.x >= tile.x) {
       mouse.tileSide = left;
@@ -2229,7 +2247,7 @@ void editor3dRender() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
       }
 
-      vec3i gTile = { tilesStorage[tileData->tileId]->pos.x, curFloor, tilesStorage[tileData->tileId]->pos.z };// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
+      vec3i gTile = { tileData->pos.x, curFloor, tileData->pos.z };// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
 
       if (mouse.clickR) {
 	wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
@@ -2240,7 +2258,7 @@ void editor3dRender() {
 
 	int tileId = tileData->tileId;
 
-	if (tileData->type == netTileT2) {
+	if (tileData->type == netTileT) {
 	  tilesStorageSize++;
 	  tilesStorage = realloc(tilesStorage, sizeof(Tile*) * tilesStorageSize);
 
@@ -2465,21 +2483,23 @@ void editor2dRender() {
 
 	  int tileId = tileData->tileId;
 
-	  if (tileData->type == netTileT2) {
+	  if (tileData->type == netTileT) {
 
 	    tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
 	    tilesStorage[tilesStorageSize]->pos = tileData->pos;
+	    tilesStorage[tilesStorageSize]->id = tilesStorageSize;
 	    
 	    tileId = tilesStorageSize;	    
 	    tilesStorageSize++;
 	  }
 
-	  setIn(tilesStorage[tileId]->ground, 0, texturedTile);
+	  tilesStorage[tileId]->type = texturedTileT;
 
-	  int tilePrevTx = valueIn(tilesStorage[tileId]->ground, tileData->groundInter);
+	  int tilePrevTx = tilesStorage[tileId]->tx;
+
 	  geomentyByTxCounter[tilePrevTx] -= sizeof(float) * 8 * 6;
 	  
-	  setIn(tilesStorage[tileId]->ground, tileData->groundInter, texture->index1D);
+	  tilesStorage[tileId]->tx = texture->index1D;
 	  geomentyByTxCounter[texture->index1D] += sizeof(float) * 8 * 6;
 	  
 	  batchAllGeometry();
@@ -2508,7 +2528,7 @@ void editor2dRender() {
 	 TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 	 TileBlock* block = (TileBlock*)mouse.brushThing;
 
-	 if (tileData->type == netTileT2) {
+	 if (tileData->type == netTileT) {
 	   tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
 	   tilesStorage[tilesStorageSize]->pos = tileData->pos;
 	   tilesStorageSize++;
@@ -2623,8 +2643,8 @@ void editor2dRender() {
        }case(mouseTileT): {
 	  TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
-	  if (data->type == texturedTileT2) {
-	    int tileTx = valueIn(tilesStorage[data->tileId]->ground, data->groundInter);
+	  if (data->type == texturedTileT) {
+	    int tileTx = tilesStorage[data->tileId]->tx;
 	    sprintf(buf, "Selected tile[%d] tx: [%s] grid:[%f %f %f]", data->tileId, loadedTexturesNames[tileTx], argVec3(data->intersection));
 	  }
 	  else {
@@ -4169,7 +4189,7 @@ void editorMouseVS(){
 	  intersWallData->wall = wallsStorage[i];
 	  
 	  intersWallData->txIndex = tx;
-	  intersTileData->tileId = wallsStorage[i]->tileId;
+	  intersWallData->tileId = wallsStorage[i]->tileId;
 	  //	  printf("tileId %d \n", wallsStorage[i]->tileId);
 
 	  //	  intersWallData->pos = ;
@@ -4229,8 +4249,8 @@ void editorMouseVS(){
     
     //    if(tl->pos.y == curFloor){
     if(true){
-      const vec3 rt = { tl->pos.x + bBlockW, curFloor, tl->pos.z + bBlockD };
-      const vec3 lb = { tl->pos.x, curFloor, tl->pos.z };
+      const vec3 rt = { tl->pos.x + bBlockW, tl->pos.y, tl->pos.z + bBlockD };
+      const vec3 lb = { tl->pos.x, tl->pos.y, tl->pos.z };
 
       //  printf("Rt: [%f %f %f] Lb [%f %f %f]\n", argVec3(rt), argVec3(lb));
 
@@ -4242,13 +4262,12 @@ void editorMouseVS(){
       if (isIntersect && minDistToCamera > intersectionDistance) {
 	//	intersTileData->tile = tl;
 	intersTileData->tileId = i;
-	intersTileData->type = texturedTileT2;
+	intersTileData->type = texturedTileT;
 
 	intersTileData->pos = tl->pos;
 
 	//intersTileData->grid = (vec2i){ tl->pos.x, tl->pos.z };
 	intersTileData->intersection = intersection;
-	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
 	mouse.selectedType = mouseTileT;
 	mouse.selectedThing = intersTileData;
@@ -4404,7 +4423,7 @@ void editorMouseVS(){
   }
 
   // net tile
-  if(curFloor != 0){
+  if(true){ //curFloor != 0){
     for(int i=0;i<netTileSize;i+=2){
       const vec3 rt = { netTileAABB[i+1].x, curFloor, netTileAABB[i+1].z };
       const vec3 lb = { netTileAABB[i].x, curFloor, netTileAABB[i].z };
@@ -4418,11 +4437,11 @@ void editorMouseVS(){
 	vec3i gridInd = xyz_coordsToIndexes(netTileAABB[i].x, curFloor, netTileAABB[i].z);
 	//intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
 	
-	intersTileData->tileId = i;
-	intersTileData->type = netTileT2;
-	//	intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
+	intersTileData->tileId = -1;
+	intersTileData->type = netTileT;
+	intersTileData->pos = lb;
+	
 	intersTileData->intersection = intersection;
-	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
 	mouse.selectedType = mouseTileT;
 	mouse.selectedThing = intersTileData;
@@ -4529,6 +4548,21 @@ void createModel(int index, ModelType type){
 	
   calculateModelAABB(&curModels[curModelsSize-1]);
 
+}
+
+void deleteTileInStorage(int id){
+  int index = 0;
+  for(int i=0;i<tilesStorageSize;i++){
+    if(tilesStorage[i]->id == id){
+      continue;
+    }
+    
+    tilesStorage[index] = tilesStorage[i];
+    tilesStorage[index]->id = index;
+    
+    index++;
+  }
+  tilesStorageSize--;
 }
 
 void deleteWallInStorage(int id){

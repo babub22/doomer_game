@@ -302,7 +302,6 @@ void gameMouseVS(){
 
 	//intersTileData->grid = (vec2i){ ind.x,ind.z };
 	intersTileData->intersection = intersection;
-	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
 	mouse.selectedType = mouseTileT;
 	mouse.selectedThing = intersTileData;
@@ -396,7 +395,6 @@ void gameMouseVS(){
 
 	//intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
 	intersTileData->intersection = intersection;
-	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
 	mouse.selectedType = mouseTileT;
 	mouse.selectedThing = intersTileData;

@@ -7,6 +7,8 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
 
+uniform float thick;
+
 out vec2 TexCoord;
 
 vec3 FragPos;
@@ -15,7 +17,7 @@ void main(void)
 {
 TexCoord= aTexCoord;
 
-vec3 scaledPosition = aPos + aNorm * 0.01f;
+vec3 scaledPosition = aPos + aNorm * thick;
 
 FragPos = vec3(model * vec4(aPos, 1.0));
 

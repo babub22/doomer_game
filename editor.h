@@ -20,3 +20,4 @@ void deleteWallInStorage(int id);
 
 void initGizmosAABBFromSelected();
 
+void deleteTileInStorage(int id);

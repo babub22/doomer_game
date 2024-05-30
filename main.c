@@ -33,6 +33,8 @@ int blocksStorageSize;
 Tile** tilesStorage;
 int tilesStorageSize;
 
+MeshBuffer doorDoorPlane[2];
+
 //const int SHADOW_WIDTH = 128, SHADOW_HEIGHT = 128;
 const int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;  
 unsigned int depthMapFBO;
@@ -1930,67 +1932,126 @@ int main(int argc, char* argv[]) {
         //uniformVec3(mainShader, "lightPoss", modelXLight);
 
 	// highlight selected model with stencil
-	if(true)
-	{
-	  if(mouse.selectedType == mouseModelT){
-	    glEnable(GL_STENCIL_TEST);
+        if (true)
+        {
+            if (mouse.selectedType == mouseModelT) {
+                glEnable(GL_STENCIL_TEST);
 
-	    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-	    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-	    glStencilMask(0xFF);
+                glStencilFunc(GL_ALWAYS, 1, 0xFF);
+                glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+                glStencilMask(0xFF);
 
-	    glDepthMask(GL_FALSE); 
-	    glClear(GL_STENCIL_BUFFER_BIT);
+                glDepthMask(GL_FALSE);
+                glClear(GL_STENCIL_BUFFER_BIT);
 
-	    Model* model = (Model*)mouse.selectedThing;
-	    int name = model->name;
-	    
-	    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                Model* model = (Model*)mouse.selectedThing;
+                int name = model->name;
 
-	    // 1 draw
-	    {
-	      glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
+                glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-	      glBindVertexArray(loadedModels1D[name].VAO);
-	      glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
+                // 1 draw
+                {
+                    glBindTexture(GL_TEXTURE_2D, loadedModels1D[name].tx);
 
-	      uniformMat4(mainShader, "model", model->mat.m);
+                    glBindVertexArray(loadedModels1D[name].VAO);
+                    glBindBuffer(GL_ARRAY_BUFFER, loadedModels1D[name].VBO);
 
-	      glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
-	    }
+                    uniformMat4(mainShader, "model", model->mat.m);
 
-	    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                    glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
+                }
 
-	    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-	    glStencilMask(0x00);
-	    glDepthMask(GL_TRUE); 
-	    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+                glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-	    // higlight
-	    {
-	      glUseProgram(shadersId[borderShader]);
-      
-	      //glDisable(GL_DEPTH_TEST);
-      
-	      uniformMat4(borderShader, "model", model->mat.m);
-	      uniformVec3(borderShader, "borderColor", (vec3){ redColor });
-	      glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
+                glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+                glStencilMask(0x00);
+                glDepthMask(GL_TRUE);
+                glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-	      //	      glEnable(GL_DEPTH_TEST);
+                // higlight
+                {
+                    glUseProgram(shadersId[borderShader]);
 
-	      glUseProgram(shadersId[mainShader]);
+                    uniformMat4(borderShader, "model", model->mat.m);
+                    uniformVec3(borderShader, "borderColor", (vec3) { redColor });
+		    uniformFloat(borderShader, "thick", 0.01f);
 
-	      //    glStencilMask(0x00);
-	    }
-	    
-	    glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    glBindVertexArray(0);
+                    glDrawArrays(GL_TRIANGLES, 0, loadedModels1D[name].size);
 
-	    glBindTexture(GL_TEXTURE_2D, 0);
-	  }
+                    glUseProgram(shadersId[mainShader]);
+                }
 
-	  glDisable(GL_STENCIL_TEST);
-	}
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                glBindVertexArray(0);
+
+                glBindTexture(GL_TEXTURE_2D, 0);
+		 glDisable(GL_STENCIL_TEST);
+            }
+            else if (mouse.selectedType == mouseWallT) {
+                WallMouseData* wallData = (WallMouseData*)mouse.selectedThing;
+                int type = wallData->wall->type;
+                int plane = wallData->plane;
+
+                if (type == doorT && (plane == doorCenterFrontPlane || plane == doorCenterBackPlane)) {
+                    glEnable(GL_STENCIL_TEST);
+
+                    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+		    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+                    //glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+                    glStencilMask(0xFF);
+
+		    glDepthMask(GL_FALSE);
+                    glClear(GL_STENCIL_BUFFER_BIT);
+
+                    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+                    {
+                        glBindTexture(GL_TEXTURE_2D, loadedTextures1D[wallData->wall->planes[plane].txIndex].tx);
+
+                        glBindVertexArray(doorDoorPlane[plane].VAO);
+                        glBindBuffer(GL_ARRAY_BUFFER, doorDoorPlane[plane].VBO);
+			
+                        uniformMat4(mainShader, "model", wallData->wall->mat.m);
+
+                        glDrawArrays(GL_TRIANGLES, 0, doorDoorPlane[plane].VBOsize);
+                    }
+
+                    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+		    //                    glStencilFunc(GL_EQUAL, 1, 0xFF);
+		    glStencilFunc(GL_LEQUAL, 1, 0xFF);
+		    //		    GL_LEQUAL GL_GREATER
+
+                    glStencilMask(0x00);
+
+		    glDepthMask(GL_TRUE);
+		    //glStencilOp(GL_KEEP, GL_INVERT, GL_KEEP);
+		    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+		    //glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+		    
+                    // higlight
+                    {
+		      glUseProgram(shadersId[borderShader]);
+
+		      uniformMat4(borderShader, "model", wallData->wall->mat.m);
+		      uniformVec3(borderShader, "borderColor", (vec3) { redColor });
+		      uniformFloat(borderShader, "thick", 0.04f);
+
+		      glDrawArrays(GL_TRIANGLES, 0, doorDoorPlane[plane].VBOsize);
+
+		      glUseProgram(shadersId[mainShader]);
+                    }
+
+                    glBindBuffer(GL_ARRAY_BUFFER, 0);
+                    glBindVertexArray(0);
+
+                    glBindTexture(GL_TEXTURE_2D, 0);
+
+                    glDisable(GL_STENCIL_TEST);
+                }
+            }
+        }
 
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
@@ -2430,7 +2491,7 @@ ModelInfo* loadOBJ(char* path, char* texturePath){
 
   free(sortedNormals);
   free(sortedUvs);
-
+  
   glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8 * loadedModel->size, modelVerts, GL_STATIC_DRAW);
 
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
@@ -2843,23 +2904,22 @@ bool loadSave(char* saveName){
 
     float groundLiftDELETEIT;
 
-    fscanf(map, "%d %f %d ", &tile->ground, &groundLiftDELETEIT, &sidesCounter);
+    fscanf(map, "%d %f %d ", &tile->type, &tile->tx, &groundLiftDELETEIT, &sidesCounter);
 
     //    vec3 grid = xyz_indexesToCoords(x,y,z);
 
     //    tile->pos = grid;
 
-    GroundType type = valueIn(tile->ground, 0);
-
-    GroundType tx2 = valueIn(tile->ground, 2);  
+    GroundType type = tile->type;
+    int tx = tile->tx;  
 
     if(type != netTileT){
-      geomentyByTxCounter[tx2] += sizeof(float) * 8 * 6;
+      geomentyByTxCounter[tx] += sizeof(float) * 8 * 6;
     }
     
     if(y == 0 && (type == netTileT || type == 0)){
-      setIn(tile->ground, 0, texturedTile); 
-      setIn(tile->ground, 2, textureOfGround);
+      tile->type = texturedTileT; 
+      tile->tx = textureOfGround;
     }
 
     Side side = -1; 
@@ -3127,12 +3187,11 @@ bool saveMap(char* saveName) {
 
                 if (!tile) continue;
 
-                GroundType type = valueIn(tile->ground, 0);
-                int tx1 = valueIn(tile->ground, 1);
-                int tx2 = valueIn(tile->ground, 2);
+                GroundType type = tile->type;
+                int tx = tile->tx;
 
                 //	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || (y != 0 && type == texturedTile);
-                bool acceptTile = type == texturedTile;
+                bool acceptTile = type == texturedTileT;
 
                 if (tile->block) {
                     blckCounter++;
@@ -3194,7 +3253,7 @@ bool saveMap(char* saveName) {
             sidesAvaible++;
         }
 
-        fprintf(map, "%d %d %d %d %d ", x, y, z, grid[y][z][x]->ground, sidesAvaible);
+        fprintf(map, "%d %d %d %d %d %d ", x, y, z, grid[y][z][x]->type, grid[y][z][x]->tx, sidesAvaible);
 
         // walls
       //  for(int i1=0;i1<basicSideCounter;i1++){
@@ -3978,13 +4037,13 @@ void assembleWallBlockVBO() {
     };
 
     float backPlane[] = {
-      0.0f, 0.0f , d,  0.0f, 0.0f,
-      w, h, d,         1.0f, 1.0f,
-      0.0f, h, d,      0.0f, 1.0f,
+      0.0f, 0.0f , d,  0.0f, 1.0f,
+      w, h, d,         1.0f, 0.0f,
+      0.0f, h, d,      0.0f, 0.0f,
 
-      0.0f, 0.0f , d,  0.0f, 0.0f,
-      w, 0.0f , d,     1.0f, 0.0f,
-      w, h, d,         1.0f, 1.0f,
+      0.0f, 0.0f , d,  0.0f, 1.0f,
+      w, 0.0f , d,     1.0f, 1.0f,
+      w, h, d,         1.0f, 0.0f,
     };
   
     float* wallPlanes[wPlaneCounter+3] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane };
@@ -4553,6 +4612,43 @@ void assembleDoorBlockVBO() {  // wallBlock buf
       };
     */
 
+    // remember door plane for selection
+    for(int i=0;i<2;i++){
+      glGenBuffers(1, &doorDoorPlane[i].VBO);
+      glGenVertexArrays(1, &doorDoorPlane[i].VAO);
+      
+      glBindVertexArray(doorDoorPlane[i].VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, doorDoorPlane[i].VBO);
+      
+      doorDoorPlane[i].VBOsize = 6;
+
+      int newBufSize;
+      float* newBuf;
+
+      if(i == doorCenterFrontPlane){
+	newBuf = createNormalBuffer(centerFrontPlane, sizeof(centerFrontPlane), &newBufSize);
+      }else{
+	newBuf = createNormalBuffer(centerBackPlane, sizeof(centerBackPlane), &newBufSize);
+      }
+
+      int vertNum = newBufSize / sizeof(float) / 8;
+      
+      glBufferData(GL_ARRAY_BUFFER, newBufSize, newBuf, GL_STATIC_DRAW);
+      free(newBuf);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+      glEnableVertexAttribArray(1);
+
+      glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+      glEnableVertexAttribArray(2);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+
   
     float* wallPlanes[doorPlaneCounter] = {
       [doorTopPlane] = topPlane,
@@ -4865,8 +4961,8 @@ void initGrid(int sx, int sy, int sz){
 	if (y == 0) {
 	  grid[y][z][x] = calloc(1, sizeof(Tile));
 	  
-	  setIn(grid[y][z][x]->ground, 0, texturedTile);
-	  setIn(grid[y][z][x]->ground, 2, textureOfGround);
+	  grid[y][z][x]->type = texturedTileT;
+	  grid[y][z][x]->tx = textureOfGround;
 
 	  vec3 tile = xyz_indexesToCoords(x,y,z);
 
@@ -4879,6 +4975,7 @@ void initGrid(int sx, int sy, int sz){
 	  }
 
 	  geomentyByTxCounter[textureOfGround] += sizeof(float) * 8 * 6;
+
 	  tilesStorage[tilesStorageSize-1] = grid[y][z][x];
 	  tilesStorage[tilesStorageSize-1]->id = tilesStorageSize-1;
 	  
@@ -5180,6 +5277,61 @@ void attachNormalsToBuf(VPair* VPairBuf, int plane, int bufSize, float* buf){
 
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
+}
+
+float* createNormalBuffer(float* buf, int size, int* finalSize){
+  int vertNum = size / sizeof(float) / 5;
+  size_t newSize = (sizeof(float) * vertNum * 8);
+  float* bufWithNormals = malloc(newSize);
+
+  *finalSize = newSize;
+
+  int oldBufI = 0;
+  for(int i=0;i<newSize/sizeof(float);i+=8*3, oldBufI+=5*3){
+    vec3 a = (vec3){ buf[oldBufI], buf[oldBufI+1], buf[oldBufI+2] };
+    vec3 b = (vec3){ buf[oldBufI+5], buf[oldBufI+6], buf[oldBufI+7] };
+    vec3 c = (vec3){ buf[oldBufI+10], buf[oldBufI+11], buf[oldBufI+12] };
+
+    // uv
+    bufWithNormals[i+3] = buf[oldBufI+3]; 
+    bufWithNormals[i+4] = buf[oldBufI+4];
+
+    bufWithNormals[i+11] = buf[oldBufI+8]; 
+    bufWithNormals[i+12] = buf[oldBufI+9];
+    
+    bufWithNormals[i+19] = buf[oldBufI+13]; 
+    bufWithNormals[i+20] = buf[oldBufI+14];
+
+    vec3 norm = calculateNormal(a,b,c);
+
+    // norm
+    bufWithNormals[i+5] = norm.x;
+    bufWithNormals[i+6] = norm.y;
+    bufWithNormals[i+7] = norm.z;
+
+    bufWithNormals[i+13] = norm.x;
+    bufWithNormals[i+14] = norm.y;
+    bufWithNormals[i+15] = norm.z;
+
+    bufWithNormals[i+21] = norm.x;
+    bufWithNormals[i+22] = norm.y;
+    bufWithNormals[i+23] = norm.z;
+
+    // vert
+    bufWithNormals[i+0] = a.x;
+    bufWithNormals[i+1] = a.y;
+    bufWithNormals[i+2] = a.z;
+
+    bufWithNormals[i+8] = b.x;
+    bufWithNormals[i+9] = b.y;
+    bufWithNormals[i+10] = b.z;
+
+    bufWithNormals[i+16] = c.x;
+    bufWithNormals[i+17] = c.y;
+    bufWithNormals[i+18] = c.z;
+  }
+  
+  return bufWithNormals;
 }
 
 /*
@@ -5504,7 +5656,6 @@ void checkMouseVSEntities(){
 
 	//intersTileData->grid = (vec2i){ ind.x,ind.z };
 	intersTileData->intersection = intersection;
-	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
 	mouse.selectedType = mouseTileT;
 	mouse.selectedThing = intersTileData;
@@ -5597,7 +5748,6 @@ void checkMouseVSEntities(){
 
 	//intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
 	intersTileData->intersection = intersection;
-	intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
 
 	mouse.selectedType = mouseTileT;
 	mouse.selectedThing = intersTileData;
@@ -5686,13 +5836,13 @@ void batchAllGeometryNoHidden(){
 
   // tiles
   for(int i=0;i<tilesStorageSize;i++){
-    int type = valueIn(tilesStorage[i]->ground, 0);
+    int type = tilesStorage[i]->type;
 
-    if (type != texturedTile){
+    if (type != texturedTileT){
       continue;
     }
 
-    int txIndex = valueIn(tilesStorage[i]->ground, 2);
+    int txIndex = tilesStorage[i]->tx;
 
     for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
       preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i]->pos.x; 
@@ -5861,13 +6011,13 @@ void batchAllGeometry(){
 
   // tiles
   for(int i=0;i<tilesStorageSize;i++){
-    int type = valueIn(tilesStorage[i]->ground, 0);
+    int type = tilesStorage[i]->type;
 
-    if (type != texturedTile){
+    if (type != texturedTileT){
       continue;
     }
 
-    int txIndex = valueIn(tilesStorage[i]->ground, 2);
+    int txIndex = tilesStorage[i]->tx;
 
     for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
       preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i]->pos.x; 
@@ -6019,9 +6169,9 @@ void assembleNavigation(){
   navPointsSize = 0;
   
   for(int i=0;i<tilesStorageSize;i++){
-      GroundType type = valueIn(tilesStorage[i]->ground, 0);
+      GroundType type = tilesStorage[i]->type;//, 0);
 
-    if(!tilesStorage[i]->block && type == texturedTile){
+    if(!tilesStorage[i]->block && type == texturedTileT){
       int x = tilesStorage[i]->pos.x; int y = (int)tilesStorage[i]->pos.y; int z = (int)tilesStorage[i]->pos.z;
 
       vec3 tile = tilesStorage[i]->pos;//xyz_indexesToCoords((int)tilesStorage[i]->pos.x, (int)tilesStorage[i]->pos.y, (int)tilesStorage[i]->pos.z);
@@ -6052,14 +6202,12 @@ void assembleNavigation(){
   navPointsSize = 0;
 
   for(int i=0;i<tilesStorageSize;i++){
-      GroundType type = valueIn(tilesStorage[i]->ground, 0);
+      GroundType type = tilesStorage[i]->type;
 
-    if(!tilesStorage[i]->block && type == texturedTile){
+    if(!tilesStorage[i]->block && type == texturedTileT){
         int x = tilesStorage[i]->pos.x; int y = (int)tilesStorage[i]->pos.y; int z = (int)tilesStorage[i]->pos.z;
-
-      // rooms borders detection
-      GroundType type = valueIn(tilesStorage[i]->ground, 0);
-      vec3 tile = tilesStorage[i]->pos;//xyz_indexesToCoords((int)tilesStorage[i]->pos.x, (int)tilesStorage[i]->pos.y, (int)tilesStorage[i]->pos.z);
+      
+        vec3 tile = tilesStorage[i]->pos;//xyz_indexesToCoords((int)tilesStorage[i]->pos.x, (int)tilesStorage[i]->pos.y, (int)tilesStorage[i]->pos.z);
 
       bool farRightCor = tilesStorage[i]->wall[left]&& tilesStorage[i]->wall[top];
       bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && tilesStorage[i]->wall[top];

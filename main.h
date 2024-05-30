@@ -419,6 +419,11 @@ typedef struct{
 
 #define spreadMat4(mat) mat[0], mat[1], mat[2], mat[3], mat[4], mat[5], mat[6], mat[7], mat[8], mat[9], mat[10], mat[11], mat[12], mat[13], mat[14], mat[15]
 
+typedef enum{
+  netTileT,
+  texturedTileT,
+} GroundType;
+
 struct Tile{
   TileBlock* block;
   Wall* wall[2];
@@ -427,7 +432,9 @@ struct Tile{
   // 2 byte - under texture id
   // 3 byte - over texture id
   // 4 byte - empty // maybe store H here
-  int ground;
+  uint8_t tx;
+  GroundType type;
+  
   vec3 pos;
 
   int id;
@@ -445,29 +452,13 @@ typedef struct{
   int plane;
 } WallMouseData;
 
-typedef enum{
-  netTileT2,
-  texturedTileT2,
-} GroundType2;
-
 typedef struct{
-  //  Tile* tile;
-  
-  //  vec2i grid;
-
   int tileId;
-  GroundType2 type;
+  GroundType type;
   vec3 pos;
   
   vec3 intersection;
-  int groundInter;
 } TileMouseData;
-
-typedef enum{
-  netTileT = 1,
-  texturedTile,
-} GroundType;
-
 
 bool isAlreadyNavPoint(vec3 point);
 
@@ -1192,3 +1183,5 @@ bool showHiddenWalls;
 
 void assembleNavigation();
 void assembleHalfWallBlockVBO();
+
+float* createNormalBuffer(float* buf, int size, int* finalSize);

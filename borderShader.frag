@@ -3,7 +3,7 @@
 uniform vec3 borderColor;
 
 uniform sampler2D colorMap;
-in vec2 TexCoord; 
+in vec2 TexCoord;
 
 void main()
 {
@@ -13,5 +13,5 @@ if(tex.a == 0.0){
 	 discard;
 }
 
-gl_FragColor = vec4(borderColor.xyz, 1.0);
+gl_FragColor = vec4(borderColor.xyz, 0.0f);
 }
