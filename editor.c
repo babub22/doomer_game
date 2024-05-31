@@ -1306,15 +1306,14 @@ void editorEvents(SDL_Event event){
 	else if (mouse.selectedType == mouseTileT) {
 	  TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
-	  if (data->type == texturedTileT) {
+	  if (data->tx != -1) {
 	    int tx = tilesStorage[data->tileId]->tx;
 
 	    printf("tx: %d \n", tx);
 	    
 	    geomentyByTxCounter[tx] -= sizeof(float) * 8 * 6;
 	    
-	    tilesStorage[data->tileId]->tx = 0;
-	    tilesStorage[data->tileId]->type = netTileT;
+	    tilesStorage[data->tileId]->tx = -1;
 
 	    if(!tilesStorage[data->tileId]->block && !tilesStorage[data->tileId]->wall[0] && !tilesStorage[data->tileId]->wall[1]){
 	      int tileId = data->tileId;
@@ -1725,28 +1724,66 @@ void editorPreFrame(float deltaTime) {
       //   printf("diff %f %f %f\n", argVec3(diffDrag));
 
       if (cursorMode == moveMode) {
-	if (selectedGizmoAxis == XCircle) {
-	  mat->m[12] += diffDrag.x;
-	}
-	else if (selectedGizmoAxis == YCircle) {
-	  mat->m[13] += diffDrag.y;
-	}
-	else if (selectedGizmoAxis == ZCircle) {
-	  mat->m[14] += diffDrag.z;
-	}
-	else if (selectedGizmoAxis == XYPlane) {
-	  mat->m[12] += diffDrag.x;
-	  mat->m[13] += diffDrag.y;
-	}
-	else if (selectedGizmoAxis == ZYPlane) {
-	  mat->m[14] += diffDrag.z;
-	  mat->m[13] += diffDrag.y;
-	}
-	else if (selectedGizmoAxis == XZPlane) {
-	  mat->m[14] += diffDrag.z;
-	  mat->m[12] += diffDrag.x;
-	}
+	if(picture && currentKeyStates[SDL_SCANCODE_LSHIFT]){
+	  float xTemp = mat->m[12];
+	  float yTemp = mat->m[13];
+	  float zTemp = mat->m[14];
 
+	  mat->m[12] = 0;
+	  mat->m[13] = 0;
+	  mat->m[14] = 0;
+
+	  printf("dragX: %f dragY: %f \n", diffDrag.x, diffDrag.y);
+	  
+	  if (selectedGizmoAxis == XCircle) {
+	    if(diffDrag.x > 0){
+	      scale(mat, 1.0f + diffDrag.x, 1.0f, 1.0f);
+	    }else{
+	      scale(mat, 1.0f / (1.0f + fabs(diffDrag.x)), 1.0f, 1.0f);
+	    }
+	  }else if (selectedGizmoAxis == YCircle) {
+	    if(diffDrag.y > 0){
+	      scale(mat, 1.0f, 1.0f + diffDrag.y, 1.0f);
+	    }else{
+	      scale(mat, 1.0f, 1.0f / (1.0f + fabs(diffDrag.y)), 1.0f);
+	    }
+	  }else if (selectedGizmoAxis == ZCircle) {
+	    if(diffDrag.z > 0){
+	      scale(mat, 1.0f, 1.0f, 1.0f + diffDrag.z);
+	    }else{
+	      scale(mat, 1.0f, 1.0f, 1.0f / (1.0f + fabs(diffDrag.z)));
+	    }
+	  }
+	  
+	  mat->m[12] = xTemp;
+	  mat->m[13] = yTemp;
+	  mat->m[14] = zTemp;
+
+	  calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
+	  batchAllGeometry();
+	}else{
+	  if (selectedGizmoAxis == XCircle) {
+	    mat->m[12] += diffDrag.x;
+	  }
+	  else if (selectedGizmoAxis == YCircle) {
+	    mat->m[13] += diffDrag.y;
+	  }
+	  else if (selectedGizmoAxis == ZCircle) {
+	    mat->m[14] += diffDrag.z;
+	  }
+	  else if (selectedGizmoAxis == XYPlane) {
+	    mat->m[12] += diffDrag.x;
+	    mat->m[13] += diffDrag.y;
+	  }
+	  else if (selectedGizmoAxis == ZYPlane) {
+	    mat->m[14] += diffDrag.z;
+	    mat->m[13] += diffDrag.y;
+	  }
+	  else if (selectedGizmoAxis == XZPlane) {
+	    mat->m[14] += diffDrag.z;
+	    mat->m[12] += diffDrag.x;
+	  }
+	}
       }
       else if (cursorMode == rotationMode) {
 	const vec3 axis[3] = { {1.0f,0.0f,0.0f},
@@ -2258,20 +2295,21 @@ void editor3dRender() {
 
 	int tileId = tileData->tileId;
 
-	if (tileData->type == netTileT) {
-	  tilesStorageSize++;
-	  tilesStorage = realloc(tilesStorage, sizeof(Tile*) * tilesStorageSize);
+	printf("isTile exist under wall: %d \n", grid[curFloor][(int)tile.z][(int)tile.x]);
 
-	  Tile* newTile = calloc(1, sizeof(Tile));
-	  newTile->pos = tileData->pos;
-	  newTile->id = tilesStorageSize-1;
+	if (tileData->tileId == -1) {
+//	if(grid[curFloor][(int)tile.z][(int)tile.x] == 0){
+	  tilesStorage = realloc(tilesStorage, sizeof(Tile*) * (tilesStorageSize + 1)); 
 
-	  tileId = newTile->id;
+	  tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
+	  tilesStorage[tilesStorageSize]->pos = tileData->pos;
+	  tilesStorage[tilesStorageSize]->id = tilesStorageSize;
+	  tilesStorage[tilesStorageSize]->tx = -1;
+
+	  tileId = tilesStorageSize;
 	  
-	  grid[curFloor][(int)tileData->pos.z][(int)tileData->pos.x] = newTile;
-	  tilesStorage[tilesStorageSize-1] = newTile;
-
-	  printf("New tile\n");
+	  grid[curFloor][(int)tileData->pos.z][(int)tileData->pos.x] = tilesStorage[tilesStorageSize]; 
+	  tilesStorageSize++;
 	}
 
 	for (int i = 0; i < wallsVPairs[wal.type].planesNum; i++) {
@@ -2280,7 +2318,7 @@ void editor3dRender() {
 	  geomentyByTxCounter[wal.planes[i].txIndex] += wallsVPairs[wal.type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wal.type].pairs[i].attrSize;
 	}
 
-	vec3 tile = tilesStorage[tileData->tileId]->pos;
+	vec3 tile = tilesStorage[tileId]->pos;
 	
 	if(selectedSide == right){
 	  selectedSide = left;
@@ -2288,11 +2326,11 @@ void editor3dRender() {
 	  selectedSide = top;
 	}
 
-	tilesStorage[tileData->tileId]->wall[selectedSide] = malloc(sizeof(Wall));
-	memcpy(tilesStorage[tileData->tileId]->wall[selectedSide], &wal, sizeof(Wall));
+	tilesStorage[tileId]->wall[selectedSide] = malloc(sizeof(Wall));
+	memcpy(tilesStorage[tileId]->wall[selectedSide], &wal, sizeof(Wall));
 
-	tilesStorage[tileData->tileId]->wall[selectedSide]->tileId = tileId;
-	tilesStorage[tileData->tileId]->wall[selectedSide]->id = wallsStorageSize;
+	tilesStorage[tileId]->wall[selectedSide]->tileId = tileId;
+	tilesStorage[tileId]->wall[selectedSide]->id = wallsStorageSize;
 	
 	wallsStorageSize++;
 	if (!wallsStorage) {
@@ -2301,9 +2339,9 @@ void editor3dRender() {
 	  wallsStorage = realloc(wallsStorage, sizeof(Wall*) * wallsStorageSize);
 	}
 
-	printf("%s \n", wallTypeStr[tilesStorage[tileData->tileId]->wall[selectedSide]->type]);
+	printf("%s \n", wallTypeStr[tilesStorage[tileId]->wall[selectedSide]->type]);
 
-	wallsStorage[wallsStorageSize - 1] = tilesStorage[tileData->tileId]->wall[selectedSide];
+	wallsStorage[wallsStorageSize - 1] = tilesStorage[tileId]->wall[selectedSide];
 	//grid[curFloor][(int)curTile.z][(int)curTile.x]->wall[selectedSide] = malloc(sizeof(Wall));
 	
 	if(showHiddenWalls){
@@ -2483,22 +2521,22 @@ void editor2dRender() {
 
 	  int tileId = tileData->tileId;
 
-	  if (tileData->type == netTileT) {
+	  if (tileData->tileId == -1) {
+	    tilesStorage = realloc(tilesStorage, sizeof(Tile*) * (tilesStorageSize + 1));
 
 	    tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
 	    tilesStorage[tilesStorageSize]->pos = tileData->pos;
 	    tilesStorage[tilesStorageSize]->id = tilesStorageSize;
+
+	    grid[(int)tileData->pos.y][(int)tileData->pos.z][(int)tileData->pos.x] = tilesStorage[tilesStorageSize];
 	    
-	    tileId = tilesStorageSize;	    
+	    tileId = tilesStorageSize;
+	    
 	    tilesStorageSize++;
+	  }else{
+	    geomentyByTxCounter[tilesStorage[tileId]->tx] -= sizeof(float) * 8 * 6;
 	  }
 
-	  tilesStorage[tileId]->type = texturedTileT;
-
-	  int tilePrevTx = tilesStorage[tileId]->tx;
-
-	  geomentyByTxCounter[tilePrevTx] -= sizeof(float) * 8 * 6;
-	  
 	  tilesStorage[tileId]->tx = texture->index1D;
 	  geomentyByTxCounter[texture->index1D] += sizeof(float) * 8 * 6;
 	  
@@ -2528,7 +2566,7 @@ void editor2dRender() {
 	 TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 	 TileBlock* block = (TileBlock*)mouse.brushThing;
 
-	 if (tileData->type == netTileT) {
+	 if (tileData->tileId == -1) {
 	   tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
 	   tilesStorage[tilesStorageSize]->pos = tileData->pos;
 	   tilesStorageSize++;
@@ -2643,9 +2681,15 @@ void editor2dRender() {
        }case(mouseTileT): {
 	  TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
-	  if (data->type == texturedTileT) {
+	  if (data->tileId != -1) {
 	    int tileTx = tilesStorage[data->tileId]->tx;
-	    sprintf(buf, "Selected tile[%d] tx: [%s] grid:[%f %f %f]", data->tileId, loadedTexturesNames[tileTx], argVec3(data->intersection));
+
+		if (tileTx != -1) {
+			sprintf(buf, "Selected tile[%d] tx: [%s] grid:[%f %f %f]", data->tileId, loadedTexturesNames[tileTx], argVec3(data->intersection));
+		}
+		else {
+			sprintf(buf, "Selected tile[%d] tx: [No tile tx] grid:[%f %f %f]", data->tileId, argVec3(data->intersection));
+		}
 	  }
 	  else {
 	    sprintf(buf, "Selected empty tile");
@@ -4262,7 +4306,6 @@ void editorMouseVS(){
       if (isIntersect && minDistToCamera > intersectionDistance) {
 	//	intersTileData->tile = tl;
 	intersTileData->tileId = i;
-	intersTileData->type = texturedTileT;
 
 	intersTileData->pos = tl->pos;
 
@@ -4438,7 +4481,6 @@ void editorMouseVS(){
 	//intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
 	
 	intersTileData->tileId = -1;
-	intersTileData->type = netTileT;
 	intersTileData->pos = lb;
 	
 	intersTileData->intersection = intersection;

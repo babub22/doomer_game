@@ -419,11 +419,6 @@ typedef struct{
 
 #define spreadMat4(mat) mat[0], mat[1], mat[2], mat[3], mat[4], mat[5], mat[6], mat[7], mat[8], mat[9], mat[10], mat[11], mat[12], mat[13], mat[14], mat[15]
 
-typedef enum{
-  netTileT,
-  texturedTileT,
-} GroundType;
-
 struct Tile{
   TileBlock* block;
   Wall* wall[2];
@@ -432,8 +427,8 @@ struct Tile{
   // 2 byte - under texture id
   // 3 byte - over texture id
   // 4 byte - empty // maybe store H here
-  uint8_t tx;
-  GroundType type;
+  int8_t tx;
+  //  GroundType type;
   
   vec3 pos;
 
@@ -454,7 +449,7 @@ typedef struct{
 
 typedef struct{
   int tileId;
-  GroundType type;
+  int tx;
   vec3 pos;
   
   vec3 intersection;
@@ -565,13 +560,6 @@ typedef struct{
 } ModelInfo;
 
 void batchModels();
-
-typedef enum{
-  // 1,2 to access .ground
-  // with bitwise
-  fromUnder = 1,
-  fromOver = 2,
-} GroundInter;
 
 typedef enum {
   mouseModelT = 1,

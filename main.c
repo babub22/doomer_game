@@ -2904,22 +2904,19 @@ bool loadSave(char* saveName){
 
     float groundLiftDELETEIT;
 
-    fscanf(map, "%d %f %d ", &tile->type, &tile->tx, &groundLiftDELETEIT, &sidesCounter);
+    fscanf(map, "%c %d ", &tile->tx, &sidesCounter);
 
     //    vec3 grid = xyz_indexesToCoords(x,y,z);
 
     //    tile->pos = grid;
 
-    GroundType type = tile->type;
     int tx = tile->tx;  
 
-    if(type != netTileT){
+    if(tx != -1){
       geomentyByTxCounter[tx] += sizeof(float) * 8 * 6;
     }
-    
-    if(y == 0 && (type == netTileT || type == 0)){
-      tile->type = texturedTileT; 
-      tile->tx = textureOfGround;
+    else if (y == 0) {
+        tile->tx = textureOfGround;
     }
 
     Side side = -1; 
@@ -3187,17 +3184,15 @@ bool saveMap(char* saveName) {
 
                 if (!tile) continue;
 
-                GroundType type = tile->type;
                 int tx = tile->tx;
 
                 //	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || (y != 0 && type == texturedTile);
-                bool acceptTile = type == texturedTileT;
 
                 if (tile->block) {
                     blckCounter++;
                 }
 
-                if (acceptTile) {
+                if (tx != -1) {
                     tlsCounter++;
                 }
 
@@ -3214,7 +3209,7 @@ bool saveMap(char* saveName) {
                     wallsCounter++;
                     wallCounter++;
                 }
-                else if (acceptTile) {
+                else if (tx != -1) {
                     wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
                     wallsCounter++;
                     tileCounter++;
@@ -3253,7 +3248,7 @@ bool saveMap(char* saveName) {
             sidesAvaible++;
         }
 
-        fprintf(map, "%d %d %d %d %d %d ", x, y, z, grid[y][z][x]->type, grid[y][z][x]->tx, sidesAvaible);
+        fprintf(map, "%d %d %d %c %d ", x, y, z, grid[y][z][x]->tx, sidesAvaible);
 
         // walls
       //  for(int i1=0;i1<basicSideCounter;i1++){
@@ -4961,7 +4956,7 @@ void initGrid(int sx, int sy, int sz){
 	if (y == 0) {
 	  grid[y][z][x] = calloc(1, sizeof(Tile));
 	  
-	  grid[y][z][x]->type = texturedTileT;
+	//  grid[y][z][x]->type = texturedTileT;
 	  grid[y][z][x]->tx = textureOfGround;
 
 	  vec3 tile = xyz_indexesToCoords(x,y,z);
@@ -5836,13 +5831,12 @@ void batchAllGeometryNoHidden(){
 
   // tiles
   for(int i=0;i<tilesStorageSize;i++){
-    int type = tilesStorage[i]->type;
+    int txIndex = tilesStorage[i]->tx;
 
-    if (type != texturedTileT){
+    if (txIndex == -1){
       continue;
     }
 
-    int txIndex = tilesStorage[i]->tx;
 
     for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
       preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i]->pos.x; 
@@ -6011,13 +6005,12 @@ void batchAllGeometry(){
 
   // tiles
   for(int i=0;i<tilesStorageSize;i++){
-    int type = tilesStorage[i]->type;
-
-    if (type != texturedTileT){
-      continue;
-    }
-
     int txIndex = tilesStorage[i]->tx;
+
+    if (txIndex == -1){
+      continue;
+    } 
+
 
     for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
       preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i]->pos.x; 
@@ -6138,7 +6131,7 @@ void batchAllGeometry(){
       glBindVertexArray(finalGeom[i].VAO);
       glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
 
-      printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
+      //      printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
       glBufferData(GL_ARRAY_BUFFER, preGeom[i].size, preGeom[i].buf, GL_STATIC_DRAW);
 
       glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
@@ -6169,9 +6162,7 @@ void assembleNavigation(){
   navPointsSize = 0;
   
   for(int i=0;i<tilesStorageSize;i++){
-      GroundType type = tilesStorage[i]->type;//, 0);
-
-    if(!tilesStorage[i]->block && type == texturedTileT){
+    if(!tilesStorage[i]->block && tilesStorage[i]->tx != -1){
       int x = tilesStorage[i]->pos.x; int y = (int)tilesStorage[i]->pos.y; int z = (int)tilesStorage[i]->pos.z;
 
       vec3 tile = tilesStorage[i]->pos;//xyz_indexesToCoords((int)tilesStorage[i]->pos.x, (int)tilesStorage[i]->pos.y, (int)tilesStorage[i]->pos.z);
@@ -6202,9 +6193,7 @@ void assembleNavigation(){
   navPointsSize = 0;
 
   for(int i=0;i<tilesStorageSize;i++){
-      GroundType type = tilesStorage[i]->type;
-
-    if(!tilesStorage[i]->block && type == texturedTileT){
+    if(!tilesStorage[i]->block && tilesStorage[i]->tx != -1) {
         int x = tilesStorage[i]->pos.x; int y = (int)tilesStorage[i]->pos.y; int z = (int)tilesStorage[i]->pos.z;
       
         vec3 tile = tilesStorage[i]->pos;//xyz_indexesToCoords((int)tilesStorage[i]->pos.x, (int)tilesStorage[i]->pos.y, (int)tilesStorage[i]->pos.z);
