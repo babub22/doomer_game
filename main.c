@@ -22,8 +22,6 @@ VPair navPointsConnMesh;
 
 bool navPointsDraw = false;
 
-Matrix wallJointsMat[4];
-
 Wall** wallsStorage;
 int wallsStorageSize;
 
@@ -33,7 +31,7 @@ int blocksStorageSize;
 Tile** tilesStorage;
 int tilesStorageSize;
 
-MeshBuffer doorDoorPlane[2];
+MeshBuffer doorDoorPlane;
 
 //const int SHADOW_WIDTH = 128, SHADOW_HEIGHT = 128;
 const int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;  
@@ -104,11 +102,14 @@ const char* windowPlanesStr[] = {
   [winBackBotPlane] = "Back-bot plane",
   [winCenterBackPlane] = "Center-back plane" ,
   [winCenterFrontPlane] = "Center-front plane" ,
+
   [winInnerBotPlane] = "Inner-bot plane",
   [winInnerTopPlane] = "Inner-top plane",
 
+  [winInnerLeftPlane] = "Inner-left plane",
+  [winInnerRightPlane] = "Inner-right plane",
+
   [winFrontPodokonik] = "Front-padokonik",
-  [winBackPodokonik] = "Back-padokonik",
 };
 
 const int planesInfo[wallTypeCounter] = {
@@ -126,19 +127,11 @@ const int planesInfo[wallTypeCounter] = {
   [windowT] = winPlaneCounter,
   [doorT] = doorPlaneCounter,
 };
-
-const char* wallJointPlanesStr[] = {
-  [jointTopPlane] = "Top",
-  [jointFrontPlane] = "Front",
-  [jointSidePlane] = "Side"
-};
-
 const char* doorPlanesStr[] = {
   [winTopPlane] = "Top plane",
   [doorFrontPlane] = "Front plane",
   [doorBackPlane] = "Back plane",
-  [doorCenterBackPlane] = "Center-back plane" ,
-  [doorCenterFrontPlane] = "Center-front plane" ,
+  [doorCenterPlane] = "Center plane" ,
 };
 
 const char* mouseBrushTypeStr[] = {
@@ -458,9 +451,6 @@ int main(int argc, char* argv[]) {
   assembleHideWallBlockVBO();
   assembleHalfWallBlockVBO();
   
-  //  assembleWallJointVBO();
-  //  assembleHalfWallJointVBO();
-
   assembleBlocks();
 
   // plane 3d
@@ -1992,7 +1982,7 @@ int main(int argc, char* argv[]) {
                 int type = wallData->wall->type;
                 int plane = wallData->plane;
 
-                if (type == doorT && (plane == doorCenterFrontPlane || plane == doorCenterBackPlane)) {
+                if ((type == hiddenDoorT || type == doorT) && plane == doorCenterPlane) {
                     glEnable(GL_STENCIL_TEST);
 
                     glStencilFunc(GL_ALWAYS, 1, 0xFF);
@@ -2006,30 +1996,26 @@ int main(int argc, char* argv[]) {
                     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
                     {
-                        glBindTexture(GL_TEXTURE_2D, loadedTextures1D[wallData->wall->planes[plane].txIndex].tx);
+		      glBindTexture(GL_TEXTURE_2D, loadedTextures1D[wallData->wall->planes[plane].txIndex].tx);
 
-                        glBindVertexArray(doorDoorPlane[plane].VAO);
-                        glBindBuffer(GL_ARRAY_BUFFER, doorDoorPlane[plane].VBO);
+		      glBindVertexArray(doorDoorPlane.VAO);
+		      glBindBuffer(GL_ARRAY_BUFFER, doorDoorPlane.VBO);
 			
-                        uniformMat4(mainShader, "model", wallData->wall->mat.m);
+		      uniformMat4(mainShader, "model", wallData->wall->mat.m);
 
-                        glDrawArrays(GL_TRIANGLES, 0, doorDoorPlane[plane].VBOsize);
+		      glDrawArrays(GL_TRIANGLES, 0, doorDoorPlane.VBOsize);
                     }
 
                     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-		    //                    glStencilFunc(GL_EQUAL, 1, 0xFF);
-		    glStencilFunc(GL_LEQUAL, 1, 0xFF);
-		    //		    GL_LEQUAL GL_GREATER
+		    //		    glStencilFunc(GL_LEQUAL, 1, 0xFF);
+		    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
 
                     glStencilMask(0x00);
 
 		    glDepthMask(GL_TRUE);
-		    //glStencilOp(GL_KEEP, GL_INVERT, GL_KEEP);
 		    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
-		    //glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-		    
                     // higlight
                     {
 		      glUseProgram(shadersId[borderShader]);
@@ -2038,7 +2024,7 @@ int main(int argc, char* argv[]) {
 		      uniformVec3(borderShader, "borderColor", (vec3) { redColor });
 		      uniformFloat(borderShader, "thick", 0.04f);
 
-		      glDrawArrays(GL_TRIANGLES, 0, doorDoorPlane[plane].VBOsize);
+		      glDrawArrays(GL_TRIANGLES, 0, doorDoorPlane.VBOsize);
 
 		      glUseProgram(shadersId[mainShader]);
                     }
@@ -3986,9 +3972,9 @@ void assembleHalfWallBlockVBO() {
       w, h, d,         1.0f, texH,
     };
   
-    float* wallPlanes[wPlaneCounter+3] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane };
+    float* wallPlanes[wPlaneCounter] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane };
   
-    int wallPlanesSize[wPlaneCounter + 3] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane) };
+    int wallPlanesSize[wPlaneCounter] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane) };
 
     wallsVPairs[halfWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
     wallsVPairs[halfWallT].planesNum = wPlaneCounter;
@@ -4040,13 +4026,24 @@ void assembleWallBlockVBO() {
       w, 0.0f , d,     1.0f, 1.0f,
       w, h, d,         1.0f, 0.0f,
     };
-  
-    float* wallPlanes[wPlaneCounter+3] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane };
-  
-    int wallPlanesSize[wPlaneCounter + 3] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane) };
 
-    wallsVPairs[normWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
-    wallsVPairs[normWallT].planesNum = wPlaneCounter;
+    /*    float closePlane[] = {
+      0.0f, 0.0f , d,  0.0f, 1.0f,
+      w, h, d,         1.0f, 0.0f,
+      0.0f, h, d,      0.0f, 0.0f,
+
+      0.0f, 0.0f , d,  0.0f, 1.0f,
+      w, 0.0f , d,     1.0f, 1.0f,
+      w, h, d,         1.0f, 0.0f,
+    };*/
+  
+  
+    float* wallPlanes[wPlaneCounter] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane };
+  
+    int wallPlanesSize[wPlaneCounter] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane) };
+
+    wallsVPairs[normWallT].pairs = malloc(sizeof(VPair) * (wPlaneCounter-1));    
+    wallsVPairs[normWallT].planesNum = wPlaneCounter-1;
 
     for(int i=0;i<wallsVPairs[normWallT].planesNum;i++){
       attachNormalsToBuf(wallsVPairs[normWallT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
@@ -4083,6 +4080,26 @@ void assembleWallBlockVBO() {
       w+t, h, -d,         capRatio, 1.0f,
     };
 
+    float closePlane[] = {
+      // left ex
+      -t, 0.0f , -d,      0.0f, 0.0f,
+      t, h, d,          capRatio *2, 1.0f,
+      -t, h, -d,          0.0f, 1.0f,
+
+      -t, 0.0f , -d,      0.0f, 0.0f,
+      t, 0.0f , d,     capRatio*2, 0.0f,
+      t, h, d,         capRatio*2, 1.0f,
+      
+      // right ex
+      w-t, 0.0f , d,      0.0f, 0.0f,
+      w+t, h, -d,         capRatio *2, 1.0f,
+      w-t, h, d,          0.0f, 1.0f,
+
+      w-t, 0.0f , d,      0.0f, 0.0f,
+      w+t, 0.0f , -d,     capRatio*2, 0.0f,
+      w+t, h, -d,         capRatio*2, 1.0f,
+    };
+
     float topPlane[] = {
       w+t, h, -t,    1.0f, 0.0f,
       t, h, d,   0.0f, capRatio, // 1
@@ -4094,18 +4111,18 @@ void assembleWallBlockVBO() {
     };
 
     float backPlane[] = {
-      t, 0.0f , d,  0.0f, 0.0f,
-      w-t, h, d,         1.0f, 1.0f,
-      t, h, d,      0.0f, 1.0f,
+      t, 0.0f , d,  0.0f, 1.0f,
+      w-t, h, d,         1.0f, 0.0f,
+      t, h, d,      0.0f, 0.0f,
 
-      t, 0.0f , d,  0.0f, 0.0f,
-      w-t, 0.0f , d,     1.0f, 0.0f,
-      w-t, h, d,         1.0f, 1.0f,
+      t, 0.0f , d,  0.0f, 1.0f,
+      w-t, 0.0f , d,     1.0f, 1.0f,
+      w-t, h, d,         1.0f, 0.0f,
     };
   
-    float* wallPlanes[wPlaneCounter+3] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane };
+    float* wallPlanes[wPlaneCounter] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane, [wClosePlane] = closePlane };
   
-    int wallPlanesSize[wPlaneCounter + 3] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane) };
+    int wallPlanesSize[wPlaneCounter] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane),  [wClosePlane] = sizeof(closePlane) };
 
     wallsVPairs[LRWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
     wallsVPairs[LRWallT].planesNum = wPlaneCounter;
@@ -4148,18 +4165,30 @@ void assembleWallBlockVBO() {
     };
 
     float backPlane[] = {
-      t, 0.0f , d,  0.0f, 0.0f,
-      w, h, d,         1.0f, 1.0f,
-      t, h, d,      0.0f, 1.0f,
+      t, 0.0f , d,  0.0f, 1.0f,
+      w, h, d,         1.0f, 0.0f,
+      t, h, d,      0.0f, 0.0f,
 
-      t, 0.0f , d,  0.0f, 0.0f,
-      w, 0.0f , d,     1.0f, 0.0f,
-      w, h, d,         1.0f, 1.0f,
+      t, 0.0f , d,  0.0f, 1.0f,
+      w, 0.0f , d,     1.0f, 1.0f,
+      w, h, d,         1.0f, 0.0f,
+    };
+
+    
+    float closePlane[] = {
+      // left ex
+      -t, 0.0f , -d,      0.0f, 0.0f,
+      t, h, d,          capRatio *2, 1.0f,
+      -t, h, -d,          0.0f, 1.0f,
+
+      -t, 0.0f , -d,      0.0f, 0.0f,
+      t, 0.0f , d,     capRatio*2, 0.0f,
+      t, h, d,         capRatio*2, 1.0f,
     };
   
-    float* wallPlanes[wPlaneCounter+3] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane };
+    float* wallPlanes[wPlaneCounter] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane, [wClosePlane] = closePlane };
   
-    int wallPlanesSize[wPlaneCounter + 3] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane) };
+    int wallPlanesSize[wPlaneCounter] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane),  [wClosePlane] = sizeof(closePlane) };
 
     wallsVPairs[LWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
     wallsVPairs[LWallT].planesNum = wPlaneCounter;
@@ -4201,19 +4230,29 @@ void assembleWallBlockVBO() {
     };
 
     float backPlane[] = {
-      0.0f, 0.0f , d,  0.0f, 0.0f,
-      w-t, h, d,         1.0f, 1.0f,
-      0.0f, h, d,      0.0f, 1.0f,
+      0.0f, 0.0f , d,  0.0f, 1.0f,
+      w-t, h, d,         1.0f, 0.0f,
+      0.0f, h, d,      0.0f, 0.0f,
 
-      0.0f, 0.0f , d,  0.0f, 0.0f,
-      w-t, 0.0f , d,     1.0f, 0.0f,
-      w-t, h, d,         1.0f, 1.0f,
+      0.0f, 0.0f , d,  0.0f, 1.0f,
+      w-t, 0.0f , d,     1.0f, 1.0f,
+      w-t, h, d,         1.0f, 0.0f,
+    };
+      
+    float closePlane[] = {
+      // right ex
+      w-t, 0.0f , d,      0.0f, 0.0f,
+      w+t, h, -d,         capRatio *2, 1.0f,
+      w-t, h, d,          0.0f, 1.0f,
+
+      w-t, 0.0f , d,      0.0f, 0.0f,
+      w+t, 0.0f , -d,     capRatio*2, 0.0f,
+      w+t, h, -d,         capRatio*2, 1.0f,
     };
   
+    float* wallPlanes[wPlaneCounter] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane, [wClosePlane] = closePlane };
   
-    float* wallPlanes[wPlaneCounter+3] = { [wTopPlane] = topPlane, [wFrontPlane] = frontPlane, [wBackPlane] = backPlane };
-  
-    int wallPlanesSize[wPlaneCounter + 3] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane) };
+    int wallPlanesSize[wPlaneCounter] = { [wTopPlane] = sizeof(topPlane),[wFrontPlane] = sizeof(frontPlane),[wBackPlane] = sizeof(backPlane),  [wClosePlane] = sizeof(closePlane) };
 
     wallsVPairs[RWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
     wallsVPairs[RWallT].planesNum = wPlaneCounter;
@@ -4301,8 +4340,8 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
       [wBackPlane] = sizeof(backPlane),
     };
 
-    wallsVPairs[hiddenWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
-    wallsVPairs[hiddenWallT].planesNum = wPlaneCounter;
+    wallsVPairs[hiddenWallT].pairs = malloc(sizeof(VPair) * (wPlaneCounter-1));    
+    wallsVPairs[hiddenWallT].planesNum = wPlaneCounter - 1;
 
     for(int i=0;i<wallsVPairs[hiddenWallT].planesNum;i++){
       attachNormalsToBuf(wallsVPairs[hiddenWallT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
@@ -4319,7 +4358,10 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
       0.0f, 0.0f , -t,  0.0f, 0.0f, // 1
       w, h, -t,         1.0f, 1.0f, // 3
       w, 0.0f , -t,     1.0f, 0.0f, // 2
+    };
 
+    float closePlane[] = {
+      
       // left ex
       -t, 0.0f , -d,  0.0f, 0.0f,
       0.0f, h, -d,         capRatio, 1.0f,
@@ -4363,12 +4405,14 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
       [wTopPlane] = topPlane,
       [wFrontPlane] = frontPlane,
       [wBackPlane] = backPlane,
+      [wClosePlane] = closePlane,
     };
   
     int wallPlanesSize[wPlaneCounter] = {
       [wTopPlane] = sizeof(topPlane),
       [wFrontPlane] = sizeof(frontPlane),
       [wBackPlane] = sizeof(backPlane),
+      [wClosePlane] = sizeof(closePlane),
     };
 
     wallsVPairs[hiddenLRWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
@@ -4390,15 +4434,6 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
       0.0f, 0.0f , -t,  0.0f, 0.0f, // 1
       w, h, -t,         1.0f, 1.0f, // 3
       w, 0.0f , -t,     1.0f, 0.0f, // 2
-
-      // right ex
-      w, 0.0f , -d,  0.0f, 0.0f,
-      w+t, h, -d,         capRatio, 1.0f,
-      w, h, -d,      0.0f, 1.0f,
-
-      w, 0.0f , -d,  0.0f, 0.0f,
-      w+t, 0.0f , -d,     capRatio, 0.0f,
-      w+t, h, -d,         capRatio, 1.0f,
     };
 
     float topPlane[] = {
@@ -4421,16 +4456,29 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
       w-t, h, d,         1.0f, 1.0f,
     };
 
+    float closePlane[] = {
+      // right ex
+      w, 0.0f , -d,  0.0f, 0.0f,
+      w+t, h, -d,         capRatio, 1.0f,
+      w, h, -d,      0.0f, 1.0f,
+
+      w, 0.0f , -d,  0.0f, 0.0f,
+      w+t, 0.0f , -d,     capRatio, 0.0f,
+      w+t, h, -d,         capRatio, 1.0f,
+    };
+
     float* wallPlanes[wPlaneCounter] = {
       [wTopPlane] = topPlane,
       [wFrontPlane] = frontPlane,
       [wBackPlane] = backPlane,
+      [wClosePlane] = closePlane,
     };
   
     int wallPlanesSize[wPlaneCounter] = {
       [wTopPlane] = sizeof(topPlane),
       [wFrontPlane] = sizeof(frontPlane),
       [wBackPlane] = sizeof(backPlane),
+      [wClosePlane] = sizeof(closePlane),
     };
 
     wallsVPairs[hiddenRWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
@@ -4451,16 +4499,6 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
       0.0f, 0.0f , -t,  0.0f, 0.0f, // 1
       w, h, -t,         1.0f, 1.0f, // 3
       w, 0.0f , -t,     1.0f, 0.0f, // 2
-
-
-      // left ex
-      -t, 0.0f , -d,  0.0f, 0.0f,
-      0.0f, h, -d,         capRatio, 1.0f,
-      -t, h, -d,      0.0f, 1.0f,
-
-      -t, 0.0f , -d,  0.0f, 0.0f,
-      0.0f, 0.0f , -d,     capRatio, 0.0f,
-      0.0f, h, -d,         capRatio, 1.0f,
     };
 
     float topPlane[] = {
@@ -4483,16 +4521,29 @@ void assembleHideWallBlockVBO() {  // wallBlock buf
       w, h, d,         1.0f, 1.0f,
     };
 
+    float closePlane[] = {
+      // left ex
+      -t, 0.0f , -d,  0.0f, 0.0f,
+      0.0f, h, -d,         capRatio, 1.0f,
+      -t, h, -d,      0.0f, 1.0f,
+
+      -t, 0.0f , -d,  0.0f, 0.0f,
+      0.0f, 0.0f , -d,     capRatio, 0.0f,
+      0.0f, h, -d,         capRatio, 1.0f,
+    };
+
     float* wallPlanes[wPlaneCounter] = {
       [wTopPlane] = topPlane,
       [wFrontPlane] = frontPlane,
       [wBackPlane] = backPlane,
+      [wClosePlane] = closePlane,
     };
   
     int wallPlanesSize[wPlaneCounter] = {
       [wTopPlane] = sizeof(topPlane),
       [wFrontPlane] = sizeof(frontPlane),
       [wBackPlane] = sizeof(backPlane),
+      [wClosePlane] = sizeof(closePlane),
     };
 
     wallsVPairs[hiddenLWallT].pairs = malloc(sizeof(VPair) * wPlaneCounter);    
@@ -4563,7 +4614,7 @@ void assembleDoorBlockVBO() {  // wallBlock buf
 
     float doorPad = t/12;
       
-    float centerBackPlane[] = {
+    float centerDoorPlane[] = {
       // cap front
       w, h -capH, -doorPad,         1.0f, 1.0f,
       0.0f, 0.0f , -doorPad,        0.0f, 0.0f,
@@ -4572,9 +4623,7 @@ void assembleDoorBlockVBO() {  // wallBlock buf
       w, h -capH, -doorPad,         1.0f, 1.0f,
       w, 0.0f , -doorPad,           1.0f, 0.0f,
       0.0f, 0.0f , -doorPad,        0.0f, 0.0f,
-    };
-
-    float centerFrontPlane[] = {
+      
       // cap front
       0.0f, 0.0f , doorPad,        0.0f, 0.0f,
       w, h -capH, doorPad,         1.0f, 1.0f,
@@ -4584,7 +4633,7 @@ void assembleDoorBlockVBO() {  // wallBlock buf
       w, 0.0f , doorPad,           1.0f, 0.0f,
       w, h -capH, doorPad,         1.0f, 1.0f,
     };
-      
+    
     /*
       float leftPlane[] = {
       0.0f, 0.0f, -t,  0.0f, 0.0f,
@@ -4608,23 +4657,19 @@ void assembleDoorBlockVBO() {  // wallBlock buf
     */
 
     // remember door plane for selection
-    for(int i=0;i<2;i++){
-      glGenBuffers(1, &doorDoorPlane[i].VBO);
-      glGenVertexArrays(1, &doorDoorPlane[i].VAO);
+    //for(int i=0;i<2;i++){
+      glGenBuffers(1, &doorDoorPlane.VBO);
+      glGenVertexArrays(1, &doorDoorPlane.VAO);
       
-      glBindVertexArray(doorDoorPlane[i].VAO);
-      glBindBuffer(GL_ARRAY_BUFFER, doorDoorPlane[i].VBO);
+      glBindVertexArray(doorDoorPlane.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, doorDoorPlane.VBO);
       
-      doorDoorPlane[i].VBOsize = 6;
+      doorDoorPlane.VBOsize = 6;
 
       int newBufSize;
       float* newBuf;
 
-      if(i == doorCenterFrontPlane){
-	newBuf = createNormalBuffer(centerFrontPlane, sizeof(centerFrontPlane), &newBufSize);
-      }else{
-	newBuf = createNormalBuffer(centerBackPlane, sizeof(centerBackPlane), &newBufSize);
-      }
+	newBuf = createNormalBuffer(centerDoorPlane, sizeof(centerDoorPlane), &newBufSize);
 
       int vertNum = newBufSize / sizeof(float) / 8;
       
@@ -4642,15 +4687,14 @@ void assembleDoorBlockVBO() {  // wallBlock buf
 
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindVertexArray(0);
-    }
+    //}
 
   
     float* wallPlanes[doorPlaneCounter] = {
       [doorTopPlane] = topPlane,
       [doorFrontPlane] = frontPlane,
       [doorBackPlane] = backSide,
-      [doorCenterFrontPlane] = centerFrontPlane,
-      [doorCenterBackPlane] = centerBackPlane,
+      [doorCenterPlane] = centerDoorPlane,
       [doorInnerTopPlane] = innerSide,
     };
   
@@ -4658,8 +4702,7 @@ void assembleDoorBlockVBO() {  // wallBlock buf
       [doorTopPlane] = sizeof(topPlane),
       [doorFrontPlane] = sizeof(frontPlane),
       [doorBackPlane] = sizeof(backSide),
-      [doorCenterFrontPlane] = sizeof(centerFrontPlane),
-      [doorCenterBackPlane] = sizeof(centerBackPlane),
+      [doorCenterPlane] = sizeof(centerDoorPlane),
       [doorInnerTopPlane] = sizeof(innerSide),
     };
 
@@ -4668,6 +4711,46 @@ void assembleDoorBlockVBO() {  // wallBlock buf
     
     for(int i=0;i<wallsVPairs[doorT].planesNum;i++){
       attachNormalsToBuf(wallsVPairs[doorT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
+    }
+  }
+
+  
+  {
+    float doorPad = t/12;
+      
+    float centerDoorPlane[] = {
+      // cap front
+      w, h -capH, -doorPad,         1.0f, 1.0f,
+      0.0f, 0.0f , -doorPad,        0.0f, 0.0f,
+      0.0f, h -capH, -doorPad,      0.0f, 1.0f,
+
+      w, h -capH, -doorPad,         1.0f, 1.0f,
+      w, 0.0f , -doorPad,           1.0f, 0.0f,
+      0.0f, 0.0f , -doorPad,        0.0f, 0.0f,
+      
+      // cap front
+      0.0f, 0.0f , doorPad,        0.0f, 0.0f,
+      w, h -capH, doorPad,         1.0f, 1.0f,
+      0.0f, h -capH, doorPad,      0.0f, 1.0f,
+
+      0.0f, 0.0f , doorPad,        0.0f, 0.0f,
+      w, 0.0f , doorPad,           1.0f, 0.0f,
+      w, h -capH, doorPad,         1.0f, 1.0f,
+    };
+      
+    float* wallPlanes[1] = {
+      [doorCenterPlane] = centerDoorPlane,
+    };
+  
+    int wallPlanesSize[1] = {
+      [doorCenterPlane] = sizeof(centerDoorPlane),
+    };
+
+    wallsVPairs[hiddenDoorT].pairs = malloc(sizeof(VPair) * 1);
+    wallsVPairs[hiddenDoorT].planesNum = 1;
+    
+    for(int i=0;i<wallsVPairs[hiddenDoorT].planesNum;i++){
+      attachNormalsToBuf(wallsVPairs[hiddenDoorT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
     }
   }
 }
@@ -4739,47 +4822,7 @@ void assembleWindowBlockVBO(){
     w, h -capH, -t,     1.0f, 0.0f,
     0.0f, h -capH, -t,  0.0f, 0.0f,
   };
-	    
-  /*float rightSide[] = {
-  // cap right
-  w, h -capH, -t,     0.0f, 0.0f,
-  w, h, -t,        0.0f, 1.0f,
-  w, h , d,        t, 1.0f,
-
-  w, h, d,         t, 1.0f,
-  w, h -capH, -t,     0.0f, 0.0f,
-  w, h -capH , d,     t, 0.0f,
-
-  // bot right
-  w, 0.0f, -t,     0.0f, 0.0f,
-  w, botH, -t,        0.0f, 1.0f,
-  w, botH , d,        t, 1.0f,
-
-  w, botH, d,         t, 1.0f,
-  w, 0.0f, -t,     0.0f, 0.0f,
-  w, 0.0f , d,     t, 0.0f,
-  };
-      
-  float leftSide[] = {
-  // cap left
-  0.0f, h -capH, -t,  0.0f, 0.0f,
-  0.0f, h, -t,     0.0f, 1.0f,
-  0.0f, h , d,     t, 1.0f,
-
-  0.0f, h, d,      t, 1.0f,
-  0.0f, h -capH, -t,  0.0f, 0.0f,
-  0.0f, h -capH, d,  t, 0.0f,
-      
-  // bot left
-  0.0f, 0.0f, -t,  0.0f, 0.0f,
-  0.0f, botH, -t,     0.0f, 1.0f,
-  0.0f, botH , d,     t, 1.0f,
-
-  0.0f, botH, d,      t, 1.0f,
-  0.0f, 0.0f, -t,  0.0f, 0.0f,
-  0.0f, 0.0f , d,  t, 0.0f,
-  };*/
-      
+  
   float topSide[] = {
     // cap top
     w, h, -t,    1.0f, 0.0f,
@@ -4813,6 +4856,28 @@ void assembleWindowBlockVBO(){
     w,botH,d,       1.0f, capRatio,
     w, botH, -t,    1.0f, 0.0f,
   };
+  
+  float innerLeftPlane[] = {
+    // bot top
+    0.0f,botH, d,         capRatio*2, 0.0f,
+    0.0f, h-capH, -t,     0.0f, 1.0f,
+    0.0f, h-capH, d,      capRatio*2, 1.0f,
+
+    0.0f,botH,d,          capRatio*2, 0.0f,
+    0.0f,botH,-t,         0.0f, 0.0f,
+    0.0f, h-capH, -t,     0.0f, 1.0f,
+  };
+
+  float innerRightPlane[] = {
+    // bot top
+    w,botH, d,             capRatio*2, 0.0f,
+    w, h-capH, -t,         0.0f, 1.0f,
+    w, h-capH, d,          capRatio*2, 1.0f,
+
+    w,botH,d,           capRatio*2, 0.0f,
+    w,botH,-t,          0.0f, 0.0f,
+    w, h-capH, -t,      0.0f, 1.0f,
+  };
 
   float winPad = t/12;
 
@@ -4837,26 +4902,6 @@ void assembleWindowBlockVBO(){
     w, botH, -winPad,       0.0f, 0.0f,
     0.0f, botH, -winPad,    1.0f, 0.0f,
   };
-
-  float backWindowPlane[] = {
-    // main olane
-    w, botH, -t,       1.0f, 0.0f,
-    0.0f, botH - padokonikMainH, -padokonikD -t, 0.0f, padokonikRatio,
-    0.0f, botH, -t,    0.0f, 0.0f,
-
-    w, botH, -t,       1.0f, 0.0f,
-    w, botH - padokonikMainH, -padokonikD-t, 1.0f, padokonikRatio,
-    0.0f, botH - padokonikMainH, -padokonikD -t, 0.0f, padokonikRatio,
-
-    // down thing
-    w, botH - padokonikMainH, -padokonikD -t,                          1.0f, padokonikDownThingRatio,
-    0.0f, botH - padokonikMainH - padokonikDownThingH, -padokonikD -t, 0.0f, 0.0f,
-    0.0f, botH - padokonikMainH, -padokonikD -t,                       0.0f, padokonikDownThingRatio,
-
-    w, botH - padokonikMainH, -padokonikD -t,                          1.0f, padokonikDownThingRatio,
-    w, botH - padokonikMainH - padokonikDownThingH, -padokonikD -t,    1.0f, 0.0f,
-    0.0f, botH - padokonikMainH - padokonikDownThingH, -padokonikD -t, 0.0f, 0.0f,
-  };
       
   float frontWindowPlane[] = {
     // main olane
@@ -4878,16 +4923,20 @@ void assembleWindowBlockVBO(){
     w, botH - padokonikMainH, padokonikD+t,                          1.0f, padokonikDownThingRatio,
   };
   
-  float* wallPlanes[winPlaneCounter] = {
+ float* wallPlanes[winPlaneCounter] = {
     [winFrontCapPlane] = capFrontPlane,
     [winFrontBotPlane] = botFrontPlane,
     [winBackCapPlane] = capBackSide,
     [winBackBotPlane] = botBackSide,
+
     [winInnerTopPlane] = capInnerSide,
     [winInnerBotPlane] = botInnerSide,
+    [winInnerRightPlane] = innerRightPlane,
+    [winInnerLeftPlane] = innerLeftPlane,
+    
     [winTopPlane] = topSide,
     [winFrontPodokonik] = frontWindowPlane,
-    [winBackPodokonik] = backWindowPlane,
+
     [winCenterBackPlane] = windowPlaneBack,
     [winCenterFrontPlane] = windowPlaneFront
   };
@@ -4897,11 +4946,15 @@ void assembleWindowBlockVBO(){
     [winFrontBotPlane] = sizeof(botFrontPlane),
     [winBackCapPlane] = sizeof(capBackSide),
     [winBackBotPlane] = sizeof(botBackSide),
+
     [winInnerTopPlane] = sizeof(capInnerSide),
     [winInnerBotPlane] = sizeof(botInnerSide),
+    [winInnerRightPlane] = sizeof(innerRightPlane),
+    [winInnerLeftPlane] = sizeof(innerLeftPlane),
+
     [winTopPlane] = sizeof(topSide),
     [winFrontPodokonik] = sizeof(frontWindowPlane),
-    [winBackPodokonik] = sizeof(backWindowPlane),
+
     [winCenterBackPlane] = sizeof(windowPlaneBack),
     [winCenterFrontPlane] = sizeof(windowPlaneFront)
   };
@@ -4913,28 +4966,6 @@ void assembleWindowBlockVBO(){
     attachNormalsToBuf(wallsVPairs[windowT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
   }
 }
-
-
-void setupAABBAndMatForJoint(vec2i pos, Side side){
-  static const int pad[4][2] = {
-    [top] = { 0, 1 },
-    [right] = { 0, 0 },
-
-    [bot] = { 1, 0 },
-    [left] = {1, 0 }
-  };
-
-  Matrix jointMat; 
-  memcpy(jointMat.m, wallJointsMat[side].m, sizeof(float)*16);
-  
- // jointMat.m[12] = vec.x + pad[side][0];
-  jointMat.m[13] = curFloor;
- // jointMat.m[14] = vec.z + pad[side][1];
-
-  for (int i = 0; i < jointPlaneCounter; i++) {
-  //  calculateAABB(jointMat, wallsVPairs[wallJointT].pairs[i].vBuf, wallsVPairs[wallJointT].pairs[i].vertexNum, wallsVPairs[wallJointT].pairs[i].attrSize, &joint->plane[i].lb, &joint->plane[i].rt);
-  }
-};
 
 void initGrid(int sx, int sy, int sz){
   int textureOfGround = texture1DIndexByName("Zemlia1");

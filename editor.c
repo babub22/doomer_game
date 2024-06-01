@@ -9,6 +9,8 @@ int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
 
+
+
 bool lightView = false;
 
 const float lightPresetTable[][2] = { {0.0014, 0.000007},
@@ -1105,7 +1107,10 @@ void editorEvents(SDL_Event event){
 	if(light){
 	  light->off = !light->off;
 	  uniformLights();
-	  
+
+	  if(light->type == dirLightShadowT){
+	    rerenderShadowForLight(light->id);
+	  }
 	}
 				  
 	break;
@@ -1209,6 +1214,13 @@ void editorEvents(SDL_Event event){
 	      data->wall->type = data->wall->prevType;
 	    }
 
+	    if(data->wall->type == doorT){
+	      data->wall->prevType = data->wall->type;
+	      data->wall->type = hiddenDoorT;
+	    }else if(data->wall->prevType == doorT){
+	      data->wall->type = data->wall->prevType;
+	    }
+
 	    if(data->wall->type == normWallT || data->wall->type == windowT){
 	      data->wall->prevType = data->wall->type;
 	      data->wall->type = hiddenWallT;
@@ -1262,6 +1274,27 @@ void editorEvents(SDL_Event event){
 	  }
 	    
 	  rerenderShadowsForAllLights();
+	}else if (mouse.selectedType == mouseLightT) {
+	  Light* light = (Light*) mouse.selectedThing;
+
+	  int index = 0;
+	  for(int i=0;i<lightStorageSizeByType[light->type];i++){
+	    if (lightStorage[light->type][i].id == light->id) {
+	      continue;
+	    }
+
+	    lightStorage[light->type][index] = lightStorage[light->type][i];
+	    lightStorage[light->type][index].id = index;
+	    index++;
+	  }
+
+	  lightStorageSizeByType[light->type] = index;
+
+	  uniformLights();
+
+	  if(light->type == dirLightShadowT){
+	    rerenderShadowsForAllLights();
+	  }
 	}else if (mouse.selectedType == mousePlaneT) {
 	  /* 
 	     Picture* panel = (Picture*)mouse.selectedThing;
@@ -1735,25 +1768,43 @@ void editorPreFrame(float deltaTime) {
 
 	  printf("dragX: %f dragY: %f \n", diffDrag.x, diffDrag.y);
 	  
-	  if (selectedGizmoAxis == XCircle) {
+	  if (selectedGizmoAxis == XCircle || selectedGizmoAxis == XYPlane || selectedGizmoAxis == XZPlane) {
 	    if(diffDrag.x > 0){
 	      scale(mat, 1.0f + diffDrag.x, 1.0f, 1.0f);
 	    }else{
 	      scale(mat, 1.0f / (1.0f + fabs(diffDrag.x)), 1.0f, 1.0f);
 	    }
-	  }else if (selectedGizmoAxis == YCircle) {
+	  }
+
+	  if (selectedGizmoAxis == YCircle || selectedGizmoAxis == XYPlane || selectedGizmoAxis == ZYPlane) {
 	    if(diffDrag.y > 0){
 	      scale(mat, 1.0f, 1.0f + diffDrag.y, 1.0f);
 	    }else{
 	      scale(mat, 1.0f, 1.0f / (1.0f + fabs(diffDrag.y)), 1.0f);
 	    }
-	  }else if (selectedGizmoAxis == ZCircle) {
+	  }
+
+	  if (selectedGizmoAxis == ZCircle || selectedGizmoAxis == ZYPlane || selectedGizmoAxis == XZPlane) {
 	    if(diffDrag.z > 0){
 	      scale(mat, 1.0f, 1.0f, 1.0f + diffDrag.z);
 	    }else{
 	      scale(mat, 1.0f, 1.0f, 1.0f / (1.0f + fabs(diffDrag.z)));
 	    }
 	  }
+
+	  /*
+	  else if (selectedGizmoAxis == XYPlane) {
+	    mat->m[12] += diffDrag.x;
+	    mat->m[13] += diffDrag.y;
+	  }
+	  else if (selectedGizmoAxis == ZYPlane) {
+	    mat->m[14] += diffDrag.z;
+	    mat->m[13] += diffDrag.y;
+	  }
+	  else if (selectedGizmoAxis == XZPlane) {
+	    mat->m[14] += diffDrag.z;
+	    mat->m[12] += diffDrag.x;
+	    }*/
 	  
 	  mat->m[12] = xTemp;
 	  mat->m[13] = yTemp;
@@ -2092,11 +2143,11 @@ void editor3dRender() {
 
     for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
       for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
-	if (&lightStorage[i] == mouse.selectedThing) {
-	  //   continue;
+	if(lightStorage[i2][i].off){
+	  uniformVec3(lightSourceShader, "color", (vec3){ 128, 128, 128 });
+	}else{
+	  uniformVec3(lightSourceShader, "color", lightStorage[i2][i].color);
 	}
-
-	uniformVec3(lightSourceShader, "color", lightStorage[i2][i].color);
 
 	uniformMat4(lightSourceShader, "model", lightStorage[i2][i].mat.m);
 
@@ -2484,6 +2535,7 @@ void editor2dRender() {
 	      wallData->wall->planes[winPlanePairs[wallData->plane]].txIndex = texture->index1D;
 	    }
 
+		/*
 	    if (wallData->wall->type == doorT && wallData->plane <= doorCenterBackPlane) {
 	      static const int doorPlanePairs[2] = {
 		[doorCenterFrontPlane] = doorCenterBackPlane,
@@ -2497,7 +2549,7 @@ void editor2dRender() {
 	      geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
 	      
 	      wallData->wall->planes[doorPlanePairs[wallData->plane]].txIndex = texture->index1D;
-	    }
+	    }*/
 
 	    geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
 
@@ -2506,6 +2558,7 @@ void editor2dRender() {
 	    geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
 	    
 	    wallData->wall->planes[wallData->plane].txIndex = texture->index1D;
+	    printf("Texturize: %d \n", wallData->plane);
 	  }
 
 	  //	  for (int i = 0; i < wallsVPairs[wallData->wall->type].planesNum; i++) {
@@ -4033,20 +4086,37 @@ void uniformLights(){
   uniformFloat(mainShader, "radius", max(gridX / 2.0f, gridZ / 2.0f));
 
   int localLightsCounter[lightsTypeCounter] = { 0 };
-    
-  for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
-    for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
-      if (lightStorage[i2][i].off) {
-	continue;
-      }
+  int* onLightsIndexes;
 
+  for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
+    int onCounter = 0;
+    
+    for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
+      if (!lightStorage[i2][i].off) {
+	onCounter++;
+      }
+    }
+
+    onLightsIndexes = malloc(sizeof(int) * onCounter);
+    onCounter = 0;
+
+    for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
+      if (!lightStorage[i2][i].off) {
+	onLightsIndexes[onCounter] = i;
+	onCounter++;
+      }
+    }
+
+    for (int i = 0; i < onCounter; i++) {
+      int indx = onLightsIndexes[i];
+      
       sprintf(buf, "%sLights[%i].pos",
 	      shaderVarSufixStr[i2], i);
-      uniformVec3(mainShader, buf, (vec3) { lightStorage[i2][i].mat.m[12], lightStorage[i2][i].mat.m[13], lightStorage[i2][i].mat.m[14], });
+      uniformVec3(mainShader, buf, (vec3) { lightStorage[i2][indx].mat.m[12], lightStorage[i2][indx].mat.m[13], lightStorage[i2][indx].mat.m[14], });
 
       sprintf(buf, "%sLights[%i].color",
 	      shaderVarSufixStr[i2], i);
-      uniformVec3(mainShader, buf, lightStorage[i2][i].color);
+      uniformVec3(mainShader, buf, lightStorage[i2][indx].color);
 		    
       sprintf(buf, "%sLights[%i].constant",
 	      shaderVarSufixStr[i2], i);
@@ -4054,51 +4124,35 @@ void uniformLights(){
 
       sprintf(buf, "%sLights[%i].linear",
 	      shaderVarSufixStr[i2], i);
-      uniformFloat(mainShader, buf, lightPresetTable[lightStorage[i2][i].curLightPresetIndex][0]);
+      uniformFloat(mainShader, buf, lightPresetTable[lightStorage[i2][indx].curLightPresetIndex][0]);
 
       sprintf(buf, "%sLights[%i].qaudratic",
 	      shaderVarSufixStr[i2], i);
-      uniformFloat(mainShader, buf, lightPresetTable[lightStorage[i2][i].curLightPresetIndex][1]);
+      uniformFloat(mainShader, buf, lightPresetTable[lightStorage[i2][indx].curLightPresetIndex][1]);
 
       sprintf(buf, "%sLights[%i].depthTxIndex",
 	      shaderVarSufixStr[i2], i);
-
-      //      if(i2 == dirLightShadowT){
-      uniformInt(mainShader, buf, lightStorage[i2][i].id);
-      //      }else{
-      //	uniformInt(mainShader, buf, 0);
-      //      }
-
+      uniformInt(mainShader, buf, lightStorage[i2][indx].id);
+      
       sprintf(buf, "%sLights[%i].dir",
 	      shaderVarSufixStr[i2], i);
-      //      uniformVec3(mainShader, buf, lightStorage[i2][i].dir);
-      uniformVec3(mainShader, buf, (vec3){lightStorage[i2][i].mat.m[0], lightStorage[i2][i].mat.m[1], lightStorage[i2][i].mat.m[2]});
+      uniformVec3(mainShader, buf, (vec3){lightStorage[i2][indx].mat.m[0], lightStorage[i2][indx].mat.m[1], lightStorage[i2][indx].mat.m[2]});
       
       sprintf(buf, "%sLights[%i].rad",
 	      shaderVarSufixStr[i2], i);
-      uniformFloat(mainShader, buf, lightStorage[i2][i].rad);
+      uniformFloat(mainShader, buf, lightStorage[i2][indx].rad);
       
       sprintf(buf, "%sLights[%i].cutOff",
 	      shaderVarSufixStr[i2], i);
-      uniformFloat(mainShader, buf, lightStorage[i2][i].cutOff);
-
-      localLightsCounter[lightStorage[i2][i].type]++;
+      uniformFloat(mainShader, buf, lightStorage[i2][indx].cutOff);
     }
-      
+
     sprintf(buf, "%sLightsSize",
 	    shaderVarSufixStr[i2]);
-    uniformInt(mainShader, buf, lightStorageSizeByType[i2]);
+    uniformInt(mainShader, buf, onCounter);
+
+    free(onLightsIndexes);
   }
-
-  //  glUseProgram(shadersId[dirShadowShader]);
-  //  uniformInt(dirShadowShader, "lightsSize", lightStorageSizeByType[shadowLightT]);
-
-  /*  for(int i=0;i<lightStorageSizeByType[shadowLightT];i++){
-      vec3 pos = { lightStorage[shadowLightT][i].mat.m[12], lightStorage[shadowLightT][i].mat.m[13], lightStorage[shadowLightT][i].mat.m[14] };
-      
-      sprintf(buf, "lightsPos[%d]", i);
-      uniformVec3(dirShadowShader, buf, pos);
-      }*/
 
   glUseProgram(curShader);
 }
@@ -4182,37 +4236,7 @@ void editorMouseVS(){
       minDistToCamera = intersectionDistance;
     }
   }
-
-  // joints
-  /*{
-    for(int i=0;i<jointsStorageSize;i++){
-      Side jSide = jointsStorage[i]->side;
-      float intersectionDistance;
-      
-      for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, jointsStorage[i]->plane[i3].lb, jointsStorage[i]->plane[i3].rt, NULL, &intersectionDistance);
-
-	if (isIntersect && minDistToCamera > intersectionDistance) {
-	  intersWallData->wall = NULL;
-	  intersWallData->joint = jointsStorage[i];
-	  
-	  intersWallData->side = jSide;
-
-	  intersWallData->txIndex = jointsStorage[i]->plane[i3].txIndex;
-	  intersWallData->tileId = wallsStorage[i]->tileId;
-
-	  intersWallData->plane = i3;
-
-	  mouse.selectedType = mouseWallT;
-	  mouse.selectedThing = intersWallData;
-
-	  minDistToCamera = intersectionDistance;
-	}
-
-      }
-    }
-  }*/
-
+  
   // walls
   {
     for(int i=0;i<wallsStorageSize;i++){
@@ -4251,39 +4275,6 @@ void editorMouseVS(){
     }
   }
   
-  /*
-  // joints
-  {
-  for (int i2 = 0; i2 < batchedGeometryIndexes[i].jointsSize; i2++) {
-  int jointIndex = batchedGeometryIndexes[i].jointsIndexes[i2];
-  float intersectionDistance;
-	    
-  for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-  bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex]->plane[i3].lb, bBlock->joint[jointIndex]->plane[i3].rt, NULL, &intersectionDistance);
-
-  if (isIntersect && minDistToCamera > intersectionDistance) {
-
-  intersWallData->side = jointIndex;
-  //  intersWallData->grid = ind;
-  intersWallData->txIndex = bBlock->joint[jointIndex]->plane[i3].txIndex;
-  intersWallData->tile = bBlock;
-
-  intersWallData->type = wallJointT;
-  intersWallData->plane = i3;
-
-  mouse.selectedType = mouseWallT;
-  mouse.selectedThing = intersWallData;
-
-  minDistToCamera = intersectionDistance;
-  }
-
-  }
-  }
-	  
-  }
-  }
-  */
-
   for(int i=0;i<tilesStorageSize;i++){
     Tile* tl = tilesStorage[i];
 
@@ -4319,119 +4310,6 @@ void editorMouseVS(){
       }
     }
   }
-
-  //  printf("%d \n", mouse.selectedType);
-
-  /*
-    for(int i=0;i<batchedGeometryIndexesSize;i++){
-    vec3i ind = batchedGeometryIndexes[i].indx;
-    vec3 tile = vec3_indexesToCoords(ind);
-    Tile* bBlock = grid[ind.y][ind.z][ind.x];
-
-    // block
-    if (bBlock->block != NULL){
-    float intersectionDistance;
-    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->block->lb, bBlock->block->rt, &mouse.gizmoPosOfInter, &intersectionDistance);
-
-    if (isIntersect && minDistToCamera > intersectionDistance) {
-    mouse.selectedThing = bBlock->block;
-    mouse.selectedType = mouseBlockT;
-
-    mouse.interDist = intersectionDistance;
-    minDistToCamera = intersectionDistance;
-    }
-    }
-
-    // tiles
-    if(ind.y == curFloor){
-    const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
-    const vec3 lb = { tile.x, tile.y, tile.z };
-
-    float intersectionDistance;
-    vec3 intersection;
-
-    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
-
-    if (isIntersect && minDistToCamera > intersectionDistance) {
-    intersTileData->tile = bBlock;
-
-    intersTileData->grid = (vec2i){ ind.x,ind.z };
-    intersTileData->intersection = intersection;
-    intersTileData->groundInter = intersection.y <= curCamera->pos.y ? fromOver : fromUnder;
-
-    mouse.selectedType = mouseTileT;
-    mouse.selectedThing = intersTileData;
-
-    minDistToCamera = intersectionDistance;
-    }
-    }
-
-    if (ind.y >= curFloor) {
-    // walls
-    {
-    for(int i2=0;i2<batchedGeometryIndexes[i].wallsSize;i2++){
-    int wallSide = batchedGeometryIndexes[i].wallsIndexes[i2];
-	  
-    WallType type = wallsStorage[i]->type;
-	  
-    float intersectionDistance;
-
-    for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->wall[wallSide]->planes[i3].lb, bBlock->wall[wallSide]->planes[i3].rt, NULL, &intersectionDistance);
-
-    if (isIntersect && minDistToCamera > intersectionDistance) {
-    intersWallData->side = wallSide;
-    intersWallData->grid = ind;
-
-    int tx = bBlock->wall[wallSide]->planes[i3].txIndex;
-
-    intersWallData->txIndex = tx;
-    intersWallData->tile = bBlock;
-
-    intersWallData->type = type;
-    intersWallData->plane = i3;
-
-    mouse.selectedType = mouseWallT;
-    mouse.selectedThing = intersWallData;
-	      
-    minDistToCamera = intersectionDistance;
-    }
-    }
-    }
-    }
-
-    // joints
-    {
-    for (int i2 = 0; i2 < batchedGeometryIndexes[i].jointsSize; i2++) {
-    int jointIndex = batchedGeometryIndexes[i].jointsIndexes[i2];
-    float intersectionDistance;
-	    
-    for (int i3 = 0; i3 < jointPlaneCounter; i3++) {
-    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->joint[jointIndex]->plane[i3].lb, bBlock->joint[jointIndex]->plane[i3].rt, NULL, &intersectionDistance);
-
-    if (isIntersect && minDistToCamera > intersectionDistance) {
-
-    intersWallData->side = jointIndex;
-    intersWallData->grid = ind;
-    intersWallData->txIndex = bBlock->joint[jointIndex]->plane[i3].txIndex;
-    intersWallData->tile = bBlock;
-
-    intersWallData->type = wallJointT;
-    intersWallData->plane = i3;
-
-    mouse.selectedType = mouseWallT;
-    mouse.selectedThing = intersWallData;
-
-    minDistToCamera = intersectionDistance;
-    }
-
-    }
-    }
-	  
-    }
-    }
-    }
-  */
   
   // lights
   for (int i2 = 0; i2 < lightsTypeCounter; i2++) {

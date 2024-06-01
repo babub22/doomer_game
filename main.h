@@ -88,10 +88,10 @@ typedef enum{
   RWallT,
   
   doorT,
-  openedDoorT,
+  hiddenDoorT,
+  //  openedDoorT,
   
   windowT,
-  //  wallJointT,
   
   halfWallT,
   
@@ -99,16 +99,11 @@ typedef enum{
   hiddenLRWallT,
   hiddenLWallT,
   hiddenRWallT,
-  
-  //  hiddenJointT,
 
   wallTypeCounter,
 } WallType;
 
-const char* wallTypeStr[];/*= {
-  [wallT] = "Wall", [windowT] = "Window", [doorT] = "Door",
-  [wallJointT] = "Joint"
-  };*/
+const char* wallTypeStr[];
 
 typedef enum{
   roofBlockT,
@@ -166,7 +161,7 @@ typedef enum{
 } HiddenWallPlanes;
 
 typedef enum{
-  wTopPlane, wFrontPlane, wBackPlane,
+  wTopPlane, wFrontPlane, wBackPlane, wClosePlane,
   // wLeftPlane, wRightPlane,
   //  wLeftExPlane, wRightExPlane,
   wPlaneCounter,
@@ -180,12 +175,18 @@ const char* wallPlanesStr[];/* = {
 
 typedef enum{
   winFrontCapPlane, winFrontBotPlane,
-  winBackCapPlane, winBackBotPlane,
+  winBackCapPlane,
+  winBackBotPlane,
   winCenterFrontPlane, winCenterBackPlane,
-  winInnerTopPlane, winInnerBotPlane,
-  winTopPlane, winFrontPodokonik, winBackPodokonik,
+  
+  winInnerTopPlane,
+  winInnerBotPlane,
+  winInnerLeftPlane,
+  winInnerRightPlane,
+
+  winTopPlane, winFrontPodokonik,
+  
   winPlaneCounter
-  //winLeftPlane, winRightPlane,
 } WindowPlanes;
 
 const char* windowPlanesStr[];/* = {
@@ -204,21 +205,15 @@ const char* windowPlanesStr[];/* = {
   };*/
 
 typedef enum{
-  doorCenterFrontPlane, doorCenterBackPlane,
+  doorCenterPlane,
+  
   doorTopPlane,
   doorFrontPlane, doorBackPlane,
   doorInnerTopPlane,
   doorPlaneCounter
 } DoorPlanes;
 
-typedef enum{
-  jointTopPlane,
-  jointFrontPlane, jointSidePlane,
-  jointPlaneCounter
-} JointPlanes;
-
 const int planesInfo[wallTypeCounter];
-const char* wallJointPlanesStr[];
 const char* doorPlanesStr[];
 
 typedef struct{
@@ -442,7 +437,6 @@ typedef struct{
   int tileId;
 
   Wall* wall;
-  // WallJoint* joint;
   
   int plane;
 } WallMouseData;
@@ -794,7 +788,6 @@ TileBlock* constructNewBlock(int type, int angle);
 void assembleWindowBlockVBO();
 void assembleWallBlockVBO();
 void assembleDoorBlockVBO();
-void assembleWallJointVBO();
 
 #define resetMouse() mouse.selectedType = 0; mouse.selectedThing = NULL; mouse.focusedType = 0; mouse.focusedThing = NULL; mouse.brushType = 0; mouse.brushThing = NULL;
 
@@ -982,7 +975,6 @@ const vec2i englLettersMap[];/* = {
 
 const char* sidesToStr[];// = { [top]= "Top", [bot]="Bot", [right]="Right", [left]"Left"};
 
-void setupAABBAndMatForJoint(vec2i pos, Side side);
 void batchGeometry();
 void initGrid(int sx, int sy, int sz);
 
@@ -1023,6 +1015,8 @@ int curFloor;
 Light* lightStorage[lightsTypeCounter];
 int lightStorageSize[lightsTypeCounter];
 int lightStorageSizeByType[lightsTypeCounter];
+
+//Light* offLightsStorage[lightsTypeCounter];
 
 Light lightDef[lightsTypeCounter];/* = { .color = rgbToGl(253.0f, 244.0f, 220.0f), .constant = 1.0f, .linear = .09f, .quadratic = .032f, .dir = {0,-1, 0} };*/
 
@@ -1128,14 +1122,10 @@ int batchedGeometryIndexesSize;
 Model* playerModel;
 
 void assembleHideWallBlockVBO();
-void assembleHalfWallJointVBO();
-//Model* playerModel;
-
 
 Wall** wallsStorage;
 int wallsStorageSize;
 
-//WallJoint** jointsStorage;
 //int jointsStorageSize;
 
 TileBlock** blocksStorage;

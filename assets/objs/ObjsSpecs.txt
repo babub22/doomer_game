@@ -16,3 +16,5 @@ Bookshelf.obj Bookshelves.png Obj
 Doomer.obj Doomer.png Player
 Snus.obj Snus.png Obj
 Milka.obj Milka.png Obj
+Kalik.obj Kalik.png Obj
+Pillow.obj Pillow.png Obj

@@ -26,7 +26,7 @@ float rad;
 float cutOff;	
 };
 
-#define MAX_LIGHTS 50
+#define MAX_LIGHTS 10
 
 uniform int pointLightsSize;  
 uniform PointLight pointLights[MAX_LIGHTS];
