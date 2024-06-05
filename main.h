@@ -60,7 +60,6 @@ typedef struct{
   vec3 rt;
   
   int txIndex;
-  bool hide;
 } Plane;
 
 typedef struct {
@@ -221,6 +220,8 @@ typedef struct{
   
   WallType type;
   WallType prevType;
+
+  uint8_t sideForMat;
   Side side;
   
   Matrix mat;
@@ -412,7 +413,7 @@ typedef struct{
   bool txHidden;
 } WallVertexBuffer;
 
-#define spreadMat4(mat) mat[0], mat[1], mat[2], mat[3], mat[4], mat[5], mat[6], mat[7], mat[8], mat[9], mat[10], mat[11], mat[12], mat[13], mat[14], mat[15]
+#define spreadMat4(mat) "%f %f %f %f\n %f %f %f %f\n %f %f %f %f\n %f %f %f %f\n ", mat[0], mat[1], mat[2], mat[3], mat[4], mat[5], mat[6], mat[7], mat[8], mat[9], mat[10], mat[11], mat[12], mat[13], mat[14], mat[15]
 
 struct Tile{
   TileBlock* block;
@@ -1163,3 +1164,5 @@ void assembleNavigation();
 void assembleHalfWallBlockVBO();
 
 float* createNormalBuffer(float* buf, int size, int* finalSize);
+
+Matrix hardWallMatrices[4];

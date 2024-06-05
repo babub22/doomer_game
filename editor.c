@@ -2273,6 +2273,7 @@ void editor3dRender() {
       WallType* type = mouse.brushThing;
 
       Wall wal = { 0 };
+	  Matrix wallMat;
 
       // setup wall 
       {
@@ -2280,43 +2281,19 @@ void editor3dRender() {
 
 	wal.type = *type;
 	wal.prevType = *type;
-	wal.mat = IDENTITY_MATRIX;
-
-	wal.mat.m[12] = tile.x;
-	wal.mat.m[13] = curFloor;
-	wal.mat.m[14] = tile.z;
-      }
-
-      static const int rotationPad[4][3] = {
-	[bot] = { 180, 1, 1 },
-	[top] = { 0, 0, 0  },
-	[left] = { -90, 0, 0 },
-	[right] = { 90, 1, 1}//{ 180, 14, 1, 12, 1 }
-      };
-
-      // rotate wall to selectedSide
-      {
-	Matrix* mat = &wal.mat;
-
-	float xTemp = mat->m[12];
-	float yTemp = mat->m[13];
-	float zTemp = mat->m[14];
-
-	rotateY(wal.mat.m, rad(rotationPad[selectedSide][0]));
-
-	//	printf("%s \n",sidesToStr[selectedSide]);
-
-	mat->m[12] = xTemp;
-	mat->m[13] = yTemp;
-	mat->m[14] = zTemp;
-
-	mat->m[12] += rotationPad[selectedSide][2];
-	mat->m[14] += rotationPad[selectedSide][1];
+	//wal.mat = IDENTITY_MATRIX;
       }
 
       // brush phantom
       {
-	uniformMat4(mainShader, "model", wal.mat.m);
+		  
+	memcpy(wallMat.m, hardWallMatrices[selectedSide].m, sizeof(float) * 16);
+
+	wallMat.m[12] += tile.x;
+	wallMat.m[13] = curFloor;
+	wallMat.m[14] += tile.z;
+
+	uniformMat4(mainShader, "model", wallMat.m);
 
 	glBindTexture(GL_TEXTURE_2D, loadedTextures1D[0].tx);
 
@@ -2338,15 +2315,20 @@ void editor3dRender() {
       vec3i gTile = { tileData->pos.x, curFloor, tileData->pos.z };// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
 
       if (mouse.clickR) {
+	wal.sideForMat = selectedSide;
 	wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
-
+	memcpy(wal.mat.m, wallMat.m ,sizeof(float) * 16);
+	
 	//	  printf("Calllllllll\n");
 	//grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
 	// tileData->tile = grid[curFloor][tileData->grid.z][tileData->grid.x];
 
 	int tileId = tileData->tileId;
 
-	printf("isTile exist under wall: %d \n", grid[curFloor][(int)tile.z][(int)tile.x]);
+	//printf("%s: ", sidesToStr[selectedSide]);
+	//printf(spreadMat4(wal.mat.m));
+
+	//printf("isTile exist under wall: %d \n", grid[curFloor][(int)tile.z][(int)tile.x]);
 
 	if (tileData->tileId == -1) {
 //	if(grid[curFloor][(int)tile.z][(int)tile.x] == 0){
@@ -2364,7 +2346,7 @@ void editor3dRender() {
 	}
 
 	for (int i = 0; i < wallsVPairs[wal.type].planesNum; i++) {
-	  calculateAABB(wal.mat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, wallsVPairs[wal.type].pairs[i].attrSize, &wal.planes[i].lb, &wal.planes[i].rt);
+	  calculateAABB(wallMat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, wallsVPairs[wal.type].pairs[i].attrSize, &wal.planes[i].lb, &wal.planes[i].rt);
 	  
 	  geomentyByTxCounter[wal.planes[i].txIndex] += wallsVPairs[wal.type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wal.type].pairs[i].attrSize;
 	}
@@ -4244,7 +4226,7 @@ void editorMouseVS(){
       
       float intersectionDistance;
 
-      if(wallsStorage[i]->mat.m[13] < curFloor){
+      if(tilesStorage[wallsStorage[i]->tileId]->pos.y < curFloor){
 	continue;
       }
 

@@ -9,6 +9,8 @@
 
 bool showHiddenWalls = true;
 
+Matrix hardWallMatrices[4];
+
 GeomFin* finalGeom;
 
 int renderCapYLayer;
@@ -114,13 +116,13 @@ const char* windowPlanesStr[] = {
 
 const int planesInfo[wallTypeCounter] = {
   [normWallT] = wPlaneCounter,
-    [LRWallT] = wPlaneCounter,
-    [halfWallT] = wPlaneCounter,
-    [RWallT] = wPlaneCounter,
-    [LWallT] = wPlaneCounter,
+  [LRWallT] = wPlaneCounter,
+  [halfWallT] = wPlaneCounter,
+  [RWallT] = wPlaneCounter,
+  [LWallT] = wPlaneCounter,
 
   [hiddenWallT] = wPlaneCounter,
-    [hiddenLRWallT] = wPlaneCounter,
+  [hiddenLRWallT] = wPlaneCounter,
   [hiddenLWallT] = wPlaneCounter,
   [hiddenRWallT] = wPlaneCounter,
 
@@ -2931,11 +2933,11 @@ bool loadSave(char* saveName){
       tile->wall[side]->planes = calloc(planesInfo[tile->wall[side]->type], sizeof(Plane));
 
       for(int i2=0;i2<wallsVPairs[wType].planesNum;i2++){
-	fscanf(map, "%d %d ", &tile->wall[side]->planes[i2].txIndex, &tile->wall[side]->planes[i2].hide);
+	fscanf(map, "%d %d ", &tile->wall[side]->planes[i2].txIndex);
 
-	if(!tile->wall[side]->planes[i2].hide){
-	  geomentyByTxCounter[tile->wall[side]->planes[i2].txIndex] += wallsVPairs[wType].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[wType].pairs[i2].attrSize;
-	}
+	//if(!tile->wall[side]->planes[i2].hide){
+	//  geomentyByTxCounter[tile->wall[side]->planes[i2].txIndex] += wallsVPairs[wType].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[wType].pairs[i2].attrSize;
+	//}
       }
 
       for(int mat=0;mat<16;mat++){
@@ -3142,85 +3144,36 @@ bool saveMap(char* saveName) {
     FILE* map = fopen(save, "w+");
 
     fprintf(map, "%d %d %d \n", gridY, gridZ, gridX);
+    
+    fprintf(map, "tiles: %d walls: %d blocks: %d pictures: %d \n",
+	    tilesStorageSize,
+	    wallsStorageSize,
+	    blocksStorageSize,
+	    picturesStorageSize);
 
-    int wallsCounter = 0;
-    vec3i* wallsIndexes = malloc(sizeof(vec3i) * gridY * gridX * gridZ);
+    for (int i = 0; i < wallsStorageSize; i++) {
+      fprintf(map, "%d %d %d %d ", wallsStorage[i]->sideForMat, wallsStorage[i]->type, wallsStorage[i]->prevType, wallsStorage[i]->tileId);
 
-    int textureOfGround = texture1DIndexByName("Zemlia1");
+      for(int i2=0;i2<wallsVPairs[wallsStorage[i]->type].planesNum;i2++){
+	fprintf(map, "%d ", wallsStorage[i]->planes[i2].txIndex);
+      }
 
-    if (textureOfGround == -1) {
-        printf("Specify texture of ground");
-        exit(-1);
+      fprintf(map, "\n");
     }
 
-    int blockCounter = 0;
-    int jointsCounter = 0;
-    int wallCounter = 0;
-    int wallCounterBySide[2] = { 0 };
-    int tileCounter = 0;
+    
+    /*
+    for (int i = 0; i < blocksStorageSize; i++) {
 
-    int blckCounter = 0;
-    int jntCounter[4] = { 0 };
-    int tlsCounter = 0;
-
-    for (int y = 0; y < gridY; y++) {
-        for (int z = 0; z < gridZ; z++) {
-            for (int x = 0; x < gridX; x++) {
-                Tile* tile = grid[y][z][x];
-
-                if (!tile) continue;
-
-                int tx = tile->tx;
-
-                //	bool acceptTile = (y == 0 && type == texturedTile &&  tx2 != textureOfGround) || (y != 0 && type == texturedTile);
-
-                if (tile->block) {
-                    blckCounter++;
-                }
-
-                if (tx != -1) {
-                    tlsCounter++;
-                }
-
-                if (tile->wall[0]) {
-                    wallCounterBySide[0]++;
-                }
-
-                if (tile->wall[1]) {
-                    wallCounterBySide[1]++;
-                }
-
-                if (tile->wall[0] || tile->wall[1]) {
-                    wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
-                    wallsCounter++;
-                    wallCounter++;
-                }
-                else if (tx != -1) {
-                    wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
-                    wallsCounter++;
-                    tileCounter++;
-                }
-                else if (tile->block) {
-                    wallsIndexes[wallsCounter] = (vec3i){ x,y,z };
-                    wallsCounter++;
-                    blockCounter++;
-                }
-            }
-        }
     }
     
-    fprintf(map, "Used tiles: %d leftW: %d rightW: %d aBlock: %d",
-	    wallsCounter,
-	    wallCounterBySide[0],
-	    wallCounterBySide[1],
-	    blckCounter);
 
-    for (int i = 0; i < wallsCounter; i++) {
+    for (int i = 0; i < 0; i++) {
         fprintf(map, "\n");
 
-        int x = wallsIndexes[i].x;
-        int y = wallsIndexes[i].y;
-        int z = wallsIndexes[i].z;
+        int x = 0;// wallsIndexes[i].x;
+            int y = 0;//wallsIndexes[i].y;
+            int z = 0;//wallsIndexes[i].z;
 
         Tile* tile = grid[y][z][x];
 
@@ -3272,7 +3225,7 @@ bool saveMap(char* saveName) {
         }
     }
 
-    free(wallsIndexes);
+    //free(wallsIndexes);
 
     fprintf(map, "\nUsed models: %d\n", curModelsSize);
 
@@ -3322,7 +3275,7 @@ bool saveMap(char* saveName) {
     }
 
   }
-
+    */
   // save characters
   /*  fprintf(map, "\Characters\n");
   
@@ -4261,6 +4214,39 @@ void assembleWallBlockVBO() {
       attachNormalsToBuf(wallsVPairs[RWallT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
     }
   }
+
+  float topMat[] = {
+    1.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 1.000000, 0.000000, 0.000000,
+    0.000000, 0.000000, 1.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 1.000000
+  };
+
+  float rightMat[] = {
+    -0.000000, 0.000000, -1.000000, 0.000000,
+    0.000000, 1.000000, 0.000000, 0.000000,
+    1.000000, 0.000000, -0.000000, 0.000000,
+    1.000000, 0.000000, 1.000000, 1.000000
+  };
+
+  float leftMat[] = {
+    -0.000000, 0.000000, 1.000000, 0.000000,
+    0.000000, 1.000000, 0.000000, 0.000000,
+    -1.000000, 0.000000, -0.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 1.000000
+  };
+  
+  float botMat[] = {
+    -1.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 1.000000, 0.000000, 0.000000,
+    -0.000000, 0.000000, -1.000000, 0.000000,
+    1.000000, 0.000000, 1.000000, 1.000000
+  };
+  
+  memcpy(hardWallMatrices[left].m, leftMat, sizeof(float) * 16);
+  memcpy(hardWallMatrices[bot].m, botMat, sizeof(float) * 16);
+  memcpy(hardWallMatrices[top].m, topMat, sizeof(float) * 16);
+  memcpy(hardWallMatrices[right].m, rightMat, sizeof(float) * 16);
 }
 
 void assembleHideWallBlockVBO() {  // wallBlock buf
@@ -5927,7 +5913,7 @@ void batchAllGeometryNoHidden(){
     WallType type = wallsStorage[i]->prevType;
 
     for (int i2 = 0; i2 < wallsVPairs[type].planesNum; i2++) {
-      if (!wallsStorage[i]->planes[i2].hide) {
+     // if (!wallsStorage[i]->planes[i2].hide) {
 	int txIndex = wallsStorage[i]->planes[i2].txIndex;
 
 	for (int i3 = 0; i3 < wallsVPairs[type].pairs[i2].vertexNum * vertexSize; i3 += vertexSize) {
@@ -5958,7 +5944,7 @@ void batchAllGeometryNoHidden(){
 	}
 
 	txLastIndex[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * vertexSize;
-    }
+    //}
     }
   }
   
@@ -6101,7 +6087,7 @@ void batchAllGeometry(){
       WallType type = wallsStorage[i]->type;
 
       for (int i2 = 0; i2 < wallsVPairs[type].planesNum; i2++) {
-	if (!wallsStorage[i]->planes[i2].hide) {
+	//if (!wallsStorage[i]->planes[i2].hide) {
 	  int txIndex = wallsStorage[i]->planes[i2].txIndex;
 
 	  printf("batch %s \n", wallTypeStr[wallsStorage[i]->type]);
@@ -6154,7 +6140,7 @@ void batchAllGeometry(){
 	  }
 
 	  txLastIndex[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * vertexSize;
-	}
+	//}
       }
     }
 
