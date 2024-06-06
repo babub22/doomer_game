@@ -387,25 +387,6 @@ typedef struct {
 } TileBlock;
 
 typedef struct{
-  Matrix mat;
-  int tx;
-
-  WallType type;
-  Side side;
-  
-  vec3 rt;
-  vec3 lb;
-} Wall2;
-
-typedef struct{
-  Matrix mat;
-  int tx;
-
-  vec3 rt;
-  vec3 lb;
-} Tile2;
-
-typedef struct{
   float* buf;
   int bufSize;
   
@@ -512,19 +493,15 @@ typedef struct{
   vec3 lb;
   vec3 rt;
 
-  vec3 centroid;
+  //  vec3 centroid;
 } Model;
 
 typedef struct{
   int id;
   
   int txIndex;
-  
   Matrix mat;
   
-  float w;
-  float h;
-
   // -1 if not char type
   int characterId;
 
@@ -671,10 +648,14 @@ typedef enum{
 
 typedef struct{
   int id;
-  vec3 pos;
-  vec3 color;
+  //  vec3 pos;
+  //  vec3 color;
+
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
   
-  vec3 dir;
+  //  vec3 dir;
   LightType type;
 
   Matrix mat;
@@ -869,7 +850,7 @@ const char sdlScancodesToACII[];/* = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', [55]='.'
 };*/
 
-const char* manipulationModeStr[];/* = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };*/
+const char* manipulationModeStr[];/* = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };*/
 
 // from '!' to 'z' in ASCII
 const vec2i englLettersMap[];/* = {
@@ -977,7 +958,7 @@ const vec2i englLettersMap[];/* = {
 const char* sidesToStr[];// = { [top]= "Top", [bot]="Bot", [right]="Right", [left]"Left"};
 
 void batchGeometry();
-void initGrid(int sx, int sy, int sz);
+void defaultGrid(int gX, int gY, int gZ);
 
 vec3 calculateNormal(vec3 a, vec3 b, vec3 c);
 
@@ -1132,13 +1113,15 @@ int wallsStorageSize;
 TileBlock** blocksStorage;
 int blocksStorageSize;
 
-Tile** tilesStorage;
+Tile* tilesStorage;
 int tilesStorageSize;
 
 Picture* picturesStorage;
 int picturesStorageSize;
 
 size_t* geomentyByTxCounter;
+
+void allocateGrid(int gX, int gY, int gZ);
 
 
 typedef struct{

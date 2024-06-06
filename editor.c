@@ -391,11 +391,7 @@ void editorPreLoop(){
 	}
       }
     }
-
-    // for(int i=0;i< netTileSize;i++){
-    //      printf("%f %f \n", argVec2(netTileAABB[i]));
-    //    }
-
+    
     glGenVertexArrays(1, &netTile.VAO);
     glBindVertexArray(netTile.VAO);
 
@@ -420,7 +416,6 @@ void editorPreLoop(){
 
     glGenBuffers(1, &objectsMenu.VBO);
     glBindBuffer(GL_ARRAY_BUFFER, objectsMenu.VBO);
-
 
     float menuPoints[] = {
       -1.0f, 1.0f, 1.0f, 0.0f,
@@ -448,7 +443,9 @@ void editorPreLoop(){
 void editorEvents(SDL_Event event){
   if (event.type == SDL_KEYDOWN) {
     if(event.key.keysym.scancode == SDL_SCANCODE_F5 && !selectedTextInput) {
-      saveMap(curSaveName);
+      saveMap("map");
+    }else if(event.key.keysym.scancode == SDL_SCANCODE_F9 && !selectedTextInput) {
+      loadSave("map");
     }else if(dialogViewer.open){
       if(event.key.keysym.scancode == SDL_SCANCODE_T){
 	Model* model = (Model*) mouse.focusedThing;
@@ -1124,7 +1121,10 @@ void editorEvents(SDL_Event event){
 	       }
 
 	       if(light){
-		 light->color = (vec3){ (float)(rand() % 1000 + 1.0f) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f, (float)(rand() % 1000 + 1) / 1000.0f};
+		 light->r = rand() % 255;
+		 light->g = rand() % 255;
+		 light->b = rand() % 255;
+
 		 uniformLights();
 	       }
 				  
@@ -1330,7 +1330,7 @@ void editorEvents(SDL_Event event){
 	  deleteWallInStorage(data->wall->id);
 
 	  free(data->wall->planes);
-	  tilesStorage[data->tileId]->wall[data->side] = NULL;
+	  tilesStorage[data->tileId].wall[data->side] = NULL;
 	  free(data->wall);
 	  
 	  batchAllGeometry();
@@ -1340,17 +1340,17 @@ void editorEvents(SDL_Event event){
 	  TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
 	  if (data->tx != -1) {
-	    int tx = tilesStorage[data->tileId]->tx;
+	    int tx = tilesStorage[data->tileId].tx;
 
 	    printf("tx: %d \n", tx);
 	    
 	    geomentyByTxCounter[tx] -= sizeof(float) * 8 * 6;
 	    
-	    tilesStorage[data->tileId]->tx = -1;
+	    tilesStorage[data->tileId].tx = -1;
 
-	    if(!tilesStorage[data->tileId]->block && !tilesStorage[data->tileId]->wall[0] && !tilesStorage[data->tileId]->wall[1]){
+	    if(!tilesStorage[data->tileId].block && !tilesStorage[data->tileId].wall[0] && !tilesStorage[data->tileId].wall[1]){
 	      int tileId = data->tileId;
-	      free(tilesStorage[data->tileId]);
+	     // free(tilesStorage[data->tileId]);
 	      
 	      deleteTileInStorage(tileId);
 
@@ -1368,7 +1368,7 @@ void editorEvents(SDL_Event event){
 	else if (mouse.selectedType == mouseBlockT) {
 	  TileBlock* data = (TileBlock*)mouse.selectedThing;
 
-	  tilesStorage[data->tileId]->block = NULL;
+	  tilesStorage[data->tileId].block = NULL;
 	  free(data);
 
 	  batchGeometry();
@@ -1618,7 +1618,7 @@ void editorMatsSetup(int curShader) {
 	-lightStorage[dirLightShadowT][0].mat.m[13],
 	-lightStorage[dirLightShadowT][0].mat.m[14]
       };
-      vec3 lightDir = { lightStorage[dirLightShadowT][0].mat.m[0] + 0.001f, lightStorage[dirLightShadowT][0].mat.m[1], lightStorage[dirLightShadowT][0].mat.m[2] };
+      vec3 lightDir = { lightStorage[dirLightShadowT][0].mat.m[0] + 0.001f, lightStorage[dirLightShadowT][0].mat.m[1], lightStorage[dirLightShadowT][0].mat.m[2] }; 
 
       // printf("d %f %f %f \n", argVec3(lightDir));
       // printf("p %f %f %f \n", argVec3(lightPos));
@@ -2144,9 +2144,10 @@ void editor3dRender() {
     for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
       for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
 	if(lightStorage[i2][i].off){
-	  uniformVec3(lightSourceShader, "color", (vec3){ 128, 128, 128 });
+	  uniformVec3(lightSourceShader, "color", (vec3){ rgbToGl(128, 128, 128) });
 	}else{
-	  uniformVec3(lightSourceShader, "color", lightStorage[i2][i].color);
+	  vec3 color = { rgbToGl(lightStorage[i2][i].r, lightStorage[i2][i].g, lightStorage[i2][i].b) };
+	  uniformVec3(lightSourceShader, "color", color);
 	}
 
 	uniformMat4(lightSourceShader, "model", lightStorage[i2][i].mat.m);
@@ -2273,7 +2274,7 @@ void editor3dRender() {
       WallType* type = mouse.brushThing;
 
       Wall wal = { 0 };
-	  Matrix wallMat;
+      Matrix wallMat;
 
       // setup wall 
       {
@@ -2332,16 +2333,20 @@ void editor3dRender() {
 
 	if (tileData->tileId == -1) {
 //	if(grid[curFloor][(int)tile.z][(int)tile.x] == 0){
-	  tilesStorage = realloc(tilesStorage, sizeof(Tile*) * (tilesStorageSize + 1)); 
+	  tilesStorage = realloc(tilesStorage, sizeof(Tile) * (tilesStorageSize + 1)); 
 
-	  tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
-	  tilesStorage[tilesStorageSize]->pos = tileData->pos;
-	  tilesStorage[tilesStorageSize]->id = tilesStorageSize;
-	  tilesStorage[tilesStorageSize]->tx = -1;
+	  //tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
+	  tilesStorage[tilesStorageSize].pos = tileData->pos;
+	  tilesStorage[tilesStorageSize].id = tilesStorageSize;
+	  tilesStorage[tilesStorageSize].tx = -1;
+
+	  tilesStorage[tilesStorageSize].block = NULL;
+	  tilesStorage[tilesStorageSize].wall[0] = NULL;
+	  tilesStorage[tilesStorageSize].wall[1] = NULL;
 
 	  tileId = tilesStorageSize;
 	  
-	  grid[curFloor][(int)tileData->pos.z][(int)tileData->pos.x] = tilesStorage[tilesStorageSize]; 
+	  grid[curFloor][(int)tileData->pos.z][(int)tileData->pos.x] = &tilesStorage[tilesStorageSize]; 
 	  tilesStorageSize++;
 	}
 
@@ -2351,7 +2356,7 @@ void editor3dRender() {
 	  geomentyByTxCounter[wal.planes[i].txIndex] += wallsVPairs[wal.type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wal.type].pairs[i].attrSize;
 	}
 
-	vec3 tile = tilesStorage[tileId]->pos;
+	vec3 tile = tilesStorage[tileId].pos;
 	
 	if(selectedSide == right){
 	  selectedSide = left;
@@ -2359,11 +2364,11 @@ void editor3dRender() {
 	  selectedSide = top;
 	}
 
-	tilesStorage[tileId]->wall[selectedSide] = malloc(sizeof(Wall));
-	memcpy(tilesStorage[tileId]->wall[selectedSide], &wal, sizeof(Wall));
+	tilesStorage[tileId].wall[selectedSide] = malloc(sizeof(Wall));
+	memcpy(tilesStorage[tileId].wall[selectedSide], &wal, sizeof(Wall));
 
-	tilesStorage[tileId]->wall[selectedSide]->tileId = tileId;
-	tilesStorage[tileId]->wall[selectedSide]->id = wallsStorageSize;
+	tilesStorage[tileId].wall[selectedSide]->tileId = tileId;
+	tilesStorage[tileId].wall[selectedSide]->id = wallsStorageSize;
 	
 	wallsStorageSize++;
 	if (!wallsStorage) {
@@ -2372,9 +2377,9 @@ void editor3dRender() {
 	  wallsStorage = realloc(wallsStorage, sizeof(Wall*) * wallsStorageSize);
 	}
 
-	printf("%s \n", wallTypeStr[tilesStorage[tileId]->wall[selectedSide]->type]);
+	printf("%s \n", wallTypeStr[tilesStorage[tileId].wall[selectedSide]->type]);
 
-	wallsStorage[wallsStorageSize - 1] = tilesStorage[tileId]->wall[selectedSide];
+	wallsStorage[wallsStorageSize - 1] = tilesStorage[tileId].wall[selectedSide];
 	//grid[curFloor][(int)curTile.z][(int)curTile.x]->wall[selectedSide] = malloc(sizeof(Wall));
 	
 	if(showHiddenWalls){
@@ -2557,22 +2562,26 @@ void editor2dRender() {
 	  int tileId = tileData->tileId;
 
 	  if (tileData->tileId == -1) {
-	    tilesStorage = realloc(tilesStorage, sizeof(Tile*) * (tilesStorageSize + 1));
+	    tilesStorage = realloc(tilesStorage, sizeof(Tile) * (tilesStorageSize + 1));
 
-	    tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
-	    tilesStorage[tilesStorageSize]->pos = tileData->pos;
-	    tilesStorage[tilesStorageSize]->id = tilesStorageSize;
+	   // tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
+	    tilesStorage[tilesStorageSize].pos = tileData->pos;
+	    tilesStorage[tilesStorageSize].id = tilesStorageSize;
 
-	    grid[(int)tileData->pos.y][(int)tileData->pos.z][(int)tileData->pos.x] = tilesStorage[tilesStorageSize];
+	    tilesStorage[tilesStorageSize].block = NULL;
+	    tilesStorage[tilesStorageSize].wall[0] = NULL;
+	    tilesStorage[tilesStorageSize].wall[1] = NULL;
+
+	    grid[(int)tileData->pos.y][(int)tileData->pos.z][(int)tileData->pos.x] = &tilesStorage[tilesStorageSize];
 	    
 	    tileId = tilesStorageSize;
 	    
 	    tilesStorageSize++;
 	  }else{
-	    geomentyByTxCounter[tilesStorage[tileId]->tx] -= sizeof(float) * 8 * 6;
+	    geomentyByTxCounter[tilesStorage[tileId].tx] -= sizeof(float) * 8 * 6;
 	  }
 
-	  tilesStorage[tileId]->tx = texture->index1D;
+	  tilesStorage[tileId].tx = texture->index1D;
 	  geomentyByTxCounter[texture->index1D] += sizeof(float) * 8 * 6;
 	  
 	  batchAllGeometry();
@@ -2602,19 +2611,15 @@ void editor2dRender() {
 	 TileBlock* block = (TileBlock*)mouse.brushThing;
 
 	 if (tileData->tileId == -1) {
-	   tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
-	   tilesStorage[tilesStorageSize]->pos = tileData->pos;
 	   tilesStorageSize++;
-	   //printf("Calloc TIle Block\n");
-	 }//else{
-	 // printf("%d \n", tileData->tile->block);
-	 // }
+	   tilesStorage = realloc(tilesStorage, tilesStorageSize);
+	   tilesStorage[tilesStorageSize-1].pos = tileData->pos;
+	 }
 
-	 tilesStorage[tilesStorageSize]->block = malloc(sizeof(TileBlock));
-	 memcpy(tilesStorage[tilesStorageSize]->block, block, sizeof(TileBlock));
+	 tilesStorage[tilesStorageSize-1].block = malloc(sizeof(TileBlock));
+	 memcpy(tilesStorage[tilesStorageSize-1].block, block, sizeof(TileBlock));
 
-	 TileBlock* newBlock = tilesStorage[tilesStorageSize]->block;
-	 //	 newBlock->mat = IDENTITY_MATRIX;
+	 TileBlock* newBlock = tilesStorage[tilesStorageSize-1].block;
 
 	 vec3 tile = tileData->pos;// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
 	 tile.y = curFloor;
@@ -2623,13 +2628,6 @@ void editor2dRender() {
 
 	 newBlock->mat = IDENTITY_MATRIX;
 	 memcpy(newBlock->mat.m, block->mat.m, sizeof(float) * 16);
-	 //	 memcpy(newBlock->mat.m,)
-
-	 //	 newBlock->mat.m[12] = tile.x + rotationBlock[index][0];
-	 //	 newBlock->mat.m[13] = tile.y;
-	 //	 newBlock->mat.m[14] = tile.z + rotationBlock[index][1];
-
-	 // newBlock->tile = tileData->tile;
 
 	 printf("new tile %f %f %f \n", tile.x, tile.y, tile.z);
 
@@ -2651,7 +2649,7 @@ void editor2dRender() {
   // render selected or focused thing
   if (mouse.selectedThing && !curMenu && hints) {
     char buf[164];
-
+	 
     switch (mouse.selectedType) {
     case(mouseLightT): {
       Light* light = (Light*)mouse.selectedThing;
@@ -2660,10 +2658,10 @@ void editor2dRender() {
 
       break;
     }
-    case(mouseModelT): {
-      Model* data = (Model*)mouse.selectedThing;
+    case(mouseModelT): { 
+      Model* data = (Model*)mouse.selectedThing; 
 
-      sprintf(buf, "Selected model: %s", loadedModels1D[data->name].name);
+      sprintf(buf, "Selected model: %s", loadedModels1D[data->name].name); 
 
       break;
     }case(mouseWallT): {
@@ -2678,7 +2676,7 @@ void editor2dRender() {
 	 else if (data->wall->type == normWallT) {
 	   plane = wallPlanesStr[data->plane];
 	 }
-	 else if (data->wall->type == windowT) {
+	 else if (data->wall->type == windowT) { 
 	   plane = windowPlanesStr[data->plane];
 	 }
        }
@@ -2693,8 +2691,8 @@ void editor2dRender() {
        }
 
 
-       sprintf(buf, "Selected wall[%d]: [%s] type: [%s] plane: [%s] with tx: [%s]",
-	       id,
+       sprintf(buf, "Selected wall[%d]: [%s] type: [%s] plane: [%s] with tx: [%s]",  
+	       id, 
 	       sidesToStr[data->side],
 	       wallTypeStr[type],
 	       plane,
@@ -2717,7 +2715,7 @@ void editor2dRender() {
 	  TileMouseData* data = (TileMouseData*)mouse.selectedThing;
 
 	  if (data->tileId != -1) {
-	    int tileTx = tilesStorage[data->tileId]->tx;
+	    int tileTx = tilesStorage[data->tileId].tx;
 
 		if (tileTx != -1) {
 			sprintf(buf, "Selected tile[%d] tx: [%s] grid:[%f %f %f]", data->tileId, loadedTexturesNames[tileTx], argVec3(data->intersection));
@@ -3138,166 +3136,6 @@ void editor2dRender() {
     for (int i = 0; i < loadedTexturesCategoryCounter; i++) {
       renderText(loadedTexturesCategories[i].name, -1.0f + textureSideW, 1.0f - (i * letterH), 1.0f);
     }
-
-  }
-  else if (curMenu && curMenu->type == planeCreatorT) {
-    if (!planeOnCreation) {
-      planeOnCreation = calloc(1, sizeof(Picture));
-
-      Matrix out = IDENTITY_MATRIX;
-
-      vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
-
-      float dist = 0.3f;
-
-      out.m[12] = curCamera->pos.x + dist * mouse.rayDir.x;
-      out.m[13] = curCamera->pos.y;
-      out.m[14] = curCamera->pos.z + (dist / 2) * mouse.rayDir.z;
-
-      planeOnCreation->w = 0.1f;
-      planeOnCreation->h = 0.1f;
-
-      planeOnCreation->characterId = -1;
-
-      planeOnCreation->mat = out;
-    }
-
-    glActiveTexture(GL_TEXTURE0);;
-    glBindTexture(GL_TEXTURE_2D, solidColorTx);
-    setSolidColorTx(blackColor, 1.0f);
-
-    glBindVertexArray(hudRect.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-
-    char buf[100];
-    sprintf(buf, "- + W: %f \n- + H: %f", planeOnCreation->w, planeOnCreation->h);
-
-    float creatorW = (strlen(buf) / 2.0f * letterW) + letterW;
-    float creatorH = 0.17f + letterH;
-
-    float creatorMenu[] = {
-      -1.0f, 1.0f, 1.0f, 0.0f,
-      -1.0f + creatorW, 1.0f, 1.0f, 1.0f,
-      -1.0f, 1.0f - creatorH, 0.0f, 0.0f,
-
-      -1.0f + creatorW, 1.0f, 1.0f, 1.0f,
-      -1.0f, 1.0f - creatorH, 0.0f, 0.0f,
-      -1.0f + creatorW, 1.0f - creatorH, 0.0f, 1.0f
-    };
-
-    glBufferData(GL_ARRAY_BUFFER, sizeof(creatorMenu), creatorMenu, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    float mouseY = mouse.cursor.z;
-
-    int selectedIndex = (1.0f - ((mouseY + 1.0f) / 2.0f)) / (letterH / 2);
-    int selectedSign = 0;
-
-    float xLeftFrame = 0;
-    float xRightFrame = 0;
-
-    selectedIndex++;
-
-    if (selectedIndex == 1 || selectedIndex == 2) {
-      if (mouse.cursor.x >= -1.0f && mouse.cursor.x <= -1.0f + letterW * 2) {
-	xLeftFrame = -1.0f;
-	xRightFrame = -1.0f + letterW * 2;
-
-	selectedSign = -1;
-      }
-      else if (mouse.cursor.x > -1.0f + letterW * 2 && mouse.cursor.x <= -1.0f + letterW * 4) {
-	xLeftFrame = -1.0f + letterW * 2;
-	xRightFrame = -1.0f + letterW * 4;
-
-	selectedSign = 1;
-      }
-    }
-    else if (selectedIndex == 3) {
-      if (mouse.cursor.x >= -1.0f && mouse.cursor.x <= -1.0f + strlen("Create") * letterW + letterW) {
-	xLeftFrame = -1.0f;
-	xRightFrame = -1.0f + strlen("Create") * letterW + letterW;
-
-	selectedSign = 2; // create button
-      }
-    }
-
-
-    if (selectedSign != 0 && selectedIndex <= 3) {
-      if (mouse.clickL) {
-	if (selectedIndex == 1) {
-	  planeOnCreation->w += 0.01f * selectedSign;
-	}
-	else if (selectedIndex == 2) {
-	  planeOnCreation->h += 0.01f * selectedSign;
-	}
-	else if (selectedIndex == 3 && selectedSign == 2) {
-	  if (!picturesStorage) {
-	    picturesStorage = malloc(sizeof(Picture));
-	  }
-	  else {
-	    picturesStorage = realloc(picturesStorage, (picturesStorageSize + 1) * sizeof(Picture));
-	  }
-
-	  memcpy(&picturesStorage[picturesStorageSize], planeOnCreation, sizeof(Picture));
-
-	  picturesStorage[picturesStorageSize].id = picturesStorageSize;
-	  picturesStorage[picturesStorageSize].characterId = -1;
-
-	  picturesStorageSize++;
-
-	  free(planeOnCreation);
-	  planeOnCreation = NULL;
-
-	  curMenu->open = false;
-	  curMenu = NULL;
-	}
-      };
-
-      setSolidColorTx(redColor, 1.0f);
-      
-      glBindVertexArray(hudRect.VAO);
-      glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-
-      if(selectedIndex == 3){
-	xLeftFrame = -1.0f;
-	xRightFrame = -1.0f + strlen("Create") * letterW + letterW;
-      }
-
-      float  selectionRect[] = {
-	xLeftFrame, 1.0f - (selectedIndex-1) * letterH, 1.0f, 0.0f,
-	xRightFrame, 1.0f - (selectedIndex-1) * letterH, 1.0f, 1.0f,
-	xLeftFrame, 1.0f - (selectedIndex) * letterH, 0.0f, 0.0f,
-
-	xRightFrame, 1.0f - (selectedIndex-1) * letterH, 1.0f, 1.0f,
-	xLeftFrame,  1.0f - selectedIndex * letterH, 0.0f, 0.0f,
-	xRightFrame,  1.0f - selectedIndex * letterH, 0.0f, 1.0f };
-
-      glBufferData(GL_ARRAY_BUFFER, sizeof(selectionRect), selectionRect, GL_STATIC_DRAW);
-
-      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-      glEnableVertexAttribArray(0);
-
-      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
-      glEnableVertexAttribArray(1);
-
-      glDrawArrays(GL_TRIANGLES, 0, 6);
-
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glBindVertexArray(0);
-    }
-
-    renderText(buf, -1.0f, 1.0f, 1);
-    renderText("Create", -1.0f, 1.0f - letterH * 2, 1);
 
   }else if(curMenu && curMenu->type == dialogViewerT){
     int characterId = -1;
@@ -4007,7 +3845,7 @@ void createLight(vec3 pos, int type){
 	    
   memcpy(&lightStorage[type][indexOfNew], &lightDef[type], sizeof(Light));
   
-  lightStorage[type][indexOfNew].pos = pos;
+//  lightStorage[type][indexOfNew].pos = pos;
   lightStorage[type][indexOfNew].id = lightStorageSizeByType[type] - 1;
   lightStorage[type][indexOfNew].type = type;
 
@@ -4098,10 +3936,12 @@ void uniformLights(){
 
       sprintf(buf, "%sLights[%i].color",
 	      shaderVarSufixStr[i2], i);
-      uniformVec3(mainShader, buf, lightStorage[i2][indx].color);
+
+		  vec3 color = { rgbToGl(lightStorage[i2][indx].r, lightStorage[i2][indx].g, lightStorage[i2][indx].b) };
+      uniformVec3(mainShader, buf, color);
 		    
       sprintf(buf, "%sLights[%i].constant",
-	      shaderVarSufixStr[i2], i);
+	      shaderVarSufixStr[i2], i); 
       uniformFloat(mainShader, buf, 1.0f);
 
       sprintf(buf, "%sLights[%i].linear",
@@ -4215,7 +4055,7 @@ void editorMouseVS(){
       mouse.selectedType = mousePlaneT;
 
       mouse.interDist = intersectionDistance; 
-      minDistToCamera = intersectionDistance;
+      minDistToCamera = intersectionDistance; 
     }
   }
   
@@ -4226,7 +4066,7 @@ void editorMouseVS(){
       
       float intersectionDistance;
 
-      if(tilesStorage[wallsStorage[i]->tileId]->pos.y < curFloor){
+      if(tilesStorage[wallsStorage[i]->tileId].pos.y < curFloor){
 	continue;
       }
 
@@ -4258,7 +4098,7 @@ void editorMouseVS(){
   }
   
   for(int i=0;i<tilesStorageSize;i++){
-    Tile* tl = tilesStorage[i];
+    Tile tl = tilesStorage[i];
 
     //    vec3i ind = coords
 
@@ -4266,8 +4106,8 @@ void editorMouseVS(){
     
     //    if(tl->pos.y == curFloor){
     if(true){
-      const vec3 rt = { tl->pos.x + bBlockW, tl->pos.y, tl->pos.z + bBlockD };
-      const vec3 lb = { tl->pos.x, tl->pos.y, tl->pos.z };
+      const vec3 rt = { tl.pos.x + bBlockW, tl.pos.y, tl.pos.z + bBlockD };
+      const vec3 lb = { tl.pos.x, tl.pos.y, tl.pos.z };
 
       //  printf("Rt: [%f %f %f] Lb [%f %f %f]\n", argVec3(rt), argVec3(lb));
 
@@ -4280,7 +4120,7 @@ void editorMouseVS(){
 	//	intersTileData->tile = tl;
 	intersTileData->tileId = i;
 
-	intersTileData->pos = tl->pos;
+	intersTileData->pos = tl.pos;
 
 	//intersTileData->grid = (vec2i){ tl->pos.x, tl->pos.z };
 	intersTileData->intersection = intersection;
@@ -4455,16 +4295,17 @@ void createModel(int index, ModelType type){
 void deleteTileInStorage(int id){
   int index = 0;
   for(int i=0;i<tilesStorageSize;i++){
-    if(tilesStorage[i]->id == id){
+    if(tilesStorage[i].id == id){
       continue;
     }
     
     tilesStorage[index] = tilesStorage[i];
-    tilesStorage[index]->id = index;
+    tilesStorage[index].id = index;
     
     index++;
   }
   tilesStorageSize--;
+  tilesStorage = realloc(tilesStorage, tilesStorageSize * sizeof(Tile));
 }
 
 void deleteWallInStorage(int id){

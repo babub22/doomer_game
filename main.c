@@ -30,7 +30,7 @@ int wallsStorageSize;
 TileBlock** blocksStorage;
 int blocksStorageSize;
 
-Tile** tilesStorage;
+Tile* tilesStorage;
 int tilesStorageSize;
 
 MeshBuffer doorDoorPlane;
@@ -85,7 +85,7 @@ const char* wallTypeStr[] = {
 
 const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps",[angledRoofT] = "Angle Roof" };
 
-const char* lightTypesStr[] = { [pointLightT] = "Point light", [dirLightShadowT] = "Dir light(shadow)", [dirLightT] = "Dir light" };
+const char* lightTypesStr[] = { [pointLightT] = "PointLight", [dirLightShadowT] = "DirLight(shadow)", [dirLightT] = "DirLight" };
 
 const char* wallPlanesStr[] = {
   [wTopPlane] = "Top plane",
@@ -266,9 +266,9 @@ Camera* curCamera = &camera1;
 bool fullScreen = 0;
 
 Light lightDef[lightsTypeCounter] = {
-  [pointLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11},
-  [dirLightShadowT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11},
-  [dirLightT] = {.color = rgbToGl(253.0f, 244.0f, 220.0f), .dir = {0,-1, 0}, .curLightPresetIndex = 11}
+  [pointLightT] = {.r = 253, .g=244, .b=220, .curLightPresetIndex = 11},
+  [dirLightShadowT] = {.r = 253, .g=244, .b=220, .curLightPresetIndex = 11},
+  [dirLightT] = {.r = 253, .g=244, .b=220, .curLightPresetIndex = 11}
 };
 
 Menu dialogViewer = { .type = dialogViewerT };
@@ -1571,17 +1571,17 @@ int main(int argc, char* argv[]) {
 
   float testFOV = editorFOV;
 
-
   // load or init grid
   if (!loadSave("map")) {
-    initGrid(gridX, gridY, gridZ);
+    allocateGrid(120, 8, 120);
+    defaultGrid(gridX, gridY, gridZ);
 
     printf("Map not found!\n");
   }
 
   //    lightPos = (vec3){gridX /2.0f,2.0f,gridZ/2.0f};
 
-  renderCapYLayer = gridY;
+  //  renderCapYLayer = gridY;
   //  batchGeometry();
   batchAllGeometry();
   batchModels();
@@ -2560,8 +2560,6 @@ void calculateModelAABB(Model* model){
     model->rt.y = max(model->rt.y, trasformedVert4.y);
     model->rt.z = max(model->rt.z, trasformedVert4.z);
   }
-
-  model->centroid = (vec3){ (model->rt.x - model->lb.x) / 2.0f,  (model->rt.y - model->lb.y) / 2.0f,  (model->rt.z - model->lb.z) / 2.0f };
 }
 
 void calculateAABB(Matrix mat, float* vertexes, int vertexesSize, int attrSize, vec3* lb, vec3* rt){
@@ -2738,400 +2736,218 @@ bool loadSave(char* saveName){
     free(save);
     return false;
   }
-
-  // free cur loaded map
-  if(grid){
-    for (int y = 0; y < gridY; y++) {
-      for (int z = 0; z < gridZ; z++) {
-	for (int x = 0; x < gridX; x++) {
-	  free(grid[y][z][x]);
-	}
-
-	free(grid[y][z]);
-      }
+  
+  for(int i=0;i<curModelsSize;i++){
+    //  destroyCharacter(curModels[i].characterId);
+  }
       
-      free(grid[y]);
+
+  for(int i=0;i<wallsStorageSize;i++){
+    free(wallsStorage[i]->planes);
+    free(wallsStorage[i]);
+  }
+
+
+  for(int i=0;i<blocksStorageSize;i++){
+    free(blocksStorage[i]);
+  }
+
+  free(curModels);
+  free(wallsStorage);
+  free(blocksStorage);
+  free(picturesStorage);
+  free(tilesStorage);
+
+  memset(geomentyByTxCounter, 0, loadedTexturesCounter * sizeof(size_t));
+
+  for(int i=0;i<lightsTypeCounter;i++){
+    free(lightStorage[i]);
+  }
+
+  int gX, gY, gZ;
+  
+  fscanf(map, "%d %d %d \n", &gX, &gY, &gZ);
+
+  allocateGrid(gX, gY, gZ);
+  
+  fscanf(map, "tiles: %d walls: %d blocks: %d pictures: %d models: %d \n",
+	 &tilesStorageSize,
+	 &wallsStorageSize,
+	 &blocksStorageSize,
+	 &picturesStorageSize,
+	 &curModelsSize);
+
+  tilesStorage = calloc(1, sizeof(Tile) * tilesStorageSize);
+  wallsStorage = malloc(sizeof(Wall*) * wallsStorageSize);
+  blocksStorage = malloc(sizeof(TileBlock*) * blocksStorageSize);
+  picturesStorage = malloc(sizeof(Picture) * picturesStorageSize);
+  curModels = malloc(sizeof(Model) * curModelsSize);  
+
+  // walls
+  for (int i = 0; i < wallsStorageSize; i++) { 
+    Wall* newWall = malloc(sizeof(Wall));
+    vec3 pos;
+
+    fscanf(map, "%d %d %d %d (%f %f %f) ", &newWall->sideForMat, &newWall->side, &newWall->type, &newWall->prevType, &pos.x, &pos.y, &pos.z);
+
+    newWall->planes = malloc(sizeof(Plane) * wallsVPairs[newWall->prevType].planesNum); 
+
+    memcpy(newWall->mat.m, hardWallMatrices[newWall->sideForMat].m, sizeof(float) * 16);
+
+    newWall->mat.m[12] += pos.x;
+    newWall->mat.m[13] = pos.y;
+    newWall->mat.m[14] += pos.z;
+
+    for(int i2=0;i2<wallsVPairs[newWall->prevType].planesNum;i2++){ 
+      fscanf(map, "%d ", &newWall->planes[i2].txIndex);
+      geomentyByTxCounter[newWall->planes[i2].txIndex] += wallsVPairs[newWall->prevType].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[newWall->prevType].pairs[i2].attrSize;
+      calculateAABB(newWall->mat, wallsVPairs[newWall->prevType].pairs[i2].vBuf, wallsVPairs[newWall->prevType].pairs[i2].vertexNum, wallsVPairs[newWall->prevType].pairs[i2].attrSize, &newWall->planes[i2].lb, &newWall->planes[i].rt);
+    }
+
+    newWall->id = i;
+    wallsStorage[i] = newWall;
+
+    fscanf(map, "\n");
+  }
+
+  // blocks
+  for (int i = 0; i < blocksStorageSize; i++) {
+    TileBlock* newBlock = malloc(sizeof(TileBlock));
+    
+    fscanf(map, "%d %d %d ", &newBlock->txIndex, &newBlock->rotateAngle, &newBlock->type);
+
+    for(int i2=0;i2<16;i2++){
+      fscanf(map, "%d ", &newBlock->mat.m[i2]);
+    }
+
+    newBlock->id = i;
+    blocksStorage[i] = newBlock;
+
+    geomentyByTxCounter[newBlock->txIndex] += blocksVPairs[newBlock->type].pairs[0].vertexNum * sizeof(float) * blocksVPairs[newBlock->type].pairs[0].attrSize;
+    calculateAABB(newBlock->mat, blocksVPairs[newBlock->type].pairs[0].vBuf, blocksVPairs[newBlock->type].pairs[0].vertexNum, blocksVPairs[newBlock->type].pairs[0].attrSize, &newBlock->lb, &newBlock->rt);
+      
+    fscanf(map, "\n");
+  }
+
+  // tiles
+  for (int i = 0; i < tilesStorageSize; i++) {
+    fscanf(map, "(%f %f %f) %d ", &tilesStorage[i].pos.x, &tilesStorage[i].pos.y, &tilesStorage[i].pos.z, &tilesStorage[i].tx);
+
+    geomentyByTxCounter[tilesStorage[i].tx] += sizeof(float) * 8 * 6;
+
+    int blockId;
+    int blockTx; 
+    fscanf(map, "%d %d ", &blockId, &blockTx);
+
+    if(blockId != -1){
+      tilesStorage[i].block = blocksStorage[blockId]; 
+      tilesStorage[i].block->txIndex = blockTx;
+      tilesStorage[i].block->tileId = i;
+    }
+
+    int tId;
+    fscanf(map, "%d ", &tId);
+    
+    if(tId != -1){
+      tilesStorage[i].wall[top] = wallsStorage[tId];
+      tilesStorage[i].wall[top]->tileId = i;
+    }
+
+    int lId;
+    fscanf(map, "%d ", &lId);
+    
+    if(lId != -1){
+      tilesStorage[i].wall[left] = wallsStorage[lId];
+      tilesStorage[i].wall[left]->tileId = i;
+    }
+
+    fscanf(map, "\n");
+  }
+
+  // pictures
+  for (int i = 0; i < picturesStorageSize; i++) {
+    fscanf(map, "%d %d ", &picturesStorage[i].txIndex, &picturesStorage[i].characterId);
+
+    for(int i2=0;i2<16;i2++){
+      fscanf(map, "%f ", &picturesStorage[i].mat.m[i2]);
+    }
+
+    picturesStorage[i].id = i;
+
+    geomentyByTxCounter[picturesStorage[i].txIndex] += 6 * 8 * sizeof(float);
+    calculateAABB(picturesStorage[i].mat,
+		  planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize,
+		  &picturesStorage[i].lb, &picturesStorage[i].rt);
+      
+    fscanf(map, "\n");
+  }
+
+  // cur models
+  for (int i = 0; i < curModelsSize; i++) {
+    fscanf(map, "%d %d ", &curModels[i].name, &curModels[i].characterId);
+
+    for(int i2=0;i2<16;i2++){
+      fscanf(map, "%f ", &curModels[i].mat.m[i2]);
+    }
+
+    curModels[i].id = i;
+
+    calculateModelAABB(&curModels[i]);
+      
+    fscanf(map, "\n");
+  }
+
+  // lights
+  for(int i2=0;i2<lightsTypeCounter;i2++){
+    char buf[100];
+    fscanf(map, "%s - %d ", buf, &lightStorageSizeByType[i2]);
+    fscanf(map, "\n");
+
+    printf("%s %d \n", buf, lightStorageSizeByType[i2]);
+
+    if (&lightStorageSizeByType[i2] == 0) {
+      continue;
     }
     
-    free(grid);
-    grid = NULL;
-
-    if (curModels) {
-      for(int i=0;i<curModelsSize;i++){
-	destroyCharacter(curModels[i].characterId);
-      }
+    lightStorage[i2] = malloc(sizeof(Light) * lightStorageSizeByType[i2]);
       
-      free(curModels);
-      curModels = NULL;
-      curModelsSize = 0;
-    }
-  }
-  
-  fscanf(map, "%d %d %d \n", &gridY, &gridZ, &gridX);
-  //lightSourcePos = (vec3){ gridX/2, gridY/2, gridZ/2 };
-  
-  int textureOfGround = texture1DIndexByName("Zemlia1");
-
-  if (textureOfGround == -1) {
-    printf("Specify texture of ground");
-    exit(-1);
-  }
-
-  int blockCounter,jointsCounter,wallCounter,tileCounter;
-  int wallsCounter = -1;
-
-  int topWallsCounter;
-  int leftWallsCounter;
-
-  int tlsCounter;
-  int blckCounter;
-  int jntCounter[4];
-
-  /*
-  fscanf(map, "Walls used: %d(lw%d rw%d tl%d bck%d joi(%d %d %d %d)) b:%d j:%d w:%d t:%d", &wallsCounter,
-	 &leftWallsCounter,
-	 &topWallsCounter,
-	 &tlsCounter,
-	 &blckCounter,
-	 &jntCounter[0], &jntCounter[1], &jntCounter[2], &jntCounter[3], 
-	 &blockCounter,
-	 &jointsCounter,
-	 &wallCounter,
-	 &tileCounter);
-*/
-
-  
-  fscanf(map, "Used tiles: %d leftW: %d rightW: %d aBlock: %d",
-	 &wallsCounter,
-	 &leftWallsCounter,
-	 &topWallsCounter,
-	 &blckCounter);
-
-
-  printf("Walls: left %d top %d \n", leftWallsCounter, topWallsCounter);
-
-  wallsStorage = malloc(sizeof(Wall*) * (topWallsCounter + leftWallsCounter));
-  //  for(int i=0;i<basicSideCounter;i++){
-  //}
-
-  blocksStorage = malloc(sizeof(TileBlock*) * blckCounter);
-  tilesStorage = malloc(sizeof(Tile*) * wallsCounter);
-
-  initGrid(gridZ, gridY, gridZ);
-
-  /*	{
-	float texturedTileVerts[] = {
-	bBlockW, 0.0f, bBlockD , 0.0f, 1.0f,
-	0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
-	bBlockW, 0.0f, 0.0f , 0.0f, 0.0f, 
+    for(int i=0;i<lightStorageSizeByType[i2];i++){
+      int offValue;
+      vec3i color;
       
-	0.0f, 0.0f, bBlockD , 1.0f, 1.0f,
-	bBlockW, 0.0f, 0.0f , 0.0f, 0.0f,
-	0.0f, 0.0f, 0.0f , 1.0f, 0.0f, 
-	};
+      fscanf(map, "c(%d %d %d) %d %f %f %d ", &color.x, &color.y, &color.z, &offValue
+	     ,&lightStorage[i2][i].rad, &lightStorage[i2][i].cutOff, &lightStorage[i2][i].curLightPresetIndex);
+      
+      lightStorage[i2][i].off = (bool)offValue;
+      lightStorage[i2][i].r = color.x;
+      lightStorage[i2][i].g = color.y;
+      lightStorage[i2][i].b = color.z;
 
-	glGenVertexArrays(1, grid[y][z][x]->groundPair.VAO);
-	glBindVertexArray(grid[y][z][x]->groundPair.VAO);
-
-	glGenBuffers(1, grid[y][z][x]->groundPair.VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, grid[y][z][x]->groundPair.VBO);
-
-	glBufferData(GL_ARRAY_BUFFER, sizeof(texturedTileVerts), texturedTileVerts, GL_STATIC_DRAW);
-
-	size_t s = 5 * sizeof(float) + sizeof(vec4) * 4;
-	  
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, s, NULL);
-	glEnableVertexAttribArray(0);
-
-
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, s, (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-
-	glEnableVertexAttribArray(2); 
-	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, s, s);
-	glEnableVertexAttribArray(3); 
-	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, s, s + (1 * vec4Size));
-	glEnableVertexAttribArray(4); 
-	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, s, s + (2 * vec4Size));
-	glEnableVertexAttribArray(5); 
-	glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, s, s + (3 * vec4Size));
-
-	glVertexAttribDivisor(2, 1);
-	glVertexAttribDivisor(3, 1);
-	glVertexAttribDivisor(4, 1);
-	glVertexAttribDivisor(5, 1);
-
-	glBindVertexArray(0);
-	}
-
-	grid[y][z][x]->groundPair.VAO = tileMeshes[i-1].VAO;
-	grid[y][z][x]->groundPair.VBO = tileMeshes[i-1].VBO;
+      lightStorage[i2][i].type = i2;
 	
-	glBindBuffer(GL_ARRAY_BUFFER, tileMeshes[i-1].VBO);
-	glBindVertexArray(tileMeshes[i-1].VAO); 
+      for(int i3=0;i3<16;i3++){
+	fscanf(map, "%f ", &lightStorage[i2][i].mat.m[i3]);
+      }
 
-	glGenBuffers(1, grid[y][z][x]->groundVAO);
-  */
-  printf("waaaaa %d \n", wallsCounter);
-  for (int i = 0; i < wallsCounter; i++) {
-    int x = -1,y = -1,z = -1;
-    
-    fscanf(map, "\n%d %d %d ",&x,&y,&z); 
-	 
-    int sidesCounter = 0;
+      calculateAABB(lightStorage[i2][i].mat, cube.vBuf, cube.vertexNum, cube.attrSize,
+		    &lightStorage[i2][i].lb, &lightStorage[i2][i].rt);
 
-    grid[y][z][x] = calloc(1, sizeof(Tile));
-
-    tilesStorage[tilesStorageSize] = grid[y][z][x];
-    grid[y][z][x]->pos = (vec3)xyz_indexesToCoords(x,y,z);
-    grid[y][z][x]->id = tilesStorageSize;
-    //tilesStorageSize++;
-    
-    Tile* tile = grid[y][z][x]; 
-
-    float groundLiftDELETEIT;
-
-    fscanf(map, "%c %d ", &tile->tx, &sidesCounter);
-
-    //    vec3 grid = xyz_indexesToCoords(x,y,z);
-
-    //    tile->pos = grid;
-
-    int tx = tile->tx;  
-
-    if(tx != -1){
-      geomentyByTxCounter[tx] += sizeof(float) * 8 * 6;
+      fscanf(map, "\n");
     }
-    else if (y == 0) {
-        tile->tx = textureOfGround;
-    }
-
-    Side side = -1; 
-    int bufSize;
-
-    int alligned = 0;
-    int txHidden = 0;
-	  
-    WallType wType = -1;
-
-    // walls
-    for(int i2=0;i2< sidesCounter;i2++){
-      fscanf(map, "%d %d ", &side, &wType);
-
-      tile->wall[side] = malloc(sizeof(Wall));
-      tile->wall[side]->id = wallsStorageSize;
-      tile->wall[side]->tileId = tilesStorageSize;
-      tile->wall[side]->side = i2;
-
-      wallsStorage[wallsStorageSize] = tile->wall[side];
-      wallsStorageSize++;
-      
-      tile->wall[side]->type = wType;
-      tile->wall[side]->prevType = wType;
-      
-      tile->wall[side]->planes = calloc(planesInfo[tile->wall[side]->type], sizeof(Plane));
-
-      for(int i2=0;i2<wallsVPairs[wType].planesNum;i2++){
-	fscanf(map, "%d %d ", &tile->wall[side]->planes[i2].txIndex);
-
-	//if(!tile->wall[side]->planes[i2].hide){
-	//  geomentyByTxCounter[tile->wall[side]->planes[i2].txIndex] += wallsVPairs[wType].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[wType].pairs[i2].attrSize;
-	//}
-      }
-
-      for(int mat=0;mat<16;mat++){
-	fscanf(map, "%f ", &tile->wall[side]->mat.m[mat]);
-      }
-
-      for (int i = 0; i < wallsVPairs[wType].planesNum; i++) {
-	calculateAABB(tile->wall[side]->mat, wallsVPairs[wType].pairs[i].vBuf, wallsVPairs[wType].pairs[i].vertexNum, wallsVPairs[wType].pairs[i].attrSize, &tile->wall[side]->planes[i].lb, &tile->wall[side]->planes[i].rt);
-      }
-    }
-
-    int blockExists;
-    fscanf(map, "%d ", &blockExists);
-
-    if(blockExists){
-      TileBlock* newBlock = malloc(sizeof(TileBlock));
-
-      blocksStorage[blocksStorageSize] = newBlock;
-      newBlock->id = blocksStorageSize;
-      blocksStorageSize++;
-      
-      int txIndex;
-      int blockType;
-      int rotateAngle;
-
-      fscanf(map, "%d %d %d %d ",&blockType, &rotateAngle, &txIndex);
-      
-      newBlock->txIndex = txIndex;
-      newBlock->rotateAngle = rotateAngle;
-      newBlock->type = blockType;
-      newBlock->tileId = tilesStorageSize;
-      
-      geomentyByTxCounter[newBlock->txIndex] += blocksVPairs[newBlock->type].pairs[0].vertexNum * sizeof(float) * blocksVPairs[newBlock->type].pairs[0].attrSize;
-
-      //      newBlock->vpair.VBO
-
-      //      newBlock->vpair.VBO = tileBlocksTempl[newBlock->type].vpair.VBO;
-      //      newBlock->vpair.VAO = tileBlocksTempl[newBlock->type].vpair.VAO;
-
-      for(int mat=0;mat<16;mat++){
-	fscanf(map, "%f ", &newBlock->mat.m[mat]);
-      }
-      
-      calculateAABB(newBlock->mat, blocksVPairs[newBlock->type].pairs[0].vBuf, blocksVPairs[newBlock->type].pairs[0].vertexNum, blocksVPairs[newBlock->type].pairs[0].attrSize, &newBlock->lb, &newBlock->rt);
-
-      tile->block = newBlock;
-    }
-
-    tilesStorageSize++;
-  }
-    
-  fscanf(map, "\nUsed models: %d\n", &curModelsSize);
-
-  if (curModelsSize != 0) { 
-    curModels = malloc(curModelsSize * sizeof(Model));
-
-    for (int i = 0; i < curModelsSize; i++) {
-      int name = -1; 
-      fscanf(map, "%d ", &name);
-
-      if (name >= loadedModelsSize || name < 0) {
-	printf("Models parsing error, model name (%d) doesnt exist \n", name);
-	exit(0);
-      }
-	   
-      curModels[i].name = name;
-      curModels[i].id = i;
-      curModels[i].characterId = -1;
-
-      fgetc(map); // read [
-
-      for (int mat = 0; mat < 16; mat++) {
-	fscanf(map, "%f ", &curModels[i].mat.m[mat]); 
-      }
-
-      calculateModelAABB(&curModels[i]);
-
-      fgetc(map); // read ]\n
-
-      char ch = fgetc(map);
-
-      if (ch == '1') {  
-	charactersSize++; 
-
-	if (!characters) { 
-	  characters = malloc(charactersSize * sizeof(Character));
-	}
-	else {
-	  characters = realloc(characters, charactersSize * sizeof(Character));
-	}
-
-	memset(&characters[charactersSize - 1], 0, sizeof(Character));
-
-	curModels[i].characterId = charactersSize - 1;
-	characters->id = charactersSize - 1;
-
-	char named[32];
-	int nameType = -1;
-
-	fscanf(map, "%s %d ", &named, &nameType);
-
-	characters[charactersSize-1].name = malloc(sizeof(char) * (strlen(named) + 1));
-	strcpy(characters[charactersSize-1].name, named);  
-
-	deserializeDialogTree(&characters[charactersSize-1].dialogs, NULL, map);
-	//	fgetc(map);
-      }
-      else if(ch != '\n'){
-	fgetc(map);
-      }
-    }
-  
   }
 
-  fscanf(map, "\nUsed planes: %d\n", &picturesStorageSize);
+  uniformLights();
 
-  if (curModelsSize != 0) {
-      picturesStorage = malloc(picturesStorageSize * sizeof(Model));
-
-      for (int i = 0; i < picturesStorageSize; i++) {
-          int tx = -1;
-          float w, h;
-
-          fscanf(map, "%d %f %f ", &tx, &w, &h);
-
-          if (tx >= loadedTexturesCounter || tx < 0) {
-              printf("Models parsing error, model name (%d) doesnt exist \n", tx);
-              exit(0);
-          }
-
-          picturesStorage[i].w = w;
-          picturesStorage[i].h = h;
-          picturesStorage[i].txIndex = tx;
-          picturesStorage[i].id = i;
-          picturesStorage[i].characterId = -1;
-
-          fgetc(map); // read [
-
-          for (int mat = 0; mat < 16; mat++) {
-              fscanf(map, "%f ", &picturesStorage[i].mat.m[mat]);
-          }
-
-          //   calculateModelAABB(&curModels[i]);
-
-          fgetc(map); // read ]\n
-
-          char ch = fgetc(map);
-
-          if (ch == '1') {
-              charactersSize++;
-
-              if (!characters) {
-                  characters = malloc(charactersSize * sizeof(Character));
-              }
-              else {
-                  characters = realloc(characters, charactersSize * sizeof(Character));
-              }
-
-              memset(&characters[charactersSize - 1], 0, sizeof(Character));
-
-              picturesStorage[i].characterId = charactersSize - 1;
-              characters->id = charactersSize - 1;
-
-              char named[32];
-              int nameType = -1;
-
-              fscanf(map, "%s %d ", &named, &nameType);
-
-              characters[charactersSize - 1].name = malloc(sizeof(char) * (strlen(named) + 1));
-              strcpy(characters[charactersSize - 1].name, named);
-
-              deserializeDialogTree(&characters[charactersSize - 1].dialogs, NULL, map);
-              //	fgetc(map);
-          }
-          else if (ch != '\n') {
-              fgetc(map);
-          }
-      }
-
+  if(lightStorageSizeByType[dirLightShadowT] != 0){
+    rerenderShadowsForAllLights();
   }
 
-
-  printf("Save %s loaded! \n", save);
+  printf("Save %s loaded! \n", save);  
   fclose(map);
 
   strcpy(curSaveName, saveName);
   free(save);
-
-  initSnowParticles();
-
-  for (int i = 0; i < loadedTexturesCounter; i++) {
-      printf("%d: %d \n", i, geomentyByTxCounter[i]);
-  }
-
+  
   return true;
 }
 
@@ -3145,21 +2961,102 @@ bool saveMap(char* saveName) {
 
     fprintf(map, "%d %d %d \n", gridY, gridZ, gridX);
     
-    fprintf(map, "tiles: %d walls: %d blocks: %d pictures: %d \n",
+    fprintf(map, "tiles: %d walls: %d blocks: %d pictures: %d models: %d \n",
 	    tilesStorageSize,
 	    wallsStorageSize,
 	    blocksStorageSize,
-	    picturesStorageSize);
+	    picturesStorageSize,
+	    curModelsSize);
 
     for (int i = 0; i < wallsStorageSize; i++) {
-      fprintf(map, "%d %d %d %d ", wallsStorage[i]->sideForMat, wallsStorage[i]->type, wallsStorage[i]->prevType, wallsStorage[i]->tileId);
+      fprintf(map, "%d %d %d %d (%f %f %f) ", wallsStorage[i]->sideForMat, wallsStorage[i]->side, wallsStorage[i]->type, wallsStorage[i]->prevType, argVec3(tilesStorage[wallsStorage[i]->tileId].pos));
+
+      for(int i2=0;i2<wallsVPairs[wallsStorage[i]->prevType].planesNum;i2++){
+	fprintf(map, "%d ", wallsStorage[i]->planes[i2].txIndex);
+      }
+
+      fprintf(map, "\n");
+    }
+    
+    for (int i = 0; i < blocksStorageSize; i++) {
+      fprintf(map, "%d %d %d ", blocksStorage[i]->txIndex, blocksStorage[i]->rotateAngle, blocksStorage[i]->type);
+
+      for(int i2=0;i2<16;i2++){
+	fprintf(map, "%d ", blocksStorage[i]->mat.m[i2]);
+      }
+
+      fprintf(map, "\n");
+    }
+
+    for (int i = 0; i < tilesStorageSize; i++) {
+      fprintf(map, "(%f %f %f) %d ", argVec3(tilesStorage[i].pos), tilesStorage[i].tx);
+
+      if(tilesStorage[i].block){
+	fprintf(map, "%d %d ", tilesStorage[i].block->id, tilesStorage[i].block->txIndex);
+      }else{
+	fprintf(map, "%d %d ", -1, -1);
+      }
+
+      if(tilesStorage[i].wall[top]){
+	fprintf(map, "%d ", tilesStorage[i].wall[top]->id);
+      }else{
+	fprintf(map, "%d ", -1);
+      }
+
+      if(tilesStorage[i].wall[left]){
+	fprintf(map, "%d ", tilesStorage[i].wall[left]->id);
+      }else{
+	fprintf(map, "%d ", -1);
+      }
+
+      fprintf(map, "\n");
+    }
+
+
+    for (int i = 0; i < picturesStorageSize; i++) {
+      fprintf(map, "%d %d ", picturesStorage[i].txIndex, picturesStorage[i].characterId);
+
+      for(int i2=0;i2<16;i2++){
+	fprintf(map, "%f ", picturesStorage[i].mat.m[i2]);
+      }
+      
+      fprintf(map, "\n");
+    }
+ 
+    for (int i = 0; i < curModelsSize; i++) {
+      fprintf(map, "%d %d ", curModels[i].name, curModels[i].characterId);
+
+      for(int i2=0;i2<16;i2++){
+	fprintf(map, "%f ", curModels[i].mat.m[i2]);
+      }
+      
+      fprintf(map, "\n");
+    }
+
+    for(int i2=0;i2<lightsTypeCounter;i2++){
+      fprintf(map, "%s - %d ", lightTypesStr[i2], lightStorageSizeByType[i2]);
+      fprintf(map, "\n");
+      
+      for(int i=0;i<lightStorageSizeByType[i2];i++){
+	fprintf(map, "c(%d %d %d) %d %f %f %d ", lightStorage[i2][i].r, lightStorage[i2][i].g, lightStorage[i2][i].b, lightStorage[i2][i].off, lightStorage[i2][i].rad, lightStorage[i2][i].cutOff, lightStorage[i2][i].curLightPresetIndex);
+	
+	for(int i3=0;i3<16;i3++){
+	  fprintf(map, "%f ", lightStorage[i2][i].mat.m[i3]);
+	}
+
+	fprintf(map, "\n");
+      }
+    }
+    
+    /*    for (int i = 0; i < blocksStorageSize; i++) {
+      fprintf(map, "%d %d %d %d ", blocksStorage[i]->tileId, wallsStorage[i]->type, wallsStorage[i]->prevType, wallsStorage[i]->tileId);
 
       for(int i2=0;i2<wallsVPairs[wallsStorage[i]->type].planesNum;i2++){
 	fprintf(map, "%d ", wallsStorage[i]->planes[i2].txIndex);
       }
 
       fprintf(map, "\n");
-    }
+    }*/
 
     
     /*
@@ -3328,7 +3225,7 @@ bool createMap(int newX, int newY, int newZ){
   gridY = newY;
   gridZ = newZ;
   
-  initGrid(gridZ, gridY, gridZ);
+  defaultGrid(gridZ, gridY, gridZ);
   
   initSnowParticles();
 
@@ -3630,7 +3527,7 @@ TileBlock* constructNewBlock(int type, int angle){
   if(mouse.selectedType == mouseTileT){
     TileMouseData* tileData = (TileMouseData*) mouse.selectedThing;
 
-    vec3 tile = tilesStorage[tileData->tileId]->pos;// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
+    vec3 tile = tilesStorage[tileData->tileId].pos;// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
     
     newBlock->mat.m[12] = tile.x;
     newBlock->mat.m[13] = tile.y;
@@ -4953,46 +4850,68 @@ void assembleWindowBlockVBO(){
   }
 }
 
-void initGrid(int sx, int sy, int sz){
+void allocateGrid(int gX, int gY, int gZ){ 
+  if(grid){
+    for (int y = 0; y < gridY; y++) {
+      for (int z = 0; z < gridZ; z++) {
+	free(grid[y][z]);
+      }
+      
+      free(grid[y]);
+    }
+    
+    free(grid);
+    grid = NULL;
+  }
+    
+  grid = malloc(sizeof(Tile***) * gY);
+
+  for (int y = 0; y < gY; y++) {
+    grid[y] = malloc(sizeof(Tile**) * gZ);
+
+    for (int z = 0; z < gZ; z++) {
+      grid[y][z] = calloc(gX, sizeof(Tile*));
+    }
+  }
+
+  gridX = gX;
+  gridY = gY;
+  gridZ = gZ;
+}
+
+void defaultGrid(int gX, int gY, int gZ){
   int textureOfGround = texture1DIndexByName("Zemlia1");
 
   if (textureOfGround == -1) {
     printf("Specify texture of ground");
     exit(-1);
   }
-
-  grid = malloc(sizeof(Tile***) * (sy));
-
-  for (int y = 0; y < sy; y++) {
-    grid[y] = malloc(sizeof(Tile**) * (sz));
-
-    for (int z = 0; z < sz; z++) {
-      grid[y][z] = calloc(gridX, sizeof(Tile*));
-
-      for (int x = 0; x < sx; x++) {
+  
+  for (int y = 0; y < gY; y++) {
+    for (int z = 0; z < gZ; z++) {
+      for (int x = 0; x < gX; x++) {
 	if (y == 0) {
-	  grid[y][z][x] = calloc(1, sizeof(Tile));
-	  
-	//  grid[y][z][x]->type = texturedTileT;
-	  grid[y][z][x]->tx = textureOfGround;
-
 	  vec3 tile = xyz_indexesToCoords(x,y,z);
 
 	  tilesStorageSize++;
 	  
 	  if(!tilesStorage){
-	    tilesStorage = malloc(sizeof(Tile*));
+	    tilesStorage = malloc(sizeof(Tile));
 	  }else{
-	    tilesStorage = realloc(tilesStorage, sizeof(Tile*) * tilesStorageSize);
+	    tilesStorage = realloc(tilesStorage, sizeof(Tile) * tilesStorageSize);
 	  }
 
-	  geomentyByTxCounter[textureOfGround] += sizeof(float) * 8 * 6;
+	  tilesStorage[tilesStorageSize - 1].tx = textureOfGround;
+	  tilesStorage[tilesStorageSize - 1].pos = tile;
+	  tilesStorage[tilesStorageSize-1].id = tilesStorageSize-1;
 
-	  tilesStorage[tilesStorageSize-1] = grid[y][z][x];
-	  tilesStorage[tilesStorageSize-1]->id = tilesStorageSize-1;
+	  tilesStorage[tilesStorageSize-1].block = NULL;
+	  tilesStorage[tilesStorageSize-1].wall[top] = NULL;
+	  tilesStorage[tilesStorageSize-1].wall[left] = NULL;
+
+	  geomentyByTxCounter[textureOfGround] += sizeof(float) * 8 * 6;
 	  
-	  grid[y][z][x]->pos = tile;
-	  //printf("%f %f %f \n", argVec3(tilesStorage[tilesStorageSize-1]->pos));
+	  grid[y][z][x] = &tilesStorage[tilesStorageSize - 1];
 	}
       }
     }
@@ -5848,7 +5767,7 @@ void batchAllGeometryNoHidden(){
 
   // tiles
   for(int i=0;i<tilesStorageSize;i++){
-    int txIndex = tilesStorage[i]->tx;
+    int txIndex = tilesStorage[i].tx;
 
     if (txIndex == -1){
       continue;
@@ -5856,9 +5775,9 @@ void batchAllGeometryNoHidden(){
 
 
     for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
-      preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i]->pos.x; 
-      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+1] = texturedTileVerts[i2+1] + tilesStorage[i]->pos.y;
-      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+2] = texturedTileVerts[i2+2] + tilesStorage[i]->pos.z; 
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i].pos.x; 
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+1] = texturedTileVerts[i2+1] + tilesStorage[i].pos.y;
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+2] = texturedTileVerts[i2+2] + tilesStorage[i].pos.z; 
 
       preGeom[txIndex].buf[txLastIndex[txIndex]+i2+3] = texturedTileVerts[i2+3];
       preGeom[txIndex].buf[txLastIndex[txIndex]+i2+4] = texturedTileVerts[i2+4];
@@ -5918,7 +5837,7 @@ void batchAllGeometryNoHidden(){
 
 	for (int i3 = 0; i3 < wallsVPairs[type].pairs[i2].vertexNum * vertexSize; i3 += vertexSize) {
 	  vec4 vert = { wallsVPairs[type].pairs[i2].vBuf[i3], wallsVPairs[type].pairs[i2].vBuf[i3 + 1], wallsVPairs[type].pairs[i2].vBuf[i3 + 2], 1.0f };
-
+       
 	  vec4 transf = mulmatvec4(wallsStorage[i]->mat, vert);
 
 	  vec4 normal = { wallsVPairs[type].pairs[i2].vBuf[i3 + 5], wallsVPairs[type].pairs[i2].vBuf[i3 + 6], wallsVPairs[type].pairs[i2].vBuf[i3 + 7], 1.0f };
@@ -5931,7 +5850,7 @@ void batchAllGeometryNoHidden(){
 
 	  vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
 
-	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3] = transf.x;
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3] = transf.x; 
 	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 1] = transf.y;
 	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 2] = transf.z;
 
@@ -6022,7 +5941,7 @@ void batchAllGeometry(){
 
   // tiles
   for(int i=0;i<tilesStorageSize;i++){
-    int txIndex = tilesStorage[i]->tx;
+    int txIndex = tilesStorage[i].tx;
 
     if (txIndex == -1){
       continue;
@@ -6030,9 +5949,9 @@ void batchAllGeometry(){
 
 
     for(int i2=0;i2< 6*vertexSize;i2 += vertexSize){
-      preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i]->pos.x; 
-      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+1] = texturedTileVerts[i2+1] + tilesStorage[i]->pos.y;
-      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+2] = texturedTileVerts[i2+2] + tilesStorage[i]->pos.z; 
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2] = texturedTileVerts[i2] + tilesStorage[i].pos.x; 
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+1] = texturedTileVerts[i2+1] + tilesStorage[i].pos.y;
+      preGeom[txIndex].buf[txLastIndex[txIndex]+i2+2] = texturedTileVerts[i2+2] + tilesStorage[i].pos.z; 
 
       preGeom[txIndex].buf[txLastIndex[txIndex]+i2+3] = texturedTileVerts[i2+3];
       preGeom[txIndex].buf[txLastIndex[txIndex]+i2+4] = texturedTileVerts[i2+4];
@@ -6148,7 +6067,7 @@ void batchAllGeometry(){
       glBindVertexArray(finalGeom[i].VAO);
       glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
 
-      //      printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
+              printf("alloced size - %d  used size - %d \n", preGeom[i].size, txLastIndex[i] * sizeof(float));
       glBufferData(GL_ARRAY_BUFFER, preGeom[i].size, preGeom[i].buf, GL_STATIC_DRAW);
 
       glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
@@ -6179,26 +6098,26 @@ void assembleNavigation(){
   navPointsSize = 0;
   
   for(int i=0;i<tilesStorageSize;i++){
-    if(!tilesStorage[i]->block && tilesStorage[i]->tx != -1){
-      int x = tilesStorage[i]->pos.x; int y = (int)tilesStorage[i]->pos.y; int z = (int)tilesStorage[i]->pos.z;
+    if(!tilesStorage[i].block && tilesStorage[i].tx != -1){
+      int x = tilesStorage[i].pos.x; int y = (int)tilesStorage[i].pos.y; int z = (int)tilesStorage[i].pos.z;
 
-      vec3 tile = tilesStorage[i]->pos;//xyz_indexesToCoords((int)tilesStorage[i]->pos.x, (int)tilesStorage[i]->pos.y, (int)tilesStorage[i]->pos.z);
+      vec3 tile = tilesStorage[i].pos;//xyz_indexesToCoords((int)tilesStorage[i].pos.x, (int)tilesStorage[i].pos.y, (int)tilesStorage[i].pos.z);
 
-      bool farRightCor = tilesStorage[i]->wall[left]&& tilesStorage[i]->wall[top];
-      bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && tilesStorage[i]->wall[top];
+      bool farRightCor = tilesStorage[i].wall[left]&& tilesStorage[i].wall[top];
+      bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && tilesStorage[i].wall[top];
 
-      bool farLeftCor = tilesStorage[i]->wall[left]&& (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
+      bool farLeftCor = tilesStorage[i].wall[left]&& (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
       bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
 	    
       if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
 	navPointsSize++;
       }
 	    
-      if(tilesStorage[i]->wall[left] && tilesStorage[i]->wall[left]->type == doorT){
+      if(tilesStorage[i].wall[left] && tilesStorage[i].wall[left]->type == doorT){
 	navPointsSize++;
       }
 
-      if(tilesStorage[i]->wall[top] && tilesStorage[i]->wall[top]->type == doorT){
+      if(tilesStorage[i].wall[top] && tilesStorage[i].wall[top]->type == doorT){
 	navPointsSize++;
       }
     }
@@ -6210,15 +6129,15 @@ void assembleNavigation(){
   navPointsSize = 0;
 
   for(int i=0;i<tilesStorageSize;i++){
-    if(!tilesStorage[i]->block && tilesStorage[i]->tx != -1) {
-        int x = tilesStorage[i]->pos.x; int y = (int)tilesStorage[i]->pos.y; int z = (int)tilesStorage[i]->pos.z;
+    if(!tilesStorage[i].block && tilesStorage[i].tx != -1) {
+        int x = tilesStorage[i].pos.x; int y = (int)tilesStorage[i].pos.y; int z = (int)tilesStorage[i].pos.z;
       
-        vec3 tile = tilesStorage[i]->pos;//xyz_indexesToCoords((int)tilesStorage[i]->pos.x, (int)tilesStorage[i]->pos.y, (int)tilesStorage[i]->pos.z);
+        vec3 tile = tilesStorage[i].pos;//xyz_indexesToCoords((int)tilesStorage[i].pos.x, (int)tilesStorage[i].pos.y, (int)tilesStorage[i].pos.z);
 
-      bool farRightCor = tilesStorage[i]->wall[left]&& tilesStorage[i]->wall[top];
-      bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && tilesStorage[i]->wall[top];
+      bool farRightCor = tilesStorage[i].wall[left]&& tilesStorage[i].wall[top];
+      bool nearRightCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && tilesStorage[i].wall[top];
 
-      bool farLeftCor = tilesStorage[i]->wall[left]&& (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
+      bool farLeftCor = tilesStorage[i].wall[left]&& (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
       bool nearLeftCor = (x+1 < gridX && grid[y][z][x + 1] && grid[y][z][x+1]->wall[left]) && (z+1 < gridZ && grid[y][z + 1][x] && grid[y][z+1][x]->wall[top]);
 	    
       if ((farRightCor || nearRightCor || farLeftCor || nearLeftCor)) {
@@ -6240,14 +6159,14 @@ void assembleNavigation(){
       }
 	    
       // doors detection
-      if(tilesStorage[i]->wall[left] && tilesStorage[i]->wall[left]->type == doorT){
+      if(tilesStorage[i].wall[left] && tilesStorage[i].wall[left]->type == doorT){
 	navPoints[navPointsSize].type = doorFrameT;
 	navPoints[navPointsSize].pos = (vec3){tile.x ,tile.y,tile.z + 0.5f};
 	
 	navPointsSize++;
       }
 
-      if(tilesStorage[i]->wall[top] && tilesStorage[i]->wall[top]->type == doorT){
+      if(tilesStorage[i].wall[top] && tilesStorage[i].wall[top]->type == doorT){
 	navPoints[navPointsSize].type = doorFrameT;
 	navPoints[navPointsSize].pos = (vec3){tile.x + 0.5f ,tile.y,tile.z};
 	
