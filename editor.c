@@ -5,11 +5,17 @@
 
 TextInput* selectedTextInput;
 
+TextInput2* selectedTextInput2;
+
 int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
 
+UIRect2* saveWindow;
+int saveWindowSize;
 
+UIRect2* loadWindow;
+int loadWindowSize;
 
 bool lightView = false;
 
@@ -121,8 +127,246 @@ void editorOnSetInstance(){
   batchAllGeometry();
 }
 
+UIBuf* batchUI(UIRect2* rects, int rectsSize){
+  UIBuf* uiBuf = malloc(sizeof(UIBuf));
+  
+  uiBuf->rectsSize = rectsSize;
+  uiBuf->rects = rects;
+
+  float* finalBatch = malloc(sizeof(float) * uiBuf->rectsSize * 6 * 6);
+  
+  for(int i=0;i<uiBuf->rectsSize;i++){
+    int pad = i * 6 * 6;
+    
+    for(int i2=0;i2<6;i2++){
+      finalBatch[pad + (i2)*6+0] = rects[i].pos[i2].x;
+      finalBatch[pad + (i2)*6+1] = rects[i].pos[i2].z;
+      
+      finalBatch[pad + (i2)*6+2] = rects[i].c[0];
+      finalBatch[pad + (i2)*6+3] = rects[i].c[1];
+      finalBatch[pad + (i2)*6+4] = rects[i].c[2];
+      finalBatch[pad + (i2)*6+5] = rects[i].c[3]; 
+    }
+  }
+
+  glGenBuffers(1, &uiBuf->VBO);
+  glGenVertexArrays(1, &uiBuf->VAO);
+  
+  glBindVertexArray(uiBuf->VAO);
+  glBindBuffer(GL_ARRAY_BUFFER, uiBuf->VBO);
+
+  uiBuf->VBOsize = uiBuf->rectsSize * 6;
+  
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * uiBuf->rectsSize * 6 * 6, finalBatch, GL_STATIC_DRAW);
+  
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), NULL);
+  glEnableVertexAttribArray(0);
+
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(2 * sizeof(float)));
+  glEnableVertexAttribArray(1);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
+  free(finalBatch);
+
+  return uiBuf;
+}
 
 void editorPreLoop(){
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
+  // loadWindow
+  {
+    float w = 0.3f;
+    float h = 0.1f + letterH;
+
+    // background
+    {
+      loadWindow = calloc(4, sizeof(UIRect2));
+      loadWindowSize = 4;
+    
+      loadWindow[0] = (UIRect2){ .pos = {
+	  { -w, -h }, { -w, h }, { w, h },
+	  { -w, -h }, { w, h }, { w, -h }
+	},
+	.c = { blackColor, 1.0f },
+	.lb = {w, h}, .rt = {-w, -h}
+      };
+
+      loadWindow[0].textPos = (vec2){ -w, h + letterH };
+      loadWindow[0].text = malloc(sizeof(char) * strlen("Map loading"));
+      strcpy(loadWindow[0].text, "Map loading");
+    }
+
+    // input
+    {
+      float inputLeftW = -w + (strlen("Save name:")+1) * letterW;
+      float inputRightW = w - 0.03f;
+
+      float inputTopH = h - 0.02f;
+      float inputBotH = 0.0f + h/2;
+    
+      loadWindow[1] = (UIRect2){ .pos = {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},
+	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+	.c = { greenColor, 1.0f }
+      };
+
+      loadWindow[1].textPos = (vec2){inputLeftW - (strlen("Save name:")+1) * letterW, inputBotH + letterH};
+      loadWindow[1].text = malloc(sizeof(char) * strlen("Save name:"));
+      strcpy(loadWindow[1].text, "Save name:");
+    }
+
+    // load button
+    {
+      float inputLeftW = -w + 0.1f;
+      float inputRightW = -w + 0.1f + (strlen("load")+1) * letterW;
+
+      float inputTopH = -h + letterH + 0.02f;
+      float inputBotH = -h + 0.02f;
+    
+      loadWindow[2] = (UIRect2){ .pos = {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},
+	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+	.c = { greenColor, 1.0f }
+      };
+
+      loadWindow[2].onClick = loadMapUI;
+
+      loadWindow[2].textPos = (vec2){inputLeftW, inputBotH + letterH };
+      loadWindow[2].text = malloc(sizeof(char) * strlen("load"));
+      strcpy(loadWindow[2].text, "load");
+    }
+
+    // cancel button
+    {
+      float inputLeftW = w - 0.1f - (strlen("cancel")+1) * letterW;
+      float inputRightW = w - 0.1f;
+
+      float inputTopH = -h + letterH + 0.02f;
+      float inputBotH = -h + 0.02f;
+    
+      loadWindow[3] = (UIRect2){ .pos = {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},
+	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+	.c = { greenColor, 1.0f }
+      };
+
+      loadWindow[3].onClick = clearCurrentUI;
+
+      loadWindow[3].textPos = (vec2){inputLeftW, inputBotH + letterH };
+      loadWindow[3].text = malloc(sizeof(char) * strlen("cancel"));
+      strcpy(loadWindow[3].text, "cancel");
+    }
+
+    UIStructBufs[loadWindowT] = batchUI(loadWindow, loadWindowSize);
+  }
+
+  // saveWindow
+  {
+    float w = 0.3f;
+    float h = 0.1f + letterH;
+
+    // background
+    {
+      saveWindow = calloc(4, sizeof(UIRect2));
+      saveWindowSize = 4;
+        
+      saveWindow[0] = (UIRect2){ .pos = {
+	  { -w, -h }, { -w, h }, { w, h },
+	  { -w, -h }, { w, h }, { w, -h }
+	},
+	.c = { blackColor, 1.0f },
+	.lb = {w, h}, .rt = {-w, -h}
+      };
+
+      saveWindow[0].textPos = (vec2){ -w, h + letterH };
+      saveWindow[0].text = malloc(sizeof(char) * strlen("Map saving"));
+      strcpy(saveWindow[0].text, "Map saving");
+    }
+
+    // input
+    {
+      float inputLeftW = -w + (strlen("Save name:")+1) * letterW;
+      float inputRightW = w - 0.03f;
+
+      float inputTopH = h - 0.02f;
+      float inputBotH = 0.0f + h/2;
+    
+      saveWindow[1] = (UIRect2){ .pos = {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},
+	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+	.c = { greenColor, 1.0f }
+      };
+
+      saveWindow[1].input = calloc(1, sizeof(TextInput2));
+      saveWindow[1].input->limit = 15;
+
+      saveWindow[1].textPos = (vec2){inputLeftW - (strlen("Save name:")+1) * letterW, inputBotH + letterH};
+      saveWindow[1].text = malloc(sizeof(char) * strlen("Save name:"));
+      strcpy(saveWindow[1].text, "Save name:");
+    }
+
+    // save button
+    {
+      float inputLeftW = -w + 0.1f;
+      float inputRightW = -w + 0.1f + (strlen("save")+1) * letterW;
+
+      float inputTopH = -h + letterH + 0.02f;
+      float inputBotH = -h + 0.02f;
+    
+      saveWindow[2] = (UIRect2){ .pos = {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},
+	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+	.c = { greenColor, 1.0f }
+      };
+
+      saveWindow[2].onClick = saveMapUI;
+
+      saveWindow[2].textPos = (vec2){inputLeftW, inputBotH + letterH };
+      saveWindow[2].text = malloc(sizeof(char) * strlen("save"));
+      strcpy(saveWindow[2].text, "save");
+    }
+
+    // cancel button
+    {
+      float inputLeftW = w - 0.1f - (strlen("cancel")+1) * letterW;
+      float inputRightW = w - 0.1f;
+
+      float inputTopH = -h + letterH + 0.02f;
+      float inputBotH = -h + 0.02f;
+    
+      saveWindow[3] = (UIRect2){ .pos = {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},
+	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+	.c = { greenColor, 1.0f }
+      };
+
+      saveWindow[3].onClick = clearCurrentUI;
+
+      saveWindow[3].textPos = (vec2){inputLeftW, inputBotH + letterH };
+      saveWindow[3].text = malloc(sizeof(char) * strlen("cancel"));
+      strcpy(saveWindow[3].text, "cancel");
+    }
+
+    UIStructBufs[saveWindowT] = batchUI(saveWindow, saveWindowSize);
+  }
+
+  
   // circle buf
   {
     gizmosGeom[rotationMode -1] = calloc(gizmosNum[rotationMode -1], sizeof(VPair));
@@ -130,8 +374,7 @@ void editorPreLoop(){
     gizmosAABB[rotationMode -1][1] = calloc(gizmosNum[rotationMode -1], sizeof(vec3));
 
     gizmosPaddings[rotationMode -1] = calloc(gizmosNum[rotationMode -1], sizeof(VPair));
-    
-    
+       
     for(int i=0;i<3;i++){
       gizmosGeom[rotationMode -1][i].vertexNum = 6;
       gizmosGeom[rotationMode -1][i].attrSize = 3;
@@ -320,8 +563,8 @@ void editorPreLoop(){
       
 	
       //      for(int i2=0;i2<6*3;i2++){
-	//	printf("%f ", gizmosGeom[moveMode -1][i].vBuf[i2]);
-	//      }
+      //	printf("%f ", gizmosGeom[moveMode -1][i].vBuf[i2]);
+      //      }
 
       //      printf("\n");
 
@@ -440,14 +683,45 @@ void editorPreLoop(){
 }
 
 
+int inputCursorPos;
+
 void editorEvents(SDL_Event event){
   if (event.type == SDL_KEYDOWN) {
-    if(event.key.keysym.scancode == SDL_SCANCODE_F5 && !selectedTextInput) {
-      saveMap("map");
-    }else if(event.key.keysym.scancode == SDL_SCANCODE_F9 && !selectedTextInput) {
-      loadSave("map");
-    }else if(dialogViewer.open){
-      if(event.key.keysym.scancode == SDL_SCANCODE_T){
+    if(event.key.keysym.scancode == SDL_SCANCODE_F5) {
+      if(curUIBuf.rects == UIStructBufs[saveWindowT]->rects){
+	clearCurrentUI();
+      }else{
+	memcpy(&curUIBuf, UIStructBufs[saveWindowT], sizeof(UIBuf));
+      }
+    }else if(event.key.keysym.scancode == SDL_SCANCODE_F9) {
+       if(curUIBuf.rects == UIStructBufs[loadWindowT]->rects){
+	clearCurrentUI();
+       }else{
+	 memcpy(&curUIBuf, UIStructBufs[loadWindowT], sizeof(UIBuf));
+       }
+    }else if(selectedTextInput2){
+      int strLen = selectedTextInput2->buf ? strlen(selectedTextInput2->buf) : 0;
+
+      if(inputCursorPos > 0){
+	if(event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
+	  inputCursorPos--;
+	  selectedTextInput2->buf[inputCursorPos] = 0;
+	}
+      }else if(strLen < selectedTextInput2->limit){
+	if(strLen){
+	  selectedTextInput2->buf = realloc(selectedTextInput2->buf,sizeof(char) * (strLen + 2));
+	}else{
+	  selectedTextInput2->buf = malloc(sizeof(char)+1);
+	}
+      
+	char newChar = sdlScancodesToACII[event.key.keysym.scancode];
+	selectedTextInput2->buf[strLen] = newChar;
+	selectedTextInput2->buf[strLen+1] = '\0';
+      }
+    }
+    /* 
+       else if(dialogViewer.open){
+       if(event.key.keysym.scancode == SDL_SCANCODE_T){
 	Model* model = (Model*) mouse.focusedThing;
 
 	characters[model->characterId].curDialogIndex = 0;
@@ -513,7 +787,12 @@ void editorEvents(SDL_Event event){
 	  tempTextInputStorageCursor=0;
 	  memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
 	}
-      }else{
+      }
+	 else{
+	if(selectedTextInput2){
+
+	}
+	
 	if(selectedTextInput){
 	  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 	      
@@ -618,14 +897,10 @@ void editorEvents(SDL_Event event){
 	    tempTextInputStorage[tempTextInputStorageCursor] = 0;
 	  }
 	}
-      }
-    }else{       
+      }*/
+    //  }
+  else{       
       switch (event.key.keysym.scancode) {
-      case(SDL_SCANCODE_F1):{
-	//	console.open = true;
-	  
-	break;
-      }
       case(SDL_SCANCODE_F2):{
 	hints = !hints;
 	  
@@ -1008,30 +1283,30 @@ void editorEvents(SDL_Event event){
 	      
 		break;
 	      }case(SDL_SCANCODE_7):{
-		if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
-		  free(mouse.brushThing);
-		  mouse.brushThing = NULL;
-		}else if(mouse.brushType == mouseWallBrushT){
-		  WallType* type = mouse.brushThing;
+		 if(mouse.brushThing && mouse.brushType == mouseBlockBrushT){
+		   free(mouse.brushThing);
+		   mouse.brushThing = NULL;
+		 }else if(mouse.brushType == mouseWallBrushT){
+		   WallType* type = mouse.brushThing;
 
-		  if(type == halfWallT){
-		    mouse.brushType = 0;
-		    free(mouse.brushThing);
-		    mouse.brushThing = NULL;
-		  }else{
-		    *type = halfWallT;
-		  }
-		}else{
-		  mouse.brushType = mouseWallBrushT;
+		   if(type == halfWallT){
+		     mouse.brushType = 0;
+		     free(mouse.brushThing);
+		     mouse.brushThing = NULL;
+		   }else{
+		     *type = halfWallT;
+		   }
+		 }else{
+		   mouse.brushType = mouseWallBrushT;
 
-		  WallType* type = malloc(sizeof(WallType));
-		  *type = halfWallT;
+		   WallType* type = malloc(sizeof(WallType));
+		   *type = halfWallT;
 		 
-		  mouse.brushThing = type;
-		}
+		   mouse.brushThing = type;
+		 }
 	      
-		break;
-	      }
+		 break;
+	       }
       case(SDL_SCANCODE_C):{
 	/*		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 		
@@ -1313,7 +1588,7 @@ void editorEvents(SDL_Event event){
 	     picturesStorage[index] = picturesStorage[i];
 	     index++;
 	     }
-		  
+    		  
 	     picturesStorageSize--;
 	     picturesStorage = realloc(picturesStorage, picturesStorageSize * sizeof(Model));
 	  */
@@ -1350,7 +1625,7 @@ void editorEvents(SDL_Event event){
 
 	    if(!tilesStorage[data->tileId].block && !tilesStorage[data->tileId].wall[0] && !tilesStorage[data->tileId].wall[1]){
 	      int tileId = data->tileId;
-	     // free(tilesStorage[data->tileId]);
+	      // free(tilesStorage[data->tileId]);
 	      
 	      deleteTileInStorage(tileId);
 
@@ -1793,15 +2068,15 @@ void editorPreFrame(float deltaTime) {
 	  }
 
 	  /*
-	  else if (selectedGizmoAxis == XYPlane) {
+	    else if (selectedGizmoAxis == XYPlane) {
 	    mat->m[12] += diffDrag.x;
 	    mat->m[13] += diffDrag.y;
-	  }
-	  else if (selectedGizmoAxis == ZYPlane) {
+	    }
+	    else if (selectedGizmoAxis == ZYPlane) {
 	    mat->m[14] += diffDrag.z;
 	    mat->m[13] += diffDrag.y;
-	  }
-	  else if (selectedGizmoAxis == XZPlane) {
+	    }
+	    else if (selectedGizmoAxis == XZPlane) {
 	    mat->m[14] += diffDrag.z;
 	    mat->m[12] += diffDrag.x;
 	    }*/
@@ -2168,7 +2443,7 @@ void editor3dRender() {
   if (mouse.selectedType == mouseTileT) {
     TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 
-	const vec3 tile = tileData->pos;//xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
+    const vec3 tile = tileData->pos;//xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
 
     if (tileData->intersection.x < tile.x + borderArea && tileData->intersection.x >= tile.x) {
       mouse.tileSide = left;
@@ -2332,7 +2607,7 @@ void editor3dRender() {
 	//printf("isTile exist under wall: %d \n", grid[curFloor][(int)tile.z][(int)tile.x]);
 
 	if (tileData->tileId == -1) {
-//	if(grid[curFloor][(int)tile.z][(int)tile.x] == 0){
+	  //	if(grid[curFloor][(int)tile.z][(int)tile.x] == 0){
 	  tilesStorage = realloc(tilesStorage, sizeof(Tile) * (tilesStorageSize + 1)); 
 
 	  //tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
@@ -2394,6 +2669,50 @@ void editor3dRender() {
 //}
 
 void editor2dRender() {
+  {
+    glUseProgram(shadersId[UIShader]);
+    
+    glBindVertexArray(curUIBuf.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, curUIBuf.VBO);
+
+    glDrawArrays(GL_TRIANGLES, 0, curUIBuf.VBOsize);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glUseProgram(shadersId[hudShader]);
+
+    for (int i = 0; i < curUIBuf.rectsSize; i++) {
+      if (curUIBuf.rects[i].text) {
+	renderText(curUIBuf.rects[i].text, curUIBuf.rects[i].textPos.x, curUIBuf.rects[i].textPos.z, 1.0f);
+      }
+
+      if(curUIBuf.rects[i].input){
+	renderText(curUIBuf.rects[i].input->buf, curUIBuf.rects[i].pos[0].x, curUIBuf.rects[i].pos[0].z, 1.0f);
+
+	if (mouse.clickL) {
+	  if (mouse.cursor.x > curUIBuf.rects[i].lb.x && mouse.cursor.x < curUIBuf.rects[i].rt.x
+	      && mouse.cursor.z > curUIBuf.rects[i].lb.z && mouse.cursor.z < curUIBuf.rects[i].rt.z) {
+	    selectedTextInput2 = curUIBuf.rects[i].input;
+	  }else{
+	    inputCursorPos = 0;
+	    selectedTextInput2 = NULL;
+	  }
+	}
+      }
+
+      if (curUIBuf.rects[i].onClick) {
+	if (mouse.cursor.x > curUIBuf.rects[i].lb.x && mouse.cursor.x < curUIBuf.rects[i].rt.x
+	    && mouse.cursor.z > curUIBuf.rects[i].lb.z && mouse.cursor.z < curUIBuf.rects[i].rt.z) {
+	  if (mouse.clickL) {
+	    curUIBuf.rects[i].onClick("map");
+	  }
+	}
+      }
+    }
+  }
+
+  
   if(mouse.tileSide != -1 && mouse.tileSide != center){
     char buf[64];
     sprintf(buf, "%s", sidesToStr[mouse.tileSide]);
@@ -2522,11 +2841,11 @@ void editor2dRender() {
 	      wallData->wall->planes[winPlanePairs[wallData->plane]].txIndex = texture->index1D;
 	    }
 
-		/*
-	    if (wallData->wall->type == doorT && wallData->plane <= doorCenterBackPlane) {
+	    /*
+	      if (wallData->wall->type == doorT && wallData->plane <= doorCenterBackPlane) {
 	      static const int doorPlanePairs[2] = {
-		[doorCenterFrontPlane] = doorCenterBackPlane,
-		[doorCenterBackPlane] = doorCenterFrontPlane,
+	      [doorCenterFrontPlane] = doorCenterBackPlane,
+	      [doorCenterBackPlane] = doorCenterFrontPlane,
 	      };
 
 	      geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
@@ -2536,7 +2855,7 @@ void editor2dRender() {
 	      geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
 	      
 	      wallData->wall->planes[doorPlanePairs[wallData->plane]].txIndex = texture->index1D;
-	    }*/
+	      }*/
 
 	    geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
 
@@ -2552,7 +2871,7 @@ void editor2dRender() {
 	  //	    geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[i].attrSize;
 	    
 	  //geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[i].attrSize;
-	    // }
+	  // }
 	  
 	  batchAllGeometry();
 	}
@@ -2564,7 +2883,7 @@ void editor2dRender() {
 	  if (tileData->tileId == -1) {
 	    tilesStorage = realloc(tilesStorage, sizeof(Tile) * (tilesStorageSize + 1));
 
-	   // tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
+	    // tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
 	    tilesStorage[tilesStorageSize].pos = tileData->pos;
 	    tilesStorage[tilesStorageSize].id = tilesStorageSize;
 
@@ -2717,12 +3036,12 @@ void editor2dRender() {
 	  if (data->tileId != -1) {
 	    int tileTx = tilesStorage[data->tileId].tx;
 
-		if (tileTx != -1) {
-			sprintf(buf, "Selected tile[%d] tx: [%s] grid:[%f %f %f]", data->tileId, loadedTexturesNames[tileTx], argVec3(data->intersection));
-		}
-		else {
-			sprintf(buf, "Selected tile[%d] tx: [No tile tx] grid:[%f %f %f]", data->tileId, argVec3(data->intersection));
-		}
+	    if (tileTx != -1) {
+	      sprintf(buf, "Selected tile[%d] tx: [%s] grid:[%f %f %f]", data->tileId, loadedTexturesNames[tileTx], argVec3(data->intersection));
+	    }
+	    else {
+	      sprintf(buf, "Selected tile[%d] tx: [No tile tx] grid:[%f %f %f]", data->tileId, argVec3(data->intersection));
+	    }
 	  }
 	  else {
 	    sprintf(buf, "Selected empty tile");
@@ -3845,7 +4164,7 @@ void createLight(vec3 pos, int type){
 	    
   memcpy(&lightStorage[type][indexOfNew], &lightDef[type], sizeof(Light));
   
-//  lightStorage[type][indexOfNew].pos = pos;
+  //  lightStorage[type][indexOfNew].pos = pos;
   lightStorage[type][indexOfNew].id = lightStorageSizeByType[type] - 1;
   lightStorage[type][indexOfNew].type = type;
 
@@ -3903,7 +4222,7 @@ void uniformLights(){
     [dirLightShadowT] = "dirShadow"
   };
 
-  uniformFloat(mainShader, "radius", max(gridX / 2.0f, gridZ / 2.0f));
+  uniformFloat(mainShader, "radius", max(gridX / 2.0f, gridZ / 2.0f)); 
 
   int localLightsCounter[lightsTypeCounter] = { 0 };
   int* onLightsIndexes;
@@ -3937,7 +4256,7 @@ void uniformLights(){
       sprintf(buf, "%sLights[%i].color",
 	      shaderVarSufixStr[i2], i);
 
-		  vec3 color = { rgbToGl(lightStorage[i2][indx].r, lightStorage[i2][indx].g, lightStorage[i2][indx].b) };
+      vec3 color = { rgbToGl(lightStorage[i2][indx].r, lightStorage[i2][indx].g, lightStorage[i2][indx].b) };
       uniformVec3(mainShader, buf, color);
 		    
       sprintf(buf, "%sLights[%i].constant",
@@ -4048,7 +4367,7 @@ void editorMouseVS(){
   // pictures
   for(int i=0;i<picturesStorageSize;i++){
     float intersectionDistance;
-    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, picturesStorage[i].lb, picturesStorage[i].rt, NULL, &intersectionDistance);
+    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, picturesStorage[i].lb, picturesStorage[i].rt, NULL, &intersectionDistance);   
 
     if (isIntersect && minDistToCamera > intersectionDistance) {
       mouse.selectedThing = &picturesStorage[i];
@@ -4071,7 +4390,7 @@ void editorMouseVS(){
       }
 
       for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, wallsStorage[i]->planes[i3].lb, wallsStorage[i]->planes[i3].rt, NULL, &intersectionDistance);
+	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, wallsStorage[i]->planes[i3].lb, wallsStorage[i]->planes[i3].rt, NULL, &intersectionDistance); 
 
 	if (isIntersect && minDistToCamera > intersectionDistance) {
 	  int tx = wallsStorage[i]->planes[i3].txIndex;
@@ -4316,7 +4635,7 @@ void deleteWallInStorage(int id){
     }
     
     wallsStorage[index] = wallsStorage[i];
-	wallsStorage[index]->id = index;
+    wallsStorage[index]->id = index;
     index++;
   }
   wallsStorageSize--;
@@ -4334,6 +4653,19 @@ void addNewWallStorage(Wall* newWall){
   wallsStorage[wallsStorageSize-1] = newWall;
 }
 
-void addTileToStorage(){
-
+void clearCurrentUI(){
+  curUIBuf.VBOsize = 0;
+  curUIBuf.rectsSize = 0;
+  curUIBuf.rects = NULL;
 }
+
+void saveMapUI(char saveName[]) {
+  saveMap(saveName);
+  clearCurrentUI();
+}
+
+void loadMapUI(char saveName[]) {
+  loadSave(saveName);
+  clearCurrentUI();
+}
+

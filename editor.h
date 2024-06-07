@@ -21,3 +21,12 @@ void deleteWallInStorage(int id);
 void initGizmosAABBFromSelected();
 
 void deleteTileInStorage(int id);
+
+UIBuf* batchUI(UIRect2* rects, int rectsSize);
+
+void clearCurrentUI();
+void saveMapUI(char saveName[]);
+void loadMapUI(char saveName[]);
+
+UIBuf curUIBuf;
+

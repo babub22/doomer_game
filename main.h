@@ -838,7 +838,7 @@ typedef enum{
 } EngineInstanceFunc;
 
 typedef enum{
-  lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, shadersCounter
+  lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
@@ -1149,3 +1149,44 @@ void assembleHalfWallBlockVBO();
 float* createNormalBuffer(float* buf, int size, int* finalSize);
 
 Matrix hardWallMatrices[4];
+
+typedef struct{
+  //  vec4 rect;
+  int limit;
+  char* buf;
+} TextInput2;
+
+typedef struct{
+  vec2 pos[6];
+  uint8_t c[4];
+
+  char* text; // assotiative text
+  vec2 textPos;
+
+  void (*onClick)(void);
+
+  
+  TextInput2* input;
+
+  //  int charLimit;
+  //  char* input;
+
+  vec2 lb;
+  vec2 rt;
+} UIRect2;
+
+typedef struct{
+  GLuint VBO;
+  GLuint VAO;
+
+  int VBOsize;
+  
+  int rectsSize;
+  UIRect2* rects;
+} UIBuf;
+
+typedef enum{
+  saveWindowT, loadWindowT, UIStructsCounter
+} UIStruct;
+
+UIBuf* UIStructBufs[UIStructsCounter];

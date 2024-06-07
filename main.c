@@ -151,7 +151,7 @@ ModelsTypesInfo modelsTypesInfo[] = {
   [playerModelT] = {"Player", 0}
 };
 
-const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth" };
+const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth", [UIShader] = "UI" };
 const char sdlScancodesToACII[] = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',[55] = '.'
 };
@@ -320,7 +320,6 @@ VPair cube;
 
 GLuint objectsMenuTypeRectVBO;
 GLuint objectsMenuTypeRectVAO;
-
 
 BatchedTile* batchedGeometryIndexes;
 int batchedGeometryIndexesSize;
@@ -2111,14 +2110,14 @@ int main(int argc, char* argv[]) {
 	  }
 	    
 	  glBindBuffer(GL_ARRAY_BUFFER, 0);
-	  glBindVertexArray(0);
+	  glBindVertexArray(0); 
 
 	  glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
 	glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, 0);
 	 
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo); 
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
 	glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST); 
 
@@ -2786,9 +2785,12 @@ bool loadSave(char* saveName){
   // walls
   for (int i = 0; i < wallsStorageSize; i++) { 
     Wall* newWall = malloc(sizeof(Wall));
+    int sideMat;
     vec3 pos;
 
-    fscanf(map, "%d %d %d %d (%f %f %f) ", &newWall->sideForMat, &newWall->side, &newWall->type, &newWall->prevType, &pos.x, &pos.y, &pos.z);
+    fscanf(map, "%d %d %d %d (%f %f %f) ", &sideMat, &newWall->side, &newWall->type, &newWall->prevType, &pos.x, &pos.y, &pos.z);
+
+    newWall->sideForMat = sideMat;
 
     newWall->planes = malloc(sizeof(Plane) * wallsVPairs[newWall->prevType].planesNum); 
 
@@ -2801,7 +2803,7 @@ bool loadSave(char* saveName){
     for(int i2=0;i2<wallsVPairs[newWall->prevType].planesNum;i2++){ 
       fscanf(map, "%d ", &newWall->planes[i2].txIndex);
       geomentyByTxCounter[newWall->planes[i2].txIndex] += wallsVPairs[newWall->prevType].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[newWall->prevType].pairs[i2].attrSize;
-      calculateAABB(newWall->mat, wallsVPairs[newWall->prevType].pairs[i2].vBuf, wallsVPairs[newWall->prevType].pairs[i2].vertexNum, wallsVPairs[newWall->prevType].pairs[i2].attrSize, &newWall->planes[i2].lb, &newWall->planes[i].rt);
+      calculateAABB(newWall->mat, wallsVPairs[newWall->prevType].pairs[i2].vBuf, wallsVPairs[newWall->prevType].pairs[i2].vertexNum, wallsVPairs[newWall->prevType].pairs[i2].attrSize, &newWall->planes[i2].lb, &newWall->planes[i2].rt);
     }
 
     newWall->id = i;
@@ -2831,9 +2833,13 @@ bool loadSave(char* saveName){
 
   // tiles
   for (int i = 0; i < tilesStorageSize; i++) {
-    fscanf(map, "(%f %f %f) %d ", &tilesStorage[i].pos.x, &tilesStorage[i].pos.y, &tilesStorage[i].pos.z, &tilesStorage[i].tx);
+    int tileTx;
+    fscanf(map, "(%f %f %f) %d ", &tilesStorage[i].pos.x, &tilesStorage[i].pos.y, &tilesStorage[i].pos.z, &tileTx);
 
-    geomentyByTxCounter[tilesStorage[i].tx] += sizeof(float) * 8 * 6;
+    tilesStorage[i].tx = (int8_t)tileTx;
+    tilesStorage[i].id = i;
+
+    geomentyByTxCounter[tilesStorage[i].tx] += sizeof(float) * 8 * 6;    
 
     int blockId;
     int blockTx; 
@@ -2905,7 +2911,7 @@ bool loadSave(char* saveName){
 
     printf("%s %d \n", buf, lightStorageSizeByType[i2]);
 
-    if (&lightStorageSizeByType[i2] == 0) {
+    if (lightStorageSizeByType[i2] == 0) {
       continue;
     }
     
@@ -2915,8 +2921,7 @@ bool loadSave(char* saveName){
       int offValue;
       vec3i color;
       
-      fscanf(map, "c(%d %d %d) %d %f %f %d ", &color.x, &color.y, &color.z, &offValue
-	     ,&lightStorage[i2][i].rad, &lightStorage[i2][i].cutOff, &lightStorage[i2][i].curLightPresetIndex);
+      fscanf(map, "c(%d %d %d) %d %f %f %d ", &color.x, &color.y, &color.z, &offValue, &lightStorage[i2][i].rad, &lightStorage[i2][i].cutOff, &lightStorage[i2][i].curLightPresetIndex);
       
       lightStorage[i2][i].off = (bool)offValue;
       lightStorage[i2][i].r = color.x;
@@ -2929,8 +2934,7 @@ bool loadSave(char* saveName){
 	fscanf(map, "%f ", &lightStorage[i2][i].mat.m[i3]);
       }
 
-      calculateAABB(lightStorage[i2][i].mat, cube.vBuf, cube.vertexNum, cube.attrSize,
-		    &lightStorage[i2][i].lb, &lightStorage[i2][i].rt);
+      calculateAABB(lightStorage[i2][i].mat, cube.vBuf, cube.vertexNum, cube.attrSize, &lightStorage[i2][i].lb, &lightStorage[i2][i].rt);
 
       fscanf(map, "\n");
     }
@@ -2941,6 +2945,8 @@ bool loadSave(char* saveName){
   if(lightStorageSizeByType[dirLightShadowT] != 0){
     rerenderShadowsForAllLights();
   }
+
+  batchAllGeometry();
 
   printf("Save %s loaded! \n", save);  
   fclose(map);
@@ -5293,7 +5299,7 @@ void createTexture(int* tx,int w,int h, void*px){
 }; 
 
 // TODO: Func->macro
-void uniformVec3(int shader, char* var, vec3 value){
+void uniformVec3(int shader, char* var, vec3 value){ 
   int uni = glGetUniformLocation(shadersId[shader], var);
   glUniform3f(uni, argVec3(value));
 };
@@ -5850,7 +5856,7 @@ void batchAllGeometryNoHidden(){
 
 	  vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
 
-	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3] = transf.x; 
+	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3] = transf.x;  
 	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 1] = transf.y;
 	  preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 2] = transf.z;
 
@@ -6057,7 +6063,7 @@ void batchAllGeometry(){
 	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 6] = transfNormal.y;
 	    preGeom[txIndex].buf[txLastIndex[txIndex] + i3 + 7] = transfNormal.z;
 	  }
-
+        
 	  txLastIndex[txIndex] += wallsVPairs[type].pairs[i2].vertexNum * vertexSize;
 	//}
       }
