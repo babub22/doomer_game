@@ -11,12 +11,6 @@ int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
 
-UIRect2* saveWindow;
-int saveWindowSize;
-
-UIRect2* loadWindow;
-int loadWindowSize;
-
 bool lightView = false;
 
 const float lightPresetTable[][2] = { {0.0014, 0.000007},
@@ -177,8 +171,12 @@ void editorPreLoop(){
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 
+    
   // loadWindow
   {
+    UIRect2* loadWindow;
+    int loadWindowSize;
+    
     float w = 0.3f;
     float h = 0.1f + letterH;
 
@@ -272,6 +270,9 @@ void editorPreLoop(){
 
   // saveWindow
   {
+    UIRect2* saveWindow;
+    int saveWindowSize;
+ 
     float w = 0.3f;
     float h = 0.1f + letterH;
 
@@ -899,7 +900,7 @@ void editorEvents(SDL_Event event){
 	}
       }*/
     //  }
-  else{       
+    else if(curUIBuf.rectsSize == 0){       
       switch (event.key.keysym.scancode) {
       case(SDL_SCANCODE_F2):{
 	hints = !hints;
@@ -1827,7 +1828,7 @@ void editorEvents(SDL_Event event){
     float x = -1.0 + 2.0 * (event.motion.x / windowW);
     float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
 
-    if (curMenu || cursorMode) {
+    if (curMenu || cursorMode || curUIBuf.rectsSize != 0) {
       mouse.lastCursor.x = mouse.cursor.x;
       mouse.lastCursor.z = mouse.cursor.z;
 
@@ -1835,7 +1836,7 @@ void editorEvents(SDL_Event event){
       mouse.cursor.z = y;
     }
 
-    if (curCamera && !curMenu && !cursorMode) {
+    if (curCamera && !curMenu && !cursorMode && curUIBuf.rectsSize == 0) {
       mouse.lastCursor.x = mouse.cursor.x;
       mouse.lastCursor.z = mouse.cursor.z;
 
@@ -2250,7 +2251,7 @@ void editorPreFrame(float deltaTime) {
     }
   }
 
-  if (!console.open && !curMenu) {
+  if (!console.open && !curMenu && curUIBuf.rectsSize == 0) {
     float cameraSpeed = 10.0f * deltaTime;
     const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
@@ -2760,7 +2761,7 @@ void editor2dRender() {
   }
 
   // aim render
-  if (!curMenu && hints) {
+  if (!curMenu && hints && curUIBuf.rectsSize == 0) {
     glBindVertexArray(hudRect.VAO);
     glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
 
@@ -2797,7 +2798,7 @@ void editor2dRender() {
   float baseYPad = 0.0f;
 
   // brush handle usage
-  if ((mouse.brushType || mouse.brushThing) && !curMenu && hints) {
+  if ((mouse.brushType || mouse.brushThing) && !curMenu && hints && curUIBuf.rectsSize == 0) {
     baseYPad = letterH;
 
     char buf[130];
@@ -2966,7 +2967,7 @@ void editor2dRender() {
   }
 
   // render selected or focused thing
-  if (mouse.selectedThing && !curMenu && hints) {
+  if (mouse.selectedThing && !curMenu && hints && curUIBuf.rectsSize == 0) {
     char buf[164];
 	 
     switch (mouse.selectedType) {
@@ -4057,7 +4058,7 @@ void editor2dRender() {
   */
 
   // render cursor
-  if(curMenu || cursorMode)
+  if(curMenu || cursorMode || curUIBuf.rectsSize != 0)
     {
       glActiveTexture(GL_TEXTURE0);;
       glBindTexture(GL_TEXTURE_2D, solidColorTx);

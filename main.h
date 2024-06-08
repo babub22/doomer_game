@@ -1164,7 +1164,8 @@ typedef struct{
   vec2 textPos;
 
   void (*onClick)(void);
-
+  
+  MeshBuffer* highlight;
   
   TextInput2* input;
 
