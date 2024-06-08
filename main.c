@@ -151,7 +151,8 @@ ModelsTypesInfo modelsTypesInfo[] = {
   [playerModelT] = {"Player", 0}
 };
 
-const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth", [UIShader] = "UI" };
+const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth", [UIShader] = "UI", [UITransfShader] = "UITransf" };
+
 const char sdlScancodesToACII[] = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',[55] = '.'
 };
@@ -1571,12 +1572,10 @@ int main(int argc, char* argv[]) {
   float testFOV = editorFOV;
 
   // load or init grid
-  if (!loadSave("map")) {
+  //  if (!loadSave(".")) {
     allocateGrid(120, 8, 120);
     defaultGrid(gridX, gridY, gridZ);
-
-    printf("Map not found!\n");
-  }
+    //  }
 
   //    lightPos = (vec3){gridX /2.0f,2.0f,gridZ/2.0f};
 
@@ -2722,40 +2721,56 @@ int strtrim(char *str){
 }
 
 bool loadSave(char* saveName){
-  resetMouse();
+  //  resetMouse();
+
+  printf("Start\n");
   
   char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char));
 
   strcat(save, saveName);
   strcat(save, ".doomer");
 
-  FILE* map = fopen(save, "r"); 
+  FILE* map = fopen(save, "r");
+
+  printf("base\n");
 
   if (!map) {
     free(save);
     return false;
   }
-  
+
   for(int i=0;i<curModelsSize;i++){
     //  destroyCharacter(curModels[i].characterId);
   }
-      
 
   for(int i=0;i<wallsStorageSize;i++){
     free(wallsStorage[i]->planes);
     free(wallsStorage[i]);
   }
 
-
   for(int i=0;i<blocksStorageSize;i++){
     free(blocksStorage[i]);
   }
 
-  free(curModels);
-  free(wallsStorage);
-  free(blocksStorage);
-  free(picturesStorage);
-  free(tilesStorage);
+  if(curModels){
+    free(curModels);
+  }
+
+  if(wallsStorage){
+    free(wallsStorage);
+  }
+
+  if(blocksStorage){
+    free(blocksStorage);
+  }
+
+  if(picturesStorage){
+    free(picturesStorage);
+  }
+
+  if(tilesStorage){
+    free(tilesStorage);
+  }
 
   memset(geomentyByTxCounter, 0, loadedTexturesCounter * sizeof(size_t));
 
@@ -2767,7 +2782,7 @@ bool loadSave(char* saveName){
   
   fscanf(map, "%d %d %d \n", &gX, &gY, &gZ);
 
-  allocateGrid(gX, gY, gZ);
+  //  allocateGrid(gX, gY, gZ);
   
   fscanf(map, "tiles: %d walls: %d blocks: %d pictures: %d models: %d \n",
 	 &tilesStorageSize,
@@ -2780,7 +2795,8 @@ bool loadSave(char* saveName){
   wallsStorage = malloc(sizeof(Wall*) * wallsStorageSize);
   blocksStorage = malloc(sizeof(TileBlock*) * blocksStorageSize);
   picturesStorage = malloc(sizeof(Picture) * picturesStorageSize);
-  curModels = malloc(sizeof(Model) * curModelsSize);  
+  curModels = malloc(sizeof(Model) * curModelsSize);
+
 
   // walls
   for (int i = 0; i < wallsStorageSize; i++) { 
@@ -2872,7 +2888,9 @@ bool loadSave(char* saveName){
 
   // pictures
   for (int i = 0; i < picturesStorageSize; i++) {
-    fscanf(map, "%d %d ", &picturesStorage[i].txIndex, &picturesStorage[i].characterId);
+      int charId;
+      fscanf(map, "%d %d ", &picturesStorage[i].txIndex, &charId); 
+          picturesStorage[i].characterId = -1;
 
     for(int i2=0;i2<16;i2++){
       fscanf(map, "%f ", &picturesStorage[i].mat.m[i2]);
@@ -2887,10 +2905,13 @@ bool loadSave(char* saveName){
       
     fscanf(map, "\n");
   }
+  //exit(1488);
 
   // cur models
   for (int i = 0; i < curModelsSize; i++) {
-    fscanf(map, "%d %d ", &curModels[i].name, &curModels[i].characterId);
+      int charId;
+      fscanf(map, "%d %d ", &curModels[i].name, &charId);
+      curModels[i].characterId = -1;
 
     for(int i2=0;i2<16;i2++){
       fscanf(map, "%f ", &curModels[i].mat.m[i2]);
@@ -3030,7 +3051,7 @@ bool saveMap(char* saveName) {
     }
  
     for (int i = 0; i < curModelsSize; i++) {
-      fprintf(map, "%d %d ", curModels[i].name, curModels[i].characterId);
+      fprintf(map, "%d %d ", curModels[i].name, -1);
 
       for(int i2=0;i2<16;i2++){
 	fprintf(map, "%f ", curModels[i].mat.m[i2]);
@@ -4892,6 +4913,9 @@ void defaultGrid(int gX, int gY, int gZ){
     printf("Specify texture of ground");
     exit(-1);
   }
+
+  tilesStorage = malloc(sizeof(Tile) * gX * gZ);
+  tilesStorageSize = 0;
   
   for (int y = 0; y < gY; y++) {
     for (int z = 0; z < gZ; z++) {
@@ -4899,25 +4923,18 @@ void defaultGrid(int gX, int gY, int gZ){
 	if (y == 0) {
 	  vec3 tile = xyz_indexesToCoords(x,y,z);
 
-	  tilesStorageSize++;
-	  
-	  if(!tilesStorage){
-	    tilesStorage = malloc(sizeof(Tile));
-	  }else{
-	    tilesStorage = realloc(tilesStorage, sizeof(Tile) * tilesStorageSize);
-	  }
+	  tilesStorage[tilesStorageSize].tx = textureOfGround;
+	  tilesStorage[tilesStorageSize].pos = tile;
+	  tilesStorage[tilesStorageSize].id = tilesStorageSize;
 
-	  tilesStorage[tilesStorageSize - 1].tx = textureOfGround;
-	  tilesStorage[tilesStorageSize - 1].pos = tile;
-	  tilesStorage[tilesStorageSize-1].id = tilesStorageSize-1;
-
-	  tilesStorage[tilesStorageSize-1].block = NULL;
-	  tilesStorage[tilesStorageSize-1].wall[top] = NULL;
-	  tilesStorage[tilesStorageSize-1].wall[left] = NULL;
+	  tilesStorage[tilesStorageSize].block = NULL;
+	  tilesStorage[tilesStorageSize].wall[top] = NULL;
+	  tilesStorage[tilesStorageSize].wall[left] = NULL;
 
 	  geomentyByTxCounter[textureOfGround] += sizeof(float) * 8 * 6;
 	  
-	  grid[y][z][x] = &tilesStorage[tilesStorageSize - 1];
+	  grid[y][z][x] = &tilesStorage[tilesStorageSize];
+	  tilesStorageSize++;
 	}
       }
     }
@@ -5299,6 +5316,11 @@ void createTexture(int* tx,int w,int h, void*px){
 }; 
 
 // TODO: Func->macro
+void uniformVec4(int shader, char* var, vec4 value){ 
+  int uni = glGetUniformLocation(shadersId[shader], var);
+  glUniform4f(uni, argVec4(value));
+};
+
 void uniformVec3(int shader, char* var, vec3 value){ 
   int uni = glGetUniformLocation(shadersId[shader], var);
   glUniform3f(uni, argVec3(value));

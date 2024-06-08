@@ -7,6 +7,11 @@ TextInput* selectedTextInput;
 
 TextInput2* selectedTextInput2;
 
+MeshBuffer textInputCursorBuf;
+vec2 textInputCursorMat;
+int inputCursorPos;
+//UIRect2* relatedRectToInput;
+
 int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
@@ -121,6 +126,42 @@ void editorOnSetInstance(){
   batchAllGeometry();
 }
 
+void bindUIQuad(vec2 pos[6], uint8_t c[4], MeshBuffer* buf){
+  float* finalBatch = malloc(sizeof(float) * 6 * 6);
+    
+  for(int i2=0;i2<6;i2++){
+    finalBatch[i2*6+0] = pos[i2].x;
+    finalBatch[i2*6+1] = pos[i2].z;
+      
+    finalBatch[i2*6+2] = c[0];
+    finalBatch[i2*6+3] = c[1];
+    finalBatch[i2*6+4] = c[2];
+    finalBatch[i2*6+5] = c[3]; 
+  }
+
+  
+  glGenBuffers(1, &buf->VBO);
+  glGenVertexArrays(1, &buf->VAO);
+  
+  glBindVertexArray(buf->VAO);
+  glBindBuffer(GL_ARRAY_BUFFER, buf->VBO);
+
+  buf->VBOsize = 6;
+  
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 6, finalBatch, GL_STATIC_DRAW);
+  
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), NULL);
+  glEnableVertexAttribArray(0);
+
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(2 * sizeof(float)));
+  glEnableVertexAttribArray(1);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
+  free(finalBatch);
+}
+
 UIBuf* batchUI(UIRect2* rects, int rectsSize){
   UIBuf* uiBuf = malloc(sizeof(UIBuf));
   
@@ -171,6 +212,19 @@ void editorPreLoop(){
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 
+  // cursor in input
+  {
+    float textInputCursorW = 0.005;
+
+    float cursorBotH = 0.002;
+    float cursorTopH = letterH - textInputCursorW;
+    
+    bindUIQuad((vec2[6]){
+	{ 0.0f, cursorBotH}, { 0.0f, cursorTopH}, { textInputCursorW, cursorTopH },
+	{ 0.0f, cursorBotH }, { textInputCursorW, cursorTopH }, { textInputCursorW, cursorBotH}
+      },(uint8_t[4]){whiteColor, 1.0f},&textInputCursorBuf);
+  }
+
     
   // loadWindow
   {
@@ -213,6 +267,10 @@ void editorPreLoop(){
 	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
 	.c = { greenColor, 1.0f }
       };
+      
+      loadWindow[1].input = calloc(1, sizeof(TextInput2));
+      loadWindow[1].input->limit = 15;
+      loadWindow[1].input->relatedUIRect = &loadWindow[2];
 
       loadWindow[1].textPos = (vec2){inputLeftW - (strlen("Save name:")+1) * letterW, inputBotH + letterH};
       loadWindow[1].text = malloc(sizeof(char) * strlen("Save name:"));
@@ -237,6 +295,12 @@ void editorPreLoop(){
 
       loadWindow[2].onClick = loadMapUI;
 
+      loadWindow[2].highlight = malloc(sizeof(MeshBuffer));
+      bindUIQuad((vec2[6]) {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},(uint8_t[4]) { redColor, 1.0f }, loadWindow[2].highlight);
+
       loadWindow[2].textPos = (vec2){inputLeftW, inputBotH + letterH };
       loadWindow[2].text = malloc(sizeof(char) * strlen("load"));
       strcpy(loadWindow[2].text, "load");
@@ -259,6 +323,12 @@ void editorPreLoop(){
       };
 
       loadWindow[3].onClick = clearCurrentUI;
+      
+      loadWindow[3].highlight = malloc(sizeof(MeshBuffer));
+      bindUIQuad((vec2[6]) {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},(uint8_t[4]) { redColor, 1.0f }, loadWindow[3].highlight);
 
       loadWindow[3].textPos = (vec2){inputLeftW, inputBotH + letterH };
       loadWindow[3].text = malloc(sizeof(char) * strlen("cancel"));
@@ -312,6 +382,7 @@ void editorPreLoop(){
 
       saveWindow[1].input = calloc(1, sizeof(TextInput2));
       saveWindow[1].input->limit = 15;
+      saveWindow[1].input->relatedUIRect = &saveWindow[2];
 
       saveWindow[1].textPos = (vec2){inputLeftW - (strlen("Save name:")+1) * letterW, inputBotH + letterH};
       saveWindow[1].text = malloc(sizeof(char) * strlen("Save name:"));
@@ -335,6 +406,12 @@ void editorPreLoop(){
       };
 
       saveWindow[2].onClick = saveMapUI;
+      
+      saveWindow[2].highlight = malloc(sizeof(MeshBuffer));
+      bindUIQuad((vec2[6]) {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},(uint8_t[4]) { redColor, 1.0f }, saveWindow[2].highlight);
 
       saveWindow[2].textPos = (vec2){inputLeftW, inputBotH + letterH };
       saveWindow[2].text = malloc(sizeof(char) * strlen("save"));
@@ -359,6 +436,12 @@ void editorPreLoop(){
 
       saveWindow[3].onClick = clearCurrentUI;
 
+      saveWindow[3].highlight = malloc(sizeof(MeshBuffer));
+      bindUIQuad((vec2[6]) {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},(uint8_t[4]) { redColor, 1.0f }, saveWindow[3].highlight);
+
       saveWindow[3].textPos = (vec2){inputLeftW, inputBotH + letterH };
       saveWindow[3].text = malloc(sizeof(char) * strlen("cancel"));
       strcpy(saveWindow[3].text, "cancel");
@@ -366,7 +449,6 @@ void editorPreLoop(){
 
     UIStructBufs[saveWindowT] = batchUI(saveWindow, saveWindowSize);
   }
-
   
   // circle buf
   {
@@ -469,7 +551,7 @@ void editorPreLoop(){
       if(i+1==XCircle){
 	float transl[] = {
 	  // X axis
-	  -0.5f, -(h1/2.0f), 0.0f,
+	  -0.5f, -(h1/2.0f), 0.0f,
 	  0.5f, -(h1/2.0f), 0.0f,
 	  0.5f, h1/2.0f, 0.0f,
 
@@ -684,221 +766,232 @@ void editorPreLoop(){
 }
 
 
-int inputCursorPos;
-
 void editorEvents(SDL_Event event){
   if (event.type == SDL_KEYDOWN) {
     if(event.key.keysym.scancode == SDL_SCANCODE_F5) {
-      if(curUIBuf.rects == UIStructBufs[saveWindowT]->rects){
-	clearCurrentUI();
-      }else{
+      if(curUIBuf.rects != UIStructBufs[saveWindowT]->rects){
 	memcpy(&curUIBuf, UIStructBufs[saveWindowT], sizeof(UIBuf));
+      }else{
+	clearCurrentUI();
       }
     }else if(event.key.keysym.scancode == SDL_SCANCODE_F9) {
-       if(curUIBuf.rects == UIStructBufs[loadWindowT]->rects){
+      if(curUIBuf.rects != UIStructBufs[loadWindowT]->rects){
+	memcpy(&curUIBuf, UIStructBufs[loadWindowT], sizeof(UIBuf));
+      }
+      else{
 	clearCurrentUI();
-       }else{
-	 memcpy(&curUIBuf, UIStructBufs[loadWindowT], sizeof(UIBuf));
-       }
+      }
+    }else if(event.key.keysym.scancode == SDL_SCANCODE_RETURN && curUIBuf.rects){
+      if(curUIBuf.rects == UIStructBufs[loadWindowT]->rects || curUIBuf.rects == UIStructBufs[saveWindowT]->rects){
+	printf("run onclick\n");
+	curUIBuf.rects[2].onClick();
+      }
     }else if(selectedTextInput2){
+      if(!selectedTextInput2->buf){
+	selectedTextInput2->buf = calloc(1, sizeof(char) * (selectedTextInput2->limit + 1));
+      }
+      
+      if(selectedTextInput2->relatedUIRect && selectedTextInput2->relatedUIRect->onclickResText){
+	free(selectedTextInput2->relatedUIRect->onclickResText);
+	selectedTextInput2->relatedUIRect->onclickResText =NULL;
+      }
+      
       int strLen = selectedTextInput2->buf ? strlen(selectedTextInput2->buf) : 0;
 
-      if(inputCursorPos > 0){
-	if(event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
-	  inputCursorPos--;
-	  selectedTextInput2->buf[inputCursorPos] = 0;
-	}
+      if(event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE && inputCursorPos > 0) {
+	selectedTextInput2->buf[inputCursorPos-1] = 0;
+	  
+	textInputCursorMat.x -= letterW;
+	inputCursorPos--;
       }else if(strLen < selectedTextInput2->limit){
-	if(strLen){
-	  selectedTextInput2->buf = realloc(selectedTextInput2->buf,sizeof(char) * (strLen + 2));
-	}else{
-	  selectedTextInput2->buf = malloc(sizeof(char)+1);
+	if(event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39){
+	  char newChar = sdlScancodesToACII[event.key.keysym.scancode];
+	  selectedTextInput2->buf[inputCursorPos] = newChar;
+
+	  textInputCursorMat.x += letterW;
+	  inputCursorPos++;
 	}
-      
-	char newChar = sdlScancodesToACII[event.key.keysym.scancode];
-	selectedTextInput2->buf[strLen] = newChar;
-	selectedTextInput2->buf[strLen+1] = '\0';
       }
     }
     /* 
        else if(dialogViewer.open){
        if(event.key.keysym.scancode == SDL_SCANCODE_T){
-	Model* model = (Model*) mouse.focusedThing;
+       Model* model = (Model*) mouse.focusedThing;
 
-	characters[model->characterId].curDialogIndex = 0;
-	characters[model->characterId].curDialog = &characters[model->characterId].dialogs;
+       characters[model->characterId].curDialogIndex = 0;
+       characters[model->characterId].curDialog = &characters[model->characterId].dialogs;
 
-	dialogViewer.open = false;
-	dialogEditor.open = true;
-	curMenu = &dialogEditor;
+       dialogViewer.open = false;
+       dialogEditor.open = true;
+       curMenu = &dialogEditor;
 
-	dialogEditor.textInputs[replicaInput].buf = &characters[model->characterId].curDialog->replicaText;
-	dialogEditor.textInputs[charNameInput].buf = &characters[model->characterId].name;
+       dialogEditor.textInputs[replicaInput].buf = &characters[model->characterId].curDialog->replicaText;
+       dialogEditor.textInputs[charNameInput].buf = &characters[model->characterId].name;
 
-	for (int i = 0; i < characters[model->characterId].dialogs.answersSize; i++) {
-	  dialogEditor.textInputs[i + answerInput1].buf = &characters[model->characterId].curDialog->answers[i].text;
-	}
+       for (int i = 0; i < characters[model->characterId].dialogs.answersSize; i++) {
+       dialogEditor.textInputs[i + answerInput1].buf = &characters[model->characterId].curDialog->answers[i].text;
+       }
 		 
-      }
-    }else if(curMenu && curMenu->type == dialogEditorT){
-      if(event.key.keysym.scancode == SDL_SCANCODE_B && !selectedTextInput){
-	int characterId = -1;
+       }
+       }else if(curMenu && curMenu->type == dialogEditorT){
+       if(event.key.keysym.scancode == SDL_SCANCODE_B && !selectedTextInput){
+       int characterId = -1;
 
-	if (mouse.focusedType == mouseModelT) {
-	  Model* model = (Model*)mouse.focusedThing;
-	  characterId = model->characterId;
+       if (mouse.focusedType == mouseModelT) {
+       Model* model = (Model*)mouse.focusedThing;
+       characterId = model->characterId;
 
-	}
-	else if (mouse.focusedType == mousePlaneT) {
-	  Picture* plane = (Picture*)mouse.focusedThing;
-	  characterId = plane->characterId;
-	}
+       }
+       else if (mouse.focusedType == mousePlaneT) {
+       Picture* plane = (Picture*)mouse.focusedThing;
+       characterId = plane->characterId;
+       }
 
-	characters[characterId].curDialogIndex = 0;
-	characters[characterId].curDialog = &characters[characterId].dialogs;
+       characters[characterId].curDialogIndex = 0;
+       characters[characterId].curDialog = &characters[characterId].dialogs;
 
-	dialogEditor.open = false;
-	curMenu = NULL;
+       dialogEditor.open = false;
+       curMenu = NULL;
 
-	if(tempTextInputStorageCursor!=0){
-	  tempTextInputStorageCursor=0;
-	  memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
-	}
-      }else if(event.key.keysym.scancode == SDL_SCANCODE_T && !selectedTextInput){
-	int characterId = -1;
+       if(tempTextInputStorageCursor!=0){
+       tempTextInputStorageCursor=0;
+       memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
+       }
+       }else if(event.key.keysym.scancode == SDL_SCANCODE_T && !selectedTextInput){
+       int characterId = -1;
 
-	if (mouse.focusedType == mouseModelT) {
-	  Model* model = (Model*)mouse.focusedThing;
-	  characterId = model->characterId;
+       if (mouse.focusedType == mouseModelT) {
+       Model* model = (Model*)mouse.focusedThing;
+       characterId = model->characterId;
 
-	}
-	else if (mouse.focusedType == mousePlaneT) {
-	  Picture* plane = (Picture*)mouse.focusedThing;
-	  characterId = plane->characterId;
-	}
+       }
+       else if (mouse.focusedType == mousePlaneT) {
+       Picture* plane = (Picture*)mouse.focusedThing;
+       characterId = plane->characterId;
+       }
 
-	characters[characterId].curDialogIndex = 0;
-	characters[characterId].curDialog = &characters[characterId].dialogs;
+       characters[characterId].curDialogIndex = 0;
+       characters[characterId].curDialog = &characters[characterId].dialogs;
 
-	dialogViewer.open = true;
-	dialogEditor.open = false;
-	curMenu = &dialogViewer;
+       dialogViewer.open = true;
+       dialogEditor.open = false;
+       curMenu = &dialogViewer;
 
-	if(tempTextInputStorageCursor!=0){
-	  tempTextInputStorageCursor=0;
-	  memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
-	}
-      }
-	 else{
-	if(selectedTextInput2){
+       if(tempTextInputStorageCursor!=0){
+       tempTextInputStorageCursor=0;
+       memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
+       }
+       }
+       else{
+       if(selectedTextInput2){
 
-	}
+       }
 	
-	if(selectedTextInput){
-	  const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
+       if(selectedTextInput){
+       const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 	      
-	  if(false ){//event.key.keysym.scancode == SDL_SCANCODE_RETURN && *selectedTextInput->buf){
-	    *selectedTextInput->buf = malloc(sizeof(char) * (strlen(*selectedTextInput->buf)+1));
-	    strcpy(*selectedTextInput->buf, tempTextInputStorage);
+       if(false ){//event.key.keysym.scancode == SDL_SCANCODE_RETURN && *selectedTextInput->buf){
+       *selectedTextInput->buf = malloc(sizeof(char) * (strlen(*selectedTextInput->buf)+1));
+       strcpy(*selectedTextInput->buf, tempTextInputStorage);
 
-	    selectedTextInput->active = false;
-	    selectedTextInput = NULL; 
+       selectedTextInput->active = false;
+       selectedTextInput = NULL; 
 	    
-	    tempTextInputStorageCursor=0;
-	    memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
-	  }else if(currentKeyStates[SDL_SCANCODE_LCTRL] && currentKeyStates[SDL_SCANCODE_BACKSPACE]){
-	    int lastSpacePos = lastCharPos(tempTextInputStorage, ' ');
+       tempTextInputStorageCursor=0;
+       memset(tempTextInputStorage, 0, 512 * sizeof(char)); 
+       }else if(currentKeyStates[SDL_SCANCODE_LCTRL] && currentKeyStates[SDL_SCANCODE_BACKSPACE]){
+       int lastSpacePos = lastCharPos(tempTextInputStorage, ' ');
 
-	    if(lastSpacePos != -1){
-	      // TODO: On realease strcut() leads to some strange exception
-	      for (int i = lastSpacePos; i < tempTextInputStorageCursor-1; i++) {
-		tempTextInputStorage[i] = '\0';
-	      }
-	      //strcut(tempTextInputStorage,lastSpacePos ,tempTextInputStorageCursor - 1);    
-	      tempTextInputStorageCursor = lastSpacePos;
-	    }else{
-	      memset(tempTextInputStorage, 0, 512 * sizeof(char));
-	      tempTextInputStorageCursor = 0;
-	    }
-	  }else if(currentKeyStates[SDL_SCANCODE_LCTRL] && currentKeyStates[SDL_SCANCODE_V]){
-	    char * clipboardStr = SDL_GetClipboardText();
+       if(lastSpacePos != -1){
+       // TODO: On realease strcut() leads to some strange exception
+       for (int i = lastSpacePos; i < tempTextInputStorageCursor-1; i++) {
+       tempTextInputStorage[i] = '\0';
+       }
+       //strcut(tempTextInputStorage,lastSpacePos ,tempTextInputStorageCursor - 1);    
+       tempTextInputStorageCursor = lastSpacePos;
+       }else{
+       memset(tempTextInputStorage, 0, 512 * sizeof(char));
+       tempTextInputStorageCursor = 0;
+       }
+       }else if(currentKeyStates[SDL_SCANCODE_LCTRL] && currentKeyStates[SDL_SCANCODE_V]){
+       char * clipboardStr = SDL_GetClipboardText();
 
-	    cleanString(clipboardStr);
+       cleanString(clipboardStr);
 
-	    int clipboardStrLen = strlen(clipboardStr);
-	    int diff = (tempTextInputStorageCursor + clipboardStrLen) - selectedTextInput->charsLimit;  
+       int clipboardStrLen = strlen(clipboardStr);
+       int diff = (tempTextInputStorageCursor + clipboardStrLen) - selectedTextInput->charsLimit;  
 
-	    if (diff < clipboardStrLen) {
-	      for (int i = 0;i< clipboardStrLen;i++) {
-		char ch = clipboardStr[i];
+       if (diff < clipboardStrLen) {
+       for (int i = 0;i< clipboardStrLen;i++) {
+       char ch = clipboardStr[i];
 		    
-		int pos = lastCharPos(tempTextInputStorage, '\n');
+       int pos = lastCharPos(tempTextInputStorage, '\n');
 		  
-		if(selectedTextInput->rect.w/letterW<= tempTextInputStorageCursor - pos){
-		  tempTextInputStorage[tempTextInputStorageCursor] = '\n';
-		  tempTextInputStorageCursor++;  
-		}
+       if(selectedTextInput->rect.w/letterW<= tempTextInputStorageCursor - pos){
+       tempTextInputStorage[tempTextInputStorageCursor] = '\n';
+       tempTextInputStorageCursor++;  
+       }
 
-		tempTextInputStorage[tempTextInputStorageCursor] = ch;
-		tempTextInputStorageCursor++;
+       tempTextInputStorage[tempTextInputStorageCursor] = ch;
+       tempTextInputStorageCursor++;
 
-		if(tempTextInputStorageCursor >= selectedTextInput->charsLimit) break;
-	      }
-	    }
+       if(tempTextInputStorageCursor >= selectedTextInput->charsLimit) break;
+       }
+       }
 
-	    SDL_free(clipboardStr);
-	  }else if(currentKeyStates[SDL_SCANCODE_LCTRL] && currentKeyStates[SDL_SCANCODE_C]){
-	    if(tempTextInputStorageCursor != 0){
-	      SDL_SetClipboardText(tempTextInputStorage);
-	    }
-	  }else if(tempTextInputStorageCursor > 0 && event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
-	    tempTextInputStorageCursor--;
-	    tempTextInputStorage[tempTextInputStorageCursor] = 0;
-	  }else if(tempTextInputStorageCursor < selectedTextInput->charsLimit){
-	    if(event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39 || event.key.keysym.scancode == 55){
-	      int pos = lastCharPos(tempTextInputStorage, '\n');
+       SDL_free(clipboardStr);
+       }else if(currentKeyStates[SDL_SCANCODE_LCTRL] && currentKeyStates[SDL_SCANCODE_C]){
+       if(tempTextInputStorageCursor != 0){
+       SDL_SetClipboardText(tempTextInputStorage);
+       }
+       }else if(tempTextInputStorageCursor > 0 && event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
+       tempTextInputStorageCursor--;
+       tempTextInputStorage[tempTextInputStorageCursor] = 0;
+       }else if(tempTextInputStorageCursor < selectedTextInput->charsLimit){
+       if(event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39 || event.key.keysym.scancode == 55){
+       int pos = lastCharPos(tempTextInputStorage, '\n');
 		  
-	      if(selectedTextInput->rect.w/(letterCellW/1.9f)<= tempTextInputStorageCursor - pos){
-		tempTextInputStorage[tempTextInputStorageCursor] = '\n';
-		tempTextInputStorageCursor++;  
-	      }
+       if(selectedTextInput->rect.w/(letterCellW/1.9f)<= tempTextInputStorageCursor - pos){
+       tempTextInputStorage[tempTextInputStorageCursor] = '\n';
+       tempTextInputStorageCursor++;  
+       }
 		  
-	      char newChar = sdlScancodesToACII[event.key.keysym.scancode];
+       char newChar = sdlScancodesToACII[event.key.keysym.scancode];
 
-	      if (currentKeyStates[SDL_SCANCODE_LSHIFT]){
-		if(event.key.keysym.scancode <= 29){
-		  newChar -= 32;
-		}else if(event.key.keysym.scancode == 36){ // '?'
-		  newChar = 63;
-		}else if(event.key.keysym.scancode == 30){ // '!'
-		  newChar = 33;
-		}else if(event.key.keysym.scancode == 33){ // '$'
-		  newChar = 36;
-		}else if(event.key.keysym.scancode == 31){ // '@'
-		  newChar = 64;
-		}else if(event.key.keysym.scancode == 32){ // '#'
-		  newChar = 35;
-		}else if(event.key.keysym.scancode == 34){ // '%'
-		  newChar = 37;
-		}
-	      }
+       if (currentKeyStates[SDL_SCANCODE_LSHIFT]){
+       if(event.key.keysym.scancode <= 29){
+       newChar -= 32;
+       }else if(event.key.keysym.scancode == 36){ // '?'
+       newChar = 63;
+       }else if(event.key.keysym.scancode == 30){ // '!'
+       newChar = 33;
+       }else if(event.key.keysym.scancode == 33){ // '$'
+       newChar = 36;
+       }else if(event.key.keysym.scancode == 31){ // '@'
+       newChar = 64;
+       }else if(event.key.keysym.scancode == 32){ // '#'
+       newChar = 35;
+       }else if(event.key.keysym.scancode == 34){ // '%'
+       newChar = 37;
+       }
+       }
 		  
-	      tempTextInputStorage[tempTextInputStorageCursor] = newChar;
-	      tempTextInputStorageCursor++;
-	    }else if(event.key.keysym.scancode == SDL_SCANCODE_SPACE){
-	      bool prevCharIsntSpace = tempTextInputStorageCursor > 0 && tempTextInputStorage[tempTextInputStorageCursor - 1] != ' '; 
+       tempTextInputStorage[tempTextInputStorageCursor] = newChar;
+       tempTextInputStorageCursor++;
+       }else if(event.key.keysym.scancode == SDL_SCANCODE_SPACE){
+       bool prevCharIsntSpace = tempTextInputStorageCursor > 0 && tempTextInputStorage[tempTextInputStorageCursor - 1] != ' '; 
 
-	      if(prevCharIsntSpace){
-		tempTextInputStorage[tempTextInputStorageCursor] = ' ';
-		tempTextInputStorageCursor++;
-	      } 
-	    }
-	  }else if(tempTextInputStorageCursor > 0 && event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
-	    tempTextInputStorageCursor--;
-	    tempTextInputStorage[tempTextInputStorageCursor] = 0;
-	  }
-	}
-      }*/
+       if(prevCharIsntSpace){
+       tempTextInputStorage[tempTextInputStorageCursor] = ' ';
+       tempTextInputStorageCursor++;
+       } 
+       }
+       }else if(tempTextInputStorageCursor > 0 && event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE){
+       tempTextInputStorageCursor--;
+       tempTextInputStorage[tempTextInputStorageCursor] = 0;
+       }
+       }
+       }*/
     //  }
     else if(curUIBuf.rectsSize == 0){       
       switch (event.key.keysym.scancode) {
@@ -2670,6 +2763,7 @@ void editor3dRender() {
 //}
 
 void editor2dRender() {
+  
   {
     glUseProgram(shadersId[UIShader]);
     
@@ -2684,17 +2778,39 @@ void editor2dRender() {
     glUseProgram(shadersId[hudShader]);
 
     for (int i = 0; i < curUIBuf.rectsSize; i++) {
+      bool underSelection = false;
+      
+      if (mouse.cursor.x > curUIBuf.rects[i].lb.x && mouse.cursor.x < curUIBuf.rects[i].rt.x
+	  && mouse.cursor.z > curUIBuf.rects[i].lb.z && mouse.cursor.z < curUIBuf.rects[i].rt.z) {
+	underSelection = true;
+      }
+
+      if(underSelection && curUIBuf.rects[i].highlight){
+	glUseProgram(shadersId[UIShader]);
+    
+	glBindVertexArray(curUIBuf.rects[i].highlight->VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, curUIBuf.rects[i].highlight->VBO);
+
+	glDrawArrays(GL_TRIANGLES, 0, curUIBuf.rects[i].highlight->VBOsize);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	glUseProgram(shadersId[hudShader]);
+      }
+      
       if (curUIBuf.rects[i].text) {
 	renderText(curUIBuf.rects[i].text, curUIBuf.rects[i].textPos.x, curUIBuf.rects[i].textPos.z, 1.0f);
       }
 
       if(curUIBuf.rects[i].input){
-	renderText(curUIBuf.rects[i].input->buf, curUIBuf.rects[i].pos[0].x, curUIBuf.rects[i].pos[0].z, 1.0f);
+	renderText(curUIBuf.rects[i].input->buf, curUIBuf.rects[i].pos[0].x - (letterW/2.0f), curUIBuf.rects[i].pos[0].z + letterH, 1.0f);
 
 	if (mouse.clickL) {
-	  if (mouse.cursor.x > curUIBuf.rects[i].lb.x && mouse.cursor.x < curUIBuf.rects[i].rt.x
-	      && mouse.cursor.z > curUIBuf.rects[i].lb.z && mouse.cursor.z < curUIBuf.rects[i].rt.z) {
+	  if (underSelection) {
 	    selectedTextInput2 = curUIBuf.rects[i].input;
+	    textInputCursorMat.x = curUIBuf.rects[i].pos[0].x;
+	    textInputCursorMat.z = curUIBuf.rects[i].pos[0].z;
 	  }else{
 	    inputCursorPos = 0;
 	    selectedTextInput2 = NULL;
@@ -2702,17 +2818,19 @@ void editor2dRender() {
 	}
       }
 
+      if(curUIBuf.rects[i].onclickResText){
+	renderText(curUIBuf.rects[i].onclickResText, curUIBuf.rects[i].pos[0].x, curUIBuf.rects[i].pos[0].z, 1.0f);
+      }
+
       if (curUIBuf.rects[i].onClick) {
-	if (mouse.cursor.x > curUIBuf.rects[i].lb.x && mouse.cursor.x < curUIBuf.rects[i].rt.x
-	    && mouse.cursor.z > curUIBuf.rects[i].lb.z && mouse.cursor.z < curUIBuf.rects[i].rt.z) {
+	if (underSelection) {
 	  if (mouse.clickL) {
-	    curUIBuf.rects[i].onClick("map");
+	    curUIBuf.rects[i].onClick();
 	  }
 	}
       }
     }
   }
-
   
   if(mouse.tileSide != -1 && mouse.tileSide != center){
     char buf[64];
@@ -3885,11 +4003,10 @@ void editor2dRender() {
       }
 
     // prev player answer
-    if(editedCharacter->curDialogIndex != 0)
-      {
-	renderText("Player said:",dialogEditor.rect.x + letterCellW * 2, dialogEditor.rect.y, 1.0f);
-	renderText(curDialog->text,dialogEditor.rect.x + letterCellW * 2, dialogEditor.rect.y - letterH, 1.0f);
-      }
+    if(editedCharacter->curDialogIndex != 0){
+      renderText("Player said:",dialogEditor.rect.x + letterCellW * 2, dialogEditor.rect.y, 1.0f);
+      renderText(curDialog->text,dialogEditor.rect.x + letterCellW * 2, dialogEditor.rect.y - letterH, 1.0f);
+    }
 
     // prev button
     if(editedCharacter->curDialogIndex != 0)
@@ -4056,6 +4173,22 @@ void editor2dRender() {
   renderText(contextBelowText, -1.0f, -1.0f + letterH * contextBelowTextH, 1.0f); 
   }
   */
+
+  if(selectedTextInput2){
+    glUseProgram(shadersId[UITransfShader]);
+
+    uniformVec2(UITransfShader, "model2D", textInputCursorMat);
+    
+    glBindVertexArray(textInputCursorBuf.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, textInputCursorBuf.VBO);
+
+    glDrawArrays(GL_TRIANGLES, 0, textInputCursorBuf.VBOsize);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glUseProgram(shadersId[hudShader]);
+  }
 
   // render cursor
   if(curMenu || cursorMode || curUIBuf.rectsSize != 0)
@@ -4656,17 +4789,62 @@ void addNewWallStorage(Wall* newWall){
 
 void clearCurrentUI(){
   curUIBuf.VBOsize = 0;
+
+  for(int i=0;i<curUIBuf.rectsSize;i++){
+    if(curUIBuf.rects[i].input){
+      inputCursorPos = 0;
+      selectedTextInput2 = NULL;
+      
+      if(curUIBuf.rects[i].input->buf){
+	free(curUIBuf.rects[i].input->buf);
+	curUIBuf.rects[i].input->buf = NULL;
+      }
+    }
+  }
+  
   curUIBuf.rectsSize = 0;
   curUIBuf.rects = NULL;
 }
 
-void saveMapUI(char saveName[]) {
-  saveMap(saveName);
-  clearCurrentUI();
+void saveMapUI() {
+  if(UIStructBufs[saveWindowT]->rects[1].input->buf && strlen(UIStructBufs[saveWindowT]->rects[1].input->buf)){
+    saveMap(UIStructBufs[saveWindowT]->rects[1].input->buf);
+    clearCurrentUI();
+  }
+  else {
+    if (UIStructBufs[saveWindowT]->rects[2].onclickResText) {
+      free(UIStructBufs[saveWindowT]->rects[2].onclickResText);
+    }
+
+    UIStructBufs[saveWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Provide save name!"));
+    strcpy(UIStructBufs[saveWindowT]->rects[2].onclickResText, "Provide save name!");
+  }
 }
 
-void loadMapUI(char saveName[]) {
-  loadSave(saveName);
-  clearCurrentUI();
+void loadMapUI() {
+  if(UIStructBufs[loadWindowT]->rects[1].input->buf) {
+    bool loaded = loadSave(UIStructBufs[loadWindowT]->rects[1].input->buf);
+
+    if (loaded) {
+      clearCurrentUI();
+    }
+    else {
+      if (UIStructBufs[loadWindowT]->rects[2].onclickResText) {			  free(UIStructBufs[loadWindowT]->rects[2].onclickResText);
+      }
+
+      UIStructBufs[loadWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Save doesnt exist!"));
+      strcpy(UIStructBufs[loadWindowT]->rects[2].onclickResText, "Save doesnt exist!");
+      // error on load
+    }
+  }
+  else {
+    if (UIStructBufs[loadWindowT]->rects[2].onclickResText) {
+      free(UIStructBufs[loadWindowT]->rects[2].onclickResText);
+    }
+
+    UIStructBufs[loadWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Provide save name!"));
+    strcpy(UIStructBufs[loadWindowT]->rects[2].onclickResText, "Provide save name!");
+    // name wasnt provided
+  }
 }
 

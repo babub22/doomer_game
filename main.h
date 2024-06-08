@@ -527,8 +527,6 @@ typedef struct{
   int index2D;
 
   vec3 modelSizes; // def width, height, depth without scale
-  
-  //  Model* model;
 } ModelInfo;
 
 void batchModels();
@@ -838,7 +836,7 @@ typedef enum{
 } EngineInstanceFunc;
 
 typedef enum{
-  lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, shadersCounter
+  lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
@@ -1150,11 +1148,7 @@ float* createNormalBuffer(float* buf, int size, int* finalSize);
 
 Matrix hardWallMatrices[4];
 
-typedef struct{
-  //  vec4 rect;
-  int limit;
-  char* buf;
-} TextInput2;
+typedef struct TextInput2 TextInput2;
 
 typedef struct{
   vec2 pos[6];
@@ -1164,9 +1158,9 @@ typedef struct{
   vec2 textPos;
 
   void (*onClick)(void);
-  
+  char* onclickResText;
+
   MeshBuffer* highlight;
-  
   TextInput2* input;
 
   //  int charLimit;
@@ -1176,9 +1170,23 @@ typedef struct{
   vec2 rt;
 } UIRect2;
 
+struct TextInput2 {
+    //  vec4 rect;
+    int limit;
+    char* buf;
+
+    UIRect2* relatedUIRect;
+};
+
+typedef enum{
+  saveWindowT, loadWindowT, UIStructsCounter
+} UIStruct;
+
 typedef struct{
   GLuint VBO;
   GLuint VAO;
+
+  //  UIStruct UIName;
 
   int VBOsize;
   
@@ -1186,8 +1194,7 @@ typedef struct{
   UIRect2* rects;
 } UIBuf;
 
-typedef enum{
-  saveWindowT, loadWindowT, UIStructsCounter
-} UIStruct;
 
 UIBuf* UIStructBufs[UIStructsCounter];
+
+void uniformVec4(int shader, char* var, vec4 value);
