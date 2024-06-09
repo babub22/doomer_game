@@ -27,6 +27,12 @@
     <ClCompile Include="game.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="editorMap.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="gameMap.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h">
@@ -45,6 +51,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="game.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="editorMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gameMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

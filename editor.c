@@ -126,42 +126,6 @@ void editorOnSetInstance(){
   batchAllGeometry();
 }
 
-void bindUIQuad(vec2 pos[6], uint8_t c[4], MeshBuffer* buf){
-  float* finalBatch = malloc(sizeof(float) * 6 * 6);
-    
-  for(int i2=0;i2<6;i2++){
-    finalBatch[i2*6+0] = pos[i2].x;
-    finalBatch[i2*6+1] = pos[i2].z;
-      
-    finalBatch[i2*6+2] = c[0];
-    finalBatch[i2*6+3] = c[1];
-    finalBatch[i2*6+4] = c[2];
-    finalBatch[i2*6+5] = c[3]; 
-  }
-
-  
-  glGenBuffers(1, &buf->VBO);
-  glGenVertexArrays(1, &buf->VAO);
-  
-  glBindVertexArray(buf->VAO);
-  glBindBuffer(GL_ARRAY_BUFFER, buf->VBO);
-
-  buf->VBOsize = 6;
-  
-  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 6, finalBatch, GL_STATIC_DRAW);
-  
-  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), NULL);
-  glEnableVertexAttribArray(0);
-
-  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(2 * sizeof(float)));
-  glEnableVertexAttribArray(1);
-
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-
-  free(finalBatch);
-}
-
 UIBuf* batchUI(UIRect2* rects, int rectsSize){
   UIBuf* uiBuf = malloc(sizeof(UIBuf));
   
@@ -771,12 +735,20 @@ void editorEvents(SDL_Event event){
     if(event.key.keysym.scancode == SDL_SCANCODE_F5) {
       if(curUIBuf.rects != UIStructBufs[saveWindowT]->rects){
 	memcpy(&curUIBuf, UIStructBufs[saveWindowT], sizeof(UIBuf));
+	
+	selectedTextInput2 = curUIBuf.rects[1].input;
+	textInputCursorMat.x = curUIBuf.rects[1].pos[0].x;
+	textInputCursorMat.z = curUIBuf.rects[1].pos[0].z;
       }else{
 	clearCurrentUI();
       }
     }else if(event.key.keysym.scancode == SDL_SCANCODE_F9) {
       if(curUIBuf.rects != UIStructBufs[loadWindowT]->rects){
 	memcpy(&curUIBuf, UIStructBufs[loadWindowT], sizeof(UIBuf));
+	
+	selectedTextInput2 = curUIBuf.rects[1].input;
+	textInputCursorMat.x = curUIBuf.rects[1].pos[0].x;
+	textInputCursorMat.z = curUIBuf.rects[1].pos[0].z;
       }
       else{
 	clearCurrentUI();
@@ -2422,7 +2394,15 @@ void editorPreFrame(float deltaTime) {
 
 // 3d specific for editor mode 
 void editor3dRender() {
-  //  batchModels();
+  {
+    stancilHighlight[mouse.selectedType]();
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
+
+    glActiveTexture(GL_TEXTURE0);
+    renderScene(mainShader);
+  }
 
   for (int i = 0;false &&  i < picturesStorageSize; i++) {
     uniformMat4(mainShader, "model", picturesStorage[i].mat.m);

@@ -100,7 +100,7 @@
       <ConformanceMode>true</ConformanceMode>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BufferSecurityCheck>true</BufferSecurityCheck>
-      <DebugInformationFormat>OldStyle</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -145,7 +145,7 @@
       <ConformanceMode>true</ConformanceMode>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BufferSecurityCheck>true</BufferSecurityCheck>
-      <DebugInformationFormat>OldStyle</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -162,14 +162,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="editor.c" />
+    <ClCompile Include="editorMap.c" />
     <ClCompile Include="game.c" />
+    <ClCompile Include="gameMap.c" />
     <ClCompile Include="linearAlg.c" />
     <ClCompile Include="main.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="deps.h" />
     <ClInclude Include="editor.h" />
+    <ClInclude Include="editorMap.h" />
     <ClInclude Include="game.h" />
+    <ClInclude Include="gameMap.h" />
     <ClInclude Include="linearAlg.h" />
     <ClInclude Include="linmath.h" />
     <ClInclude Include="main.h" />

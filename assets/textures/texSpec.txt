@@ -13,3 +13,4 @@ Ikona.png Vyveski
 Bratok.png Vyveski
 Sef.png Vyveski
 Kover.png Vyveski
+fallout2Map.png Tex

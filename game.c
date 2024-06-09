@@ -48,7 +48,15 @@ void game2dRender(){
 };
 
 void game3dRender(){
-    
+  {
+    stancilHighlight[mouse.selectedType](); 
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
+
+    glActiveTexture(GL_TEXTURE0);
+    renderScene(mainShader);
+  }
 };
 
 int frameCounter;

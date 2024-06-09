@@ -30,4 +30,4 @@ void loadMapUI(char saveName[]);
 
 UIBuf curUIBuf;
 
-void bindUIQuad(vec2 pos[6], uint8_t c[4], MeshBuffer* buf);
+//void bindUIQuad(vec2 pos[6], uint8_t c[4], MeshBuffer* buf);

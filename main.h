@@ -15,6 +15,9 @@ typedef struct{
   
   int categoryIndex;
 
+  int h;
+  int w;
+
   int index1D;
   int index2D; // where [from context][index2D]
 } Texture;
@@ -538,6 +541,7 @@ typedef enum {
   mousePlaneT,
   mouseTileT,
   mouseLightT,
+  mouseSelectionTypesCounter
 } MouseSelectionType;
 
 typedef enum {
@@ -820,6 +824,10 @@ float* wallBySide(int* bufSize, Side side, float thick);
 typedef enum{
   editorInstance,
   gameInstance,
+
+  editorMapInstance,
+  gameMapInstance,
+  
   instancesCounter,
 } EngineInstance;
 
@@ -836,7 +844,7 @@ typedef enum{
 } EngineInstanceFunc;
 
 typedef enum{
-  lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, shadersCounter
+  lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITxShader, UITransfTx, shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
@@ -1198,3 +1206,14 @@ typedef struct{
 UIBuf* UIStructBufs[UIStructsCounter];
 
 void uniformVec4(int shader, char* var, vec4 value);
+
+void doorFrameHighlighting();
+void modelHighlighting();
+void noHighlighting();
+
+const void(*stancilHighlight[mouseSelectionTypesCounter])();
+unsigned int depthMaps;
+
+void bindUIQuad(vec2 pos[6], uint8_t c[4], MeshBuffer* buf);
+void bindUIQuadTx(vec4 pos[6], MeshBuffer* buf);
+void bindUITri(vec2 pos[3], uint8_t c[4], MeshBuffer* buf);
