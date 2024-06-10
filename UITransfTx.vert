@@ -12,6 +12,6 @@ void main(void)
 {
 TexCoord=aTexCoord;
 
-vec2 point = model2D* (offset+aPos);
+vec2 point = model2D * (offset+aPos);
 gl_Position = vec4(point,0.0f,1.0f);
 }
