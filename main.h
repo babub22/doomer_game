@@ -840,6 +840,7 @@ typedef enum{
   eventFunc,
   onSetFunc,
   mouseVSFunc,
+  renderCursorFunc,
   funcsCounter,
 } EngineInstanceFunc;
 
@@ -1187,7 +1188,7 @@ struct TextInput2 {
 };
 
 typedef enum{
-  saveWindowT, loadWindowT, UIStructsCounter
+  saveWindowT, loadWindowT, attachSaveWindowT, UIStructsCounter
 } UIStruct;
 
 typedef struct{
@@ -1217,3 +1218,20 @@ unsigned int depthMaps;
 void bindUIQuad(vec2 pos[6], uint8_t c[4], MeshBuffer* buf);
 void bindUIQuadTx(vec4 pos[6], MeshBuffer* buf);
 void bindUITri(vec2 pos[3], uint8_t c[4], MeshBuffer* buf);
+
+
+//void clearCurrentUI();
+void saveMapUI();
+void loadMapUI();
+
+UIBuf curUIBuf;
+
+TextInput* selectedTextInput;
+TextInput2* selectedTextInput2;
+
+MeshBuffer textInputCursorBuf;
+vec2 textInputCursorMat;
+int inputCursorPos;
+
+UIBuf* batchUI(UIRect2* rects, int rectsSize);
+void clearCurrentUI();

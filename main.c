@@ -12,6 +12,15 @@
 
 bool showHiddenWalls = true;
 
+TextInput* selectedTextInput;
+TextInput2* selectedTextInput2;
+
+MeshBuffer textInputCursorBuf;
+vec2 textInputCursorMat;
+int inputCursorPos;
+
+UIBuf curUIBuf;
+
 Matrix hardWallMatrices[4];
 
 GeomFin* finalGeom;
@@ -76,6 +85,7 @@ const void(*instances[instancesCounter][funcsCounter])() = {
     [eventFunc] = editorEvents,
     [onSetFunc] = editorOnSetInstance,
     [mouseVSFunc] = editorMouseVS,
+    [renderCursorFunc] = editorRenderCursor
   },
   [gameInstance] = {
     [render2DFunc] = game2dRender,
@@ -86,6 +96,7 @@ const void(*instances[instancesCounter][funcsCounter])() = {
     [eventFunc] = gameEvents,
     [onSetFunc] = gameOnSetInstance,
     [mouseVSFunc] = gameMouseVS,
+    [renderCursorFunc] = gameRenderCursor
   },
   [gameMapInstance] = {
     [render2DFunc] = gameMap2dRender,
@@ -96,6 +107,7 @@ const void(*instances[instancesCounter][funcsCounter])() = {
     [eventFunc] = gameMapEvents,
     [onSetFunc] = gameMapOnSetInstance,
     [mouseVSFunc] = gameMapMouseVS,
+    [renderCursorFunc] = gameMapRenderCursor
   },
   [editorMapInstance] = {
     [render2DFunc] = editorMap2dRender,
@@ -106,6 +118,7 @@ const void(*instances[instancesCounter][funcsCounter])() = {
     [eventFunc] = editorMapEvents,
     [onSetFunc] = editorMapOnSetInstance,
     [mouseVSFunc] = editorMapMouseVS,
+    [renderCursorFunc] = editorMapRenderCursor
   }
 };
 
@@ -1700,13 +1713,41 @@ int main(int argc, char* argv[]) {
 	quit = true;
       }
 
-      if (event.type == SDL_KEYDOWN && !console.open) {
+      if (event.type == SDL_KEYDOWN) {
 	if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
 	  exit(1);
 	}
 
-	if(event.key.keysym.scancode == SDL_SCANCODE_F4){
-	  showHiddenWalls = !showHiddenWalls;
+	if(selectedTextInput2){
+	  if(!selectedTextInput2->buf){
+	    selectedTextInput2->buf = calloc(1, sizeof(char) * (selectedTextInput2->limit + 1));
+	  }
+      
+	  if(selectedTextInput2->relatedUIRect && selectedTextInput2->relatedUIRect->onclickResText){
+	    free(selectedTextInput2->relatedUIRect->onclickResText);
+	    selectedTextInput2->relatedUIRect->onclickResText =NULL;
+	  }
+      
+	  int strLen = selectedTextInput2->buf ? strlen(selectedTextInput2->buf) : 0; 
+
+	  if(event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE && inputCursorPos > 0) {
+	    selectedTextInput2->buf[inputCursorPos-1] = 0;
+	  
+	    textInputCursorMat.x -= letterW;
+	    inputCursorPos--;
+	  }else if(strLen < selectedTextInput2->limit){
+	    if(event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39){
+	      char newChar = sdlScancodesToACII[event.key.keysym.scancode];
+	      selectedTextInput2->buf[inputCursorPos] = newChar;
+
+	      textInputCursorMat.x += letterW;
+	      inputCursorPos++;
+	    }
+	  }
+	}
+
+      if(event.key.keysym.scancode == SDL_SCANCODE_F4){
+	showHiddenWalls = !showHiddenWalls;
 	  
 	  if(showHiddenWalls){
 	    batchAllGeometry();
@@ -1723,7 +1764,7 @@ int main(int argc, char* argv[]) {
 	  }
 	}
 
-	if (event.key.keysym.scancode == SDL_SCANCODE_M) {
+	if (event.key.keysym.scancode == SDL_SCANCODE_M && !selectedTextInput2) {
 	  const EngineInstance instanceTrasferTable[4] = {
 	    [gameMapInstance] = gameInstance,
 	    [editorMapInstance] = editorInstance,
@@ -1733,25 +1774,9 @@ int main(int argc, char* argv[]) {
 
 	  curInstance = instanceTrasferTable[curInstance];
 	  ((void (*)(void))instances[curInstance][onSetFunc])();
-	  /*
-	    if(curInstance == gameMapInstance){
-	    curInstance = gameInstance;
-	    }
-	  
-	    if(curInstance == editorMapInstance){
-	    curInstance = editorInstance;
-	    }
-
-	    if(curInstance == editorInstance){
-	    curInstance = editorMapInstance;
-	    }
-
-	    if(curInstance == gameInstance){
-	    curInstance = gameMapInstance;
-	    }*/
 	}
 
-	if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
+	if (event.key.keysym.scancode == SDL_SCANCODE_SPACE && !selectedTextInput2) {
 	  if(curInstance == gameMapInstance){
 	    curInstance = editorMapInstance;
 	  }else if(curInstance == editorMapInstance){
@@ -1770,145 +1795,6 @@ int main(int argc, char* argv[]) {
 	}
       }
 
-      if (event.type == SDL_KEYDOWN && console.open) {
-	consoleHasResponse = false;
-
-	if (event.key.keysym.scancode == SDL_SCANCODE_RETURN) {
-	  char copy_consoleBuffer[CONSOLE_BUF_CAP];
-	  strcpy(copy_consoleBuffer, consoleBuffer);
-
-	  char* str_tok = strtok(copy_consoleBuffer, " ");
-
-	  if (str_tok) {
-	    if (strcmp(str_tok, "help") == 0) {
-	      strcpy(consoleResponse, "help - all available commands\nsave <file_name> - save current map in new file\nload <file_name> - load map from file\ncreate <x> <y> <z> <file_name> - to create new world with size x, y, z");
-	    }
-	    else if (strcmp(str_tok, "load") == 0) {
-	      str_tok = strtok(NULL, " ");
-
-	      if (str_tok) {
-		if (loadSave(str_tok)) {
-		  sprintf(consoleResponse, "Save \"%s\" was successfully loaded", str_tok);
-		}
-		else {
-		  sprintf(consoleResponse, "Save \"%s\" doesnt exist", str_tok);
-		}
-	      }
-	      else {
-		strcpy(consoleResponse, "Provide name of save to load \"load <file_name>\"");
-	      }
-	    }
-	    else if (strcmp(str_tok, "save") == 0) {
-	      // get save arg
-	      str_tok = strtok(NULL, " ");
-
-	      if (str_tok) {
-		if (saveMap(str_tok)) {
-		  sprintf(consoleResponse, "Save \"%s\" was successfully saved", str_tok);
-		}
-		else {
-		  // sprintf(consoleResponse, "Save \"%s\" was successfully saved", str_tok);
-		}
-	      }
-	      else {
-		strcpy(consoleResponse, "Provide name for save \"save <file_name>\"");
-	      }
-
-	    }
-	    else if (strcmp(str_tok, "create") == 0) {
-	      // get save arg
-	      str_tok = strtok(NULL, " ");
-
-	      int x, y, z;
-
-	      bool generalMistake = false;
-
-	      if (str_tok) {
-		x = atoi(str_tok);
-
-		if (x <= 0) {
-		  sprintf(consoleResponse, "Incorrect x(%d) value, x must be > 0", x);
-		}
-		else {
-		  str_tok = strtok(NULL, " ");
-
-		  if (str_tok) {
-		    y = atoi(str_tok);
-
-		    if (y <= 9) {
-		      sprintf(consoleResponse, "Incorrect y(%d) value, y must be >= 10", x);
-		    }
-		    else {
-		      str_tok = strtok(NULL, " ");
-
-		      if (str_tok) {
-			z = atoi(str_tok);
-
-			if (z <= 0) {
-			  sprintf(consoleResponse, "Incorrect z(%d) value, z must be > 0", x);
-			}
-			else {
-			  str_tok = strtok(NULL, " ");
-
-			  if (str_tok) {
-			    strcpy(curSaveName, str_tok);
-
-			    createMap(x, y, z);
-			    sprintf(consoleResponse, "Map was craeted with size x: %d y: %d z:%d", x, y, z);
-			  }
-			  else {
-			    generalMistake = true;
-			  }
-			}
-		      }
-		      else {
-			generalMistake = true;
-		      }
-		    }
-		  }
-		  else {
-		    generalMistake = true;
-		  }
-		}
-	      }
-	      else {
-		generalMistake = true;
-	      }
-
-	      if (generalMistake) {
-		strcpy(consoleResponse, "From to create new map \"create <x> <y> <z> <file_name>\"");
-	      }
-	    }
-	    else {
-	      sprintf(consoleResponse, "Command \"%s\"  doesnt exist\nWrite \"help\" to get all available commands", str_tok);
-	    }
-
-	    consoleHasResponse = true;
-	  }
-	}
-	else if (event.key.keysym.scancode == SDL_SCANCODE_F1) {
-	  console.open = false;
-	}
-	else if (consoleBufferCursor > 0 && event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE) {
-	  consoleBufferCursor--;
-	  consoleBuffer[consoleBufferCursor] = 0;
-	}
-	else if (consoleBufferCursor < CONSOLE_BUF_CAP - 1) {
-	  if (event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39) {
-	    consoleBuffer[consoleBufferCursor] = sdlScancodesToACII[event.key.keysym.scancode];
-	    consoleBufferCursor++;
-	  }
-	  else if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
-	    bool prevCharIsntSpace = consoleBufferCursor > 0 && consoleBuffer[consoleBufferCursor - 1] != ' ';
-
-	    if (prevCharIsntSpace) {
-	      consoleBuffer[consoleBufferCursor] = ' ';
-	      consoleBufferCursor++;
-
-	    }
-	  }
-	}
-      }
       
       ((void (*)(SDL_Event))instances[curInstance][eventFunc])(event);
     }
@@ -1998,15 +1884,97 @@ int main(int argc, char* argv[]) {
     }
 
 
-
     // 2d ui drawing
     glDisable(GL_DEPTH_TEST);
-    glUseProgram(shadersId[hudShader]);
-
-   
-
+    glUseProgram(shadersId[hudShader]);   
 
     instances[curInstance][render2DFunc]();
+    
+    {
+      glUseProgram(shadersId[UIShader]);
+    
+      glBindVertexArray(curUIBuf.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, curUIBuf.VBO);
+
+      glDrawArrays(GL_TRIANGLES, 0, curUIBuf.VBOsize);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+
+      glUseProgram(shadersId[hudShader]);
+
+      for (int i = 0; i < curUIBuf.rectsSize; i++) {
+	bool underSelection = false;
+      
+	if (mouse.cursor.x > curUIBuf.rects[i].lb.x && mouse.cursor.x < curUIBuf.rects[i].rt.x
+	    && mouse.cursor.z > curUIBuf.rects[i].lb.z && mouse.cursor.z < curUIBuf.rects[i].rt.z) {
+	  underSelection = true;
+	}
+
+	if(underSelection && curUIBuf.rects[i].highlight){
+	  glUseProgram(shadersId[UIShader]);
+    
+	  glBindVertexArray(curUIBuf.rects[i].highlight->VAO);
+	  glBindBuffer(GL_ARRAY_BUFFER, curUIBuf.rects[i].highlight->VBO);
+
+	  glDrawArrays(GL_TRIANGLES, 0, curUIBuf.rects[i].highlight->VBOsize);
+
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+
+	  glUseProgram(shadersId[hudShader]);
+	}
+      
+	if (curUIBuf.rects[i].text) {
+	  renderText(curUIBuf.rects[i].text, curUIBuf.rects[i].textPos.x, curUIBuf.rects[i].textPos.z, 1.0f);
+	}
+
+	if(curUIBuf.rects[i].input){
+	  renderText(curUIBuf.rects[i].input->buf, curUIBuf.rects[i].pos[0].x - (letterW/2.0f), curUIBuf.rects[i].pos[0].z + letterH, 1.0f);
+
+	  if (mouse.clickL) {
+	    if (underSelection) {
+	      selectedTextInput2 = curUIBuf.rects[i].input;
+	      textInputCursorMat.x = curUIBuf.rects[i].pos[0].x;
+	      textInputCursorMat.z = curUIBuf.rects[i].pos[0].z;
+	    }else{
+	      inputCursorPos = 0;
+	      selectedTextInput2 = NULL;
+	    }
+	  }
+	}
+
+	if(curUIBuf.rects[i].onclickResText){
+	  renderText(curUIBuf.rects[i].onclickResText, curUIBuf.rects[i].pos[0].x, curUIBuf.rects[i].pos[0].z, 1.0f);
+	}
+
+	if (curUIBuf.rects[i].onClick) {
+	  if (underSelection) {
+	    if (mouse.clickL) {
+	      curUIBuf.rects[i].onClick();
+	    }
+	  }
+	}
+      }
+    }
+
+    if(selectedTextInput2){
+      glUseProgram(shadersId[UITransfShader]);
+
+      uniformVec2(UITransfShader, "model2D", textInputCursorMat);
+    
+      glBindVertexArray(textInputCursorBuf.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, textInputCursorBuf.VBO);
+
+      glDrawArrays(GL_TRIANGLES, 0, textInputCursorBuf.VBOsize);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+
+      glUseProgram(shadersId[hudShader]);
+    }
+
+    instances[curInstance][renderCursorFunc]();
 
     uint32_t endtime = GetTickCount();
     uint32_t deltatime = endtime - starttime;
@@ -6715,3 +6683,69 @@ void bindUIQuadTx(vec4 pos[6], MeshBuffer* buf){
   free(finalBatch);
 }
 
+
+void clearCurrentUI(){
+  curUIBuf.VBOsize = 0;
+
+  for(int i=0;i<curUIBuf.rectsSize;i++){ 
+    if(curUIBuf.rects[i].input){
+     inputCursorPos = 0;
+      selectedTextInput2 = NULL; 
+      
+      if(curUIBuf.rects[i].input->buf){
+	free(curUIBuf.rects[i].input->buf);
+	curUIBuf.rects[i].input->buf = NULL;
+      }
+    }
+  }
+  
+  curUIBuf.rectsSize = 0;
+  curUIBuf.rects = NULL;
+}
+
+
+UIBuf* batchUI(UIRect2* rects, int rectsSize){
+  UIBuf* uiBuf = malloc(sizeof(UIBuf));
+  
+  uiBuf->rectsSize = rectsSize;
+  uiBuf->rects = rects;
+
+  float* finalBatch = malloc(sizeof(float) * uiBuf->rectsSize * 6 * 6);
+  
+  for(int i=0;i<uiBuf->rectsSize;i++){
+    int pad = i * 6 * 6;
+    
+    for(int i2=0;i2<6;i2++){
+      finalBatch[pad + (i2)*6+0] = rects[i].pos[i2].x;
+      finalBatch[pad + (i2)*6+1] = rects[i].pos[i2].z;
+      
+      finalBatch[pad + (i2)*6+2] = rects[i].c[0];
+      finalBatch[pad + (i2)*6+3] = rects[i].c[1];
+      finalBatch[pad + (i2)*6+4] = rects[i].c[2];
+      finalBatch[pad + (i2)*6+5] = rects[i].c[3]; 
+    }
+  }
+
+  glGenBuffers(1, &uiBuf->VBO);
+  glGenVertexArrays(1, &uiBuf->VAO);
+  
+  glBindVertexArray(uiBuf->VAO);
+  glBindBuffer(GL_ARRAY_BUFFER, uiBuf->VBO);
+
+  uiBuf->VBOsize = uiBuf->rectsSize * 6;
+  
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * uiBuf->rectsSize * 6 * 6, finalBatch, GL_STATIC_DRAW);
+  
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), NULL);
+  glEnableVertexAttribArray(0);
+
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(2 * sizeof(float)));
+  glEnableVertexAttribArray(1);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
+  free(finalBatch);
+
+  return uiBuf;
+}

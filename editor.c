@@ -3,15 +3,6 @@
 #include "main.h"
 #include "editor.h"
 
-TextInput* selectedTextInput;
-
-TextInput2* selectedTextInput2;
-
-MeshBuffer textInputCursorBuf;
-vec2 textInputCursorMat;
-int inputCursorPos;
-//UIRect2* relatedRectToInput;
-
 int* dialogEditorHistory;
 int dialogEditorHistoryLen;
 int dialogEditorHistoryCursor;
@@ -126,51 +117,6 @@ void editorOnSetInstance(){
   batchAllGeometry();
 }
 
-UIBuf* batchUI(UIRect2* rects, int rectsSize){
-  UIBuf* uiBuf = malloc(sizeof(UIBuf));
-  
-  uiBuf->rectsSize = rectsSize;
-  uiBuf->rects = rects;
-
-  float* finalBatch = malloc(sizeof(float) * uiBuf->rectsSize * 6 * 6);
-  
-  for(int i=0;i<uiBuf->rectsSize;i++){
-    int pad = i * 6 * 6;
-    
-    for(int i2=0;i2<6;i2++){
-      finalBatch[pad + (i2)*6+0] = rects[i].pos[i2].x;
-      finalBatch[pad + (i2)*6+1] = rects[i].pos[i2].z;
-      
-      finalBatch[pad + (i2)*6+2] = rects[i].c[0];
-      finalBatch[pad + (i2)*6+3] = rects[i].c[1];
-      finalBatch[pad + (i2)*6+4] = rects[i].c[2];
-      finalBatch[pad + (i2)*6+5] = rects[i].c[3]; 
-    }
-  }
-
-  glGenBuffers(1, &uiBuf->VBO);
-  glGenVertexArrays(1, &uiBuf->VAO);
-  
-  glBindVertexArray(uiBuf->VAO);
-  glBindBuffer(GL_ARRAY_BUFFER, uiBuf->VBO);
-
-  uiBuf->VBOsize = uiBuf->rectsSize * 6;
-  
-  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * uiBuf->rectsSize * 6 * 6, finalBatch, GL_STATIC_DRAW);
-  
-  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), NULL);
-  glEnableVertexAttribArray(0);
-
-  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(2 * sizeof(float)));
-  glEnableVertexAttribArray(1);
-
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-
-  free(finalBatch);
-
-  return uiBuf;
-}
 
 void editorPreLoop(){
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -757,32 +703,6 @@ void editorEvents(SDL_Event event){
       if(curUIBuf.rects == UIStructBufs[loadWindowT]->rects || curUIBuf.rects == UIStructBufs[saveWindowT]->rects){
 	printf("run onclick\n");
 	curUIBuf.rects[2].onClick();
-      }
-    }else if(selectedTextInput2){
-      if(!selectedTextInput2->buf){
-	selectedTextInput2->buf = calloc(1, sizeof(char) * (selectedTextInput2->limit + 1));
-      }
-      
-      if(selectedTextInput2->relatedUIRect && selectedTextInput2->relatedUIRect->onclickResText){
-	free(selectedTextInput2->relatedUIRect->onclickResText);
-	selectedTextInput2->relatedUIRect->onclickResText =NULL;
-      }
-      
-      int strLen = selectedTextInput2->buf ? strlen(selectedTextInput2->buf) : 0;
-
-      if(event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE && inputCursorPos > 0) {
-	selectedTextInput2->buf[inputCursorPos-1] = 0;
-	  
-	textInputCursorMat.x -= letterW;
-	inputCursorPos--;
-      }else if(strLen < selectedTextInput2->limit){
-	if(event.key.keysym.scancode >= 4 && event.key.keysym.scancode <= 39){
-	  char newChar = sdlScancodesToACII[event.key.keysym.scancode];
-	  selectedTextInput2->buf[inputCursorPos] = newChar;
-
-	  textInputCursorMat.x += letterW;
-	  inputCursorPos++;
-	}
       }
     }
     /* 
@@ -1452,7 +1372,7 @@ void editorEvents(SDL_Event event){
 	}
 				  
 	break;
-      }      case(SDL_SCANCODE_M): {
+      }      /*case(SDL_SCANCODE_M): {
 	       Light* light = NULL;
 	    
 	       if(mouse.focusedType == mouseLightT){
@@ -1470,7 +1390,8 @@ void editorEvents(SDL_Event event){
 	       }
 				  
 	       break;
-	     }case(SDL_SCANCODE_P): {
+	     }*/
+      case(SDL_SCANCODE_P): {
 		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
 		picturesStorageSize++;
@@ -2743,74 +2664,6 @@ void editor3dRender() {
 //}
 
 void editor2dRender() {
-  
-  {
-    glUseProgram(shadersId[UIShader]);
-    
-    glBindVertexArray(curUIBuf.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, curUIBuf.VBO);
-
-    glDrawArrays(GL_TRIANGLES, 0, curUIBuf.VBOsize);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    glUseProgram(shadersId[hudShader]);
-
-    for (int i = 0; i < curUIBuf.rectsSize; i++) {
-      bool underSelection = false;
-      
-      if (mouse.cursor.x > curUIBuf.rects[i].lb.x && mouse.cursor.x < curUIBuf.rects[i].rt.x
-	  && mouse.cursor.z > curUIBuf.rects[i].lb.z && mouse.cursor.z < curUIBuf.rects[i].rt.z) {
-	underSelection = true;
-      }
-
-      if(underSelection && curUIBuf.rects[i].highlight){
-	glUseProgram(shadersId[UIShader]);
-    
-	glBindVertexArray(curUIBuf.rects[i].highlight->VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, curUIBuf.rects[i].highlight->VBO);
-
-	glDrawArrays(GL_TRIANGLES, 0, curUIBuf.rects[i].highlight->VBOsize);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	glUseProgram(shadersId[hudShader]);
-      }
-      
-      if (curUIBuf.rects[i].text) {
-	renderText(curUIBuf.rects[i].text, curUIBuf.rects[i].textPos.x, curUIBuf.rects[i].textPos.z, 1.0f);
-      }
-
-      if(curUIBuf.rects[i].input){
-	renderText(curUIBuf.rects[i].input->buf, curUIBuf.rects[i].pos[0].x - (letterW/2.0f), curUIBuf.rects[i].pos[0].z + letterH, 1.0f);
-
-	if (mouse.clickL) {
-	  if (underSelection) {
-	    selectedTextInput2 = curUIBuf.rects[i].input;
-	    textInputCursorMat.x = curUIBuf.rects[i].pos[0].x;
-	    textInputCursorMat.z = curUIBuf.rects[i].pos[0].z;
-	  }else{
-	    inputCursorPos = 0;
-	    selectedTextInput2 = NULL;
-	  }
-	}
-      }
-
-      if(curUIBuf.rects[i].onclickResText){
-	renderText(curUIBuf.rects[i].onclickResText, curUIBuf.rects[i].pos[0].x, curUIBuf.rects[i].pos[0].z, 1.0f);
-      }
-
-      if (curUIBuf.rects[i].onClick) {
-	if (underSelection) {
-	  if (mouse.clickL) {
-	    curUIBuf.rects[i].onClick();
-	  }
-	}
-      }
-    }
-  }
   
   if(mouse.tileSide != -1 && mouse.tileSide != center){
     char buf[64];
@@ -4154,72 +4007,7 @@ void editor2dRender() {
   }
   */
 
-  if(selectedTextInput2){
-    glUseProgram(shadersId[UITransfShader]);
-
-    uniformVec2(UITransfShader, "model2D", textInputCursorMat);
-    
-    glBindVertexArray(textInputCursorBuf.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, textInputCursorBuf.VBO);
-
-    glDrawArrays(GL_TRIANGLES, 0, textInputCursorBuf.VBOsize);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    glUseProgram(shadersId[hudShader]);
-  }
-
-  // render cursor
-  if(curMenu || cursorMode || curUIBuf.rectsSize != 0)
-    {
-      glActiveTexture(GL_TEXTURE0);;
-      glBindTexture(GL_TEXTURE_2D, solidColorTx);
-      setSolidColorTx(whiteColor, 1.0f);
-      
-      glBindVertexArray(cursor.VAO);
-      glBindBuffer(GL_ARRAY_BUFFER, cursor.VBO);
-
-      int xx, yy;
-      SDL_GetMouseState(&xx, &yy);
-
-      float x = -1.0 + 2.0 * (xx / windowW);
-      float z = -(-1.0 + 2.0 * (yy / windowH));
-
-	
-      /*      float cursorPoint[] = {
-	      mouse.cursor.x + cursorW * 0.05f, mouse.cursor.z + cursorH, 0.0f, 0.0f,
-	      mouse.cursor.x + cursorW, mouse.cursor.z + cursorH/2.0f, 0.0f, 0.0f,
-	      mouse.cursor.x, mouse.cursor.z + cursorH / 4.0f, 0.0f, 0.0f, 
-	      };
-
-	      float cursorPoint[] = {
-	      x + cursorW * 0.05f, z - cursorH, 0.0f, 0.0f,
-	      x + cursorW, z - cursorH/2.0f,    0.0f, 0.0f,
-	      x, z - cursorH / 4.0f,            0.0f, 0.0f, 
-	      };
-      */
-
-      float cursorPoint[] = {
-	x, z,            0.0f, 0.0f,
-	x + cursorW * 0.05f, z - cursorH,            0.0f, 0.0f,
-	x + cursorW, z - cursorH + (cursorH * 0.5f),            0.0f, 0.0f,
-      };
-
-      glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);
-
-      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-      glEnableVertexAttribArray(0);
-
-      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-      glEnableVertexAttribArray(1);
-
-      glDrawArrays(GL_TRIANGLES, 0, 3);
-
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      glBindVertexArray(0);
-    }
-
+  // render curs
 
   if(console.open){
     glActiveTexture(GL_TEXTURE0);;
@@ -4767,25 +4555,6 @@ void addNewWallStorage(Wall* newWall){
   wallsStorage[wallsStorageSize-1] = newWall;
 }
 
-void clearCurrentUI(){
-  curUIBuf.VBOsize = 0;
-
-  for(int i=0;i<curUIBuf.rectsSize;i++){
-    if(curUIBuf.rects[i].input){
-      inputCursorPos = 0;
-      selectedTextInput2 = NULL;
-      
-      if(curUIBuf.rects[i].input->buf){
-	free(curUIBuf.rects[i].input->buf);
-	curUIBuf.rects[i].input->buf = NULL;
-      }
-    }
-  }
-  
-  curUIBuf.rectsSize = 0;
-  curUIBuf.rects = NULL;
-}
-
 void saveMapUI() {
   if(UIStructBufs[saveWindowT]->rects[1].input->buf && strlen(UIStructBufs[saveWindowT]->rects[1].input->buf)){
     saveMap(UIStructBufs[saveWindowT]->rects[1].input->buf);
@@ -4809,7 +4578,8 @@ void loadMapUI() {
       clearCurrentUI();
     }
     else {
-      if (UIStructBufs[loadWindowT]->rects[2].onclickResText) {			  free(UIStructBufs[loadWindowT]->rects[2].onclickResText);
+      if (UIStructBufs[loadWindowT]->rects[2].onclickResText) {
+	free(UIStructBufs[loadWindowT]->rects[2].onclickResText);
       }
 
       UIStructBufs[loadWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Save doesnt exist!"));
@@ -4828,3 +4598,39 @@ void loadMapUI() {
   }
 }
 
+void editorRenderCursor(){
+  if(curMenu || cursorMode || curUIBuf.rectsSize != 0)
+    {
+      glActiveTexture(GL_TEXTURE0);;
+      glBindTexture(GL_TEXTURE_2D, solidColorTx);
+      setSolidColorTx(whiteColor, 1.0f);
+      
+      glBindVertexArray(cursor.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, cursor.VBO);
+
+      int xx, yy;
+      SDL_GetMouseState(&xx, &yy);
+
+      float x = -1.0 + 2.0 * (xx / windowW);
+      float z = -(-1.0 + 2.0 * (yy / windowH));
+
+      float cursorPoint[] = {
+	x, z,            0.0f, 0.0f,
+	x + cursorW * 0.05f, z - cursorH,            0.0f, 0.0f,
+	x + cursorW, z - cursorH + (cursorH * 0.5f),            0.0f, 0.0f,
+      };
+
+      glBufferData(GL_ARRAY_BUFFER, sizeof(cursorPoint), cursorPoint, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+
+      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+      glEnableVertexAttribArray(1);
+
+      glDrawArrays(GL_TRIANGLES, 0, 3);
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindVertexArray(0);
+    }
+}

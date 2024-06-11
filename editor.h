@@ -24,10 +24,8 @@ void deleteTileInStorage(int id);
 
 UIBuf* batchUI(UIRect2* rects, int rectsSize);
 
-void clearCurrentUI();
-void saveMapUI(char saveName[]);
-void loadMapUI(char saveName[]);
+void editorRenderCursor();
 
-UIBuf curUIBuf;
+//UIBuf curUIBuf;
 
 //void bindUIQuad(vec2 pos[6], uint8_t c[4], MeshBuffer* buf);

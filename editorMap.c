@@ -14,9 +14,12 @@ void editorMapOnSetInstance(){
 typedef struct{
   float scale; // of circle
   vec2 mapPos; // with def map scale (1.0f)
+
+  char* saveName;
 } LocationCircle;
 
 LocationCircle* locationCircles;
+LocationCircle* selectedLocation;
 int locationCirclesSize;
 
 float zoomLevel = 1.0f;
@@ -28,8 +31,8 @@ MeshBuffer circleBuf;
 
 int mapTx;
 
-float cursorX;
-float cursorZ;
+//float mouse.cursor.x;
+//float mouse.cursor.z;
 
 float screenRatio;
  
@@ -37,20 +40,16 @@ vec2 offset;
 
 bool mouseDown;
 
+bool locationIsDragging;
+
 float scaleY;
 
-#define translateToGlobalCoords(x1,y1) offset.x - (x1 / zoomLevel), offset.z - (y1 / zoomLevel)
+#define translateToGlobalCoords(x1,y1) (x1 / zoomLevel) - offset.x, (y1 / zoomLevel) - offset.z
 
 void editorMap2dRender(){
   {
     renderText("WorldMap editor",-1.0f, 1.0f,1.0f);
   }
-  
-  int xx, yy;
-  SDL_GetMouseState(&xx, &yy);
-
-  cursorX = -1.0 + 2.0 * (xx / windowW);
-  cursorZ = -(-1.0 + 2.0 * (yy / windowH));
   
   // map
   {
@@ -58,8 +57,8 @@ void editorMap2dRender(){
 
     glBindTexture(GL_TEXTURE_2D,loadedTextures1D[mapTx].tx);
 
-    // float translateX = cursorX * (1.0f - 1.0f / zoomLevel);
-    //    float translateY = cursorZ * (1.0f - 1.0f / zoomLevel);
+    // float translateX = mouse.cursor.x * (1.0f - 1.0f / zoomLevel);
+    //    float translateY = mouse.cursor.z * (1.0f - 1.0f / zoomLevel);
 
     uniformVec2(UITransfTx, "model2D", (vec2){ zoomLevel, zoomLevel });
     uniformVec2(UITransfTx, "offset", offset);
@@ -75,27 +74,6 @@ void editorMap2dRender(){
     glUseProgram(shadersId[hudShader]);
   }
 
-  // cursor 
-  {
-    glUseProgram(shadersId[hudShader]);
-    
-    char buf[64];
-    sprintf(buf, "%f %f", offset.x - (cursorX/ zoomLevel), offset.z - (cursorZ/zoomLevel));
-    renderText(buf, cursorX, cursorZ - 0.01f,1.0f);
-    
-    glUseProgram(shadersId[UITransfShader]);
-    uniformVec2(UITransfShader, "model2D", (vec2){ cursorX, cursorZ });
-    
-    glBindVertexArray(cursorBuf.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, cursorBuf.VBO);
-
-    glDrawArrays(GL_TRIANGLES, 0, cursorBuf.VBOsize);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    glUseProgram(shadersId[hudShader]);
-  }
 
   // circle
   glUseProgram(shadersId[UITransfColor]);
@@ -111,13 +89,31 @@ void editorMap2dRender(){
       continue;
     }
     
-    //    uniformVec2(UITransfColor, "offset", (vec2){ locationCircles[i].mapPos.x, locationCircles[i].mapPos.z });
     uniformVec2(UITransfColor, "offset", (vec2){
-	zoomLevel * (offset.x + locationCircles[i].mapPos.x),
-	zoomLevel * (offset.z + locationCircles[i].mapPos.z)
+	trasfCircleX / zoomLevel,
+	trasfCircleZ  / zoomLevel
       });
     
-    uniformVec2(UITransfColor, "model2D", (vec2){ locationCircles[i].scale, locationCircles[i].scale });
+    uniformVec2(UITransfColor, "model2D", (vec2){ zoomLevel, zoomLevel });  
+
+    vec2 circleCenter = { trasfCircleX, trasfCircleZ };
+
+    float xRad = .025f / screenRatio * zoomLevel * locationCircles[i].scale;
+    float yRad = .025f * zoomLevel * locationCircles[i].scale;
+
+    float xFm = ((mouse.cursor.x - circleCenter.x) / xRad) * ((mouse.cursor.x - circleCenter.x) / xRad);
+    float yFm = ((mouse.cursor.z - circleCenter.z) / yRad) * ((mouse.cursor.z - circleCenter.z) / yRad); 
+
+    float distance = xFm + yFm;
+
+    if(distance <= 1){
+      if(!locationIsDragging && curUIBuf.rectsSize == 0){
+	uniformVec3(UITransfColor, "color", (vec3){ greenColor });
+	selectedLocation = &locationCircles[i];
+      }
+    }else{
+      uniformVec3(UITransfColor, "color", (vec3){ blackColor });
+    }
     
     glBindVertexArray(circleBuf.VAO);
     glBindBuffer(GL_ARRAY_BUFFER, circleBuf.VBO);
@@ -126,12 +122,23 @@ void editorMap2dRender(){
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    if(locationCircles[i].saveName){
+      glUseProgram(shadersId[hudShader]);
+
+      renderText(locationCircles[i].saveName,
+		 zoomLevel * (trasfCircleX / zoomLevel) - ((strlen(locationCircles[i].saveName) + 1) * letterW) / 2.0f,
+		 zoomLevel * ((trasfCircleZ  / zoomLevel) - .025f)
+		 ,1.0f);
+      
+      glUseProgram(shadersId[UITransfColor]);
+    }
   }
   glUseProgram(shadersId[hudShader]);
   
   if(mouseDown){
     glUseProgram(shadersId[UITransfTx]);
-    uniformVec2(UITransfTx, "offset", (vec2){ cursorX, cursorZ });
+    uniformVec2(UITransfTx, "offset", (vec2){ mouse.cursor.x, mouse.cursor.z });
   }
 };
 
@@ -140,7 +147,9 @@ void editorMap3dRender(){
 };
 
 void editorMapPreFrame(float deltaTime){
-  mouse.clickL = false;
+  if(!locationIsDragging && curUIBuf.rectsSize == 0){
+    selectedLocation = NULL;
+  }
 };
 
 void editorMapMatsSetup(int curShader){
@@ -149,6 +158,117 @@ void editorMapMatsSetup(int curShader){
 
 
 void editorMapPreLoop() {
+  {
+    UIRect2* attachSaveWindow;
+    int attachSaveWindowSize;
+ 
+    float w = 0.3f;
+    float h = 0.1f + letterH;
+
+    // background
+    {
+      attachSaveWindow = calloc(4, sizeof(UIRect2));
+      attachSaveWindowSize = 4;
+        
+      attachSaveWindow[0] = (UIRect2){ .pos = {
+	  { -w, -h }, { -w, h }, { w, h },
+	  { -w, -h }, { w, h }, { w, -h }
+	},
+	.c = { blackColor, 1.0f },
+	.lb = {w, h}, .rt = {-w, -h}
+      };
+
+      attachSaveWindow[0].textPos = (vec2){ -w, h + letterH };
+      attachSaveWindow[0].text = malloc(sizeof(char) * strlen("Attach map"));
+      strcpy(attachSaveWindow[0].text, "Attach map");
+    }
+
+    // input
+    {
+      float inputLeftW = -w + (strlen("Save name:")+1) * letterW;
+      float inputRightW = w - 0.03f;
+
+      float inputTopH = h - 0.02f;
+      float inputBotH = 0.0f + h/2;
+    
+      attachSaveWindow[1] = (UIRect2){ .pos = {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},
+	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+	.c = { greenColor, 1.0f }
+      };
+
+      attachSaveWindow[1].input = calloc(1, sizeof(TextInput2));
+      attachSaveWindow[1].input->limit = 15;
+      attachSaveWindow[1].input->relatedUIRect = &attachSaveWindow[2];
+
+      attachSaveWindow[1].textPos = (vec2){inputLeftW - (strlen("Save name:")+1) * letterW, inputBotH + letterH};
+      attachSaveWindow[1].text = malloc(sizeof(char) * strlen("Save name:"));
+      strcpy(attachSaveWindow[1].text, "Save name:");
+    }
+
+    // save button
+    {
+      float inputLeftW = -w + 0.1f;
+      float inputRightW = -w + 0.1f + (strlen("attach")+1) * letterW;
+
+      float inputTopH = -h + letterH + 0.02f;
+      float inputBotH = -h + 0.02f;
+    
+      attachSaveWindow[2] = (UIRect2){ .pos = {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},
+	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+	.c = { greenColor, 1.0f }
+      };
+
+      attachSaveWindow[2].onClick = attachSaveNameToLocation;
+      
+      attachSaveWindow[2].highlight = malloc(sizeof(MeshBuffer));
+      bindUIQuad((vec2[6]) {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},(uint8_t[4]) { redColor, 1.0f }, attachSaveWindow[2].highlight);
+
+      attachSaveWindow[2].textPos = (vec2){inputLeftW, inputBotH + letterH };
+      attachSaveWindow[2].text = malloc(sizeof(char) * strlen("attach"));
+      strcpy(attachSaveWindow[2].text, "attach");
+    }
+
+    // cancel button
+    {
+      float inputLeftW = w - 0.1f - (strlen("cancel")+1) * letterW;
+      float inputRightW = w - 0.1f;
+
+      float inputTopH = -h + letterH + 0.02f;
+      float inputBotH = -h + 0.02f;
+    
+      attachSaveWindow[3] = (UIRect2){ .pos = {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},
+	.lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+	.c = { greenColor, 1.0f }
+      };
+
+      attachSaveWindow[3].onClick = clearCurrentUI;
+
+      attachSaveWindow[3].highlight = malloc(sizeof(MeshBuffer));
+      bindUIQuad((vec2[6]) {
+	  { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+	  { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+	},(uint8_t[4]) { redColor, 1.0f }, attachSaveWindow[3].highlight);
+
+      attachSaveWindow[3].textPos = (vec2){inputLeftW, inputBotH + letterH };
+      attachSaveWindow[3].text = malloc(sizeof(char) * strlen("cancel"));
+      strcpy(attachSaveWindow[3].text, "cancel");
+    }
+
+    UIStructBufs[attachSaveWindowT] = batchUI(attachSaveWindow, attachSaveWindowSize);
+  }
+
   screenRatio = windowW / windowH;
   
   // setup 2d circle
@@ -156,7 +276,7 @@ void editorMapPreLoop() {
     float angle = 360.0f / 8.0f;
     int triNum = 8 - 2;
 
-    float r = .025f;
+    float r = .03f;
 
     vec2 points[8];
 
@@ -270,72 +390,109 @@ void editorMapPreLoop() {
 };
 
 void editorMapEvents(SDL_Event event){
-  if (event.type == SDL_KEYDOWN) {
-    if(event.key.keysym.scancode == SDL_SCANCODE_F) {
-      locationCirclesSize++;
+  if (event.type == SDL_KEYDOWN){
+    if(!selectedTextInput2 && curUIBuf.rectsSize == 0) {
+      if(selectedLocation && event.key.keysym.scancode == SDL_SCANCODE_A){
+	if(curUIBuf.rects != UIStructBufs[attachSaveWindowT]->rects){
+	  memcpy(&curUIBuf, UIStructBufs[attachSaveWindowT], sizeof(UIBuf));
 	
-      if(!locationCircles){
-	locationCircles = malloc(sizeof(LocationCircle));
-      }else{
-	locationCircles = realloc(locationCircles, sizeof(LocationCircle) * locationCirclesSize);
+	  selectedTextInput2 = curUIBuf.rects[1].input;
+	  textInputCursorMat.x = curUIBuf.rects[1].pos[0].x;
+	  textInputCursorMat.z = curUIBuf.rects[1].pos[0].z;
+	}
+      }
+    
+      if(event.key.keysym.scancode == SDL_SCANCODE_F) {
+	locationCirclesSize++;
+	
+	if(!locationCircles){
+	  locationCircles = malloc(sizeof(LocationCircle));
+	}else{
+	  locationCircles = realloc(locationCircles, sizeof(LocationCircle) * locationCirclesSize);
+	}
+
+	locationCircles[locationCirclesSize-1].saveName = NULL;
+	locationCircles[locationCirclesSize-1].scale = 1.0f;
+	locationCircles[locationCirclesSize-1].mapPos = (vec2){ translateToGlobalCoords(mouse.cursor.x, mouse.cursor.z) };
+      }
+    }
+  }
+
+  if (event.type == SDL_MOUSEMOTION) {
+    float x = -1.0 + 2.0 * (event.motion.x / windowW);
+    float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
+
+    //if (curMenu /*|| cursorMode */|| curUIBuf.rectsSize != 0) {
+      mouse.lastCursor.x = mouse.cursor.x;
+      mouse.lastCursor.z = mouse.cursor.z;
+
+      mouse.cursor.x = x;
+      mouse.cursor.z = y;
+    //}
+  }
+  
+  if (event.type == SDL_MOUSEWHEEL && curUIBuf.rectsSize == 0) {
+    bool mouseVsCircle = false;
+    
+    if(selectedLocation){
+      if (event.wheel.y > 0) {
+	//	selectedLocation->scale += 0.01f;
+      }else if (event.wheel.y < 0) {
+	//	selectedLocation->scale -= 0.01f;
+	
+
+	
       }
 
-      locationCircles[locationCirclesSize-1].scale = 1.0f;
-      //      locationCircles[locationCirclesSize-1].mapPos = (vec2){ translateToGlobalCoords(cursorX, cursorZ) };
-      //      locationCircles[locationCirclesSize-1].mapPos = (vec2){ cursorX, cursorZ };
+    }else{
+      if (event.wheel.y > 0) {
+	zoomLevel += 0.05f; 
+      }else if (event.wheel.y < 0 && zoomLevel >= 1.05f) {
+	zoomLevel -= 0.05f;
+      }
 
-      float trasfCircleX = zoomLevel * (offset.x + cursorX);
-      float trasfCircleZ = zoomLevel * (offset.z + cursorZ);
-      locationCircles[locationCirclesSize-1].mapPos = (vec2){ trasfCircleX, trasfCircleZ };
+      glUseProgram(shadersId[UITransfTx]);
+      uniformVec2(UITransfTx, "model2D", (vec2){ zoomLevel, zoomLevel });
 
+      float topLimitY = (zoomLevel * ((offset.z)+scaleY));
+      float botLimitY = (zoomLevel * ((offset.z)+(-scaleY)));
+
+      if(botLimitY > -1.0f){
+	offset.z -= 1.0f + botLimitY; 
+      }
+
+      if(topLimitY < 1.0f){
+	offset.z += 1.0f - topLimitY; 
+      }
     }
   }
 
-  
-  if (event.type == SDL_MOUSEWHEEL) {
-    if (event.wheel.y > 0) {
-      zoomLevel += 0.05f; 
-    }else if (event.wheel.y < 0 && zoomLevel > 1.0f) {
-      zoomLevel -= 0.05f;
-    }
-
-    glUseProgram(shadersId[UITransfTx]);
-    uniformVec2(UITransfTx, "model2D", (vec2){ zoomLevel, zoomLevel });
-
-    float topLimitY = (zoomLevel * ((offset.z)+scaleY));
-    float botLimitY = (zoomLevel * ((offset.z)+(-scaleY)));
-
-    if(botLimitY > -1.0f){
-      offset.z -= 1.0f + botLimitY; 
-    }
-
-    if(topLimitY < 1.0f){
-      offset.z += 1.0f - topLimitY; 
-    }
-  }
-
-  if(event.type == SDL_MOUSEMOTION && mouse.leftDown){ 
+  if(event.type == SDL_MOUSEMOTION && mouse.leftDown && curUIBuf.rectsSize == 0){
     float xoffset = event.motion.xrel;
     float yoffset = -event.motion.yrel;
-
-    float dx = xoffset * (0.0001f * 1.5f);
-    float dz = yoffset * (0.0001f * 1.5f) * screenRatio;
-
-    printf("trasfY %f \n", zoomLevel * (offset.z+(-scaleY)));
-    printf("zoomedY %f \n", zoomLevel * (-scaleY));
-
-    //    if( offset.x + dx)
-
-    float topLimitY = (zoomLevel * ((offset.z+dz)+scaleY));
-    float botLimitY = (zoomLevel * ((offset.z+dz)+(-scaleY)));
-
-    printf("dz: %f\n", dz);
-
-    if(topLimitY > 1.0f && botLimitY < -1.0f){
-      offset.z += dz;
-    }
     
-    offset.x += dx;
+    if(selectedLocation || locationIsDragging){
+      vec2 gCursor = { translateToGlobalCoords(mouse.cursor.x, mouse.cursor.z) };
+      
+      selectedLocation->mapPos.x = gCursor.x;
+      selectedLocation->mapPos.z = gCursor.z;
+      
+      locationIsDragging = true;
+    }else{
+      float dx = xoffset * (0.0001f * 1.5f);
+      float dz = yoffset * (0.0001f * 1.5f) * screenRatio;
+      
+      float topLimitY = (zoomLevel * ((offset.z+dz)+scaleY));
+      float botLimitY = (zoomLevel * ((offset.z+dz)+(-scaleY)));
+
+      printf("dz: %f\n", dz);
+
+      if(topLimitY > 1.0f && botLimitY < -1.0f){
+	offset.z += dz;
+      }
+    
+      offset.x += dx;
+    }
   }
 
   if(event.type == SDL_MOUSEBUTTONDOWN){
@@ -345,9 +502,70 @@ void editorMapEvents(SDL_Event event){
   if(event.type == SDL_MOUSEBUTTONUP){
     mouse.clickL = event.button.button == SDL_BUTTON_LEFT;
     mouse.leftDown = false;
+    locationIsDragging = false;
   }
 };
 
 void editorMapMouseVS(){
 
+}
+
+
+void attachSaveNameToLocation(){
+  if(UIStructBufs[attachSaveWindowT]->rects[1].input->buf && strlen(UIStructBufs[attachSaveWindowT]->rects[1].input->buf)){}
+  else{
+    if (UIStructBufs[attachSaveWindowT]->rects[2].onclickResText) {
+      free(UIStructBufs[attachSaveWindowT]->rects[2].onclickResText);
+    }
+    
+    UIStructBufs[attachSaveWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Provide save name!"));
+    strcpy(UIStructBufs[attachSaveWindowT]->rects[2].onclickResText, "Provide save name!");
+  }
+  
+  char* save = calloc((strlen(UIStructBufs[attachSaveWindowT]->rects[1].input->buf) + strlen(".doomer")), sizeof(char));
+
+  strcat(save, UIStructBufs[attachSaveWindowT]->rects[1].input->buf);
+  strcat(save, ".doomer");
+
+  FILE* map = fopen(save, "r");
+  free(save);
+  
+  if(map){
+    selectedLocation->saveName = malloc(sizeof(char) * strlen(UIStructBufs[attachSaveWindowT]->rects[1].input->buf));
+    strcpy(selectedLocation->saveName, UIStructBufs[attachSaveWindowT]->rects[1].input->buf);
+    
+    clearCurrentUI();
+    fclose(map);
+  }else{
+    if (UIStructBufs[attachSaveWindowT]->rects[2].onclickResText) {
+      free(UIStructBufs[attachSaveWindowT]->rects[2].onclickResText);
+    }
+    
+    UIStructBufs[attachSaveWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Save doesnt exist!"));
+    strcpy(UIStructBufs[attachSaveWindowT]->rects[2].onclickResText, "Save doesnt exist!");
+  }
+}
+
+void editorMapRenderCursor(){
+  // cursor 
+  {
+    glUseProgram(shadersId[hudShader]);
+    
+    char buf[64];
+    sprintf(buf, "%f %f", offset.x - (mouse.cursor.x/ zoomLevel), offset.z - (mouse.cursor.z/zoomLevel));
+    renderText(buf, mouse.cursor.x, mouse.cursor.z - 0.01f,1.0f);
+    
+    glUseProgram(shadersId[UITransfShader]);
+    uniformVec2(UITransfShader, "model2D", (vec2){ mouse.cursor.x, mouse.cursor.z });
+    
+    glBindVertexArray(cursorBuf.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, cursorBuf.VBO);
+
+    glDrawArrays(GL_TRIANGLES, 0, cursorBuf.VBOsize);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glUseProgram(shadersId[hudShader]);
+  }
 }

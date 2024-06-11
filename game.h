@@ -6,3 +6,5 @@ void gameEvents(SDL_Event event);
 void gameOnSetInstance();
 void gameMatsSetup(int curShader);
 void gameMouseVS();
+
+void gameRenderCursor();

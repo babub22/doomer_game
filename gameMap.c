@@ -36,3 +36,7 @@ void gameMapEvents(SDL_Event event){
 void gameMapMouseVS(){
 
 }
+
+void gameMapRenderCursor(){
+
+}

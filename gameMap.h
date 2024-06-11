@@ -6,3 +6,5 @@ void gameMapMatsSetup(int curShader);
 void gameMapPreLoop();
 void gameMapEvents(SDL_Event event);
 void gameMapMouseVS();
+
+void gameMapRenderCursor();

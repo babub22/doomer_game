@@ -6,3 +6,7 @@ void editorMapMatsSetup(int curShader);
 void editorMapPreLoop();
 void editorMapEvents(SDL_Event event);
 void editorMapMouseVS();
+
+void attachSaveNameToLocation();
+
+void editorMapRenderCursor();
