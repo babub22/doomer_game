@@ -14,6 +14,7 @@ void editorMapOnSetInstance(){
 typedef struct{
   float scale; // of circle
   vec2 mapPos; // with def map scale (1.0f)
+  vec2 offset;
 
   char* saveName;
 } LocationCircle;
@@ -28,8 +29,8 @@ MeshBuffer worldMapBuf;
 MeshBuffer cursorBuf;
 
 MeshBuffer circleBuf;
-
 int mapTx;
+
 
 //float mouse.cursor.x;
 //float mouse.cursor.z;
@@ -78,8 +79,12 @@ void editorMap2dRender(){
   // circle
   glUseProgram(shadersId[UITransfColor]);
   for(int i=0;i<locationCirclesSize;i++){
-    float trasfCircleX = zoomLevel * (offset.x + locationCircles[i].mapPos.x);
-    float trasfCircleZ = zoomLevel * (offset.z + locationCircles[i].mapPos.z);
+      /*
+      float trasfCircleX = zoomLevel * (offset.x + (locationCircles[i].mapPos.x + locationCircles[i].offset.x));
+      float trasfCircleZ = zoomLevel * (offset.z + (locationCircles[i].mapPos.z + locationCircles[i].offset.z));*/
+
+      float trasfCircleX = zoomLevel * (offset.x + (locationCircles[i].mapPos.x));
+      float trasfCircleZ = zoomLevel * (offset.z + (locationCircles[i].mapPos.z));
     
     if(trasfCircleX > 1.0f || trasfCircleX < -1.0f){
       continue;
@@ -88,13 +93,23 @@ void editorMap2dRender(){
     if(trasfCircleZ > 1.0f || trasfCircleZ < -1.0f){
       continue;
     }
-    
+
     uniformVec2(UITransfColor, "offset", (vec2){
-	trasfCircleX / zoomLevel,
-	trasfCircleZ  / zoomLevel
+       trasfCircleX / zoomLevel,
+       trasfCircleZ  / zoomLevel
+      });
+
+    
+    uniformVec2(UITransfColor, "scaleOffset", (vec2){
+	    locationCircles[i].offset.x  *zoomLevel,
+	    locationCircles[i].offset.z  *zoomLevel
+//       zoomLevel / locationCircles[i].offset.x  *zoomLevel,
+	    //     zoomLevel / locationCircles[i].offset.z  *zoomLevel
       });
     
-    uniformVec2(UITransfColor, "model2D", (vec2){ zoomLevel, zoomLevel });  
+    uniformVec2(UITransfColor, "model2D",
+		(vec2){ zoomLevel * locationCircles[i].scale,
+			zoomLevel * locationCircles[i].scale });  
 
     vec2 circleCenter = { trasfCircleX, trasfCircleZ };
 
@@ -128,7 +143,7 @@ void editorMap2dRender(){
 
       renderText(locationCircles[i].saveName,
 		 zoomLevel * (trasfCircleX / zoomLevel) - ((strlen(locationCircles[i].saveName) + 1) * letterW) / 2.0f,
-		 zoomLevel * ((trasfCircleZ  / zoomLevel) - .025f)
+		  ((trasfCircleZ - (locationCircles[i].scale * zoomLevel * .03f) ))
 		 ,1.0f);
       
       glUseProgram(shadersId[UITransfColor]);
@@ -402,7 +417,7 @@ void editorMapEvents(SDL_Event event){
 	}
       }
     
-      if(event.key.keysym.scancode == SDL_SCANCODE_F) {
+      if(event.key.keysym.scancode == SDL_SCANCODE_F && !selectedLocation) {
 	locationCirclesSize++;
 	
 	if(!locationCircles){
@@ -413,6 +428,7 @@ void editorMapEvents(SDL_Event event){
 
 	locationCircles[locationCirclesSize-1].saveName = NULL;
 	locationCircles[locationCirclesSize-1].scale = 1.0f;
+	locationCircles[locationCirclesSize-1].offset = (vec2){ 0, 0};
 	locationCircles[locationCirclesSize-1].mapPos = (vec2){ translateToGlobalCoords(mouse.cursor.x, mouse.cursor.z) };
       }
     }
@@ -428,32 +444,48 @@ void editorMapEvents(SDL_Event event){
 
       mouse.cursor.x = x;
       mouse.cursor.z = y;
-    //}
   }
+  //}
   
   if (event.type == SDL_MOUSEWHEEL && curUIBuf.rectsSize == 0) {
-    bool mouseVsCircle = false;
-    
-    if(selectedLocation){
-      if (event.wheel.y > 0) {
-	//	selectedLocation->scale += 0.01f;
-      }else if (event.wheel.y < 0) {
-	//	selectedLocation->scale -= 0.01f;
-	
+      bool mouseVsCircle = false;
+      
+      if(selectedLocation){
+	  float scale;
 
-	
-      }
+	  float normX = (selectedLocation->mapPos.x + 1)/ 2.0f;
 
-    }else{
-      if (event.wheel.y > 0) {
-	zoomLevel += 0.05f; 
-      }else if (event.wheel.y < 0 && zoomLevel >= 1.05f) {
-	zoomLevel -= 0.05f;
-      }
+//	  float preX = zoomLevel * (offset.x + selectedLocation->mapPos.x);
+//	  float preZ = zoomLevel * (offset.z + selectedLocation->mapPos.z);
+
+//	  preX *= selectedLocation->scale;
+//	  preZ *= selectedLocation->scale;
+	
+	  if (event.wheel.y > 0) {
+	      //scale = 0.01f;
+	      selectedLocation->scale += 0.01f;
+	  }else if (event.wheel.y < 0) {
+	      //scale = -0.01f;
+	      selectedLocation->scale -= 0.01f;
+	  }
+
+	  selectedLocation->offset.x = selectedLocation->mapPos.x - (selectedLocation->mapPos.x * selectedLocation->scale);
+	  
+	  selectedLocation->offset.z = selectedLocation->mapPos.z - (selectedLocation->mapPos.z * selectedLocation->scale);
+
+	  selectedLocation->offset.x  *= zoomLevel;
+	  selectedLocation->offset.z  *= zoomLevel;
+	  
+      }else{
+	  if (event.wheel.y > 0) {
+	      zoomLevel += 0.05f; 
+	  }else if (event.wheel.y < 0 && zoomLevel >= 1.05f) {
+	      zoomLevel -= 0.05f;
+	  }
 
       glUseProgram(shadersId[UITransfTx]);
       uniformVec2(UITransfTx, "model2D", (vec2){ zoomLevel, zoomLevel });
-
+      
       float topLimitY = (zoomLevel * ((offset.z)+scaleY));
       float botLimitY = (zoomLevel * ((offset.z)+(-scaleY)));
 
@@ -473,9 +505,15 @@ void editorMapEvents(SDL_Event event){
     
     if(selectedLocation || locationIsDragging){
       vec2 gCursor = { translateToGlobalCoords(mouse.cursor.x, mouse.cursor.z) };
+
+//      selectedLocation->offset = (vec2){ 0, 0 };
       
       selectedLocation->mapPos.x = gCursor.x;
       selectedLocation->mapPos.z = gCursor.z;
+      
+      selectedLocation->offset.x = selectedLocation->mapPos.x - (selectedLocation->mapPos.x * selectedLocation->scale);
+	  
+      selectedLocation->offset.z = selectedLocation->mapPos.z - (selectedLocation->mapPos.z * selectedLocation->scale);
       
       locationIsDragging = true;
     }else{
@@ -484,8 +522,6 @@ void editorMapEvents(SDL_Event event){
       
       float topLimitY = (zoomLevel * ((offset.z+dz)+scaleY));
       float botLimitY = (zoomLevel * ((offset.z+dz)+(-scaleY)));
-
-      printf("dz: %f\n", dz);
 
       if(topLimitY > 1.0f && botLimitY < -1.0f){
 	offset.z += dz;
@@ -515,7 +551,7 @@ void attachSaveNameToLocation(){
   if(UIStructBufs[attachSaveWindowT]->rects[1].input->buf && strlen(UIStructBufs[attachSaveWindowT]->rects[1].input->buf)){}
   else{
     if (UIStructBufs[attachSaveWindowT]->rects[2].onclickResText) {
-      free(UIStructBufs[attachSaveWindowT]->rects[2].onclickResText);
+      free(UIStructBufs[attachSaveWindowT]->rects[2].onclickResText);
     }
     
     UIStructBufs[attachSaveWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Provide save name!"));
