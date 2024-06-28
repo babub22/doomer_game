@@ -4841,8 +4841,9 @@ void setPlayerStartMarkerBrush(){
 }
 
 void setExitMarkerMarkerBrush(){
+    Marker
     mouse.brushType = mouseMarkerBrushT;
     mouse.brushThing = locationExitMarkerT;
 
     clearCurrentUI();
-}
+} я бобр крутой я бобр бобр бобр бобр

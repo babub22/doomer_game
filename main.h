@@ -116,6 +116,21 @@ typedef enum{
 } TileBlocksTypes;
 
 typedef enum{
+    playerStartMarkerT = 1,
+    locationExitMarkerT,
+  
+    markersCounter
+} MarkersTypes;
+
+typedef enum{
+    vec3 pos;
+    MarkersTypes type;
+} Marker;
+
+Marker markersStorage;
+int markersStorageSize;
+
+typedef enum{
   blocksMenuT,
   objectsMenuT,
   dialogEditorT,
@@ -134,6 +149,7 @@ typedef enum{
 } LightType;
 
 const char* tileBlocksStr[];
+const char* markersStr[];
 /*= { [roofBlockT] = "Roof",[stepsBlockT] = "Steps", [angledRoofT] = "Angle Roof" };*/
 
 const char* lightTypesStr[];// = { [dirLightShadowT] = "Dir light", [pointLightT] = "Point light" };
@@ -408,8 +424,9 @@ struct Tile{
   // 3 byte - over texture id
   // 4 byte - empty // maybe store H here
   int8_t tx;
-  //  GroundType type;
-  
+    
+  int8_t marker;
+    
   vec3 pos;
 
   int id;
@@ -541,6 +558,8 @@ typedef enum {
   mousePlaneT,
   mouseTileT,
   mouseLightT,
+  mouseMarkerT,
+  
   mouseSelectionTypesCounter
 } MouseSelectionType;
 
@@ -550,7 +569,7 @@ typedef enum {
   mouseTextureBrushT,
   mouseTileBrushT,
   mouseBlockBrushT,
-  mousePlayerBrushT,
+  mouseMarkerBrushT,
 } MouseBrushType;
 
 const char* mouseBrushTypeStr[];/* = {
@@ -857,7 +876,8 @@ const char sdlScancodesToACII[];/* = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', [55]='.'
 };*/
 
-const char* manipulationModeStr[];/* = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };*/
+const char* manipulationModeStr[];/* = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };*/
+
 
 // from '!' to 'z' in ASCII
 const vec2i englLettersMap[];/* = {
@@ -959,7 +979,8 @@ const vec2i englLettersMap[];/* = {
   { 4, 8}, // '{'
   { 3, 8}, // '|'
   { 2, 8}, // '}'
-  { 1, 8}, // '~'
+  { 1, 8}, // '~'
+
 };*/
 
 const char* sidesToStr[];// = { [top]= "Top", [bot]="Bot", [right]="Right", [left]"Left"};
@@ -969,6 +990,7 @@ void defaultGrid(int gX, int gY, int gZ);
 
 vec3 calculateNormal(vec3 a, vec3 b, vec3 c);
 
+/*
 typedef struct{
   float* verts;
   size_t tris;
@@ -976,7 +998,7 @@ typedef struct{
   VPair pairs;
 } Geometry;
 
-Geometry* geometry;
+Geometry* geometry;*/
 
 void attachNormalsToBuf(VPair* VPairBuf, int plane, int bufSize, float* buf);
 void createTexture(int* tx,int w,int h, void*px);
@@ -986,7 +1008,6 @@ void createTexture(int* tx,int w,int h, void*px);
 void uniformVec3(int shader, char* var, vec3 value);
 void uniformFloat(int shader, char* var, float value);
 void uniformInt(int shader, char* var, int value);
-
 
 void assembleBlocks();
 
@@ -1188,7 +1209,7 @@ struct TextInput2 {
 };
 
 typedef enum{
-  saveWindowT, loadWindowT, attachSaveWindowT, UIStructsCounter
+    saveWindowT, loadWindowT, attachSaveWindowT, markersListWindowT, UIStructsCounter
 } UIStruct;
 
 typedef struct{
@@ -1235,3 +1256,5 @@ int inputCursorPos;
 
 UIBuf* batchUI(UIRect2* rects, int rectsSize);
 void clearCurrentUI();
+
+VPair markersBufs[markersCounter];

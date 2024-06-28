@@ -125,11 +125,13 @@ const void(*instances[instancesCounter][funcsCounter])() = {
 // ~~~~~~~~~~~~~~~~~
 const char* instancesStr[] = { [editorInstance]="Editor", [gameInstance]="Game", [editorMapInstance]="Editor Map", [gameMapInstance]="Game Map" };
 
+const char* markersStr[] = { [playerStartMarkerT]="Player start", [locationExitMarkerT]="Exit marker" };
+
 const char* wallTypeStr[] = {
   [normWallT] = "Wall",[RWallT] = "RWall", [LWallT] = "LWall",[LRWallT] = "LRWall",[windowT] = "Window",[doorT] = "Door"
 };
 
-const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps",[angledRoofT] = "Angle Roof" };
+const char* tileBlocksStr[] = { [playerStartMarkerT] = "Player start", [roofBlockT] = "Roof",[stepsBlockT] = "Steps",[angledRoofT] = "Angle Roof" };
 
 const char* lightTypesStr[] = { [pointLightT] = "PointLight", [dirLightShadowT] = "DirLight(shadow)", [dirLightT] = "DirLight" };
 
@@ -188,6 +190,7 @@ const char* mouseBrushTypeStr[] = {
   [mouseTextureBrushT] = "Texture",
   [mouseTileBrushT] = "Tile",
   [mouseBlockBrushT] = "Block",
+  [mouseMarkerBrushT] = "Marker",
 };
 
 const char* manipulationModeStr[] = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };
@@ -435,6 +438,12 @@ int main(int argc, char* argv[]) {
 
   SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
   SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 16);
+
+  // markers VBO VAO
+  for(int i=0;i<markersCounter;i++){
+      glGenBuffers(1, &markersBufs.VBO);
+      glGenVertexArrays(1, &markersBufs.VAO);
+  }
 
   // cursor buffers
   {
@@ -5315,16 +5324,20 @@ void assembleBlocks(){
     0.0f -t - t, -t, bBlockD,            0.0f, capRatio,
   };
 
+  float cubeBlock[] = {
+
+  };
+
   float* blocksBuffers[tileBlocksCounter] = {
     [roofBlockT]=roofBlock,
     [stepsBlockT]=texturedTileVerts,
-    [angledRoofT]=angledRoof
+    [angledRoofT]=angledRoof,
   };
 
   int blocksBuffersSize[tileBlocksCounter] = {
     [roofBlockT]=sizeof(roofBlock),
     [stepsBlockT]=sizeof(texturedTileVerts),
-    [angledRoofT]=sizeof(angledRoof)
+    [angledRoofT]=sizeof(angledRoof),
   };
 
   

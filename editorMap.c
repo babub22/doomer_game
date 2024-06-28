@@ -551,7 +551,8 @@ void attachSaveNameToLocation(){
   if(UIStructBufs[attachSaveWindowT]->rects[1].input->buf && strlen(UIStructBufs[attachSaveWindowT]->rects[1].input->buf)){}
   else{
     if (UIStructBufs[attachSaveWindowT]->rects[2].onclickResText) {
-      free(UIStructBufs[attachSaveWindowT]->rects[2].onclickResText);
+      free(UIStructBufs[attachSaveWindowT]->rects[2].onclickResText);
+
     }
     
     UIStructBufs[attachSaveWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Provide save name!"));
