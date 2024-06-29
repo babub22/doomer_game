@@ -32,3 +32,5 @@ void editorRenderCursor();
 
 void setPlayerStartMarkerBrush();
 void setExitMarkerMarkerBrush();
+
+void batchMarkers();

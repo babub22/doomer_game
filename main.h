@@ -116,19 +116,17 @@ typedef enum{
 } TileBlocksTypes;
 
 typedef enum{
-    playerStartMarkerT = 1,
+    playerStartMarkerT = 0,
     locationExitMarkerT,
   
     markersCounter
 } MarkersTypes;
 
-typedef enum{
+/*
+typedef struct{
     vec3 pos;
     MarkersTypes type;
-} Marker;
-
-Marker markersStorage;
-int markersStorageSize;
+} Marker;*/
 
 typedef enum{
   blocksMenuT,
@@ -863,6 +861,10 @@ typedef enum{
   funcsCounter,
 } EngineInstanceFunc;
 
+Tile** markersStorage;
+int markersStorageSize;
+int markersCounterByType[markersCounter];
+
 typedef enum{
   lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITxShader, UITransfTx, UITransfColor, shadersCounter
 } Shaders;
@@ -990,7 +992,6 @@ void defaultGrid(int gX, int gY, int gZ);
 
 vec3 calculateNormal(vec3 a, vec3 b, vec3 c);
 
-/*
 typedef struct{
   float* verts;
   size_t tris;
@@ -998,7 +999,9 @@ typedef struct{
   VPair pairs;
 } Geometry;
 
-Geometry* geometry;*/
+/*
+Geometry* geometry;
+*/
 
 void attachNormalsToBuf(VPair* VPairBuf, int plane, int bufSize, float* buf);
 void createTexture(int* tx,int w,int h, void*px);

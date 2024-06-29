@@ -441,8 +441,14 @@ int main(int argc, char* argv[]) {
 
   // markers VBO VAO
   for(int i=0;i<markersCounter;i++){
-      glGenBuffers(1, &markersBufs.VBO);
-      glGenVertexArrays(1, &markersBufs.VAO);
+      glGenVertexArrays(1, &markersBufs[i].VAO);
+      glBindVertexArray(markersBufs[i].VAO);
+
+      glGenBuffers(1, &markersBufs[i].VBO);
+      glBindBuffer(GL_ARRAY_BUFFER, markersBufs[i].VBO);
+
+      glEnableVertexAttribArray(0);
+      glBindVertexArray(0);
   }
 
   // cursor buffers
@@ -1564,7 +1570,7 @@ int main(int argc, char* argv[]) {
      //	glActiveTexture(GL_TEXTURE0);
      }*/
 
-  geometry = calloc(loadedTexturesCounter, sizeof(Geometry));
+  /*geometry = calloc(loadedTexturesCounter, sizeof(Geometry));
 
   for (int i = 0; i < loadedTexturesCounter; i++) {
     glGenVertexArrays(1, &geometry[i].pairs.VAO);
@@ -1575,7 +1581,7 @@ int main(int argc, char* argv[]) {
 
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
-  }
+  }*/
 
   finalGeom = malloc(sizeof(GeomFin) * loadedTexturesCounter);
     
@@ -5740,6 +5746,10 @@ void batchAllGeometryNoHidden(){
   for(int i=0;i<loadedTexturesCounter;i++){ 
     glBindVertexArray(finalGeom[i].VAO);
     glBindBuffer(GL_ARRAY_BUFFER, finalGeom[i].VBO);
+
+    if (!preGeom[i].size) {
+        continue;
+    }
 
     glBufferData(GL_ARRAY_BUFFER, preGeom[i].size, preGeom[i].buf, GL_STATIC_DRAW);
 
