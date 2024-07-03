@@ -1261,3 +1261,20 @@ UIBuf* batchUI(UIRect2* rects, int rectsSize);
 void clearCurrentUI();
 
 VPair markersBufs[markersCounter];
+
+typedef struct{
+    vec3 center;
+} CollisionSquare;
+
+CollisionSquare* acceptedLayers;
+int acceptedLayersSize;
+
+CollisionSquare* deniedLayers;
+int deniedLayersSize;
+
+
+#define navMeshCounter 2
+MeshBuffer navigationTilesMesh[navMeshCounter];
+void generateNavTiles();
+
+

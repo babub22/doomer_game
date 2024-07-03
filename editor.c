@@ -2481,6 +2481,7 @@ void editor3dRender() {
 
     // net tile draw
     if (curFloor != 0) {
+//    if (true) {
 	uniformVec3(lightSourceShader, "color", (vec3) { darkPurple });
 	Matrix out2 = IDENTITY_MATRIX;
 	out2.m[13] = curFloor;
@@ -4808,8 +4809,8 @@ void editorRenderCursor(){
 	float z = -(-1.0 + 2.0 * (yy / windowH));
 
 	float cursorPoint[] = {
-	    x, z,            0.0f, 0.0f,
-	    x + cursorW * 0.05f, z - cursorH,            0.0f, 0.0f,
+	    x, z,                                                   0.0f, 0.0f,
+	    x + cursorW * 0.05f, z - cursorH,                       0.0f, 0.0f,
 	    x + cursorW, z - cursorH + (cursorH * 0.5f),            0.0f, 0.0f,
 	};
 

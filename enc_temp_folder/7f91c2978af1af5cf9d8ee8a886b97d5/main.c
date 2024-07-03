@@ -6835,25 +6835,9 @@ void generateNavTiles(){
 		  
 	    for(int row=0;row<3;row++){
 		for(int col=0;col<3;col++){
-		    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, wallsStorage[i]->planes[i3].lb, wallsStorage[i]->planes[i3].rt, NULL, &intersectionDistance);
-
-		    vec2 tileRt = {1.0f * netPad[row+1] - squarePad + tilesStorage[indexTile].pos.x,
-				   1.0f * netPad[col+1] - squarePad + tilesStorage[indexTile].pos.z };
-		    
-		    vec2 tileLb = {1.0f * netPad[row] + squarePad + tilesStorage[indexTile].pos.x,
-				   1.0f * netPad[col] + squarePad + tilesStorage[indexTile].pos.z };
-		    
-		    vec2 wallRt;
-		    vec2 wallLb;
-
-		    
-
-		    
 		    // squares
-		    if(isIntersect){
-
-		    }else{
-			acceptedTiles[(indexTile*squareIndxPad) + (index * 6) + 0] = (vec3){ (1.0f * netPad[row+1]) - squarePad + tilesStorage[indexTile].pos.x,
+		    {
+				acceptedTiles[(indexTile*squareIndxPad) + (index * 6) + 0] = (vec3){ (1.0f * netPad[row+1]) - squarePad + tilesStorage[indexTile].pos.x,
 										       0.1f,
 										       1.0f * netPad[col] + squarePad + tilesStorage[indexTile].pos.z };
 
