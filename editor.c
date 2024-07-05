@@ -119,6 +119,39 @@ void editorOnSetInstance(){
 
 
 void editorPreLoop(){
+    // setup mats for markers
+    {
+	// locationExitMarkerT
+	markersMats[locationExitMarkerT] = IDENTITY_MATRIX;
+
+	scale(&  markersMats[locationExitMarkerT], 9.0f, 1.0f, 9.0f);
+	    
+	markersMats[locationExitMarkerT].m[12] = bBlockD / 2;
+	markersMats[locationExitMarkerT].m[13] = 0.1f;
+	markersMats[locationExitMarkerT].m[14] = bBlockD / 2;
+
+	// playerStartMarkerT
+	//markersMats[playerStartMarkerT] = IDENTITY_MATRIX;
+
+	//scale(&  markersMats[playerStartMarkerT], 3.0f, 5.0f, 3.0f);
+	    
+	//markersMats[playerStartMarkerT].m[12] = bBlockD / 2;
+//	markersMats[playerStartMarkerT].m[13] = 5.0f / 2.0f;
+//	markersMats[playerStartMarkerT].m[14] = bBlockD / 2;
+    }
+
+    // setup mats for entities
+    {
+	// playerEntity
+	entitiesMats[playerEntityT] = IDENTITY_MATRIX;
+
+	scale(&entitiesMats[playerEntityT], 3.0f, 5.0f, 3.0f);
+	    
+	entitiesMats[playerEntityT].m[12] = bBlockD / 2;
+	entitiesMats[playerEntityT].m[13] = 5.0f / 2.0f;
+	entitiesMats[playerEntityT].m[14] = bBlockD / 2;
+    }
+    
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
@@ -175,11 +208,6 @@ void editorPreLoop(){
 
 	    switch (i)
 	    {
-	    case(playerStartMarkerT): {
-		markersWindow[i+1].onClick = setPlayerStartMarkerBrush;
-
-		break;
-	    }
 	    case(locationExitMarkerT): {
 		markersWindow[i+1].onClick = setExitMarkerMarkerBrush;
 
@@ -263,6 +291,77 @@ strcpy(loadWindow[3].text, "cancel");
 */
 	UIStructBufs[markersListWindowT] = batchUI(markersWindow, markersWindowSize);
     }
+
+    // entity window
+    {
+	UIRect2* entitiesWindow;
+	int entitiesWindowSize;
+
+	entitiesWindowSize = 1 + entityTypesCounter;
+	entitiesWindow = calloc(entitiesWindowSize, sizeof(UIRect2));    
+    
+	float rW = -1000.0f;
+	
+	// background
+	for(int i=0;i<entityTypesCounter;i++){
+	    float inputLeftW = -1.0f;
+	    float inputRightW = -1.0f + (strlen(entityTypeStr[i])+1) * letterW;
+
+	    rW = fmaxf(rW, -1.0f + (strlen(entityTypeStr[i])+1) * letterW);
+
+	    float inputTopH = 1.0f - ((i+1) * letterH);
+	    float inputBotH = inputTopH - letterH;
+    
+	    entitiesWindow[i+1] = (UIRect2){
+		.pos = {
+		    { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+		    { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+		},
+            .lb = {inputLeftW, inputBotH}, .rt = {inputRightW, inputTopH},
+					    .c = { blackColor, 1.0f }
+	    };
+
+	    switch (i)
+	    {
+	    case(playerEntityT): {
+		entitiesWindow[i+1].onClick = setPlayerEntityBrush;
+
+		break;
+	    }
+	    default:
+		break;
+	    }
+
+	    entitiesWindow[i+1].highlight = malloc(sizeof(MeshBuffer));
+	    bindUIQuad((vec2[6]) {
+		    { inputLeftW, inputBotH },{ inputLeftW, inputTopH }, { inputRightW, inputTopH },
+		    { inputLeftW, inputBotH },{ inputRightW, inputTopH }, { inputRightW, inputBotH },
+		},(uint8_t[4]) { redColor, 1.0f }, entitiesWindow[i+1].highlight);
+
+	    entitiesWindow[i+1].textPos = (vec2){inputLeftW, inputBotH + letterH };
+	    entitiesWindow[i+1].text = malloc(sizeof(char) * strlen(entityTypeStr[i]));
+	    strcpy(entitiesWindow[i+1].text, entityTypeStr[i]);
+	}
+    
+	{
+	    float lW = -1.0f;
+	    float h = 1.0f - ((entityTypesCounter+1) * letterH);
+	    entitiesWindow[0] = (UIRect2){ .pos = {
+		    { lW, h }, { lW, 1.0f }, { rW, 1.0f },
+		    { lW, h }, { rW, 1.0f }, { rW, h }
+		},
+					  .c = { blackColor, 1.0f },
+					  .lb = { lW, h}, .rt = {rW, 1.0f}
+	    };
+
+	    entitiesWindow[0].textPos = (vec2){ -1.0f, 1.0f };
+	    entitiesWindow[0].text = malloc(sizeof(char) * strlen("Entities:"));
+	    strcpy(entitiesWindow[0].text, "Entities:");
+	}
+	
+	UIStructBufs[entityWindowT] = batchUI(entitiesWindow, entitiesWindowSize);
+    }
+
     
     // loadWindow
     {
@@ -814,6 +913,12 @@ void editorEvents(SDL_Event event){
 		selectedTextInput2 = curUIBuf.rects[1].input;
 		textInputCursorMat.x = curUIBuf.rects[1].pos[0].x;
 		textInputCursorMat.z = curUIBuf.rects[1].pos[0].z;
+	    }else{
+		clearCurrentUI();
+	    }
+	}else if(event.key.keysym.scancode == SDL_SCANCODE_L){
+	    if(curUIBuf.rects != UIStructBufs[entityWindowT]->rects){
+		memcpy(&curUIBuf, UIStructBufs[entityWindowT], sizeof(UIBuf));
 	    }else{
 		clearCurrentUI();
 	    }
@@ -2465,13 +2570,53 @@ void editor3dRender() {
     // markers
     for(int i=0;i<markersCounter;i++){
 	uniformVec3(lightSourceShader, "color", (vec3) { darkPurple });
-	Matrix out2 = IDENTITY_MATRIX;
-	uniformMat4(lightSourceShader, "model", out2.m);
+	
+	Matrix mat = IDENTITY_MATRIX;
+
+	uniformMat4(lightSourceShader, "model", mat.m);
 
 	glBindBuffer(GL_ARRAY_BUFFER, markersBufs[i].VBO);
 	glBindVertexArray(markersBufs[i].VAO);
 
 	glDrawArrays(GL_TRIANGLES, 0, markersBufs[i].vertexNum);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+    }
+
+        // markers
+    for(int i=0;i<markersCounter;i++){
+	uniformVec3(lightSourceShader, "color", (vec3) { darkPurple });
+	
+	Matrix mat = IDENTITY_MATRIX;
+
+	uniformMat4(lightSourceShader, "model", mat.m);
+
+	glBindBuffer(GL_ARRAY_BUFFER, markersBufs[i].VBO);
+	glBindVertexArray(markersBufs[i].VAO);
+
+	glDrawArrays(GL_TRIANGLES, 0, markersBufs[i].vertexNum);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+    }
+
+// entity box
+    for(int i=0;i<entityTypesCounter;i++){
+	uniformVec3(lightSourceShader, "color", (vec3) { cyan });
+	
+	Matrix mat = IDENTITY_MATRIX;
+	
+	uniformMat4(lightSourceShader, "model", mat.m);
+
+	glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
+	glBindVertexArray(entitiesBatch[i].VAO);
+
+	glDrawArrays(GL_TRIANGLES, 0, entitiesBatch[i].VBOsize);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -2669,26 +2814,60 @@ void editor3dRender() {
 
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
 	    glBindVertexArray(0);
+	}else if(mouse.brushType == mouseEntityBrushT){
+	    Entity* entity = (Entity*) mouse.brushThing;
+	    
+	    glUseProgram(shadersId[lightSourceShader]);
+		
+	    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
+	    glBindVertexArray(cube.VAO);
+
+	    Matrix mat;
+	    memcpy(mat.m, entitiesMats[entity->type].m, sizeof(float) * 16);
+
+	    if(selectedCollisionTileIndex != -1){
+		float div = 1.0f / 3.0f / 2.0f;
+		mat.m[12] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x + div;
+		mat.m[13] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y;
+		mat.m[14] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z + div;
+	    }else{
+		mat.m[12] = tile.x + bBlockD / 2;
+		mat.m[13] = tile.y;
+		mat.m[14] = tile.z + bBlockD / 2;
+	    }
+
+	    entity->mat.m[12] = mat.m[12];
+	    entity->mat.m[13] = mat.m[13];
+	    entity->mat.m[14] = mat.m[14];
+
+	    uniformMat4(lightSourceShader, "model", mat.m);
+
+	    if(mouse.brushThing == locationExitMarkerT){
+		uniformVec3(lightSourceShader, "color", (vec3){ blackColor } );
+	    }
+	    
+	    glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
+	    
+	    glUseProgram(shadersId[mainShader]);
+	    
+	    glBindBuffer(GL_ARRAY_BUFFER, 0);
+	    glBindVertexArray(0);
 	}else if(mouse.brushType == mouseMarkerBrushT){
 	    glUseProgram(shadersId[lightSourceShader]);
 		
 	    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
 	    glBindVertexArray(cube.VAO);
 
-	    Matrix mat = IDENTITY_MATRIX;
+	    Matrix mat;
+	    memcpy(mat.m, markersMats[(int)mouse.brushThing].m, sizeof(float) * 16);
 
-	    scale(&mat, 6.0f, 6.0f, 6.0f);
-	    
 	    mat.m[12] = tile.x + bBlockD / 2;
-	    mat.m[13] = tile.y + 0.1f * 6.0f;
+	    mat.m[13] = tile.y;
 	    mat.m[14] = tile.z + bBlockD / 2;
 
-
 	    uniformMat4(lightSourceShader, "model", mat.m);
-		
-	    if(mouse.brushThing == playerStartMarkerT){
-	      uniformVec3(lightSourceShader, "color", (vec3){ redColor } );
-	    }else if(mouse.brushThing == locationExitMarkerT){
+
+	    if(mouse.brushThing == locationExitMarkerT){
 		uniformVec3(lightSourceShader, "color", (vec3){ blackColor } );
 	    }
 	    
@@ -3073,12 +3252,35 @@ void editor2dRender() {
 	     }
 
 	     break;
-	 }case(mouseMarkerBrushT): {
+	 }case(mouseEntityBrushT): {
+	     if (mouse.clickR && mouse.selectedType == mouseTileT) {
+		 Entity* entity = (Entity*) mouse.brushThing;
+
+		 if(entity->type != playerEntityT || (entity->type == playerEntityT && entityStorageSize[playerEntityT] == 0)){
+		     entityStorageSize[entity->type]++;
+
+		     if(!entityStorage[entity->type]){
+			 entityStorage[entity->type] = malloc(sizeof(Entity));
+		     }else{
+			 entityStorage[entity->type] = realloc(entityStorage[entity->type], sizeof(Entity) * entityStorageSize[entity->type]);
+		     }
+		 }
+		 
+		 memcpy(&entityStorage[entity->type][entityStorageSize[entity->type]-1], entity, sizeof(Entity));
+		 
+		 free(mouse.brushThing);
+		 mouse.brushThing = NULL;
+		 mouse.brushType = 0;
+
+		 batchEntitiesBoxes();
+	     }
+
+	     break;
+	 }
+	case(mouseMarkerBrushT): {
 	     if (mouse.clickR && mouse.selectedType == mouseTileT) {
 		 TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 		 int marker = mouse.brushThing;
-
-		 printf("%d \n", marker);
 
 		 int tileId = tileData->tileId;
 
@@ -3102,6 +3304,7 @@ void editor2dRender() {
 		 }
 
 		 markersStorage[markersStorageSize - 1] = &tilesStorage[tileId];
+
 		 batchMarkers();
 	     }
 
@@ -4607,7 +4810,52 @@ void editorMouseVS(){
 	    }
 	}
     }
-  
+    
+    selectedCollisionTileIndex = -1;
+    if(navPointsDraw && mouse.selectedType == mouseTileT){
+	for(int i=0;i<collisionLayersSize[acceptedLayerT];i++){
+	    if((acceptedCollisionTilesAABB[i].lb.y - 0.1f) == intersTileData->pos.y){
+		if(intersTileData->intersection.x >= acceptedCollisionTilesAABB[i].lb.x &&
+		   intersTileData->intersection.x <= acceptedCollisionTilesAABB[i].rt.x &&
+		   intersTileData->intersection.z >= acceptedCollisionTilesAABB[i].lb.z &&
+		   intersTileData->intersection.z <= acceptedCollisionTilesAABB[i].rt.z){
+		    selectedCollisionTileIndex = i;
+		    break;
+		}
+	    }
+	}
+	
+	if(selectedCollisionTileIndex != -1){
+		int index = selectedCollisionTileIndex;
+		float h = acceptedCollisionTilesAABB[index].lb.y + 0.02f;
+		
+		float square[] = {
+		    acceptedCollisionTilesAABB[index].rt.x,  h, acceptedCollisionTilesAABB[index].lb.z,   
+		    acceptedCollisionTilesAABB[index].lb.x,  h, acceptedCollisionTilesAABB[index].rt.z,  
+		    acceptedCollisionTilesAABB[index].lb.x,  h, acceptedCollisionTilesAABB[index].lb.z,
+
+		    acceptedCollisionTilesAABB[index].rt.x,  h,  acceptedCollisionTilesAABB[index].lb.z,   
+		    acceptedCollisionTilesAABB[index].rt.x,  h,  acceptedCollisionTilesAABB[index].rt.z,      
+		    acceptedCollisionTilesAABB[index].lb.x,  h,  acceptedCollisionTilesAABB[index].rt.z,
+		};
+
+		glBindVertexArray(selectedCollisionTileBuf.VAO); 
+		glBindBuffer(GL_ARRAY_BUFFER, selectedCollisionTileBuf.VBO);
+
+		selectedCollisionTileBuf.VBOsize = 6;
+
+		glBufferData(GL_ARRAY_BUFFER,
+			     sizeof(square), square, GL_STATIC_DRAW);
+
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+		glEnableVertexAttribArray(0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+	    }
+	
+    }
+    
     if(mouse.selectedType != mouseTileT){
 	free(intersTileData);
     }
@@ -4829,9 +5077,14 @@ void editorRenderCursor(){
     }
 }
 
-void setPlayerStartMarkerBrush(){
-    mouse.brushType = mouseMarkerBrushT;
-    mouse.brushThing = playerStartMarkerT;
+void setPlayerEntityBrush(){
+    Entity* entity = malloc(sizeof(Entity));
+    entity->type = playerEntityT;
+
+    memcpy(entity->mat.m, &entitiesMats[entity->type], sizeof(float)*16);
+    
+    mouse.brushType = mouseEntityBrushT;
+    mouse.brushThing = entity;
 
     clearCurrentUI();
 }
@@ -4853,7 +5106,6 @@ void batchMarkers(){
     for(int i=0;i<markersStorageSize;i++){
 	vec3 markerPos = markersStorage[i]->pos;
 	MarkersTypes type = markersStorage[i]->marker;
-
     
 	int cubeIndx = 0;
 	for(int i2=markersCounterByType[type] * cube.vertexNum;
@@ -4865,14 +5117,15 @@ void batchMarkers(){
 			      cube.vBuf[cubeIndx+1],
 			      cube.vBuf[cubeIndx+2], 1.0f };
 
-	    Matrix mat = IDENTITY_MATRIX;
-	    scale(&mat, 6.0f, 6.0f, 6.0f);
-	    
-	    vec4 scaledCube = mulmatvec4(mat, cubeVert);
-	    
-	    vec4 pos = { markerPos.x + scaledCube.x + bBlockD / 2,
+	    vec4 scaledCube = mulmatvec4(markersMats[type], cubeVert);
+
+	    vec4 pos = { markerPos.x + scaledCube.x,
 			 markerPos.y + scaledCube.y,
-			 markerPos.z + scaledCube.z + bBlockD / 2, 1.0f };
+			 markerPos.z + scaledCube.z, 1.0f };
+	    
+/*	    vec4 pos = { markerPos.x + scaledCube.x + bBlockD / 2,
+			 markerPos.y + scaledCube.y,
+			 markerPos.z + scaledCube.z + bBlockD / 2, 1.0f };*/
 		     
 	    markersBufs[type].vBuf[index+0] = pos.x;
 	    markersBufs[type].vBuf[index+1] = pos.y;
@@ -4913,3 +5166,57 @@ void batchMarkers(){
 	//markersBufs[i].vBuf = NULL;
     }
 }
+
+
+void batchEntitiesBoxes(){
+    float* buf[entityTypesCounter];
+    int counter[entityTypesCounter] = { 0 };
+    
+    for(int i=0;i<entityTypesCounter;i++){
+	entitiesBatch[i].VBOsize = cube.vertexNum * entityStorageSize[i];
+	buf[i] = malloc(entitiesBatch[i].VBOsize * sizeof(float) * 3);
+
+	for(int i1=0;i1<entityStorageSize[i];i1++){
+	    int cubeIndx = 0;
+	    for(int i2=counter[i] * cube.vertexNum;
+		i2 < (counter[i]+1) * cube.vertexNum;i2++){
+		int index = i2*3;
+
+		vec4 cubeVert = { cube.vBuf[cubeIndx+0],
+				  cube.vBuf[cubeIndx+1],
+				  cube.vBuf[cubeIndx+2], 1.0f };
+
+		vec4 pos = mulmatvec4(entityStorage[i][i1].mat, cubeVert);
+		/*
+		vec4 pos = { markerPos.x + scaledCube.x,
+				 markerPos.y + scaledCube.y,
+				 markerPos.z + scaledCube.z, 1.0f };
+		*/
+
+	    
+		buf[i][index+0] = pos.x;
+		buf[i][index+1] = pos.y;
+		buf[i][index+2] = pos.z;
+
+		cubeIndx += 3;
+	    }
+	    counter[i]++;
+	}
+
+	glBindVertexArray(entitiesBatch[i].VAO); 
+	glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
+
+	glBufferData(GL_ARRAY_BUFFER,
+		     entitiesBatch[i].VBOsize * sizeof(float) * 3,
+		     buf[i], GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	free(buf[i]);	
+    }
+}
+

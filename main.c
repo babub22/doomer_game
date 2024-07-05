@@ -125,13 +125,13 @@ const void(*instances[instancesCounter][funcsCounter])() = {
 // ~~~~~~~~~~~~~~~~~
 const char* instancesStr[] = { [editorInstance]="Editor", [gameInstance]="Game", [editorMapInstance]="Editor Map", [gameMapInstance]="Game Map" };
 
-const char* markersStr[] = { [playerStartMarkerT]="Player start", [locationExitMarkerT]="Exit marker" };
+const char* markersStr[] = { [locationExitMarkerT]="Exit marker" };
 
 const char* wallTypeStr[] = {
     [normWallT] = "Wall",[RWallT] = "RWall", [LWallT] = "LWall",[LRWallT] = "LRWall",[windowT] = "Window",[doorT] = "Door"
 };
 
-const char* tileBlocksStr[] = { [playerStartMarkerT] = "Player start", [roofBlockT] = "Roof",[stepsBlockT] = "Steps",[angledRoofT] = "Angle Roof" };
+const char* tileBlocksStr[] = { [roofBlockT] = "Roof",[stepsBlockT] = "Steps",[angledRoofT] = "Angle Roof" };
 
 const char* lightTypesStr[] = { [pointLightT] = "PointLight", [dirLightShadowT] = "DirLight(shadow)", [dirLightT] = "DirLight" };
 
@@ -191,9 +191,12 @@ const char* mouseBrushTypeStr[] = {
     [mouseTileBrushT] = "Tile",
     [mouseBlockBrushT] = "Block",
     [mouseMarkerBrushT] = "Marker",
+    [mouseEntityBrushT] = "Entity",
 };
 
 const char* manipulationModeStr[] = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };
+
+const char* entityTypeStr[] = { [playerEntityT] = "Player entity" };
 
 ModelsTypesInfo modelsTypesInfo[] = {
     [objectModelType] = {"Obj",0},
@@ -491,7 +494,7 @@ int main(int argc, char* argv[]) {
     }
 
     {
-	for(int i=0;i<navMeshCounter;i++){
+	for(int i=0;i< layersCounter;i++){
 	    glGenBuffers(1, &navigationTilesMesh[i].VBO);
 	    glGenVertexArrays(1, &navigationTilesMesh[i].VAO);
 
@@ -507,6 +510,23 @@ int main(int argc, char* argv[]) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
+    }
+
+    // entities boxes
+    for(int i=0;i<entityTypesCounter;i++){
+	glGenBuffers(1, &entitiesBatch[i].VBO);
+	glGenVertexArrays(1, &entitiesBatch[i].VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+    }
+
+    {
+	glGenBuffers(1, &selectedCollisionTileBuf.VBO);
+	glGenVertexArrays(1, &selectedCollisionTileBuf.VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);        
     }
 
     // nav meshes
@@ -1653,6 +1673,8 @@ int main(int argc, char* argv[]) {
     //  if (!loadSave(".")) {
   
     allocateGrid(120, 8, 120);
+    allocateCollisionGrid(120, 8, 120);
+    
     defaultGrid(gridX, gridY, gridZ);
     //  }
 
@@ -1692,8 +1714,6 @@ int main(int argc, char* argv[]) {
     const float entityD = entityH / 6;
 
     vec3 initPos = { 0.3f + 0.1f / 2, 0.0f, 0.3f + 0.1f / 2 }; //+ 0.1f/2 - (entityD * 0.75f)/2 };
-
-    Entity player = { initPos,initPos, (vec3) { initPos.x + entityW, initPos.y + entityH, initPos.z + entityD }, 180.0f, 0, entityW, entityH, entityD };
 
     bool quit = false;
 
@@ -1856,7 +1876,18 @@ int main(int argc, char* argv[]) {
 	    if(navPointsDraw){
 		glUseProgram(shadersId[lightSourceShader]);
 
-		for(int i=0;i<navMeshCounter;i++){
+		if(selectedCollisionTileIndex != -1){
+		    glBindBuffer(GL_ARRAY_BUFFER, selectedCollisionTileBuf.VBO);
+		    glBindVertexArray(selectedCollisionTileBuf.VAO);
+
+		    Matrix out = IDENTITY_MATRIX;
+		    uniformMat4(lightSourceShader, "model", out.m);
+		    uniformVec3(lightSourceShader, "color", (vec3) { yellowColor });
+		    
+		    glDrawArrays(GL_TRIANGLES, 0, selectedCollisionTileBuf.VBOsize);
+		}
+
+		for(int i=0;i< layersCounter;i++){
 		    glBindBuffer(GL_ARRAY_BUFFER, navigationTilesMesh[i].VBO);
 		    glBindVertexArray(navigationTilesMesh[i].VAO);
 
@@ -4744,6 +4775,30 @@ void assembleWindowBlockVBO(){
     }
 }
 
+void allocateCollisionGrid(int gX, int gY, int gZ){
+    if(collisionGrid){
+	for (int y = 0; y < gridY*3; y++) {
+	    for (int z = 0; z < gridZ*3; z++) {
+		free(collisionGrid[y][z]);
+	    }
+      
+	    free(collisionGrid[y]);
+	}
+    
+	free(collisionGrid);
+    }
+    
+    collisionGrid = malloc(sizeof(uint8_t**) * gY);
+
+    for (int y = 0; y < gY; y++) {
+	collisionGrid[y] = malloc(sizeof(uint8_t*) * gZ *3);
+
+	for (int z = 0; z < gZ * 3; z++) {
+	    collisionGrid[y][z] = calloc(sizeof(uint8_t), gX * 3);
+	}
+    }
+}
+
 void allocateGrid(int gX, int gY, int gZ){ 
     if(grid){
 	for (int y = 0; y < gridY; y++) {
@@ -6393,7 +6448,7 @@ void assembleNavigation(){
     {
 	navPointsConnMesh.vBuf = malloc(sizeof(float) * (triCollSize) * 10 * 3);
     
-	// asseble navPointsMesh
+	// asseble selectedCollisionTileBuf
 	int index = 0;
 	for(int i=0;i<(triCollSize) * 10 * 3;i+=10*3){
 	    // 1
@@ -6799,12 +6854,8 @@ UIBuf* batchUI(UIRect2* rects, int rectsSize){
 }
 
 void generateNavTiles(){
-    int counter = 0;
-	    
-    for(int i=0;i<tilesStorageSize;i++){
-	if(tilesStorage[i].pos.y == 0){
-	    counter++;
-	}
+    for(int i=0;i<layersCounter;i++){
+	collisionLayersSize[i] = 0;
     }
 
     float square[] = {
@@ -6817,85 +6868,130 @@ void generateNavTiles(){
 	0.0f,  0.0f,  1.0f,
     };
 	  
-    vec3* acceptedTiles = malloc(sizeof(square) * 9 * counter);
-    vec3* deniedTiles = malloc(sizeof(square) * 9 * counter);
+    vec3* acceptedTiles = malloc(sizeof(square) * 9 * tilesStorageSize);
+    vec3* deniedTiles = malloc(sizeof(square) * 9 * tilesStorageSize);
+    CollisionTile* tiles = malloc(sizeof(CollisionTile) * tilesStorageSize * 9);
 
     float netPad[] = { 0.0f, 1.0f / 3.0f, 1.0f - (1.0f / 3.0f), 1.0f };
 
-    int indexTile = 0;
-	      
-//    int borderPad = 8 * 9;
     int squareIndxPad = 6 * 9;
 
     float squarePad = 0.02f;
+    int tilesCounter = 0;
 	  
     for(int i=0; i<tilesStorageSize; i++){
-	if(tilesStorage[indexTile].pos.y == 0){
-	    int index = 0;
-		  
-	    for(int row=0;row<3;row++){
-		for(int col=0;col<3;col++){
-		    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, wallsStorage[i]->planes[i3].lb, wallsStorage[i]->planes[i3].rt, NULL, &intersectionDistance);
+	for(int row=0;row<3;row++){
+	    for(int col=0;col<3;col++){
+		tiles[tilesCounter].h = tilesStorage[i].pos.y;
+		
+		tiles[tilesCounter].rt = (vec2) { 1.0f * netPad[row+1] - squarePad + tilesStorage[i].pos.x,
+						  1.0f * netPad[col+1] - squarePad + tilesStorage[i].pos.z };
 
-		    vec2 tileRt = {1.0f * netPad[row+1] - squarePad + tilesStorage[indexTile].pos.x,
-				   1.0f * netPad[col+1] - squarePad + tilesStorage[indexTile].pos.z };
-		    
-		    vec2 tileLb = {1.0f * netPad[row] + squarePad + tilesStorage[indexTile].pos.x,
-				   1.0f * netPad[col] + squarePad + tilesStorage[indexTile].pos.z };
-		    
-		    vec2 wallRt;
-		    vec2 wallLb;
+		tiles[tilesCounter].lb = (vec2){ 1.0f * netPad[row] + squarePad + tilesStorage[i].pos.x,
+						 1.0f * netPad[col] + squarePad + tilesStorage[i].pos.z };
 
-		    
-
-		    
-		    // squares
-		    if(isIntersect){
-
-		    }else{
-			acceptedTiles[(indexTile*squareIndxPad) + (index * 6) + 0] = (vec3){ (1.0f * netPad[row+1]) - squarePad + tilesStorage[indexTile].pos.x,
-										       0.1f,
-										       1.0f * netPad[col] + squarePad + tilesStorage[indexTile].pos.z };
-
-			acceptedTiles[(indexTile*squareIndxPad) + (index * 6) + 1] = (vec3){ 1.0f * netPad[row] + squarePad + tilesStorage[indexTile].pos.x,
-										       0.1f,
-										       1.0f * netPad[col+1] - squarePad + tilesStorage[indexTile].pos.z };
-
-			acceptedTiles[(indexTile*squareIndxPad) + (index * 6) + 2] = (vec3){ 1.0f * netPad[row] + squarePad + tilesStorage[indexTile].pos.x,
-										       0.1f,
-										       1.0f * netPad[col] + squarePad + tilesStorage[indexTile].pos.z };
-
-			//
-
-			acceptedTiles[(indexTile*squareIndxPad) + (index * 6) + 3] = (vec3){ 1.0f * netPad[row+1] - squarePad + tilesStorage[indexTile].pos.x,
-										       0.1f,
-										       1.0f * netPad[col] + squarePad + tilesStorage[indexTile].pos.z };
-
-			acceptedTiles[(indexTile*squareIndxPad) + (index * 6) + 4] = (vec3){ 1.0f * netPad[row+1] - squarePad + tilesStorage[indexTile].pos.x,
-										       0.1f,
-										       1.0f * netPad[col+1] - squarePad + tilesStorage[indexTile].pos.z };
-
-			acceptedTiles[(indexTile*squareIndxPad) + (index * 6) + 5] = (vec3){ 1.0f * netPad[row] + squarePad + tilesStorage[indexTile].pos.x,
-										       0.1f,
-										       1.0f * netPad[col+1] - squarePad + tilesStorage[indexTile].pos.z };
-		    }
-			      
-		    index++;
-		}
+		tiles[tilesCounter].f = false;
+		collisionLayersSize[acceptedLayerT]++;
+		tilesCounter++;
 	    }
 	}
-
-	indexTile++;
     }
+
+
+    for(int i2=0;i2<wallsStorageSize;i2++){
+	for(int i=0;i<tilesCounter;i++){
+	    if(tiles[i].f == true){
+		continue;
+	    }
+	    
+	    bool isIntersect = false;
+	
+	    vec2 wallRt = { wallsStorage[i2]->planes[wTopPlane].rt.x, wallsStorage[i2]->planes[wTopPlane].rt.z };
+	    vec2 wallLb = { wallsStorage[i2]->planes[wTopPlane].lb.x, wallsStorage[i2]->planes[wTopPlane].lb.z };
+
+	    isIntersect = wallLb.x <= tiles[i].rt.x &&
+		wallRt.x >= tiles[i].lb.x &&
+		wallLb.z <= tiles[i].rt.z &&
+		wallRt.z >= tiles[i].lb.z;
+
+	    if(isIntersect){
+		tiles[i].f = true;
+
+		float div = 1.0f / 3.0f;
+		
+		collisionGrid[tiles[i].h][(int)(tiles[i].lb.z/div)][(int)(tiles[i].lb.x/div)] = true;
+		collisionLayersSize[acceptedLayerT]--;
+	    }
+	}
+    }
+
+    if(acceptedCollisionTilesAABB){
+	free(acceptedCollisionTilesAABB);
+    }
+
+    acceptedCollisionTilesAABB = malloc(sizeof(AABB) * collisionLayersSize[acceptedLayerT]);
+
+	printf("Before %d \n", collisionLayersSize[acceptedLayerT]);
+
+    collisionLayersSize[acceptedLayerT] = 0;
+
+    for(int i=0;i<tilesCounter;i++){
+	float y = tiles[i].h + 0.1f;
+	
+	if(tiles[i].f){
+	    int index = collisionLayersSize[deniedLayerT];
+	    
+	    deniedTiles[(index*6) + 0] = (vec3){ tiles[i].rt.x, y, tiles[i].lb.z };
+
+	    deniedTiles[(index*6) + 1] = (vec3){ tiles[i].lb.x, y, tiles[i].rt.z };
+
+	    deniedTiles[(index*6) + 2] = (vec3){ tiles[i].lb.x, y, tiles[i].lb.z };
+
+	    //
+
+	    deniedTiles[(index*6) + 3] = (vec3){ tiles[i].rt.x, y, tiles[i].lb.z };
+
+	    deniedTiles[(index*6) + 4] = (vec3){ tiles[i].rt.x, y, tiles[i].rt.z };
+
+	    deniedTiles[(index*6) + 5] = (vec3){ tiles[i].lb.x, y, tiles[i].rt.z };
+	    
+	    collisionLayersSize[deniedLayerT]++;
+	}else{
+	    int index = collisionLayersSize[acceptedLayerT];
+	    
+	    acceptedTiles[(index*6) + 0] = (vec3){ tiles[i].rt.x, y, tiles[i].lb.z };
+
+	    acceptedTiles[(index*6) + 1] = (vec3){ tiles[i].lb.x, y, tiles[i].rt.z };
+
+	    acceptedTiles[(index*6) + 2] = (vec3){ tiles[i].lb.x, y, tiles[i].lb.z };
+
+	    //
+
+	    acceptedTiles[(index*6) + 3] = (vec3){ tiles[i].rt.x, y, tiles[i].lb.z };
+
+	    acceptedTiles[(index*6) + 4] = (vec3){ tiles[i].rt.x, y, tiles[i].rt.z };
+
+	    acceptedTiles[(index*6) + 5] = (vec3){ tiles[i].lb.x, y, tiles[i].rt.z };
+	    
+	    acceptedCollisionTilesAABB[index].lb = (vec3){ tiles[i].lb.x, y, tiles[i].lb.z };
+	    acceptedCollisionTilesAABB[index].rt = (vec3){ tiles[i].rt.x, y, tiles[i].rt.z };
+
+	    collisionLayersSize[acceptedLayerT]++;
+	}
+    }
+    
+
+	printf("AfterL %d \n", collisionLayersSize[acceptedLayerT]);
+    free(tiles);
 
     {
 	glBindVertexArray(navigationTilesMesh[0].VAO); 
 	glBindBuffer(GL_ARRAY_BUFFER, navigationTilesMesh[0].VBO);
 
-	navigationTilesMesh[0].VBOsize = 9 * 6 * counter;
+	navigationTilesMesh[0].VBOsize = 6 * collisionLayersSize[acceptedLayerT];
 
 	glBufferData(GL_ARRAY_BUFFER,
-		     sizeof(square) * 9 * counter, acceptedTiles, GL_STATIC_DRAW);
+		sizeof(square) * collisionLayersSize[acceptedLayerT], acceptedTiles, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
@@ -6910,10 +7006,10 @@ void generateNavTiles(){
 	glBindVertexArray(navigationTilesMesh[1].VAO); 
 	glBindBuffer(GL_ARRAY_BUFFER, navigationTilesMesh[1].VBO);
 
-	navigationTilesMesh[1].VBOsize = 0;//9 * 6 * counter;
+	navigationTilesMesh[1].VBOsize = 6 * collisionLayersSize[deniedLayerT];
 
 	glBufferData(GL_ARRAY_BUFFER,
-		     sizeof(square) * 9 * counter, deniedTiles, GL_STATIC_DRAW);
+		     sizeof(square) * collisionLayersSize[deniedLayerT], deniedTiles, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
@@ -6923,5 +7019,20 @@ void generateNavTiles(){
 
 	free(deniedTiles);
     }
+/*
+    printf("\n");
+
+
+//    for (int y = 0; y < gY; y++) {
+	for (int z = 0; z < gridZ*3; z++) {
+	    for (int x = 0; x < gridX*3; x++) {
+		printf("%d", collisionGrid[0][z][x]);
+	    }
+
+	    printf("\n");
+	}
+	//  }
+
+	printf("\n");*/
 }
 

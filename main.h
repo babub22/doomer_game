@@ -65,20 +65,6 @@ typedef struct{
   int txIndex;
 } Plane;
 
-typedef struct {
-  // use pos as min for AABB
-  vec3 pos; // normal XY
-
-  vec3 min; // normal XY
-  vec3 max;
-
-  float angle;
-  Side side;
-  
-  // vec3 colBox;
-  float w, h, d;
-} Entity;
-
 typedef struct{
   int frames;
 } AnimTimer;
@@ -116,7 +102,7 @@ typedef enum{
 } TileBlocksTypes;
 
 typedef enum{
-    playerStartMarkerT = 0,
+//    playerStartMarkerT = 0,
     locationExitMarkerT,
   
     markersCounter
@@ -557,6 +543,7 @@ typedef enum {
   mouseTileT,
   mouseLightT,
   mouseMarkerT,
+  mouseEntityT,
   
   mouseSelectionTypesCounter
 } MouseSelectionType;
@@ -568,6 +555,7 @@ typedef enum {
   mouseTileBrushT,
   mouseBlockBrushT,
   mouseMarkerBrushT,
+  mouseEntityBrushT,
 } MouseBrushType;
 
 const char* mouseBrushTypeStr[];/* = {
@@ -808,6 +796,7 @@ void assembleDoorBlockVBO();
 #define greyColor 0.5f, 0.5f, 0.5f
 
 #define darkPurple 0.1f, 0.0f, 0.1f
+#define yellowColor 1.0f, 1.0f, 0.0f
 
 #define cyan 0.0f, 1.0f, 1.0f
 
@@ -873,6 +862,8 @@ const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader"
 const char* instancesStr[];
 
 GLuint shadersId[shadersCounter];
+
+
 
 const char sdlScancodesToACII[];/* = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', [55]='.'
@@ -1212,7 +1203,7 @@ struct TextInput2 {
 };
 
 typedef enum{
-    saveWindowT, loadWindowT, attachSaveWindowT, markersListWindowT, UIStructsCounter
+    saveWindowT, loadWindowT, attachSaveWindowT, markersListWindowT, entityWindowT, UIStructsCounter
 } UIStruct;
 
 typedef struct{
@@ -1266,15 +1257,63 @@ typedef struct{
     vec3 center;
 } CollisionSquare;
 
+typedef enum{
+    deniedLayerT, acceptedLayerT, layersCounter
+} CollisionLayers;
+
 CollisionSquare* acceptedLayers;
-int acceptedLayersSize;
-
 CollisionSquare* deniedLayers;
-int deniedLayersSize;
+int collisionLayersSize[layersCounter];
 
+MeshBuffer navigationTilesMesh[layersCounter];
 
-#define navMeshCounter 2
-MeshBuffer navigationTilesMesh[navMeshCounter];
+uint8_t*** collisionGrid;
+void allocateCollisionGrid(int gX, int gY, int gZ);
+
 void generateNavTiles();
+
+typedef struct{
+    vec3 rt;
+    vec3 lb;
+} AABB;
+
+AABB* acceptedCollisionTilesAABB;
+
+int selectedCollisionTileIndex;
+MeshBuffer selectedCollisionTileBuf;
+
+bool playerHasStartedPos;
+vec3 playerStartedPos;
+
+typedef struct{
+    vec2 rt;
+    vec2 lb;
+
+    int h;
+    
+    bool f;
+} CollisionTile;
+
+
+Matrix markersMats[markersCounter];
+
+typedef enum{
+    playerEntityT, entityTypesCounter
+} EntityType;
+
+Matrix entitiesMats[entityTypesCounter];
+
+typedef struct{
+    Matrix mat;
+    EntityType type;
+} Entity;
+
+Entity* entityStorage[entityTypesCounter];
+int entityStorageSize[entityTypesCounter];
+
+const char* entityTypeStr[];
+
+void batchEntitiesBoxes();
+MeshBuffer entitiesBatch[entityTypesCounter];
 
 
