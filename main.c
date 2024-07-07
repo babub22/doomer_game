@@ -522,6 +522,14 @@ int main(int argc, char* argv[]) {
     }
 
     {
+	glGenBuffers(1, &lastFindedPath.VBO);
+	glGenVertexArrays(1, &lastFindedPath.VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);        
+    }
+
+    {
 	glGenBuffers(1, &selectedCollisionTileBuf.VBO);
 	glGenVertexArrays(1, &selectedCollisionTileBuf.VAO);
 
@@ -1847,7 +1855,6 @@ int main(int argc, char* argv[]) {
 	    ((void (*)(SDL_Event))instances[curInstance][eventFunc])(event);
 	}
 
-
 	mouse.tileSide = -1;
 	//    checkMouseVSEntities();
 	((void (*)(int))instances[curInstance][mouseVSFunc])(mainShader);
@@ -1885,6 +1892,17 @@ int main(int argc, char* argv[]) {
 		    uniformVec3(lightSourceShader, "color", (vec3) { yellowColor });
 		    
 		    glDrawArrays(GL_TRIANGLES, 0, selectedCollisionTileBuf.VBOsize);
+		}
+		
+		{
+		    glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
+		    glBindVertexArray(lastFindedPath.VAO);
+
+		    Matrix out = IDENTITY_MATRIX;
+		    uniformMat4(lightSourceShader, "model", out.m);
+		    uniformVec3(lightSourceShader, "color", (vec3) { redColor });
+		    
+		    glDrawArrays(GL_LINES, 0, lastFindedPath.VBOsize);
 		}
 
 		for(int i=0;i< layersCounter;i++){

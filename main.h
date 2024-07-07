@@ -862,7 +862,7 @@ const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader"
 const char* instancesStr[];
 
 GLuint shadersId[shadersCounter];
-
+
 
 
 
@@ -1322,5 +1322,7 @@ typedef struct{
 typedef struct{
     float f; int z; int x;
 } AstarOpenCell;
+
+MeshBuffer lastFindedPath;
 
 
