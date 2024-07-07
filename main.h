@@ -865,6 +865,8 @@ GLuint shadersId[shadersCounter];
 
 
 
+
+
 const char sdlScancodesToACII[];/* = {
   [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', [55]='.'
 };*/
@@ -1282,9 +1284,6 @@ AABB* acceptedCollisionTilesAABB;
 int selectedCollisionTileIndex;
 MeshBuffer selectedCollisionTileBuf;
 
-bool playerHasStartedPos;
-vec3 playerStartedPos;
-
 typedef struct{
     vec2 rt;
     vec2 lb;
@@ -1315,5 +1314,13 @@ const char* entityTypeStr[];
 
 void batchEntitiesBoxes();
 MeshBuffer entitiesBatch[entityTypesCounter];
+
+typedef struct{
+    float g; float h; float f; int parZ; int parX;
+} AstarCell;
+
+typedef struct{
+    float f; int z; int x;
+} AstarOpenCell;
 
 
