@@ -862,7 +862,11 @@ const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader"
 const char* instancesStr[];
 
 GLuint shadersId[shadersCounter];
-
+
+
+
+
+
 
 
 
@@ -1154,9 +1158,12 @@ typedef struct{
 } Geom;
 
 typedef struct{
-  int VAO;
-  int VBO;
-  int tris;
+    float* buf;
+    size_t size;
+    
+    int VAO;
+    int VBO;
+    int tris;
 } GeomFin;
 
 GeomFin* finalGeom;
@@ -1326,3 +1333,12 @@ typedef struct{
 MeshBuffer lastFindedPath;
 
 
+void loadFBXModel(char* name);
+
+typedef struct{
+    MeshBuffer mesh;
+    char* name;
+    float* buf;
+} ModelInfo2;
+
+ModelInfo2* modelInfo2;

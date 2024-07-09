@@ -145,11 +145,11 @@ void editorPreLoop(){
 	// playerEntity
 	entitiesMats[playerEntityT] = IDENTITY_MATRIX;
 
-	scale(&entitiesMats[playerEntityT], 3.0f, 5.0f, 3.0f);
+//	scale(&entitiesMats[playerEntityT], 3.0f, 5.0f, 3.0f);
 	    
-	entitiesMats[playerEntityT].m[12] = bBlockD / 2;
-	entitiesMats[playerEntityT].m[13] = 5.0f / 2.0f;
-	entitiesMats[playerEntityT].m[14] = bBlockD / 2;
+//	entitiesMats[playerEntityT].m[12] = bBlockD / 2;
+//	entitiesMats[playerEntityT].m[13] = 5.0f / 2.0f;
+//	entitiesMats[playerEntityT].m[14] = bBlockD / 2;
     }
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2036,8 +2036,11 @@ void editorEvents(SDL_Event event){
 		    batchGeometry();
 		}
 		else if (mouse.selectedType == mouseWallT) {
-		    // WallType type = (grid[mouse.wallTile.y][mouse.wallTile.z][mouse.wallTile.x]->walls >> (mouse.wallSide * 8)) & 0xFF;
 		    WallMouseData* data = (WallMouseData*)mouse.selectedThing;
+
+		    for (int i = 0; i < wallsVPairs[data->wall->type].planesNum; i++) {
+			geomentyByTxCounter[data->wall->planes[i].txIndex] -= wallsVPairs[data->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[data->wall->type].pairs[i].attrSize;
+		    }
 
 		    deleteWallInStorage(data->wall->id);
 
@@ -3060,23 +3063,38 @@ void editor3dRender() {
     }
 
 // entity box
+    glUseProgram(shadersId[mainShader]);
+    
     for(int i=0;i<entityTypesCounter;i++){
-	uniformVec3(lightSourceShader, "color", (vec3) { cyan });
+	if(entityStorageSize[i] == 0){
+	    continue;
+	}
 	
-	Matrix mat = IDENTITY_MATRIX;
+	setSolidColorTx(blackColor, 1.0f);
+	glBindTexture(GL_TEXTURE_2D, solidColorTx);
+//	uniformVec3(lightSourceShader, "color", (vec3) { cyan });
 	
-	uniformMat4(lightSourceShader, "model", mat.m);
+	Matrix mat = entityStorage[i][0].mat;
+	//IDENTITY_MATRIX;
+	
+	uniformMat4(mainShader, "model", mat.m);
 
-	glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
-	glBindVertexArray(entitiesBatch[i].VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
+	glBindVertexArray(modelInfo2->mesh.VAO);
 
-	glDrawArrays(GL_TRIANGLES, 0, entitiesBatch[i].VBOsize);
+//	glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
+//	glBindVertexArray(entitiesBatch[i].VAO);
+
+	glDrawArrays(GL_TRIANGLES, 0, modelInfo2->mesh.VBOsize);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
+
     }
+    
+    glUseProgram(shadersId[lightSourceShader]);
 
     // net tile draw
     if (curFloor != 0) {

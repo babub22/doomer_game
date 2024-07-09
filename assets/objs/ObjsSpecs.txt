@@ -1,20 +1,20 @@
-Car.obj car.png Obj
-SnowTree0.obj SnowTree0.png Obj
-SnowTree1.obj SnowTree1.png Obj
-Suhrob0.obj Suhrob0.png Obj
-Suhrob1.obj Suhrob1.png Obj
-Bed.obj bed.png Obj
-Shkaf.obj Wardrobe_01.png Obj
-Radio.obj Radio.png Obj
-Comp.obj Comp.png Obj
-Chair.obj Chair.png Obj
-Lamppost.obj Lamppost.png Obj
-Table.obj Wood.png Obj
-Sigi.obj Sigi.png Obj
-Book.obj Books.png Obj
-Bookshelf.obj Bookshelves.png Obj
-Doomer.obj Doomer.png Player
-Snus.obj Snus.png Obj
-Milka.obj Milka.png Obj
-Kalik.obj Kalik.png Obj
-Pillow.obj Pillow.png Obj
+Car.obj car.png
+SnowTree0.obj SnowTree0.png 
+SnowTree1.obj SnowTree1.png 
+Suhrob0.obj Suhrob0.png 
+Suhrob1.obj Suhrob1.png 
+Bed.obj bed.png 
+Shkaf.obj Wardrobe_01.png 
+Radio.obj Radio.png 
+Comp.obj Comp.png 
+Chair.obj Chair.png 
+Lamppost.obj Lamppost.png 
+Table.obj Wood.png 
+Sigi.obj Sigi.png 
+Book.obj Books.png 
+Bookshelf.obj Bookshelves.png 
+Doomer.obj Doomer.png Walk-40
+Snus.obj Snus.png 
+Milka.obj Milka.png 
+Kalik.obj Kalik.png 
+Pillow.obj Pillow.png
