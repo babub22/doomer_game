@@ -28,6 +28,10 @@ typedef struct {
 	double x, y, z;
 } vec3d;
 
+typedef struct {
+    int x, y, z, w;
+} vec4i;
+
 typedef struct Matrix {
 	float m[16];
 } Matrix;

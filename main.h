@@ -855,13 +855,14 @@ int markersStorageSize;
 int markersCounterByType[markersCounter];
 
 typedef enum{
-  lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITxShader, UITransfTx, UITransfColor, shadersCounter
+    lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITxShader, UITransfTx, UITransfColor, animShader, shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
 const char* instancesStr[];
 
 GLuint shadersId[shadersCounter];
+
 
 
 
@@ -1317,6 +1318,12 @@ typedef struct{
 Entity* entityStorage[entityTypesCounter];
 int entityStorageSize[entityTypesCounter];
 
+typedef struct{
+    int id; Matrix offset;
+} BoneInfo;
+
+//BoneInfo;
+
 const char* entityTypeStr[];
 
 void batchEntitiesBoxes();
@@ -1339,6 +1346,19 @@ typedef struct{
     MeshBuffer mesh;
     char* name;
     float* buf;
+
 } ModelInfo2;
 
+BoneInfo* bones;
+int bonesSize;
+
 ModelInfo2* modelInfo2;
+
+typedef struct{
+    vec3 pos; vec2 uv; vec3 norm;
+    vec4i bonesId; vec4 weights;
+} ModelAttr;
+
+typedef struct{
+    uint8_t x,y,z,w;
+} vec4i_8u;

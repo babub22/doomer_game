@@ -11,6 +11,9 @@
 #define FAST_OBJ_IMPLEMENTATION
 #include "fast_obj.h"
 
+#define CGLTF_IMPLEMENTATION
+#include "cgltf.h"
+
 bool showHiddenWalls = true;
 
 TextInput* selectedTextInput;
@@ -196,7 +199,7 @@ ModelsTypesInfo modelsTypesInfo[] = {
     [playerModelT] = {"Player", 0}
 };
 
-const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth", [UIShader] = "UI", [UITxShader] = "UITxShader", [UITransfShader] = "UITransf", [UITransfTx] = "UITransfTx", [UITransfColor] = "UITransfColor" };
+const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth", [UIShader] = "UI", [UITxShader] = "UITxShader", [UITransfShader] = "UITransf", [UITransfTx] = "UITransfTx", [UITransfColor] = "UITransfColor", [animShader] = "animModels" };
 
 const char sdlScancodesToACII[] = {
     [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',[55] = '.'
@@ -1036,7 +1039,7 @@ int main(int argc, char* argv[]) {
     }
 
 
-    loadFBXModel("./assets/DoomerWalk.fbx");
+    loadFBXModel("./assets/Doomer.gltf");
     
     // load 3d models
     /*{
@@ -1296,6 +1299,11 @@ int main(int argc, char* argv[]) {
     uniformInt(mainShader, "colorMap", 0); 
     uniformInt(mainShader, "shadowMap", 1);
     uniformFloat(mainShader, "far_plane", far_plane);
+
+    glUseProgram(shadersId[animShader]);
+    uniformInt(animShader, "colorMap", 0); 
+    uniformInt(animShader, "shadowMap", 1);
+    uniformFloat(animShader, "far_plane", far_plane);
 
     while (!quit) {
 	glErrorCheck();
@@ -5005,11 +5013,223 @@ void assembleBlocks(){
 }
 
 void loadFBXModel(char* name){
+    cgltf_options options = {0};
+    cgltf_data* data = NULL;
+    cgltf_result result = cgltf_parse_file(&options, name, &data);
+
+    int vertexSize = sizeof(vec3) * 2 + sizeof(vec2) + sizeof(vec4) + sizeof(vec4i);
+    
+    if (result == cgltf_result_success){
+	modelInfo2 = malloc(sizeof(ModelInfo2));
+	modelInfo2->mesh.VBOsize = data->meshes->primitives->indices->count;
+
+	char* binPath = malloc(sizeof(char) * strlen(name));
+	strcpy(binPath, name);
+
+	for (int i = 0; i < strlen(binPath); i++) {
+	    if (i != 0 && binPath[i] == '.') {
+		binPath[i] = '\0';
+		binPath = realloc(binPath, sizeof(binPath) * strlen(binPath));
+		strcat(binPath, ".bin");
+		break;
+	    }
+	}
+
+	FILE* fo = fopen(binPath, "rb");
+	free(binPath);
+
+	glGenVertexArrays(1, &modelInfo2->mesh.VAO);
+	glGenBuffers(1, &modelInfo2->mesh.VBO);
+
+	glBindVertexArray(modelInfo2->mesh.VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
+
+	int size = 0;
+
+	int mapSize[] = { [cgltf_type_vec3] = 3,[cgltf_type_vec4] = 4,[cgltf_type_vec2] = 2 };
+	int typeSize[] = { [cgltf_component_type_r_32f] = sizeof(float), [cgltf_component_type_r_8u] = sizeof(uint8_t)};
+
+
+	for (int i = 0; i < data->meshes->primitives->attributes_count; i++) {
+	    size += typeSize[data->meshes->primitives->attributes[i].data->component_type] * mapSize[data->meshes->primitives->attributes[i].data->type];
+	}
+
+
+	fseek(fo, data->meshes->primitives->indices->buffer_view->offset, SEEK_SET);
+	uint16_t* indicies = malloc(data->meshes->primitives->indices->buffer_view->size);
+	fread(indicies, data->meshes->primitives->indices->buffer_view->size, 1, fo);
+
+	for(int i=0;i<data->meshes->primitives->indices->buffer_view->size/sizeof(uint16_t);i++){
+	    //printf("%d \n", indicies[i]);
+	}
+
+
+		char buf[128];	
+		glUseProgram(shadersId[animShader]);
+
+	for (int i = 0;i<data->skins_count; i++) {
+		sprintf(buf, "finalBonesMatrices[%d]", i);
+		uniformMat4(animShader, buf, data->skins->joints[i]->matrix);
+	}
+
+	int attributeSizeCap = data->meshes->primitives->attributes[0].data->buffer_view->size / typeSize[data->meshes->primitives->attributes[0].data->component_type] 
+		/ mapSize[data->meshes->primitives->attributes[0].data->type];
+
+	vec3* pos = malloc(sizeof(vec3) * attributeSizeCap);
+	vec2* uv = malloc(sizeof(vec2) * attributeSizeCap);
+	vec3* norm = malloc(sizeof(vec3) * attributeSizeCap);
+
+	vec4i* bonesId = malloc(sizeof(vec4i) * attributeSizeCap);
+	vec4* weights = malloc(sizeof(vec4) * attributeSizeCap);
+
+	int offset[] = { [0] = 0, [1]=3,[2]=5,[3]=8,[4]=12  };
+
+	for (int i = 0; i < data->meshes->primitives->attributes_count; i++) {
+	    fseek(fo, data->meshes->primitives->attributes[i].data->buffer_view->offset, SEEK_SET);
+
+	    float* buf = NULL;
+	    uint8_t* buf2 = NULL;
+
+	    if (i == 3) {
+		buf2 = malloc(data->meshes->primitives->attributes[i].data->buffer_view->size);
+		fread(buf2, data->meshes->primitives->attributes[i].data->buffer_view->size, 1, fo);
+	    }
+	    else {
+		buf = malloc(data->meshes->primitives->attributes[i].data->buffer_view->size);
+		fread(buf, data->meshes->primitives->attributes[i].data->buffer_view->size, 1, fo);
+	    }
+
+	    int attrSize = data->meshes->primitives->attributes[i].data->buffer_view->size /
+		typeSize[data->meshes->primitives->attributes[i].data->component_type];
+
+	    int index = 0;
+	    for (int i2 = 0; i2 < attrSize; i2 += mapSize[data->meshes->primitives->attributes[i].data->type]) {
+		if(i==0){
+		    pos[index].x = buf[i2];
+		    pos[index].y = buf[i2 + 1];
+		    pos[index].z = buf[i2 + 2];
+		}else if(i==1){
+		    uv[index].x = buf[i2];
+		    uv[index].z = buf[i2 + 1];
+		}else if(i==2){
+		    norm[index].x = buf[i2];
+		    norm[index].y = buf[i2 + 1];
+		    norm[index].z = buf[i2 + 2];
+		}else if(i==3){
+		    bonesId[index].x = buf2[i2];
+		    bonesId[index].y = buf2[i2 + 1];
+		    bonesId[index].z = buf2[i2 + 2];
+		    bonesId[index].w = buf2[i2 + 3];
+
+//		    printf
+		}else if(i==4){
+		    weights[index].x = buf[i2];
+		    weights[index].y = buf[i2 + 1];
+		    weights[index].z = buf[i2 + 2];
+		    weights[index].w = buf[i2 + 3];
+		}
+		
+		index++;
+	    }
+
+	    if(buf2){
+		free(buf2);
+	    }else{
+		free(buf);
+	    }
+	}
+
+        ModelAttr* model = malloc(sizeof(ModelAttr) * data->meshes->primitives->indices->count);
+
+
+	for(int i=0;i< data->meshes->primitives->indices->count;i++){
+	    
+	    model[i].pos = pos[indicies[i]];
+	    model[i].uv = uv[indicies[i]];
+	    model[i].norm = norm[indicies[i]];
+
+	    model[i].bonesId = bonesId[indicies[i]];
+	    model[i].weights = weights[indicies[i]];
+
+		printf("%d %d %d %d \n", argVec4(model[i].bonesId));
+	}
+
+
+	/*for(int i=0;i< data->meshes->primitives->indices->count;i++){
+	    printf("pos: %f %f %f uv: %f %f norm %f %f %f\n bonesId: %d %d %d %d weights: %f %f %f %f \n\n",
+		   argVec3(model[i].pos), argVec2(model[i].uv), argVec3(model[i].norm),
+		   argVec4(model[i].bonesId),argVec4(model[i].weights));
+		   }*/
+
+	fclose(fo);
+	
+	glBufferData(GL_ARRAY_BUFFER, sizeof(ModelAttr) * data->meshes->primitives->indices->count, model, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(5 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+
+	glVertexAttribIPointer(3, 4, GL_INT, GL_FALSE, sizeof(ModelAttr), (void*)(8 * sizeof(float)));
+	glEnableVertexAttribArray(3);
+
+	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), 8 * sizeof(float) + sizeof(vec4i));
+	glEnableVertexAttribArray(4);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+	
+	cgltf_free(data);
+    }
+
+    
+    /*
+    char** bonesStrs = NULL;
+    int bonesSize = 0;
+    
     ufbx_scene* scene = ufbx_load_file(name, NULL, NULL);
 
     for (size_t i = 0; i < scene->nodes.count; i++) {
 	ufbx_node *node = scene->nodes.data[i];
 	if (node->is_root) continue;
+
+	if(node->bone) bonesSize++;
+    }
+
+    bonesStrs = malloc(sizeof(char*) * bonesSize);
+    bones = malloc(sizeof(BoneInfo) * bonesSize);
+    
+	int lastBoneIndex = 0;
+			      
+    for (size_t i = 0; i < scene->nodes.count; i++) {
+	ufbx_node *node = scene->nodes.data[i];
+	if (node->is_root) continue;
+
+	if (node->bone) {
+		int boneId = -1;
+
+//		if (boneId == -1) {
+			bones[i].id = lastBoneIndex;
+
+			bonesStrs[i] = malloc(sizeof(char) * node->bone->name.length);
+			strcpy(bonesStrs[i], node->bone->name.data);
+
+			lastBoneIndex++;
+
+			bones[i].offset = IDENTITY_MATRIX;
+			for (int i2 = 0; i2 < 12; i2++) {
+			    bones[i].offset.m[i2] = node->bone->instances.data[0]->geometry_to_node.v[i2];
+			}
+
+
+//			boneId = bones[i].id;
+
+//		}
+	}
 
 	// num_vertices;
 
@@ -5035,15 +5255,6 @@ void loadFBXModel(char* name){
 		modelInfo2->buf[index+7] = node->mesh->vertex_normal.values.data[vertIndx].z;
 	    }
 
-	    /*
-	    for(int i=0;i< node->mesh->num_vertices;i++){
-		int index = i * 8;
-
-		printf("xyz: %f %f %f uv: %f %f norm: %f %f %f \n",modelInfo2->buf[index+0], modelInfo2->buf[index+1], modelInfo2->buf[index+2],
-		       modelInfo2->buf[index+3], modelInfo2->buf[index+4],
-		    modelInfo2->buf[index+5], modelInfo2->buf[index+6], modelInfo2->buf[index+7]);
-	    }*/
-
 	    glGenVertexArrays(1, &modelInfo2->mesh.VAO);
 	    glGenBuffers(1, &modelInfo2->mesh.VBO);
 	    
@@ -5066,6 +5277,7 @@ void loadFBXModel(char* name){
 	    glBindVertexArray(0);
 	}
     }
+*/
 }
 
 
@@ -5663,7 +5875,8 @@ void batchAllGeometry(){
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);  
 	glBindVertexArray(0);
-
+	
+	printf("last i: %d \n", i);
 	free(finalGeom[i].buf);
     }
 }

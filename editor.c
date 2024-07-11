@@ -3043,7 +3043,7 @@ void editor3dRender() {
 	glBindVertexArray(0);
     }
 
-        // markers
+    // markers
     for(int i=0;i<markersCounter;i++){
 	uniformVec3(lightSourceShader, "color", (vec3) { darkPurple });
 	
@@ -3063,7 +3063,7 @@ void editor3dRender() {
     }
 
 // entity box
-    glUseProgram(shadersId[mainShader]);
+    glUseProgram(shadersId[animShader]);
     
     for(int i=0;i<entityTypesCounter;i++){
 	if(entityStorageSize[i] == 0){
@@ -3077,7 +3077,7 @@ void editor3dRender() {
 	Matrix mat = entityStorage[i][0].mat;
 	//IDENTITY_MATRIX;
 	
-	uniformMat4(mainShader, "model", mat.m);
+	uniformMat4(animShader, "model", mat.m);
 
 	glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
 	glBindVertexArray(modelInfo2->mesh.VAO);

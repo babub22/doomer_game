@@ -170,6 +170,7 @@
     <ClCompile Include="ufbx.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="cgltf.h" />
     <ClInclude Include="deps.h" />
     <ClInclude Include="editor.h" />
     <ClInclude Include="editorMap.h" />
