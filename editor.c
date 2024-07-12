@@ -1606,7 +1606,7 @@ void editorEvents(SDL_Event event){
 					    AstarOpenCell* openCells = malloc(sizeof(AstarOpenCell) * (gridZ*3) * (gridX * 3));
 					    int openCellsTop = 0;
 
-						bool pathFound = false;
+					    bool pathFound = false;
 
 					    for (int z = 0; z < gridZ*3; z++) {
 						for (int x = 0; x < gridX*3; x++) {
@@ -1660,7 +1660,7 @@ void editorEvents(SDL_Event event){
 
 							if(mCur.z == dist.z && mCur.x == dist.x){
 
-								printf("pre dest: %d %d dest: %d %d \n", cur.z, cur.x, dist.z, dist.x);
+							    printf("pre dest: %d %d dest: %d %d \n", cur.z, cur.x, dist.z, dist.x);
 							    
 							    cellsDetails[mCur.z][mCur.x].parX = cur.x;
 							    cellsDetails[mCur.z][mCur.x].parZ = cur.z;
@@ -1672,10 +1672,7 @@ void editorEvents(SDL_Event event){
 							    int diX = dist.x;
 
 							    int pathSize = 0;
-
-							    /*while(cellsDetails[diZ][diX].parZ != dist.z &&
-							      cellsDetails[diZ][diX].parX != dist.x){*/
-
+							    
 							    while (!(diZ == start.z && diX == start.x)) {
 								pathSize++;
 								int tZ = cellsDetails[diZ][diX].parZ;
@@ -1710,22 +1707,21 @@ void editorEvents(SDL_Event event){
 
 //							    printf("end: %d %d", dist.z, dist.x);
 
-							    vec3* buf = malloc(sizeof(vec3) * ((pathSize+1)*2));
+							    entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize + 1) * 2));
+							    entityStorage[playerEntityT][0].pathSize = ((pathSize+1)*2);
+							    entityStorage[playerEntityT][0].curPath = 0;
+							    entityStorage[playerEntityT][0].frame = 0;
 
-							    buf[0] = (vec3){ start.x * div + div/2.0f, (float)h + 0.2f, start.z * div + div/2.0f };
-							    buf[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)h + 0.2f, path[pathSize-1].z * div + div/2.0f };
+							    entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)h + 0.2f, start.z * div + div/2.0f };
+							    entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)h + 0.2f, path[pathSize-1].z * div + div/2.0f };
 
 							    int index = 2;
 							    for(int i=pathSize-1;i>0;i--){
-								buf[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
+								entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
 								index++;
 								
-								buf[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
+								entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
 								index++;
-							    }
-
-							    for(int i=0;i<(pathSize+1)*2;i++){
-								printf("%f %f %f\n", argVec3(buf[i]));
 							    }
 
 							    glBindVertexArray(lastFindedPath.VAO); 
@@ -1734,7 +1730,8 @@ void editorEvents(SDL_Event event){
 							    lastFindedPath.VBOsize = (pathSize+1)*2;
 
 							    glBufferData(GL_ARRAY_BUFFER,
-									 sizeof(vec3) * ((pathSize+1)*2), buf, GL_STATIC_DRAW);
+									 sizeof(vec3) * ((pathSize+1)*2),
+									 entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
 
 							    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
 							    glEnableVertexAttribArray(0);
@@ -1742,7 +1739,7 @@ void editorEvents(SDL_Event event){
 							    glBindBuffer(GL_ARRAY_BUFFER, 0);
 							    glBindVertexArray(0);
 		  
-							    free(buf);
+//							    free(buf);
 							    free(path);
 							    
 							    break;
@@ -2447,6 +2444,31 @@ void editorMatsSetup(int curShader) {
 }
 
 void editorPreFrame(float deltaTime) {
+    for(int i=0;i<entityTypesCounter;i++){
+	for(int i2=0;i2<entityStorageSize[i];i2++){
+	    if(entityStorage[i][i2].path){
+		entityStorage[i][i2].frame++;
+
+		if(entityStorage[i][i2].frame == 30){		    
+		    entityStorage[i][i2].mat.m[12] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].x + entitiesMats[i].m[12];
+		    entityStorage[i][i2].mat.m[13] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].y + entitiesMats[i].m[13];
+		    entityStorage[i][i2].mat.m[14] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].z + entitiesMats[i].m[14];
+		    
+		    entityStorage[i][i2].curPath++;
+		    entityStorage[i][i2].frame = 0;
+		}
+
+		if(entityStorage[i][i2].curPath == entityStorage[i][i2].pathSize){
+		    free(entityStorage[i][i2].path);
+			entityStorage[i][i2].path = NULL;
+			entityStorage[i][i2].pathSize = 0;
+		}
+	    }
+	}
+    }
+    
+
+    
     if (cursorMode && mouse.leftDown) {
 	Model* model = NULL;
 	Matrix* mat = NULL;
@@ -2852,31 +2874,35 @@ void editorPreFrame(float deltaTime) {
 
 //							    printf("end: %d %d", dist.z, dist.x);
 
-							    vec3* buf = malloc(sizeof(vec3) * ((pathSize+1)*2));
+							    if(entityStorage[playerEntityT][0].path){
+								free(entityStorage[playerEntityT][0].path);
+							    }
+							    
+							    entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize)*2));
+							    entityStorage[playerEntityT][0].pathSize = pathSize*2;
+							    entityStorage[playerEntityT][0].curPath = 0;
+							    entityStorage[playerEntityT][0].frame = 0;
+							    
 
-							    buf[0] = (vec3){ start.x * div + div/2.0f, (float)h + 0.2f, start.z * div + div/2.0f };
-							    buf[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)h + 0.2f, path[pathSize-1].z * div + div/2.0f };
+							    entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)h + 0.2f, start.z * div + div/2.0f };
+							    entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)h + 0.2f, path[pathSize-1].z * div + div/2.0f };
 
 							    int index = 2;
 							    for(int i=pathSize-1;i>0;i--){
-								buf[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
+								entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
 								index++;
 								
-								buf[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
+								entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
 								index++;
-							    }
-
-							    for(int i=0;i<(pathSize+1)*2;i++){
-								printf("%f %f %f\n", argVec3(buf[i]));
 							    }
 
 							    glBindVertexArray(lastFindedPath.VAO); 
 							    glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
 
-							    lastFindedPath.VBOsize = (pathSize+1)*2;
+							    lastFindedPath.VBOsize = (pathSize)*2;
 
 							    glBufferData(GL_ARRAY_BUFFER,
-									 sizeof(vec3) * ((pathSize+1)*2), buf, GL_STATIC_DRAW);
+									 sizeof(vec3) * (pathSize*2), entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
 
 							    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
 							    glEnableVertexAttribArray(0);
@@ -2884,7 +2910,6 @@ void editorPreFrame(float deltaTime) {
 							    glBindBuffer(GL_ARRAY_BUFFER, 0);
 							    glBindVertexArray(0);
 		  
-							    free(buf);
 							    free(path);
 							    
 							    break;
@@ -3074,10 +3099,10 @@ void editor3dRender() {
 	glBindTexture(GL_TEXTURE_2D, solidColorTx);
 //	uniformVec3(lightSourceShader, "color", (vec3) { cyan });
 	
-	Matrix mat = entityStorage[i][0].mat;
+//	Matrix mat = entityStorage[i][0].mat;
 	//IDENTITY_MATRIX;
 	
-	uniformMat4(animShader, "model", mat.m);
+	uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
 
 	glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
 	glBindVertexArray(modelInfo2->mesh.VAO);
@@ -5550,8 +5575,9 @@ void editorRenderCursor(){
 }
 
 void setPlayerEntityBrush(){
-    Entity* entity = malloc(sizeof(Entity));
+    Entity* entity = calloc(1,sizeof(Entity));
     entity->type = playerEntityT;
+    entity->dir = (vec3){ 0, 0, 1.0f};
 
     memcpy(entity->mat.m, &entitiesMats[entity->type], sizeof(float)*16);
     

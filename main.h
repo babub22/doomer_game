@@ -11,6 +11,15 @@ typedef struct{
 } NavCornerPoint;
 
 typedef struct{
+    int id;
+    char* name;
+    Matrix defMat;
+} BoneInfo;
+
+int bonesSize;
+BoneInfo* bones;
+
+typedef struct{
   GLuint tx;
   
   int categoryIndex;
@@ -862,7 +871,8 @@ const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader"
 const char* instancesStr[];
 
 GLuint shadersId[shadersCounter];
-
+
+
 
 
 
@@ -1313,16 +1323,17 @@ Matrix entitiesMats[entityTypesCounter];
 typedef struct{
     Matrix mat;
     EntityType type;
+
+    vec3 dir;
+
+    vec3* path;
+    int pathSize;
+    int curPath;
+    int frame;
 } Entity;
 
 Entity* entityStorage[entityTypesCounter];
 int entityStorageSize[entityTypesCounter];
-
-typedef struct{
-    int id; Matrix offset;
-} BoneInfo;
-
-//BoneInfo;
 
 const char* entityTypeStr[];
 
@@ -1362,3 +1373,19 @@ typedef struct{
 typedef struct{
     uint8_t x,y,z,w;
 } vec4i_8u;
+
+typedef struct{
+    int boneId;
+    float time;
+    
+    int action;
+    int interp;
+
+    vec4 tValue;
+
+    Matrix mat;
+} BoneAction;
+
+BoneAction* boneActions;
+
+int sortBonesByTime(BoneAction* a, BoneAction* b);
