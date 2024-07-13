@@ -737,9 +737,9 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < shadersCounter; i++) {
 	int nameLen = strlen(shadersFileNames[i]) + 1;
 
-	char* vertFileName = malloc(sizeof(char) * (nameLen + strlen(".vert")));
-	char* fragFileName = malloc(sizeof(char) * (nameLen + strlen(".frag")));
-	char* geomFileName = malloc(sizeof(char) * (nameLen + strlen(".geom")));
+	char* vertFileName = malloc(sizeof(char) * (nameLen + strlen(".vert") + 1));
+	char* fragFileName = malloc(sizeof(char) * (nameLen + strlen(".frag") + 1));
+	char* geomFileName = malloc(sizeof(char) * (nameLen + strlen(".geom") + 1));
 
 	strcpy(vertFileName, shadersFileNames[i]);
 	strcat(vertFileName, ".vert");
@@ -2197,7 +2197,7 @@ bool loadSave(char* saveName){
 
     printf("Start\n");
   
-    char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char));
+    char* save = calloc((strlen(saveName) + strlen(".doomer") + 2), sizeof(char));
 
     strcat(save, saveName);
     strcat(save, ".doomer");
@@ -2453,7 +2453,7 @@ bool loadSave(char* saveName){
 }
 
 bool saveMap(char* saveName) {
-    char* save = calloc((strlen(saveName) + strlen(".doomer")), sizeof(char));
+    char* save = calloc((strlen(saveName) + strlen(".doomer") + 2), sizeof(char));
 
     strcat(save, saveName);
     strcat(save, ".doomer");
@@ -5072,31 +5072,71 @@ void loadFBXModel(char* name){
 	    bones[i].name = malloc(sizeof(char) * (strlen(data->skins[0].joints[i]->name)+1));
 	    strcpy(bones[i].name, data->skins[0].joints[i]->name);
 			
-	    printf("%s  - %d \n", bones[i].name, strcmp(bones[i].name, data->skins[0].joints[i]->name));
+//	    printf("%s  - %d \n", bones[i].name, strcmp(bones[i].name, data->skins[0].joints[i]->name));
 
-	    memcpy(bones[i].defMat.m, data->skins[0].joints[i]->matrix, sizeof(float) * 16);
+	    Matrix ownMat = IDENTITY_MATRIX;
+	    if(data->skins[0].joints[i]->has_matrix){
+		memcpy(ownMat.m, data->skins[0].joints[i]->matrix, sizeof(float) * 16);
+	    }
+//	    memcpy(bones[i].defMat.m, data->skins[0].joints[i]->matrix, sizeof(float) * 16);
 
-		Matrix scaleMat = IDENTITY_MATRIX;
+
+	    Matrix traslMat = IDENTITY_MATRIX;
+
+	    if(data->skins[0].joints[i]->has_translation){
+		vec3 traslsatePar = { data->skins[0].joints[i]->translation[0],
+				      data->skins[0].joints[i]->translation[1],
+				      data->skins[0].joints[i]->translation[2] };
+	    
+		translate(&traslMat, argVec3(traslsatePar));
+	    }
+
+	    Matrix rotateMat =  IDENTITY_MATRIX;
+	    if(data->skins[0].joints[i]->has_rotation){
+		vec4 rotation = {data->skins[0].joints[i]->rotation[0],data->skins[0].joints[i]->rotation[1], data->skins[0].joints[i]->rotation[2], data->skins[0].joints[i]->rotation[3]};
+		rotateMat =  mat4_from_quat(rotation);
+	    }
+
+
+	    Matrix scaleMat = IDENTITY_MATRIX;
+	    if(data->skins[0].joints[i]->has_scale){
+		vec3 scalePar = { data->skins[0].joints[i]->scale[0],
+				  data->skins[0].joints[i]->scale[1],
+				  data->skins[0].joints[i]->scale[2]
+		};
+	    
+		scale(&scaleMat, argVec3(scalePar));
+	    }
+
+	    bones[i].defMat = multiplymat4(multiplymat4(multiplymat4(traslMat, rotateMat), scaleMat), ownMat);
+
+	    
+	    //bones[i].defMat = multiplymat4(multiplymat4(multiplymat4(traslMat, IDENTITY_MATRIX), IDENTITY_MATRIX), ownMat);
+	    
+
+	    /*
+	    Matrix scaleMat = IDENTITY_MATRIX;
 		
-		scaleMat.m[0] = data->skins[0].joints[i]->scale[0];
-		scaleMat.m[5] = data->skins[0].joints[i]->scale[1];
-		scaleMat.m[10] = data->skins[0].joints[i]->scale[2];
+	    scaleMat.m[0] = data->skins[0].joints[i]->scale[0];
+	    scaleMat.m[5] = data->skins[0].joints[i]->scale[1];
+	    scaleMat.m[10] = data->skins[0].joints[i]->scale[2];
 		
 	    bones[i].defMat = multiplymat4(bones[i].defMat, scaleMat);
 
-		Matrix transfMat = IDENTITY_MATRIX;
+	    Matrix transfMat = IDENTITY_MATRIX;
 
-		transfMat.m[12] = data->skins[0].joints[i]->translation[0];
-		transfMat.m[13] = data->skins[0].joints[i]->translation[1];
-		transfMat.m[14] = data->skins[0].joints[i]->translation[2];
+	    transfMat.m[12] = data->skins[0].joints[i]->translation[0];
+	    transfMat.m[13] = data->skins[0].joints[i]->translation[1];
+	    transfMat.m[14] = data->skins[0].joints[i]->translation[2];
 
-		bones[i].defMat = multiplymat4(bones[i].defMat, transfMat);
+	    bones[i].defMat = multiplymat4(bones[i].defMat, transfMat);
 
-		//Matrix rotateMat = IDENTITY_MATRIX;
-		//mat4_from_quat(&rotateMat, (vec4){data->skins[0].joints[i]->rotation[0],data->skins[0].joints[i]->rotation[1], data->skins[0].joints[i]->rotation[2], data->skins[0].joints[i]->rotation[3]});
+	    vec4 rotation = {data->skins[0].joints[i]->rotation[0],data->skins[0].joints[i]->rotation[1], data->skins[0].joints[i]->rotation[2], data->skins[0].joints[i]->rotation[3]};
+	    Matrix rotateMat =  mat4_from_quat(rotation);
 
-		//bones[i].defMat = multiplymat4(bones[i].defMat, rotateMat);
+	    bones[i].defMat = multiplymat4(bones[i].defMat, rotateMat);
 
+	    bones[i].defMat = multiplymat4(bones[i].defMat, ownMat);*/
 	    
 	    sprintf(buf, "finalBonesMatrices[%d]", i);
 	    uniformMat4(animShader, buf, bones[i].defMat.m);
@@ -5150,8 +5190,6 @@ void loadFBXModel(char* name){
 		    bonesId[index].y = buf2[i2 + 1];
 		    bonesId[index].z = buf2[i2 + 2];
 		    bonesId[index].w = buf2[i2 + 3];
-
-//		    printf
 		}else if(i==4){
 		    weights[index].x = buf[i2];
 		    weights[index].y = buf[i2 + 1];
@@ -5180,7 +5218,6 @@ void loadFBXModel(char* name){
 	    model[i].bonesId = bonesId[indicies[i]];
 	    model[i].weights = weights[indicies[i]];
 	}
-
 
 	/*for(int i=0;i< data->meshes->primitives->indices->count;i++){
 	    printf("pos: %f %f %f uv: %f %f norm %f %f %f\n bonesId: %d %d %d %d weights: %f %f %f %f \n\n",

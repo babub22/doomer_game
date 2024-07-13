@@ -363,28 +363,38 @@ void rotate(Matrix *m, float rad, float x, float y, float z) {
   memcpy(m,&out,sizeof(Matrix));
 }
 
-void mat4_from_quat(Matrix* mat, vec4 q) {
-    *mat = IDENTITY_MATRIX;
+Matrix mat4_from_quat(vec4 q) {
+    Matrix M = IDENTITY_MATRIX;
     
-    float xx = q.x * q.x;
-    float yy = q.y * q.y;
-    float zz = q.z * q.z;
-    float xy = q.x * q.y;
-    float xz = q.x * q.z;
-    float yz = q.y * q.z;
-    float wx = q.w * q.x;
-    float wy = q.w * q.y;
-    float wz = q.w * q.z;
+    float a = q.w;
+    float b = q.x;
+    float c = q.y;
+    float d = q.z;
+    
+    float a2 = a * a;
+    float b2 = b * b;
+    float c2 = c * c;
+    float d2 = d * d;
 
-    mat->m[0] = 1.0f - 2.0f * (yy + zz);
-    mat->m[1] = 2.0f * (xy + wz);
-    mat->m[2] = 2.0f * (xz - wy);
+    M.m[0] = a2 + b2 - c2 - d2;
+    M.m[1] = 2.f * (b * c + a * d);
+    M.m[2] = 2.f * (b * d - a * c);
+    M.m[3] = 0.f;
 
-    mat->m[4] = 2.0f * (xy - wz);
-    mat->m[5] = 1.0f - 2.0f * (xx + zz);
-    mat->m[6] = 2.0f * (yz + wx);
+    M.m[4] = 2.f * (b * c - a * d);
+    M.m[5] = a2 - b2 + c2 - d2;
+    M.m[6] = 2.f * (c * d + a * b);
+    M.m[7] = 0.f;
 
-    mat->m[8] = 2.0f * (xz + wy);
-    mat->m[9] = 2.0f * (yz - wx);
-    mat->m[10] = 1.0f - 2.0f * (xx + yy);
+    M.m[8] = 2.f * (b * d + a * c);
+    M.m[9] = 2.f * (c * d - a * b);
+    M.m[10] = a2 - b2 - c2 + d2;
+    M.m[11] = 0.f;
+
+    M.m[12] = 0.f;
+    M.m[13] = 0.f;
+    M.m[14] = 0.f;
+    M.m[15] = 1.f;
+
+    return M;
 }

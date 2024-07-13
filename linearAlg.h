@@ -104,4 +104,4 @@ Matrix lookAt(vec3 eye, vec3 target, vec3 up);
 
 void rotate(Matrix *m, float rad, float x, float y, float z);
 
-void mat4_from_quat(Matrix* mat, vec4 q);
+Matrix mat4_from_quat(vec4 q);

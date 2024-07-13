@@ -1366,8 +1366,11 @@ int bonesSize;
 ModelInfo2* modelInfo2;
 
 typedef struct{
-    vec3 pos; vec2 uv; vec3 norm;
-    vec4i bonesId; vec4 weights;
+    vec3 pos;
+    vec2 uv;
+    vec3 norm;
+    vec4i bonesId;
+    vec4 weights;
 } ModelAttr;
 
 typedef struct{

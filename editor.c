@@ -224,7 +224,7 @@ void editorPreLoop(){
 		},(uint8_t[4]) { redColor, 1.0f }, markersWindow[i+1].highlight);
 
 	    markersWindow[i+1].textPos = (vec2){inputLeftW, inputBotH + letterH };
-	    markersWindow[i+1].text = malloc(sizeof(char) * strlen(markersStr[i]));
+	    markersWindow[i+1].text = malloc(sizeof(char) * (strlen(markersStr[i]) + 1));
 	    strcpy(markersWindow[i+1].text, markersStr[i]);
 	}
     
@@ -240,7 +240,7 @@ void editorPreLoop(){
 	    };
 
 	    markersWindow[0].textPos = (vec2){ -1.0f, 1.0f };
-	    markersWindow[0].text = malloc(sizeof(char) * strlen("Markers:"));
+	    markersWindow[0].text = malloc(sizeof(char) * (strlen("Markers:") + 1));
 	    strcpy(markersWindow[0].text, "Markers:");
 	}
 
@@ -339,7 +339,7 @@ strcpy(loadWindow[3].text, "cancel");
 		},(uint8_t[4]) { redColor, 1.0f }, entitiesWindow[i+1].highlight);
 
 	    entitiesWindow[i+1].textPos = (vec2){inputLeftW, inputBotH + letterH };
-	    entitiesWindow[i+1].text = malloc(sizeof(char) * strlen(entityTypeStr[i]));
+	    entitiesWindow[i+1].text = malloc(sizeof(char) * (strlen(entityTypeStr[i])+1));
 	    strcpy(entitiesWindow[i+1].text, entityTypeStr[i]);
 	}
     
@@ -350,12 +350,12 @@ strcpy(loadWindow[3].text, "cancel");
 		    { lW, h }, { lW, 1.0f }, { rW, 1.0f },
 		    { lW, h }, { rW, 1.0f }, { rW, h }
 		},
-					  .c = { blackColor, 1.0f },
-					  .lb = { lW, h}, .rt = {rW, 1.0f}
+					   .c = { blackColor, 1.0f },
+					   .lb = { lW, h}, .rt = {rW, 1.0f}
 	    };
 
 	    entitiesWindow[0].textPos = (vec2){ -1.0f, 1.0f };
-	    entitiesWindow[0].text = malloc(sizeof(char) * strlen("Entities:"));
+	    entitiesWindow[0].text = malloc(sizeof(char) * (strlen("Entities:")+1));
 	    strcpy(entitiesWindow[0].text, "Entities:");
 	}
 	
@@ -385,7 +385,7 @@ strcpy(loadWindow[3].text, "cancel");
 	    };
 
 	    loadWindow[0].textPos = (vec2){ -w, h + letterH };
-	    loadWindow[0].text = malloc(sizeof(char) * strlen("Map loading"));
+	    loadWindow[0].text = malloc(sizeof(char) * (strlen("Map loading")+1));
 	    strcpy(loadWindow[0].text, "Map loading");
 	}
 
@@ -410,7 +410,7 @@ strcpy(loadWindow[3].text, "cancel");
 	    loadWindow[1].input->relatedUIRect = &loadWindow[2];
 
 	    loadWindow[1].textPos = (vec2){inputLeftW - (strlen("Save name:")+1) * letterW, inputBotH + letterH};
-	    loadWindow[1].text = malloc(sizeof(char) * strlen("Save name:"));
+	    loadWindow[1].text = malloc(sizeof(char) * (strlen("Save name:")+1));
 	    strcpy(loadWindow[1].text, "Save name:");
 	}
 
@@ -439,7 +439,7 @@ strcpy(loadWindow[3].text, "cancel");
 		},(uint8_t[4]) { redColor, 1.0f }, loadWindow[2].highlight);
 
 	    loadWindow[2].textPos = (vec2){inputLeftW, inputBotH + letterH };
-	    loadWindow[2].text = malloc(sizeof(char) * strlen("load"));
+	    loadWindow[2].text = malloc(sizeof(char) * (strlen("load")+1));
 	    strcpy(loadWindow[2].text, "load");
 	}
 
@@ -468,7 +468,7 @@ strcpy(loadWindow[3].text, "cancel");
 		},(uint8_t[4]) { redColor, 1.0f }, loadWindow[3].highlight);
 
 	    loadWindow[3].textPos = (vec2){inputLeftW, inputBotH + letterH };
-	    loadWindow[3].text = malloc(sizeof(char) * strlen("cancel"));
+	    loadWindow[3].text = malloc(sizeof(char) * (strlen("cancel")+1));
 	    strcpy(loadWindow[3].text, "cancel");
 	}
 
@@ -497,7 +497,7 @@ strcpy(loadWindow[3].text, "cancel");
 	    };
 
 	    saveWindow[0].textPos = (vec2){ -w, h + letterH };
-	    saveWindow[0].text = malloc(sizeof(char) * strlen("Map saving"));
+	    saveWindow[0].text = malloc(sizeof(char) * (strlen("Map saving")+1));
 	    strcpy(saveWindow[0].text, "Map saving");
 	}
 
@@ -522,7 +522,7 @@ strcpy(loadWindow[3].text, "cancel");
 	    saveWindow[1].input->relatedUIRect = &saveWindow[2];
 
 	    saveWindow[1].textPos = (vec2){inputLeftW - (strlen("Save name:")+1) * letterW, inputBotH + letterH};
-	    saveWindow[1].text = malloc(sizeof(char) * strlen("Save name:"));
+	    saveWindow[1].text = malloc(sizeof(char) * (strlen("Save name:")+1));
 	    strcpy(saveWindow[1].text, "Save name:");
 	}
 
@@ -551,7 +551,7 @@ strcpy(loadWindow[3].text, "cancel");
 		},(uint8_t[4]) { redColor, 1.0f }, saveWindow[2].highlight);
 
 	    saveWindow[2].textPos = (vec2){inputLeftW, inputBotH + letterH };
-	    saveWindow[2].text = malloc(sizeof(char) * strlen("save"));
+	    saveWindow[2].text = malloc(sizeof(char) * (strlen("save")+1));
 	    strcpy(saveWindow[2].text, "save");
 	}
 
@@ -580,7 +580,7 @@ strcpy(loadWindow[3].text, "cancel");
 		},(uint8_t[4]) { redColor, 1.0f }, saveWindow[3].highlight);
 
 	    saveWindow[3].textPos = (vec2){inputLeftW, inputBotH + letterH };
-	    saveWindow[3].text = malloc(sizeof(char) * strlen("cancel"));
+	    saveWindow[3].text = malloc(sizeof(char) * (strlen("cancel")+1));
 	    strcpy(saveWindow[3].text, "cancel");
 	}
 
@@ -3089,6 +3089,7 @@ void editor3dRender() {
 
 // entity box
     glUseProgram(shadersId[animShader]);
+//    glUseProgram(shadersId[mainShader]);
     
     for(int i=0;i<entityTypesCounter;i++){
 	if(entityStorageSize[i] == 0){
@@ -3101,7 +3102,9 @@ void editor3dRender() {
 	
 //	Matrix mat = entityStorage[i][0].mat;
 	//IDENTITY_MATRIX;
-	
+
+		
+//	uniformMat4(mainShader, "model", entityStorage[i][0].mat.m);
 	uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
 
 	glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
@@ -5504,7 +5507,7 @@ void saveMapUI() {
 	    free(UIStructBufs[saveWindowT]->rects[2].onclickResText);
 	}
 
-	UIStructBufs[saveWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Provide save name!"));
+	UIStructBufs[saveWindowT]->rects[2].onclickResText = malloc(sizeof(char) * (strlen("Provide save name!") + 1));
 	strcpy(UIStructBufs[saveWindowT]->rects[2].onclickResText, "Provide save name!");
     }
 }
@@ -5521,7 +5524,7 @@ void loadMapUI() {
 		free(UIStructBufs[loadWindowT]->rects[2].onclickResText);
 	    }
 
-	    UIStructBufs[loadWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Save doesnt exist!"));
+	    UIStructBufs[loadWindowT]->rects[2].onclickResText = malloc(sizeof(char) * (strlen("Save doesnt exist!") + 1));
 	    strcpy(UIStructBufs[loadWindowT]->rects[2].onclickResText, "Save doesnt exist!");
 	    // error on load
 	}
@@ -5531,7 +5534,7 @@ void loadMapUI() {
 	    free(UIStructBufs[loadWindowT]->rects[2].onclickResText);
 	}
 
-	UIStructBufs[loadWindowT]->rects[2].onclickResText = malloc(sizeof(char) * strlen("Provide save name!"));
+	UIStructBufs[loadWindowT]->rects[2].onclickResText = malloc(sizeof(char) * (strlen("Provide save name!") + 1));
 	strcpy(UIStructBufs[loadWindowT]->rects[2].onclickResText, "Provide save name!");
 	// name wasnt provided
     }
