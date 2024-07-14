@@ -61,6 +61,5 @@ mat4 jointTransf  = mat4(0.0f);
 	jointTransf += finalBonesMatrices[boneIds[i]] * weights[i];
     }
     
-    mat4 viewModel = view * model;
-    gl_Position =  proj * viewModel * animatedPos;
+    gl_Position =  proj * view * (model * animatedPos);
 }

@@ -13,7 +13,20 @@ typedef struct{
 typedef struct{
     int id;
     char* name;
+
+    int parentId;
+
+    int* childIds;
+    int childSize;
+    
+    vec3 trans;
+    vec4 rot;
+    vec3 scale;
+    
+    Matrix inversedMat;
     Matrix defMat;
+    
+    Matrix matrix;
 } BoneInfo;
 
 int bonesSize;
@@ -1378,17 +1391,35 @@ typedef struct{
 } vec4i_8u;
 
 typedef struct{
+    int index;
+    
     int boneId;
     float time;
     
     int action;
     int interp;
+    
+    vec4 value;
 
-    vec4 tValue;
-
-    Matrix mat;
+    //  vec3 trans;
+//    vec4 rot;
+    
+//    Matrix inversedMat;
+    
+    //  Matrix matrix;
 } BoneAction;
 
 BoneAction* boneActions;
+int timesCounter;
+BoneAction*** boneAnimIndexed;
+int* boneAnimIndexedSize;
+
+//int* timesIndexesCounter[]; - for dif anims
+
 
 int sortBonesByTime(BoneAction* a, BoneAction* b);
+
+void loadGLTFModel(char* name);
+
+void traverseBones(int jointIndex);
+void updateChildBonesMats(int jointIndex);

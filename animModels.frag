@@ -140,7 +140,6 @@ vec3 dirLightCalc(PointLight light, vec3 norm, vec3 viewDir){
 vec3 lightDir = normalize(light.pos - FragPos);
 float theta = dot(lightDir, normalize(-light.dir));
 
-//if(theta>light.cutOff){
 float diff = max(dot(norm, lightDir), 0.0);
 
 vec3 reflectDir = reflect(-lightDir, norm);
@@ -150,7 +149,6 @@ vec3 ambient  = ambientC * light.color;
 vec3 diffuse  = diff * light.color;
 vec3 specular = specularC * spec * light.color;
 
-//float theta = dot(lightDir, normalize(-light.dir)); 
 float epsilon = (light.rad - light.cutOff);
 float intensity = clamp((theta - light.cutOff) / epsilon, 0.0, 1.0);
 diffuse  *= intensity;
@@ -176,10 +174,6 @@ if(tex.a == 0.0){
 discard;
 }
 
-//if(tex.a != 1.0f){
-//discard;
-//}
-
 vec3 viewDir = normalize(cameraPos - FragPos);
 vec3 norm = normalize(Normal);
 
@@ -200,19 +194,5 @@ res+= pointLightCalc(pointLights[i], norm, viewDir);
 float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
-//gl_FragColor = vec4(res * color,tex.a);
-
 gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
 }
-
-/*
-
-
-if(diffuseTexel.a == 0.0){
-		  discard;
-}
-
-diffuseTerm.a = diffuseTexel.a; 
-
-gl_FragColor = diffuseTerm;
-*/

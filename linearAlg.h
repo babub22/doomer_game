@@ -69,10 +69,25 @@ static const vec4 INV_Y_AXIS = {0, -1, 0, 0};
 static const vec4 INV_Z_AXIS = {0, 0, -1, 0};
 
 static const Matrix IDENTITY_MATRIX = {{
-	1, 0, 0, 0,
-	0, 1, 0, 0,
-	0, 0, 1, 0,
-	0, 0, 0, 1
+	1,
+	0,
+	0,
+       	0,
+	
+	0,
+	1,
+	0,
+       	0,
+	
+	0,
+	0,
+	1,
+	0,
+	
+	0,
+	0,
+	0,
+	1
 }};
 
 Matrix multiplymat4(Matrix m1, Matrix m2);
