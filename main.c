@@ -1469,6 +1469,7 @@ int main(int argc, char* argv[]) {
 			scale(&S, argVec3(bones[i].scale));
 			
 			bones[i].matrix = multiplymat4(multiplymat4(T, R), S);
+//			bones[i].matrix = multiplymat4(S, multiplymat4(R, T));
 		    }
 
 		    updateChildBonesMats(bones[0].id);
@@ -1478,7 +1479,7 @@ int main(int argc, char* argv[]) {
 			Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
 			
 			sprintf(buf, "finalBonesMatrices[%d]", i);
-			uniformMat4(animShader, buf, res.m);
+			//		uniformMat4(animShader, buf, res.m);
 		    }
 
 		    glUseProgram(shadersId[mainShader]);
@@ -5195,7 +5196,7 @@ void loadGLTFModel(char* name){
 	
 	glBufferData(GL_ARRAY_BUFFER, sizeof(ModelAttr) * data->meshes->primitives->indices->count, model, GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), NULL);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)0);
 	glEnableVertexAttribArray(0);
 
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(3 * sizeof(float)));
@@ -5204,10 +5205,10 @@ void loadGLTFModel(char* name){
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(5 * sizeof(float)));
 	glEnableVertexAttribArray(2);
 
-	glVertexAttribIPointer(3, 4, GL_INT, GL_FALSE, sizeof(ModelAttr), (void*)(8 * sizeof(float)));
+	glVertexAttribIPointer(3, 4, GL_INT, sizeof(ModelAttr), (void*)(8 * sizeof(float)));
 	glEnableVertexAttribArray(3);
 
-	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), 8 * sizeof(float) + sizeof(vec4i));
+	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(8 * sizeof(float) + 4 * sizeof(int)));
 	glEnableVertexAttribArray(4);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -5225,6 +5226,8 @@ void loadGLTFModel(char* name){
 	Matrix* inversedMats = malloc(sizeof(Matrix) * bonesSize);
 	fseek(fo, data->skins->inverse_bind_matrices->buffer_view->offset, SEEK_SET);
 	fread(inversedMats, data->skins->inverse_bind_matrices->buffer_view->size, 1, fo);
+
+	glUseProgram(shadersId[animShader]);
 	
 	char buf[64];
 	for (int i = 0;i<data->skins[0].joints_count; i++) {
@@ -5232,10 +5235,39 @@ void loadGLTFModel(char* name){
 	    bones[i].name = malloc(sizeof(char) * (strlen(data->skins[0].joints[i]->name)+1));
 	    strcpy(bones[i].name, data->skins[0].joints[i]->name);
 
+		/*Matrix T = IDENTITY_MATRIX;
+		if (data->skins[0].joints[i]->has_translation) {
+			translate(&T, data->skins[0].joints[i]->translation[0], data->skins[0].joints[i]->translation[1], data->skins[0].joints[i]->translation[2] );
+		}
+
+		Matrix R = IDENTITY_MATRIX;
+		if (data->skins[0].joints[i]->has_rotation) {
+			vec4 r = { data->skins[0].joints[i]->translation[0], data->skins[0].joints[i]->translation[1], data->skins[0].joints[i]->translation[2], data->skins[0].joints[i]->translation[3] };
+			R = mat4_from_quat(r);
+		}
+
+		Matrix S = IDENTITY_MATRIX;
+		if (data->skins[0].joints[i]->has_scale) {
+			scale(&S, data->skins[0].joints[i]->scale[0], data->skins[0].joints[i]->scale[1], data->skins[0].joints[i]->scale[2]);
+		}
+
+		if (data->skins[0].joints[i]->has_matrix) {
+			Matrix temp;
+			memcpy(temp.m, data->skins[0].joints[i]->matrix, sizeof(float) * 16);
+			bones[i].matrix = multiplymat4(multiplymat4(multiplymat4(T, R), S),temp);
+		}
+		else {
+			bones[i].matrix = multiplymat4(multiplymat4(T, R), S);
+		}*/
+
 	    bones[i].matrix = IDENTITY_MATRIX;
 	    bones[i].inversedMat = inversedMats[i];
 
 	    Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
+
+//	    Matrix res = multiplymat4(IDENTITY_MATRIX, bones[i].matrix);
+
+//	    IDENTITY_MATRIX
 			
 	    sprintf(buf, "finalBonesMatrices[%d]", i);
 	    uniformMat4(animShader, buf, res.m);
@@ -5678,10 +5710,9 @@ void loadFBXModel(char* name){
 		   argVec4(model[i].bonesId),argVec4(model[i].weights));
 		   }*/
 
-	
 	glBufferData(GL_ARRAY_BUFFER, sizeof(ModelAttr) * data->meshes->primitives->indices->count, model, GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), NULL);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)0);
 	glEnableVertexAttribArray(0);
 
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(3 * sizeof(float)));
@@ -5690,10 +5721,10 @@ void loadFBXModel(char* name){
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(5 * sizeof(float)));
 	glEnableVertexAttribArray(2);
 
-	glVertexAttribIPointer(3, 4, GL_INT, GL_FALSE, sizeof(ModelAttr), (void*)(8 * sizeof(float)));
+	glVertexAttribIPointer(3, 4, GL_INT, sizeof(ModelAttr), (void*)(8 * sizeof(float)));
 	glEnableVertexAttribArray(3);
 
-	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), 8 * sizeof(float) + sizeof(vec4i));
+	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(8 * sizeof(float) + 4 * sizeof(int)));
 	glEnableVertexAttribArray(4);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
