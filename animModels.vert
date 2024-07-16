@@ -43,11 +43,11 @@ FragPosLightSpace[i] = lightSpaceMatrix[i] * vec4(FragPos,1.0f);
 vertexToPlayer = cameraPos - FragPos;
 }
 vec4 animatedPos = vec4(0.0f);
-mat4 jointTransf  = mat4(0.0f);
+mat4 jointTransf  = mat4(1.0f);
 
     for(int i = 0 ; i < MAX_BONE_INFLUENCE ; i++)
     {
-        if(boneIds[i] == -1) 
+        if(weights[i] == 0) 
             continue;
         if(boneIds[i] >=MAX_BONES) 
         {
