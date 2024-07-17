@@ -1459,9 +1459,12 @@ int main(int argc, char* argv[]) {
 		    }
 
 		    for(int i=0;i<bonesSize;i++){
+				printf("T: %f %f %f R: %f %f %f %f S: %f %f %f \n", argVec3(bones[i].trans), argVec4(bones[i].rot), argVec3(bones[i].scale));
 			Matrix T = IDENTITY_MATRIX;
-			translate(&T, argVec3(bones[i].trans));
-
+			T.m[12] = bones[i].trans.x;
+			T.m[13] = bones[i].trans.y;
+			T.m[14] = bones[i].trans.z;
+			
 			Matrix R =  IDENTITY_MATRIX;
 			R = mat4_from_quat(bones[i].rot);
 
@@ -1478,10 +1481,10 @@ int main(int argc, char* argv[]) {
 		    char buf[64];
 		    for(int i=0;i<bonesSize;i++){
 			Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
-//			Matrix res = multiplymat4(bones[i].inversedMat, bones[i].matrix);
+//			Matrix res = multiplymat4(inversedMats[i], bones[i].matrix);
 			
 			sprintf(buf, "finalBonesMatrices[%d]", i);
-			uniformMat4(animShader, buf, bones[i].matrix.m);
+			uniformMat4(animShader, buf, res.m);
 		    }
 
 		    glUseProgram(shadersId[mainShader]);
@@ -5225,19 +5228,41 @@ void loadGLTFModel(char* name){
 	bonesSize = data->skins[0].joints_count;
 	bones = malloc(sizeof(BoneInfo) * bonesSize);
 
-	Matrix* inversedMats = malloc(sizeof(Matrix) * bonesSize);
+	inversedMats = malloc(sizeof(Matrix) * bonesSize);
 	fseek(fo, data->skins->inverse_bind_matrices->buffer_view->offset, SEEK_SET);
 	fread(inversedMats, data->skins->inverse_bind_matrices->buffer_view->size, 1, fo);
 
 	glUseProgram(shadersId[animShader]);
 	
 	char buf[64];
-	for (int i = 0;i<data->skins[0].joints_count; i++) {
+	for (int i = 0; i < data->skins[0].joints_count; i++) {
 	    bones[i].id = i;
-	    bones[i].name = malloc(sizeof(char) * (strlen(data->skins[0].joints[i]->name)+1));
+	    bones[i].name = malloc(sizeof(char) * (strlen(data->skins[0].joints[i]->name) + 1));
 	    strcpy(bones[i].name, data->skins[0].joints[i]->name);
 
 	    bones[i].matrix = IDENTITY_MATRIX;
+
+	    {
+		Matrix T = IDENTITY_MATRIX;
+		T.m[12] = data->skins[0].joints[i]->translation[0];
+		T.m[13] = data->skins[0].joints[i]->translation[1];
+		T.m[14] = data->skins[0].joints[i]->translation[2];
+
+		Matrix R = IDENTITY_MATRIX;
+		vec4  rot = {
+		    data->skins[0].joints[i]->rotation[0],
+		    data->skins[0].joints[i]->rotation[1],
+		    data->skins[0].joints[i]->rotation[2],
+		    data->skins[0].joints[i]->rotation[3]
+		};
+//		R = mat4_from_quat(rot);
+
+		Matrix S = IDENTITY_MATRIX;
+		scale(&S, data->skins[0].joints[i]->scale[0], data->skins[0].joints[i]->scale[1], data->skins[0].joints[i]->scale[2]);
+
+		bones[i].matrix = multiplymat4(multiplymat4(T, R), S);
+	    }
+	    
 	    bones[i].inversedMat = inversedMats[i];
 
 	    Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
@@ -5247,7 +5272,7 @@ void loadGLTFModel(char* name){
 
 
 	    /*
-	    Matrix ownMat = IDENTITY_MATRIX;
+	      Matrix ownMat = IDENTITY_MATRIX;
 	    if(data->skins[0].joints[i]->has_matrix){
 		memcpy(ownMat.m, data->skins[0].joints[i]->matrix, sizeof(float) * 16);
 	    }
@@ -5286,7 +5311,7 @@ void loadGLTFModel(char* name){
 	    //uniformMat4(animShader, buf, bones[i].defMat.m);
 	}
 
-	free(inversedMats);
+//	free(inversedMats);
 
 	// set child info
 	for (int i = 0;i<data->skins[0].joints_count; i++) {

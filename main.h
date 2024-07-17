@@ -1423,3 +1423,5 @@ void loadGLTFModel(char* name);
 
 void traverseBones(int jointIndex);
 void updateChildBonesMats(int jointIndex);
+
+Matrix* inversedMats;
