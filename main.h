@@ -877,7 +877,7 @@ int markersStorageSize;
 int markersCounterByType[markersCounter];
 
 typedef enum{
-    lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITxShader, UITransfTx, UITransfColor, animShader, shadersCounter
+    lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITxShader, UITransfTx, UITransfColor, animShader, snowShader,shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
@@ -1291,7 +1291,7 @@ typedef struct{
 } CollisionSquare;
 
 typedef enum{
-    deniedLayerT, acceptedLayerT, layersCounter
+    acceptedLayerT, deniedLayerT, layersCounter
 } CollisionLayers;
 
 CollisionSquare* acceptedLayers;
@@ -1425,3 +1425,15 @@ void traverseBones(int jointIndex);
 void updateChildBonesMats(int jointIndex);
 
 Matrix* inversedMats;
+
+MeshBuffer snowTilesMesh[layersCounter];
+MeshBuffer snowMesh;
+vec3* snowParticles;
+int snowParticlesSize;
+
+bool** snowGrid;
+bool snowAreas;
+
+void generateShowAreas();
+
+int txOfGround;

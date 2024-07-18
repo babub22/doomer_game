@@ -916,7 +916,7 @@ void editorEvents(SDL_Event event){
 	    }else{
 		clearCurrentUI();
 	    }
-	}else if(event.key.keysym.scancode == SDL_SCANCODE_L){
+	}else if(event.key.keysym.scancode == SDL_SCANCODE_K){
 	    if(curUIBuf.rects != UIStructBufs[entityWindowT]->rects){
 		memcpy(&curUIBuf, UIStructBufs[entityWindowT], sizeof(UIBuf));
 	    }else{
@@ -5011,87 +5011,91 @@ void uniformLights(){
     GLint curShader = 0;
     glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
 
-    glUseProgram(shadersId[mainShader]);
+    int shaderTable[2] = { mainShader, snowShader };
 
-    char buf[64];
+    for(int s=0;s<2;s++){
+	glUseProgram(shadersId[shaderTable[s]]);
 
-    static const char* shaderVarSufixStr[] = {
-	[pointLightT] = "point",
-	[dirLightT] = "dir",
-	[dirLightShadowT] = "dirShadow"
-    };
+	char buf[64];
 
-    uniformFloat(mainShader, "radius", max(gridX / 2.0f, gridZ / 2.0f)); 
+	static const char* shaderVarSufixStr[] = {
+	    [pointLightT] = "point",
+	    [dirLightT] = "dir",
+	    [dirLightShadowT] = "dirShadow"
+	};
 
-    int localLightsCounter[lightsTypeCounter] = { 0 };
-    int* onLightsIndexes;
+	uniformFloat(shaderTable[s], "radius", max(gridX / 2.0f, gridZ / 2.0f)); 
 
-    for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
-	int onCounter = 0;
+	int localLightsCounter[lightsTypeCounter] = { 0 };
+	int* onLightsIndexes;
+
+	for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
+	    int onCounter = 0;
     
-	for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
-	    if (!lightStorage[i2][i].off) {
-		onCounter++;
+	    for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
+		if (!lightStorage[i2][i].off) {
+		    onCounter++;
+		}
 	    }
-	}
 
-	onLightsIndexes = malloc(sizeof(int) * onCounter);
-	onCounter = 0;
+	    onLightsIndexes = malloc(sizeof(int) * onCounter);
+	    onCounter = 0;
 
-	for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
-	    if (!lightStorage[i2][i].off) {
-		onLightsIndexes[onCounter] = i;
-		onCounter++;
+	    for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
+		if (!lightStorage[i2][i].off) {
+		    onLightsIndexes[onCounter] = i;
+		    onCounter++;
+		}
 	    }
-	}
 
-	for (int i = 0; i < onCounter; i++) {
-	    int indx = onLightsIndexes[i];
+	    for (int i = 0; i < onCounter; i++) {
+		int indx = onLightsIndexes[i];
       
-	    sprintf(buf, "%sLights[%i].pos",
-		    shaderVarSufixStr[i2], i);
-	    uniformVec3(mainShader, buf, (vec3) { lightStorage[i2][indx].mat.m[12], lightStorage[i2][indx].mat.m[13], lightStorage[i2][indx].mat.m[14], });
+		sprintf(buf, "%sLights[%i].pos",
+			shaderVarSufixStr[i2], i);
+		uniformVec3(shaderTable[s], buf, (vec3) { lightStorage[i2][indx].mat.m[12], lightStorage[i2][indx].mat.m[13], lightStorage[i2][indx].mat.m[14], });
 
-	    sprintf(buf, "%sLights[%i].color",
-		    shaderVarSufixStr[i2], i);
+		sprintf(buf, "%sLights[%i].color",
+			shaderVarSufixStr[i2], i);
 
-	    vec3 color = { rgbToGl(lightStorage[i2][indx].r, lightStorage[i2][indx].g, lightStorage[i2][indx].b) };
-	    uniformVec3(mainShader, buf, color);
+		vec3 color = { rgbToGl(lightStorage[i2][indx].r, lightStorage[i2][indx].g, lightStorage[i2][indx].b) };
+		uniformVec3(shaderTable[s], buf, color);
 		    
-	    sprintf(buf, "%sLights[%i].constant",
-		    shaderVarSufixStr[i2], i); 
-	    uniformFloat(mainShader, buf, 1.0f);
+		sprintf(buf, "%sLights[%i].constant",
+			shaderVarSufixStr[i2], i); 
+		uniformFloat(shaderTable[s], buf, 1.0f);
 
-	    sprintf(buf, "%sLights[%i].linear",
-		    shaderVarSufixStr[i2], i);
-	    uniformFloat(mainShader, buf, lightPresetTable[lightStorage[i2][indx].curLightPresetIndex][0]);
+		sprintf(buf, "%sLights[%i].linear",
+			shaderVarSufixStr[i2], i);
+		uniformFloat(shaderTable[s], buf, lightPresetTable[lightStorage[i2][indx].curLightPresetIndex][0]);
 
-	    sprintf(buf, "%sLights[%i].qaudratic",
-		    shaderVarSufixStr[i2], i);
-	    uniformFloat(mainShader, buf, lightPresetTable[lightStorage[i2][indx].curLightPresetIndex][1]);
+		sprintf(buf, "%sLights[%i].qaudratic",
+			shaderVarSufixStr[i2], i);
+		uniformFloat(shaderTable[s], buf, lightPresetTable[lightStorage[i2][indx].curLightPresetIndex][1]);
 
-	    sprintf(buf, "%sLights[%i].depthTxIndex",
-		    shaderVarSufixStr[i2], i);
-	    uniformInt(mainShader, buf, lightStorage[i2][indx].id);
+		sprintf(buf, "%sLights[%i].depthTxIndex",
+			shaderVarSufixStr[i2], i);
+		uniformInt(shaderTable[s], buf, lightStorage[i2][indx].id);
       
-	    sprintf(buf, "%sLights[%i].dir",
-		    shaderVarSufixStr[i2], i);
-	    uniformVec3(mainShader, buf, (vec3){lightStorage[i2][indx].mat.m[0], lightStorage[i2][indx].mat.m[1], lightStorage[i2][indx].mat.m[2]});
+		sprintf(buf, "%sLights[%i].dir",
+			shaderVarSufixStr[i2], i);
+		uniformVec3(shaderTable[s], buf, (vec3){lightStorage[i2][indx].mat.m[0], lightStorage[i2][indx].mat.m[1], lightStorage[i2][indx].mat.m[2]});
       
-	    sprintf(buf, "%sLights[%i].rad",
-		    shaderVarSufixStr[i2], i);
-	    uniformFloat(mainShader, buf, lightStorage[i2][indx].rad);
+		sprintf(buf, "%sLights[%i].rad",
+			shaderVarSufixStr[i2], i);
+		uniformFloat(shaderTable[s], buf, lightStorage[i2][indx].rad);
       
-	    sprintf(buf, "%sLights[%i].cutOff",
-		    shaderVarSufixStr[i2], i);
-	    uniformFloat(mainShader, buf, lightStorage[i2][indx].cutOff);
+		sprintf(buf, "%sLights[%i].cutOff",
+			shaderVarSufixStr[i2], i);
+		uniformFloat(shaderTable[s], buf, lightStorage[i2][indx].cutOff);
+	    }
+
+	    sprintf(buf, "%sLightsSize",
+		    shaderVarSufixStr[i2]);
+	    uniformInt(shaderTable[s], buf, onCounter);
+
+	    free(onLightsIndexes);
 	}
-
-	sprintf(buf, "%sLightsSize",
-		shaderVarSufixStr[i2]);
-	uniformInt(mainShader, buf, onCounter);
-
-	free(onLightsIndexes);
     }
 
     glUseProgram(curShader);
