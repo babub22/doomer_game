@@ -1502,32 +1502,88 @@ int main(int argc, char* argv[]) {
 		}
 	    }
 
+	    static int oppositeSnowDir[snowDirCounter] = {
+		[X_MINUS_SNOW] = X_PLUS_SNOW,
+		[X_PLUS_SNOW] = X_MINUS_SNOW,
+		[Z_MINUS_SNOW] = Z_PLUS_SNOW,
+		[Z_PLUS_SNOW] = Z_MINUS_SNOW,
+	    };
+
 	    // process snow
 	    {
-		for(int i=0;i<snowParticlesSize;i+=2){
-		    if(snowParticles[i].y <= 0){
-			snowParticles[i].y = (gridY * 2) - 0.025f;
-			snowParticles[i+1].y = gridY * 2;
+		static float dMove = 0.0005f;
+		
+		int index = 0;
+		for(int i=0;i<snowParticles.size;i+=2){
+		    if(snowParticles.buf[i].y > 0){
+			snowParticles.buf[i].y -= 0.0025f;
+			snowParticles.buf[i+1].y -= 0.0025f;
 		    }else{
-			snowParticles[i].y -= 0.0025f;
-			snowParticles[i+1].y -= 0.0025f;
+			if(snowParticles.action[index] != WAITING_Y){
+			    snowParticles.timers[index] = 120;
+			    snowParticles.action[index] = WAITING_Y;
+			}
 		    }
 
-//		    float dX = (float)((rand() % 3) - 1) / 500.0f;
-//		    float dZ = (float)((rand() % 3) - 1) / 500.0f;
+		    if(snowParticles.timers[index] == 0){
+			if(snowParticles.action[index] == WAITING_Y){
+			    snowParticles.buf[i].y = (gridY * 2) - 0.025f;
+			    snowParticles.buf[i+1].y = gridY * 2;
 
-//		    snowParticles[i].x += dX;
-//		    snowParticles[i+1].x += dX;
+			    snowParticles.action[index] = rand() % snowDirCounter;
+			}else{
+			    snowParticles.speeds[index] = (rand() % 6) / 10000.0f;
+			    float maxDist;
+			
+			    snowParticles.action[index] = oppositeSnowDir[snowParticles.action[index]];
+			
+			    if(snowParticles.action[index] == X_PLUS_SNOW){
+				maxDist = ((int)snowParticles.buf[i].x + 1) - snowParticles.buf[i].x;
+			    }else if(snowParticles.action[index] == X_MINUS_SNOW){
+				maxDist = snowParticles.buf[i].x - (int)snowParticles.buf[i].x;
+			    }else if(snowParticles.action[index] == Z_MINUS_SNOW){
+				maxDist = snowParticles.buf[i].z - (int)snowParticles.buf[i].z;
+			    }else if(snowParticles.action[index] == Z_PLUS_SNOW){
+				maxDist = ((int)snowParticles.buf[i].z + 1) - snowParticles.buf[i].z;
+			    }
 
-//		    snowParticles[i].z += dZ;
-//		    snowParticles[i+1].z += dZ;
+			    maxDist -= snowParticles.speeds[index];
+			
+			    snowParticles.timers[index] = maxDist / dMove;
+			}
+		    }else{
+			snowParticles.timers[index]--;
+
+			if(snowParticles.action[index] != WAITING_Y){
+			    float dX = 0.0f;
+			    float dZ = 0.0f;
+			
+			    if(snowParticles.action[index] == X_PLUS_SNOW){
+				dX = snowParticles.speeds[index];
+			    }else if(snowParticles.action[index] == X_MINUS_SNOW){
+				dX = -snowParticles.speeds[index];
+			    }else if(snowParticles.action[index] == Z_MINUS_SNOW){
+				dZ = -snowParticles.speeds[index];
+			    }else if(snowParticles.action[index] == Z_PLUS_SNOW){
+				dZ = snowParticles.speeds[index];
+			    }
+
+			    snowParticles.buf[i].x += dX;
+			    snowParticles.buf[i+1].x += dX;
+
+			    snowParticles.buf[i].z += dZ;
+			    snowParticles.buf[i+1].z += dZ;
+			}
+		    }
+
+		    index++;
 		}
 
 		glBindVertexArray(snowMesh.VAO); 
 		glBindBuffer(GL_ARRAY_BUFFER, snowMesh.VBO);
 
 		glBufferData(GL_ARRAY_BUFFER,
-			     sizeof(vec3) * snowParticlesSize, snowParticles, GL_STATIC_DRAW);
+			     sizeof(vec3) * snowParticles.size, snowParticles.buf, GL_STATIC_DRAW);
 
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
 		glEnableVertexAttribArray(0);
@@ -3233,7 +3289,7 @@ TileBlock* constructNewBlock(int type, int angle){
     return newBlock;
 }
 
-float* wallBySide(int* bufSize,Side side, float thick){
+float* wallBySide(int* size,Side side, float thick){
     float* buf = NULL;
 
     float w = 1;
@@ -3352,7 +3408,7 @@ float* wallBySide(int* bufSize,Side side, float thick){
 	    w, 0.0f , d,     1.0f, 0.0f
 	};
 
-	*bufSize = sizeof(verts);
+	*size = sizeof(verts);
 	buf = malloc(sizeof(verts));
 	memcpy(buf, verts, sizeof(verts));
 	return buf;
@@ -3406,7 +3462,7 @@ float* wallBySide(int* bufSize,Side side, float thick){
 	    w, 0.0f , d,     1.0f, 0.0f
 	};
 
-	*bufSize = sizeof(verts);
+	*size = sizeof(verts);
 	buf = malloc(sizeof(verts));
 	memcpy(buf, verts, sizeof(verts));
 	return buf;
@@ -4848,15 +4904,15 @@ vec3 calculateNormal(vec3 a, vec3 b, vec3 c){
 };
 
 
-void attachNormalsToBuf(VPair* VPairBuf, int plane, int bufSize, float* buf){
+void attachNormalsToBuf(VPair* VPairBuf, int plane, int size, float* buf){
     glGenBuffers(1, &VPairBuf[plane].VBO);
     glGenVertexArrays(1, &VPairBuf[plane].VAO);
 
     glBindVertexArray(VPairBuf[plane].VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VPairBuf[plane].VBO);
 
-    int oldVertSize = bufSize / sizeof(float) / 5;
-    size_t newSize = bufSize + (sizeof(vec3) * oldVertSize);
+    int oldVertSize = size / sizeof(float) / 5;
+    size_t newSize = size + (sizeof(vec3) * oldVertSize);
 
     VPairBuf[plane].vBuf = malloc(newSize);
     VPairBuf[plane].vertexNum = newSize/sizeof(float)/8;
@@ -4909,8 +4965,8 @@ void attachNormalsToBuf(VPair* VPairBuf, int plane, int bufSize, float* buf){
 
 
 
-    //  VPairBuf[plane].vBuf = malloc(bufSize);
-    //  memcpy(VPairBuf[plane].vBuf, buf, bufSize);
+    //  VPairBuf[plane].vBuf = malloc(size);
+    //  memcpy(VPairBuf[plane].vBuf, buf, size);
 
     glBufferData(GL_ARRAY_BUFFER, newSize, VPairBuf[plane].vBuf, GL_STATIC_DRAW);
 
@@ -6966,15 +7022,7 @@ UIBuf* batchUI(UIRect2* rects, int rectsSize){
 }
 
 void generateShowAreas(){
-    if(snowGrid){
-	for(int i=0;i<gridZ;i++){
-	    free(snowGrid[i]);
-	}
-	
-	free(snowGrid);
-    }
-
-    snowGrid = malloc(sizeof(bool*) * gridZ);
+    bool** snowGrid = malloc(sizeof(bool*) * gridZ);
 
     for(int i=0;i<gridZ;i++){
 	snowGrid[i] = calloc(sizeof(bool), gridX);
@@ -7015,31 +7063,50 @@ void generateShowAreas(){
     }
     
     // int 3*Y*X*Z
-    int oneBlockParticle = 1;
 
-    if(snowParticles){
-	free(snowParticles);
+    if(snowParticles.buf){
+	free(snowParticles.buf);
+
+	free(snowParticles.timers);
+	free(snowParticles.action);
+	free(snowParticles.speeds);
     }
 
     int maxY = gridY * 2;
+
+    int oneColParticles = 100;
+    int particlesSize = tilesCounter[acceptedLayerT] * oneColParticles * 2;
+    int uqParticlesSize = particlesSize / 2.0f;
+
+    snowParticles.timers = calloc(sizeof(int),  uqParticlesSize);
+    snowParticles.action = malloc(sizeof(SnowAction) * uqParticlesSize);
+    snowParticles.speeds = malloc(sizeof(float) * uqParticlesSize);
+
+    for(int i=0;i<uqParticlesSize;i++){
+	snowParticles.action[i] = rand() % snowDirCounter;
+    }
     
-    snowParticles = malloc(sizeof(vec3) * tilesCounter[acceptedLayerT] * maxY * oneBlockParticle * 2);
-    snowParticlesSize=0;// = tilesCounter[acceptedLayerT] * gridY;
+    memset(snowParticles.timers, 0, sizeof(int) *  particlesSize / 2);
+
+    snowParticles.buf = malloc(sizeof(vec3) * particlesSize);
+    
+    snowParticles.size = 0;// = tilesCounter[acceptedLayerT] * gridY;
     
     index = 0;
-    for(int y=0;y<maxY;y++){
+//    for(int y=0;y<maxY;y++){
 	for(int i=0;i<tilesCounter[acceptedLayerT];i++){
 	    vec3 lb = bufs[acceptedLayerT][i*6 + 2];
 
-	    for(int i2=0;i2<oneBlockParticle;i2++){
-//		float fY = y + ((float)(rand() % 1000) / 1000.0f);
-		float fY = y + ((float)(rand() % 1000) / 1000.0f);
+	    for(int i2=0;i2<oneColParticles;i2++){
+		//	float fY = y + ((float)(rand() % 1000) / 1000.0f);
+		float fY = ((float)(rand() % (maxY * 100))) / 100.0f;
 		float fZ = lb.z + ((float)(rand() % 1000) / 1000.0f);
 		float fX = lb.x + ((float)(rand() % 1000) / 1000.0f);
  
-		snowParticles[snowParticlesSize] = (vec3){ fX, fY, fZ };
+		snowParticles.buf[snowParticles.size] = (vec3){ fX, fY, fZ };
 
-		snowParticlesSize+=2;
+		snowParticles.size+=2;
+		index++;
 	    }
 	    
 	    // from x, z
@@ -7047,20 +7114,22 @@ void generateShowAreas(){
 	    // to x + bBlockW, z + bBlockD
 
 	}
-    }
+	//  }
+
     
-    for(int i=0;i<snowParticlesSize;i+=2){
-	snowParticles[i+1] = (vec3){ snowParticles[i].x , snowParticles[i].y + 0.025f, snowParticles[i].z };
+    
+    for(int i=0;i<snowParticles.size;i+=2){
+	snowParticles.buf[i+1] = (vec3){ snowParticles.buf[i].x , snowParticles.buf[i].y + 0.01f, snowParticles.buf[i].z };
     }
 
     {
 	glBindVertexArray(snowMesh.VAO); 
 	glBindBuffer(GL_ARRAY_BUFFER, snowMesh.VBO);
 
-	snowMesh.VBOsize = snowParticlesSize;
+	snowMesh.VBOsize = snowParticles.size;
 
 	glBufferData(GL_ARRAY_BUFFER,
-		     sizeof(vec3) * snowParticlesSize, snowParticles, GL_STATIC_DRAW);
+		     sizeof(vec3) * snowParticles.size, snowParticles.buf, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
@@ -7087,6 +7156,11 @@ void generateShowAreas(){
 	free(bufs[i]);
     }
 
+    for(int i=0;i<gridZ;i++){
+	free(snowGrid[i]);
+    }
+	
+    free(snowGrid);
 }
 
 void generateNavTiles(){

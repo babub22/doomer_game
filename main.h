@@ -1409,6 +1409,11 @@ typedef struct{
     //  Matrix matrix;
 } BoneAction;
 
+//typedef struct{
+//    int timer;
+//} Snowflake;
+
+
 BoneAction* boneActions;
 int timesCounter;
 BoneAction*** boneAnimIndexed;
@@ -1426,12 +1431,27 @@ void updateChildBonesMats(int jointIndex);
 
 Matrix* inversedMats;
 
+typedef enum{
+    X_MINUS_SNOW, X_PLUS_SNOW, Z_MINUS_SNOW, Z_PLUS_SNOW, snowDirCounter, WAITING_Y
+} SnowAction;
+
+typedef struct{
+    vec3* buf;
+
+    float* speeds;
+    int* timers;
+    
+    SnowAction* action;
+    int size;
+} SnowParticles;
+
+SnowParticles snowParticles;
+
 MeshBuffer snowTilesMesh[layersCounter];
 MeshBuffer snowMesh;
-vec3* snowParticles;
+int* snowTimers;
 int snowParticlesSize;
 
-bool** snowGrid;
 bool snowAreas;
 
 void generateShowAreas();
