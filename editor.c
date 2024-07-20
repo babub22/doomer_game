@@ -2039,6 +2039,8 @@ void editorEvents(SDL_Event event){
 			geomentyByTxCounter[data->wall->planes[i].txIndex] -= wallsVPairs[data->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[data->wall->type].pairs[i].attrSize;
 		    }
 
+			placedWallCounter[data->wall->type]--;
+
 		    deleteWallInStorage(data->wall->id);
 
 		    free(data->wall->planes);
@@ -2073,6 +2075,7 @@ void editorEvents(SDL_Event event){
 			    mouse.selectedThing = NULL;
 			}
 
+			
 			batchAllGeometry();
 			rerenderShadowsForAllLights();
 		    }
@@ -3429,6 +3432,7 @@ void editor3dRender() {
 		wal.sideForMat = selectedSide;
 		wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
 		memcpy(wal.mat.m, wallMat.m ,sizeof(float) * 16);
+
 	
 		//	  printf("Calllllllll\n");
 		//grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
@@ -3465,6 +3469,8 @@ void editor3dRender() {
 	  
 		    geomentyByTxCounter[wal.planes[i].txIndex] += wallsVPairs[wal.type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wal.type].pairs[i].attrSize;
 		}
+		
+		placedWallCounter[wal.type]++;
 
 		vec3 tile = tilesStorage[tileId].pos;
 	
@@ -3609,7 +3615,7 @@ void editor2dRender() {
 		    int prevTx;
 
 		    if (wallData->wall) {
-			if (wallData->wall->type == windowT && wallData->plane <= winCenterBackPlane) {
+			if (wallData->wall->type == windowT && wallData->plane <= winInnerTopPlane) {
 			    static const int winPlanePairs[12] = {
 				[winFrontCapPlane] = winFrontBotPlane,
 				[winFrontBotPlane] = winFrontCapPlane,
@@ -3619,9 +3625,6 @@ void editor2dRender() {
 
 				[winInnerTopPlane] = winInnerBotPlane,
 				[winInnerBotPlane] = winInnerTopPlane,
-
-				[winCenterBackPlane] = winCenterFrontPlane,
-				[winCenterFrontPlane] = winCenterBackPlane,
 			    };
 
 			    geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
@@ -3635,9 +3638,10 @@ void editor2dRender() {
 
 			/*
 			  if (wallData->wall->type == doorT && wallData->plane <= doorCenterBackPlane) {
+
 			  static const int doorPlanePairs[2] = {
-			  [doorCenterFrontPlane] = doorCenterBackPlane,
-			  [doorCenterBackPlane] = doorCenterFrontPlane,
+			   [doorCenterFrontPlane] = doorCenterBackPlane,
+			   [doorCenterBackPlane] = doorCenterFrontPlane,
 			  };
 
 			  geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;

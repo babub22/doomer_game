@@ -146,8 +146,7 @@ const char* windowPlanesStr[] = {
     [winFrontBotPlane] = "Front-bot plane",
     [winBackCapPlane] = "Back-cap plane",
     [winBackBotPlane] = "Back-bot plane",
-    [winCenterBackPlane] = "Center-back plane" ,
-    [winCenterFrontPlane] = "Center-front plane" ,
+    [winCenterPlane] = "Center plane" ,
 
     [winInnerBotPlane] = "Inner-bot plane",
     [winInnerTopPlane] = "Inner-top plane",
@@ -488,6 +487,11 @@ int main(int argc, char* argv[]) {
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
 	    glBindVertexArray(0);
 	}
+    }
+
+    {
+	glGenBuffers(1, &windowWindowsMesh.VBO);
+	glGenVertexArrays(1, &windowWindowsMesh.VAO);
     }
 
     // 2d free rect
@@ -1483,6 +1487,22 @@ int main(int argc, char* argv[]) {
 
       
 	    ((void (*)(void))instances[curInstance][render3DFunc])();
+
+	    // windows glasses
+	    {
+		glUseProgram(shadersId[mainShader]);
+		
+		glBindBuffer(GL_ARRAY_BUFFER, windowWindowsMesh.VBO);
+		glBindVertexArray(windowWindowsMesh.VAO);
+
+		Matrix out = IDENTITY_MATRIX;
+		uniformMat4(snowShader, "model", out.m);
+		    
+		glDrawArrays(GL_TRIANGLES, 0, windowWindowsMesh.VBOsize);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+	    }
 
 	    // draw snow
 	    {
@@ -2534,6 +2554,7 @@ bool loadSave(char* saveName){
 	    geomentyByTxCounter[newWall->planes[i2].txIndex] += wallsVPairs[newWall->prevType].pairs[i2].vertexNum * sizeof(float) * wallsVPairs[newWall->prevType].pairs[i2].attrSize;
 	    calculateAABB(newWall->mat, wallsVPairs[newWall->prevType].pairs[i2].vBuf, wallsVPairs[newWall->prevType].pairs[i2].vertexNum, wallsVPairs[newWall->prevType].pairs[i2].attrSize, &newWall->planes[i2].lb, &newWall->planes[i2].rt);
 	}
+	placedWallCounter[newWall->type]++;
 
 	newWall->id = i;
 	wallsStorage[i] = newWall;
@@ -4504,28 +4525,114 @@ void assembleWindowBlockVBO(){
 	w, h-capH, -t,      0.0f, 1.0f,
     };
 
-    float winPad = t/12;
+    float winPad = t/6;
 
+    float wStart = 0.4f * 1.0f;
+    float wEnd = wStart + 0.1f;
+    
     float windowPlaneFront[] = {
 	// cap bot
-	0.0f, botH, winPad,   1.0f, 0.0f,
+	/*0.0f, botH, winPad,   1.0f, 0.0f,
 	w,  h-capH, winPad,    0.0f, 1.0f,
 	0.0f, h-capH, winPad, 1.0f, 1.0f,
 
 	0.0f, botH, winPad,    1.0f, 0.0f,
 	w, botH, winPad,       0.0f, 0.0f,
+	w,  h-capH, winPad,    0.0f, 1.0f,*/
+
+	// front plane
+	wStart, botH, winPad,   1.0f, 0.0f,
+	wEnd,  h-capH, winPad,    0.0f, 1.0f,
+	wStart, h-capH, winPad, 1.0f, 1.0f,
+
+	wStart, botH, winPad,    1.0f, 0.0f,
+	wEnd, botH, winPad,       0.0f, 0.0f,
+	wEnd,  h-capH, winPad,    0.0f, 1.0f,
+
+	// front start
+	wStart, botH, 0.0f,   1.0f, 0.0f,
+	wStart,  h-capH, winPad,    0.0f, 1.0f,
+	wStart, h-capH, 0.0f, 1.0f, 1.0f,
+
+	wStart, botH, 0.0f,    1.0f, 0.0f,
+	wStart, botH, winPad,       0.0f, 0.0f,
+	wStart,  h-capH, winPad,    0.0f, 1.0f,
+	
+	// front end 
+	wEnd, botH, 0.0f,   1.0f, 0.0f,
+	wEnd,  h-capH, winPad,    0.0f, 1.0f,
+	wEnd, h-capH, 0.0f, 1.0f, 1.0f,
+
+	wEnd, botH, 0.0f,    1.0f, 0.0f,
+	wEnd, botH, winPad,       0.0f, 0.0f,
+	wEnd,  h-capH, winPad,    0.0f, 1.0f,
+
+	// back front
+	wStart, botH, -winPad,   1.0f, 0.0f,
+	wEnd,  h-capH, -winPad,    0.0f, 1.0f,
+	wStart, h-capH, -winPad, 1.0f, 1.0f,
+
+	wStart, botH, -winPad,    1.0f, 0.0f,
+	wEnd, botH, -winPad,       0.0f, 0.0f,
+	wEnd,  h-capH, -winPad,    0.0f, 1.0f,
+
+	// back start
+	wStart, botH, 0.0f,   1.0f, 0.0f,
+	wStart,  h-capH, -winPad,    0.0f, 1.0f,
+	wStart, h-capH, 0.0f, 1.0f, 1.0f,
+
+	wStart, botH, 0.0f,    1.0f, 0.0f,
+	wStart, botH, -winPad,       0.0f, 0.0f,
+	wStart,  h-capH, -winPad,    0.0f, 1.0f,
+	
+	// back end 
+	wEnd, botH, 0.0f,   1.0f, 0.0f,
+	wEnd,  h-capH, -winPad,    0.0f, 1.0f,
+	wEnd, h-capH, 0.0f, 1.0f, 1.0f,
+
+	wEnd, botH, 0.0f,    1.0f, 0.0f,
+	wEnd, botH, -winPad,       0.0f, 0.0f,
+	wEnd,  h-capH, -winPad,    0.0f, 1.0f,
+
+	/*
+	// left window
+	0.0f, botH, winPad,         1.0f, 0.0f,
+	wStart,  h-capH, winPad,    0.0f, 1.0f,
+	0.0f, h-capH, winPad,       1.0f, 1.0f,
+
+	0.0f, botH, winPad,         1.0f, 0.0f,
+	wStart, botH, winPad,       0.0f, 0.0f,
+	wStart,  h-capH, winPad,    0.0f, 1.0f,
+
+	// right window
+	wEnd, botH, winPad,         1.0f, 0.0f,
+        w,  h-capH, winPad,    0.0f, 1.0f,
+	wEnd, h-capH, winPad,       1.0f, 1.0f,
+
+	wEnd, botH, winPad,         1.0f, 0.0f,
+        w, botH, winPad,       0.0f, 0.0f,
+        w,  h-capH, winPad,    0.0f, 1.0f,
+	*/
+	    };
+
+    float windowPlane[] = {
+	// left window
+	0.0f, botH, winPad,         1.0f, 0.0f,
+	wStart,  h-capH, winPad,    0.0f, 1.0f,
+	0.0f, h-capH, winPad,       1.0f, 1.0f,
+
+	0.0f, botH, winPad,         1.0f, 0.0f,
+	wStart, botH, winPad,       0.0f, 0.0f,
+	wStart,  h-capH, winPad,    0.0f, 1.0f,
+
+	// right window
+	wEnd, botH, winPad,         1.0f, 0.0f,
 	w,  h-capH, winPad,    0.0f, 1.0f,
-    };
+	wEnd, h-capH, winPad,       1.0f, 1.0f,
 
-    float windowPlaneBack[] = {
-	// cap bot
-	w,  h-capH, -winPad,    0.0f, 1.0f,
-	0.0f, botH, -winPad,   1.0f, 0.0f,
-	0.0f, h-capH, -winPad, 1.0f, 1.0f,
-
-	w,  h-capH, -winPad,    0.0f, 1.0f,
-	w, botH, -winPad,       0.0f, 0.0f,
-	0.0f, botH, -winPad,    1.0f, 0.0f,
+	wEnd, botH, winPad,         1.0f, 0.0f,
+	w, botH, winPad,       0.0f, 0.0f,
+	w,  h-capH, winPad,    0.0f, 1.0f,
     };
       
     float frontWindowPlane[] = {
@@ -4558,12 +4665,11 @@ void assembleWindowBlockVBO(){
 	[winInnerBotPlane] = botInnerSide,
 	[winInnerRightPlane] = innerRightPlane,
 	[winInnerLeftPlane] = innerLeftPlane,
-    
+
 	[winTopPlane] = topSide,
 	[winFrontPodokonik] = frontWindowPlane,
 
-	[winCenterBackPlane] = windowPlaneBack,
-	[winCenterFrontPlane] = windowPlaneFront
+	[winCenterPlane] = windowPlaneFront,
     };
   
     int wallPlanesSize[winPlaneCounter] = {
@@ -4580,12 +4686,13 @@ void assembleWindowBlockVBO(){
 	[winTopPlane] = sizeof(topSide),
 	[winFrontPodokonik] = sizeof(frontWindowPlane),
 
-	[winCenterBackPlane] = sizeof(windowPlaneBack),
-	[winCenterFrontPlane] = sizeof(windowPlaneFront)
+	[winCenterPlane] = sizeof(windowPlaneFront),
     };
 
     wallsVPairs[windowT].pairs = malloc(sizeof(VPair) * winPlaneCounter);
     wallsVPairs[windowT].planesNum = winPlaneCounter;
+
+    attachNormalsToBuf(&windowGlassPair, 0, sizeof(windowPlaneFront), windowPlaneFront);
     
     for(int i=0;i<wallsVPairs[windowT].planesNum;i++){
 	attachNormalsToBuf(wallsVPairs[windowT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
@@ -6546,6 +6653,71 @@ void batchAllGeometry(){
 	finalGeom[i].buf = calloc(geomentyByTxCounter[i],1);
 	finalGeom[i].size = geomentyByTxCounter[i];
 	finalGeom[i].tris = geomentyByTxCounter[i] / (float)vertexSize / sizeof(float);
+    }
+
+    if(placedWallCounter[windowT]){
+	if(windowWindowsBatch){
+	    free(windowWindowsBatch);
+	}
+	
+	windowWindowsBatch = malloc((sizeof(float) * 5) *
+				    windowGlassPair.vertexNum * placedWallCounter[windowT]);
+	
+	int wCounter = 0;
+        for(int i=0;i<wallsStorageSize;i++){
+	    if(wallsStorage[i]->type == windowT){
+		for(int i2=0;i2<windowGlassPair.vertexNum;i2++){
+		    int index = i2 * 8;
+		    
+		    vec4 vert = { windowGlassPair.vBuf[index], windowGlassPair.vBuf[index + 1], windowGlassPair.vBuf[index + 2], 1.0f };
+
+		    vec4 transf = mulmatvec4(wallsStorage[i]->mat, vert);
+
+		    vec4 normal = { windowGlassPair.vBuf[index + 5], windowGlassPair.vBuf[index + 6], windowGlassPair.vBuf[index + 7], 1.0f };
+
+		    Matrix inversedWallModel = IDENTITY_MATRIX;
+		    inverse(wallsStorage[i]->mat.m, inversedWallModel.m); 
+
+		    Matrix trasposedAndInversedWallModel = IDENTITY_MATRIX;
+		    mat4transpose(trasposedAndInversedWallModel.m, inversedWallModel.m);
+
+		    vec4 transfNormal = mulmatvec4(trasposedAndInversedWallModel, normal);
+
+		    windowWindowsBatch[(index + wCounter)] = transf.x;
+		    windowWindowsBatch[(index + wCounter) + 1] = transf.y;
+		    windowWindowsBatch[(index + wCounter) + 2] = transf.z;
+
+		    windowWindowsBatch[(index + wCounter) + 3] = windowGlassPair.vBuf[index + 3];
+		    windowWindowsBatch[(index + wCounter) + 4] = windowGlassPair.vBuf[index + 4];
+
+		    windowWindowsBatch[(index + wCounter) + 5] = transfNormal.x;
+		    windowWindowsBatch[(index + wCounter) + 6] = transfNormal.y;
+		    windowWindowsBatch[(index + wCounter) + 7] = transfNormal.z;
+		}
+			wCounter+= windowGlassPair.vertexNum*8;
+	    }
+	}
+
+		//for(int)
+
+	glBindVertexArray(windowWindowsMesh.VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, windowWindowsMesh.VBO);
+
+	windowWindowsMesh.VBOsize = windowGlassPair.vertexNum * placedWallCounter[windowT];
+	glBufferData(GL_ARRAY_BUFFER, (sizeof(float) * 8) *
+				    windowGlassPair.vertexNum * placedWallCounter[windowT], windowWindowsBatch, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);  
+	glBindVertexArray(0);
     }
   
     // planes

@@ -113,6 +113,8 @@ typedef enum{
   wallTypeCounter,
 } WallType;
 
+int placedWallCounter[wallTypeCounter];
+
 const char* wallTypeStr[];
 
 typedef enum{
@@ -201,7 +203,10 @@ typedef enum{
   winFrontCapPlane, winFrontBotPlane,
   winBackCapPlane,
   winBackBotPlane,
-  winCenterFrontPlane, winCenterBackPlane,
+//  winCenterFrontPlane, winCenterBackPlane,
+
+  winCenterPlane,
+//  winWindowPlane,
   
   winInnerTopPlane,
   winInnerBotPlane,
@@ -1457,3 +1462,10 @@ bool snowAreas;
 void generateShowAreas();
 
 int txOfGround;
+
+float* windowWindowsBatch;
+MeshBuffer windowWindowsMesh;
+//int windowWindowsBatchSize;
+VPair windowGlassPair;
+
+int windowsCounter;
