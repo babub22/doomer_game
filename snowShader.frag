@@ -191,5 +191,6 @@ float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
 //gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),1.0f);
 
-gl_FragColor = vec4(color * fogAttenuation + (.5 * (1.0-fogAttenuation)),1.0f);
+
+gl_FragColor = vec4(color * fogAttenuation + (.5 * (1.0-fogAttenuation)),.5f);
 }

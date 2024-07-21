@@ -882,7 +882,7 @@ int markersStorageSize;
 int markersCounterByType[markersCounter];
 
 typedef enum{
-    lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITxShader, UITransfTx, UITransfColor, animShader, snowShader,shadersCounter
+    lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITxShader, UITransfTx, UITransfColor, animShader, snowShader, windowShader, shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
@@ -1469,3 +1469,5 @@ MeshBuffer windowWindowsMesh;
 VPair windowGlassPair;
 
 int windowsCounter;
+
+GLuint windowGlassId;

@@ -198,7 +198,7 @@ ModelsTypesInfo modelsTypesInfo[] = {
     [playerModelT] = {"Player", 0}
 };
 
-const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth", [UIShader] = "UI", [UITxShader] = "UITxShader", [UITransfShader] = "UITransf", [UITransfTx] = "UITransfTx", [UITransfColor] = "UITransfColor", [animShader] = "animModels", [snowShader] = "snowShader" };
+const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth", [UIShader] = "UI", [UITxShader] = "UITxShader", [UITransfShader] = "UITransf", [UITransfTx] = "UITransfTx", [UITransfColor] = "UITransfColor", [animShader] = "animModels", [snowShader] = "snowShader", [windowShader] = "windowShader" };
 
 const char sdlScancodesToACII[] = {
     [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',[55] = '.'
@@ -920,6 +920,18 @@ int main(int argc, char* argv[]) {
 	createTexture(&solidColorTx, 1, 1, color);
     }
 
+    {
+	SDL_Surface* texture = IMG_Load_And_Flip_Vertical(texturesFolder"icedWindow.png");
+
+	if (!texture) {
+	    printf("Loading of texture \"%s\" failed", texturesFolder"icedWindow.png");
+	    exit(-1);
+	}
+
+	createTexture(&windowGlassId, texture->w, texture->h, texture->pixels);  
+	SDL_FreeSurface(texture);
+    }
+
     // load textures
     {
 	FILE* texSpecs = fopen(texturesFolder"texSpec.txt", "r");
@@ -1325,6 +1337,9 @@ int main(int argc, char* argv[]) {
   
     glUseProgram(shadersId[dirShadowShader]);
     uniformFloat(dirShadowShader, "far_plane", far_plane);
+
+    glUseProgram(shadersId[windowShader]);
+    uniformInt(snowShader, "colorMap", 0); 
     
     glUseProgram(shadersId[snowShader]);
     uniformInt(snowShader, "colorMap", 0); 
@@ -1488,20 +1503,27 @@ int main(int argc, char* argv[]) {
       
 	    ((void (*)(void))instances[curInstance][render3DFunc])();
 
-	    // windows glasses
-	    {
-		glUseProgram(shadersId[mainShader]);
+	    // windows 
+	    if(windowWindowsMesh.VBOsize){
+		glEnable(GL_BLEND);
+		
+		glBindTexture(GL_TEXTURE_2D, windowGlassId);
+		
+		glUseProgram(shadersId[windowShader]);
 		
 		glBindBuffer(GL_ARRAY_BUFFER, windowWindowsMesh.VBO);
 		glBindVertexArray(windowWindowsMesh.VAO);
 
 		Matrix out = IDENTITY_MATRIX;
-		uniformMat4(snowShader, "model", out.m);
+		uniformMat4(windowShader, "model", out.m);
 		    
 		glDrawArrays(GL_TRIANGLES, 0, windowWindowsMesh.VBOsize);
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		
 		glBindVertexArray(0);
+
+		glDisable(GL_BLEND);
 	    }
 
 	    // draw snow
@@ -1509,16 +1531,18 @@ int main(int argc, char* argv[]) {
 		glUseProgram(shadersId[snowShader]);
 
 		{
+		    glEnable(GL_BLEND);
 		    glBindBuffer(GL_ARRAY_BUFFER, snowMesh.VBO);
 		    glBindVertexArray(snowMesh.VAO);
 
 		    Matrix out = IDENTITY_MATRIX;
 		    uniformMat4(snowShader, "model", out.m);
 		    
-		    glDrawArrays(GL_LINES, 0, snowMesh.VBOsize);
+		    glDrawArrays(GL_TRIANGLES, 0, snowMesh.VBOsize);
 
 		    glBindBuffer(GL_ARRAY_BUFFER, 0);
 		    glBindVertexArray(0);
+		    glDisable(GL_BLEND);
 		}
 	    }
 
@@ -1530,14 +1554,17 @@ int main(int argc, char* argv[]) {
 	    };
 
 	    // process snow
+//	    if(false)
 	    {
 		static float dMove = 0.0005f;
 		
 		int index = 0;
-		for(int i=0;i<snowParticles.size;i+=2){
+		for(int i=0;i<snowParticles.size;i+=6){
 		    if(snowParticles.buf[i].y > 0){
-			snowParticles.buf[i].y -= 0.0025f;
-			snowParticles.buf[i+1].y -= 0.0025f;
+			for(int i2=0;i2<6;i2++){
+			    snowParticles.buf[i+i2].y -= 0.0025f;
+			}
+//			snowParticles.buf[i+1].y -= 0.0025f;
 		    }else{
 			if(snowParticles.action[index] != WAITING_Y){
 			    snowParticles.timers[index] = 120;
@@ -1547,8 +1574,10 @@ int main(int argc, char* argv[]) {
 
 		    if(snowParticles.timers[index] == 0){
 			if(snowParticles.action[index] == WAITING_Y){
-			    snowParticles.buf[i].y = (gridY * 2) - 0.025f;
-			    snowParticles.buf[i+1].y = gridY * 2;
+			    for(int i2=0;i2<6;i2++){
+				snowParticles.buf[i+i2].y = (gridY * 2) - 0.025f;
+			    }
+//			    snowParticles.buf[i+1].y = gridY * 2;
 
 			    snowParticles.action[index] = rand() % snowDirCounter;
 			}else{
@@ -1558,13 +1587,13 @@ int main(int argc, char* argv[]) {
 			    snowParticles.action[index] = oppositeSnowDir[snowParticles.action[index]];
 			
 			    if(snowParticles.action[index] == X_PLUS_SNOW){
-				maxDist = ((int)snowParticles.buf[i].x + 1) - snowParticles.buf[i].x;
+				maxDist = ((int)snowParticles.buf[i+2].x + 1) - snowParticles.buf[i+2].x;
 			    }else if(snowParticles.action[index] == X_MINUS_SNOW){
-				maxDist = snowParticles.buf[i].x - (int)snowParticles.buf[i].x;
+				maxDist = snowParticles.buf[i+2].x - (int)snowParticles.buf[i+2].x;
 			    }else if(snowParticles.action[index] == Z_MINUS_SNOW){
-				maxDist = snowParticles.buf[i].z - (int)snowParticles.buf[i].z;
+				maxDist = snowParticles.buf[i+1].z - (int)snowParticles.buf[i+1].z;
 			    }else if(snowParticles.action[index] == Z_PLUS_SNOW){
-				maxDist = ((int)snowParticles.buf[i].z + 1) - snowParticles.buf[i].z;
+				maxDist = ((int)snowParticles.buf[i+1].z + 1) - snowParticles.buf[i+1].z;
 			    }
 
 			    maxDist -= snowParticles.speeds[index];
@@ -1588,11 +1617,14 @@ int main(int argc, char* argv[]) {
 				dZ = snowParticles.speeds[index];
 			    }
 
-			    snowParticles.buf[i].x += dX;
-			    snowParticles.buf[i+1].x += dX;
+			    for(int i2=0;i2<6;i2++){
+				snowParticles.buf[i+i2].x += dX;
+				snowParticles.buf[i+i2].z += dZ;
+			    }
 
-			    snowParticles.buf[i].z += dZ;
-			    snowParticles.buf[i+1].z += dZ;
+//			    snowParticles.buf[i+1].x += dX;
+
+//			    snowParticles.buf[i+1].z += dZ;
 			}
 		    }
 
@@ -4692,7 +4724,7 @@ void assembleWindowBlockVBO(){
     wallsVPairs[windowT].pairs = malloc(sizeof(VPair) * winPlaneCounter);
     wallsVPairs[windowT].planesNum = winPlaneCounter;
 
-    attachNormalsToBuf(&windowGlassPair, 0, sizeof(windowPlaneFront), windowPlaneFront);
+    attachNormalsToBuf(&windowGlassPair, 0, sizeof(windowPlane), windowPlane);
     
     for(int i=0;i<wallsVPairs[windowT].planesNum;i++){
 	attachNormalsToBuf(wallsVPairs[windowT].pairs, i, wallPlanesSize[i], wallPlanes[i]);
@@ -6660,7 +6692,7 @@ void batchAllGeometry(){
 	    free(windowWindowsBatch);
 	}
 	
-	windowWindowsBatch = malloc((sizeof(float) * 5) *
+	windowWindowsBatch = malloc((sizeof(float) * 8) *
 				    windowGlassPair.vertexNum * placedWallCounter[windowT]);
 	
 	int wCounter = 0;
@@ -6693,8 +6725,13 @@ void batchAllGeometry(){
 		    windowWindowsBatch[(index + wCounter) + 5] = transfNormal.x;
 		    windowWindowsBatch[(index + wCounter) + 6] = transfNormal.y;
 		    windowWindowsBatch[(index + wCounter) + 7] = transfNormal.z;
+
+		    printf("v: %f %f %f uv: %f %f n: %f %f %f \n", windowWindowsBatch[index + wCounter], windowWindowsBatch[index + wCounter+1], windowWindowsBatch[index + wCounter+2],
+			   windowWindowsBatch[index + wCounter+3], windowWindowsBatch[index + wCounter+4], windowWindowsBatch[index + wCounter+5], windowWindowsBatch[index + wCounter+6],
+			   windowWindowsBatch[index + wCounter+7]);
 		}
-			wCounter+= windowGlassPair.vertexNum*8;
+		
+		wCounter+= windowGlassPair.vertexNum*8;
 	    }
 	}
 
@@ -6718,6 +6755,13 @@ void batchAllGeometry(){
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);  
 	glBindVertexArray(0);
+    }
+
+    for(int i=0;i<windowGlassPair.vertexNum * placedWallCounter[windowT];i++){
+	int index = i * 8;
+	printf("v: %f %f %f uv: %f %f n: %f %f %f \n", windowWindowsBatch[index], windowWindowsBatch[index+1], windowWindowsBatch[index+2],
+	       windowWindowsBatch[index+3], windowWindowsBatch[index+4], windowWindowsBatch[index+5], windowWindowsBatch[index+6],
+	    windowWindowsBatch[index+7]);
     }
   
     // planes
@@ -7246,9 +7290,9 @@ void generateShowAreas(){
 
     int maxY = gridY * 2;
 
-    int oneColParticles = 100;
-    int particlesSize = tilesCounter[acceptedLayerT] * oneColParticles * 2;
-    int uqParticlesSize = particlesSize / 2.0f;
+    int oneColParticles = 5;
+    int particlesSize = tilesCounter[acceptedLayerT] * oneColParticles * 6;
+    int uqParticlesSize = particlesSize / 6;
 
     snowParticles.timers = calloc(sizeof(int),  uqParticlesSize);
     snowParticles.action = malloc(sizeof(SnowAction) * uqParticlesSize);
@@ -7258,11 +7302,13 @@ void generateShowAreas(){
 	snowParticles.action[i] = rand() % snowDirCounter;
     }
     
-    memset(snowParticles.timers, 0, sizeof(int) *  particlesSize / 2);
+    memset(snowParticles.timers, 0, sizeof(int) *  uqParticlesSize);
 
     snowParticles.buf = malloc(sizeof(vec3) * particlesSize);
     
     snowParticles.size = 0;// = tilesCounter[acceptedLayerT] * gridY;
+
+    float snowFH = 0.01f;
     
     index = 0;
 //    for(int y=0;y<maxY;y++){
@@ -7276,8 +7322,14 @@ void generateShowAreas(){
 		float fX = lb.x + ((float)(rand() % 1000) / 1000.0f);
  
 		snowParticles.buf[snowParticles.size] = (vec3){ fX, fY, fZ };
+		snowParticles.buf[snowParticles.size+1] = (vec3){ fX, fY+snowFH, fZ };
+		snowParticles.buf[snowParticles.size+2] = (vec3){ fX+snowFH, fY+snowFH, fZ };
 
-		snowParticles.size+=2;
+		snowParticles.buf[snowParticles.size+3] = (vec3){ fX, fY, fZ };
+		snowParticles.buf[snowParticles.size+4] = (vec3){ fX+snowFH, fY+snowFH, fZ };
+		snowParticles.buf[snowParticles.size+5] = (vec3){ fX+snowFH, fY, fZ };
+
+		snowParticles.size+=6;
 		index++;
 	    }
 	    
@@ -7290,9 +7342,9 @@ void generateShowAreas(){
 
     
     
-    for(int i=0;i<snowParticles.size;i+=2){
-	snowParticles.buf[i+1] = (vec3){ snowParticles.buf[i].x , snowParticles.buf[i].y + 0.01f, snowParticles.buf[i].z };
-    }
+	//  for(int i=0;i<snowParticles.size;i+=2){
+//	snowParticles.buf[i+1] = (vec3){ snowParticles.buf[i].x , snowParticles.buf[i].y + 0.01f, snowParticles.buf[i].z };
+//    }
 
     {
 	glBindVertexArray(snowMesh.VAO); 
