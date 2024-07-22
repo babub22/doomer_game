@@ -1381,6 +1381,44 @@ int main(int argc, char* argv[]) {
 		    exit(1);
 		}
 
+		if(event.key.keysym.scancode == SDL_SCANCODE_ESCAPE && ){
+		    
+		    entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize + 1) * 2));
+		    entityStorage[playerEntityT][0].pathSize = ((pathSize+1)*2);
+		    entityStorage[playerEntityT][0].curPath = 0;
+		    entityStorage[playerEntityT][0].frame = 0;
+
+		    entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)h + 0.2f, start.z * div + div/2.0f };
+		    entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)h + 0.2f, path[pathSize-1].z * div + div/2.0f };
+
+		    int index = 2;
+		    for(int i=pathSize-1;i>0;i--){
+			entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
+			index++;
+								
+			entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
+			index++;
+		    }
+
+		    glBindVertexArray(lastFindedPath.VAO); 
+		    glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
+
+		    lastFindedPath.VBOsize = (pathSize+1)*2;
+
+		    glBufferData(GL_ARRAY_BUFFER,
+				 sizeof(vec3) * ((pathSize+1)*2),
+				 entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
+
+		    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+		    glEnableVertexAttribArray(0);
+
+		    glBindBuffer(GL_ARRAY_BUFFER, 0);
+		    glBindVertexArray(0);
+		  
+//							    free(buf);
+		    free(path);
+		}
+
 		if(selectedTextInput2){
 		    if(!selectedTextInput2->buf){
 			selectedTextInput2->buf = calloc(1, sizeof(char) * (selectedTextInput2->limit + 1));
@@ -7585,4 +7623,226 @@ void updateChildBonesMats(int jointIndex){
     for (int i = 0; i < bones[jointIndex].childSize; ++i){
 	updateChildBonesMats(bones[jointIndex].childIds[i]);
     }
+}
+
+void findPath(vec2i start, vec2i dist, int y){
+//    case(SDL_SCANCODE_LSHIFT):{
+//	if (mouse.clickL) {
+//	    if (selectedCollisionTileIndex != -1 &&
+//		entityStorage[playerEntityT] != NULL) {
+
+		float div = 1.0f / 3.0f;
+		int h = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y - 0.1f;
+
+		vec2i dist = { acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x / div,
+			       acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z / div };
+
+		vec2i start = { (entityStorage[playerEntityT]->mat.m[12] - div / 2.0f) / div,
+				(entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };
+
+		// astar
+		{
+		    //bool closedList[gridZ*3][gridX*3] = {{ 0 }};
+//					    AstarCell cellsDetails[gridZ][gridX] = {{ 0 }};
+
+		    bool** closedList = malloc(sizeof(bool*) * gridZ*3);
+
+		    for(int z=0;z<gridZ*3;z++){
+			closedList[z] = malloc(sizeof(bool) * gridX*3);
+		    }
+					    
+		    AstarCell** cellsDetails = malloc(sizeof(AstarCell*) * gridZ*3);
+
+		    for(int z=0;z<gridZ*3;z++){
+			cellsDetails[z] = malloc(sizeof(AstarCell) * gridX*3);
+		    }
+
+		    AstarOpenCell* openCells = malloc(sizeof(AstarOpenCell) * (gridZ*3) * (gridX * 3));
+		    int openCellsTop = 0;
+
+		    bool pathFound = false;
+
+		    for (int z = 0; z < gridZ*3; z++) {
+			for (int x = 0; x < gridX*3; x++) {
+			    cellsDetails[z][x].g = FLT_MAX;
+			    cellsDetails[z][x].g = FLT_MAX;
+			    cellsDetails[z][x].f = FLT_MAX;
+			    cellsDetails[z][x].parX = -1;
+			    cellsDetails[z][x].parZ = -1;
+			}
+		    }
+
+		    cellsDetails[start.z][start.x].g = 0.0f;
+		    cellsDetails[start.z][start.x].h = 0.0f;
+		    cellsDetails[start.z][start.x].f = 0.0f;
+		    cellsDetails[start.z][start.x].parX = start.x;
+		    cellsDetails[start.z][start.x].parZ = start.z;
+
+		    openCells[openCellsTop] = (AstarOpenCell){
+			cellsDetails[start.z][start.x].f, .x = start.x, .z= start.z
+		    };
+		    openCellsTop++;
+					    
+		    while(openCellsTop != 0){
+			int curIndex = 0;
+			for (int i = 1; i < openCellsTop; i++) {
+			    if (openCells[i].f < openCells[curIndex].f) {
+				curIndex = i;
+			    }
+			}
+
+			AstarOpenCell cur = openCells[curIndex];
+			openCells[curIndex] = openCells[--openCellsTop];
+						
+			closedList[cur.z][cur.x] = true;
+
+			for(int dz=-1;dz<2;dz++){
+			    for(int dx=-1;dx<2;dx++){
+				if(dx==0 && dz == 0){
+				    continue;
+				}
+
+				vec2i mCur = { cur.x + dx, cur.z + dz };
+							
+				if(mCur.x < 0 || mCur.x >= (gridX * 3)){
+				    continue;
+				}
+
+				if(mCur.z < 0 || mCur.z >= (gridZ * 3)){
+				    continue;
+				}
+
+				if(mCur.z == dist.z && mCur.x == dist.x){
+
+				    printf("pre dest: %d %d dest: %d %d \n", cur.z, cur.x, dist.z, dist.x);
+							    
+				    cellsDetails[mCur.z][mCur.x].parX = cur.x;
+				    cellsDetails[mCur.z][mCur.x].parZ = cur.z;
+							    
+				    printf("Destination found!: ");
+				    pathFound = true;
+
+				    int diZ = dist.z;
+				    int diX = dist.x;
+
+				    int pathSize = 0;
+							    
+				    while (!(diZ == start.z && diX == start.x)) {
+					pathSize++;
+					int tZ = cellsDetails[diZ][diX].parZ;
+					int tX = cellsDetails[diZ][diX].parX;
+					diZ = tZ;
+					diX = tX;
+				    }
+
+				    vec2i* path = malloc(sizeof(vec2i) * pathSize);
+				    pathSize = 0;
+
+				    diZ = dist.z;
+				    diX = dist.x;
+								
+				    while (!(diZ == start.z && diX == start.x)) {
+					path[pathSize].z = diZ;
+					path[pathSize].x = diX;
+					pathSize++;
+
+					int tZ = cellsDetails[diZ][diX].parZ;
+					int tX = cellsDetails[diZ][diX].parX;
+								
+					diZ = tZ;
+					diX = tX;
+				    }
+
+				    printf("start: %d %d -> ", start.z, start.x);
+
+				    for(int i=pathSize-1;i>=0;i--){
+					printf("%d %d -> ", path[i].z, path[i].x);
+				    }
+
+//							    printf("end: %d %d", dist.z, dist.x);
+
+				    vec3* finalPath = malloc(sizeof(vec3) * ((pathSize + 1) * 2));
+				    int pathSize = ((pathSize+1)*2);
+				    
+				    int index = 2;
+				    for(int i=pathSize-1;i>0;i--){
+					entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
+					index++;
+								
+					entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
+					index++;
+				    }
+
+				    glBindVertexArray(lastFindedPath.VAO); 
+				    glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
+
+				    lastFindedPath.VBOsize = (pathSize+1)*2;
+
+				    glBufferData(GL_ARRAY_BUFFER,
+						 sizeof(vec3) * ((pathSize+1)*2),
+						 entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
+
+				    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+				    glEnableVertexAttribArray(0);
+
+				    glBindBuffer(GL_ARRAY_BUFFER, 0);
+				    glBindVertexArray(0);
+		  
+//							    free(buf);
+				    free(path);
+							    
+				    break;
+				}else if(!closedList[mCur.z][mCur.x]
+					 && !collisionGrid[h][mCur.z][mCur.x]){
+				    float gNew = cellsDetails[cur.z][cur.x].g + 1.0f;
+				    float hNew = sqrtf((mCur.z - dist.z) * (mCur.z - dist.z) + (mCur.x - dist.x) * (mCur.x - dist.x));
+				    float fNew = gNew + hNew;
+
+				    if(cellsDetails[mCur.z][mCur.x].f == FLT_MAX ||
+				       cellsDetails[mCur.z][mCur.x].f > fNew){
+
+					openCells[openCellsTop] = (AstarOpenCell){
+					    fNew, .z = mCur.z, .x = mCur.x
+					};
+					openCellsTop++;
+								
+					cellsDetails[mCur.z][mCur.x].g = gNew;
+					cellsDetails[mCur.z][mCur.x].h = hNew;
+					cellsDetails[mCur.z][mCur.x].f = fNew;
+					cellsDetails[mCur.z][mCur.x].parX = cur.x;
+					cellsDetails[mCur.z][mCur.x].parZ = cur.z;
+				    }
+				}
+							
+			    }
+			}
+
+			if (pathFound) break;
+
+		    }
+
+		    if (pathFound) break;
+
+		    for(int z=0;z<gridZ*3;z++){
+			free(closedList[z]);
+		    }
+
+		    free(closedList);
+
+		    for(int z=0;z<gridZ*3;z++){
+			free(cellsDetails[z]);
+		    }
+
+		    free(cellsDetails);
+		    free(openCells);
+		}
+
+
+		printf("start: %d %d dist: %d %d \n", argVec2(start), argVec2(dist));
+
+//	    }
+//	}
+
+//	break;
+//    }
 }

@@ -33,6 +33,8 @@ void game3dRender(){
     glActiveTexture(GL_TEXTURE0);
     renderScene(mainShader);
   }
+
+  
 };
 
 int frameCounter;
@@ -385,7 +387,52 @@ void gameMouseVS(){
 
 	minDistToCamera = intersectionDistance;
       }
+    }
+  }
+
+  selectedCollisionTileIndex = -1;
+  if(navPointsDraw && mouse.selectedType == mouseTileT){
+      for(int i=0;i<collisionLayersSize[acceptedLayerT];i++){
+	  if((acceptedCollisionTilesAABB[i].lb.y - 0.1f) == intersTileData->pos.y){
+	      if(intersTileData->intersection.x >= acceptedCollisionTilesAABB[i].lb.x &&
+		 intersTileData->intersection.x <= acceptedCollisionTilesAABB[i].rt.x &&
+		 intersTileData->intersection.z >= acceptedCollisionTilesAABB[i].lb.z &&
+		 intersTileData->intersection.z <= acceptedCollisionTilesAABB[i].rt.z){
+		  selectedCollisionTileIndex = i;
+		  break;
+	      }
+	  }
       }
+	
+      if(selectedCollisionTileIndex != -1){
+	  int index = selectedCollisionTileIndex;
+	  float h = acceptedCollisionTilesAABB[index].lb.y + 0.02f;
+		
+	  float square[] = {
+	      acceptedCollisionTilesAABB[index].rt.x,  h, acceptedCollisionTilesAABB[index].lb.z,   
+	      acceptedCollisionTilesAABB[index].lb.x,  h, acceptedCollisionTilesAABB[index].rt.z,  
+	      acceptedCollisionTilesAABB[index].lb.x,  h, acceptedCollisionTilesAABB[index].lb.z,
+
+	      acceptedCollisionTilesAABB[index].rt.x,  h,  acceptedCollisionTilesAABB[index].lb.z,   
+	      acceptedCollisionTilesAABB[index].rt.x,  h,  acceptedCollisionTilesAABB[index].rt.z,      
+	      acceptedCollisionTilesAABB[index].lb.x,  h,  acceptedCollisionTilesAABB[index].rt.z,
+	  };
+
+	  glBindVertexArray(selectedCollisionTileBuf.VAO); 
+	  glBindBuffer(GL_ARRAY_BUFFER, selectedCollisionTileBuf.VBO);
+
+	  selectedCollisionTileBuf.VBOsize = 6;
+
+	  glBufferData(GL_ARRAY_BUFFER,
+		       sizeof(square), square, GL_STATIC_DRAW);
+
+	  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+	  glEnableVertexAttribArray(0);
+
+	  glBindBuffer(GL_ARRAY_BUFFER, 0);
+	  glBindVertexArray(0);
+      }
+	
   }
   
   if(mouse.selectedType != mouseTileT){
