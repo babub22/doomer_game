@@ -1471,3 +1471,5 @@ VPair windowGlassPair;
 int windowsCounter;
 
 GLuint windowGlassId;
+
+void findPath(vec2i start, vec2i dist, int y);

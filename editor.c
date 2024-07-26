@@ -2514,7 +2514,7 @@ void editorPreFrame(float deltaTime) {
 	    mouse.focusedType = 0;
 	}
 
-	if(currentKeyStates[SDL_SCANCODE_LSHIFT]){
+	if(false && currentKeyStates[SDL_SCANCODE_LSHIFT]){
 			if (mouse.clickL) {
 				if (selectedCollisionTileIndex != -1 &&
 					entityStorage[playerEntityT] != NULL) {
@@ -2865,40 +2865,6 @@ void editor3dRender() {
 	glBindVertexArray(0);
     }
 
-// entity box
-    glUseProgram(shadersId[animShader]);
-//    glUseProgram(shadersId[mainShader]);
-    
-    for(int i=0;i<entityTypesCounter;i++){
-	if(entityStorageSize[i] == 0){
-	    continue;
-	}
-	
-	setSolidColorTx(blackColor, 1.0f);
-	glBindTexture(GL_TEXTURE_2D, solidColorTx);
-//	uniformVec3(lightSourceShader, "color", (vec3) { cyan });
-	
-//	Matrix mat = entityStorage[i][0].mat;
-	//IDENTITY_MATRIX;
-
-		
-//	uniformMat4(mainShader, "model", entityStorage[i][0].mat.m);
-	uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
-
-	glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
-	glBindVertexArray(modelInfo2->mesh.VAO);
-
-//	glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
-//	glBindVertexArray(entitiesBatch[i].VAO);
-
-	glDrawArrays(GL_TRIANGLES, 0, modelInfo2->mesh.VBOsize);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-    }
     
     glUseProgram(shadersId[lightSourceShader]);
 
@@ -3546,7 +3512,7 @@ void editor2dRender() {
 		 }
 		 
 		 memcpy(&entityStorage[entity->type][entityStorageSize[entity->type]-1], entity, sizeof(Entity));
-		 
+
 		 free(mouse.brushThing);
 		 mouse.brushThing = NULL;
 		 mouse.brushType = 0;
@@ -5490,6 +5456,8 @@ void batchEntitiesBoxes(){
 	glBindVertexArray(entitiesBatch[i].VAO); 
 	glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
 
+	printf("%d batched \n", entitiesBatch[i].VBOsize * sizeof(float) * 3);
+	
 	glBufferData(GL_ARRAY_BUFFER,
 		     entitiesBatch[i].VBOsize * sizeof(float) * 3,
 		     buf[i], GL_STATIC_DRAW);

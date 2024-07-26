@@ -242,153 +242,93 @@ void gameEvents(SDL_Event event){
 };
 
 void gameMouseVS(){
-    if (mouse.selectedType == mouseWallT || mouse.selectedType == mouseTileT) {
-    free(mouse.selectedThing);
-  }
+    if (mouse.selectedType == mouseWallT || mouse.selectedType == mouseTileT){
+	free(mouse.selectedThing);
+    }
 
-  mouse.selectedThing = NULL;
-  mouse.selectedType = 0;
+    mouse.selectedThing = NULL;
+    mouse.selectedType = 0;
     
-  float minDistToCamera = 1000.0f;
+    float minDistToCamera = 1000.0f;
 
-  WallMouseData* intersWallData = malloc(sizeof(WallMouseData));
-  TileMouseData* intersTileData = malloc(sizeof(TileMouseData));
-	
-  for(int i=0;i<batchedGeometryIndexesSize;i++){
-    vec3i ind = batchedGeometryIndexes[i].indx;
-    vec3 tile = vec3_indexesToCoords(ind);
-    Tile* bBlock = grid[ind.y][ind.z][ind.x];
+    // check geom inter
+    WallMouseData* intersWallData = malloc(sizeof(WallMouseData));
+    TileMouseData* intersTileData = malloc(sizeof(TileMouseData));
 
-    // block
-    if (bBlock->block != NULL){
-      float intersectionDistance;
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->block->lb, bBlock->block->rt, &mouse.gizmoPosOfInter, &intersectionDistance);
+     // walls
+    {
+	for(int i=0;i<wallsStorageSize;i++){
+	    WallType type = wallsStorage[i]->type;
+      
+	    float intersectionDistance;
 
-      if (isIntersect && minDistToCamera > intersectionDistance) {
-	mouse.selectedThing = bBlock->block;
-	mouse.selectedType = mouseBlockT;
+	    if(tilesStorage[wallsStorage[i]->tileId].pos.y < curFloor){
+		continue;
+	    }
 
-	mouse.interDist = intersectionDistance;
-	minDistToCamera = intersectionDistance;
-      }
-    }
+	    for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
+		bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, wallsStorage[i]->planes[i3].lb, wallsStorage[i]->planes[i3].rt, NULL, &intersectionDistance); 
 
-    // tiles
-    if(ind.y == curFloor){
-      const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
-      const vec3 lb = { tile.x, tile.y, tile.z };
+		if (isIntersect && minDistToCamera > intersectionDistance) {
+		    int tx = wallsStorage[i]->planes[i3].txIndex;
 
-      float intersectionDistance;
-      vec3 intersection;
-
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
-
-      if (isIntersect && minDistToCamera > intersectionDistance) {
-	//intersTileData->tile = bBlock;
-
-	//intersTileData->grid = (vec2i){ ind.x,ind.z };
-	intersTileData->intersection = intersection;
-
-	mouse.selectedType = mouseTileT;
-	mouse.selectedThing = intersTileData;
-
-	minDistToCamera = intersectionDistance;
-      }
-    }
-
-    if (ind.y >= curFloor) {
-      // walls
-      {
-	for(int i2=0;i2<batchedGeometryIndexes[i].wallsSize;i2++){
-	  int wallSide = batchedGeometryIndexes[i].wallsIndexes[i2];
+		    intersWallData->wall = wallsStorage[i];
 	  
-	  WallType type = bBlock->wall[wallSide]->type;
-	  
-	  float intersectionDistance;
+		    intersWallData->txIndex = tx;
+		    intersWallData->tileId = wallsStorage[i]->tileId;
+		    //	  printf("tileId %d \n", wallsStorage[i]->tileId);
 
-	  for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->wall[wallSide]->planes[i3].lb, bBlock->wall[wallSide]->planes[i3].rt, NULL, &intersectionDistance);
+		    //	  intersWallData->pos = ;
+
+		    intersWallData->side = wallsStorage[i]->side;
+  
+		    intersWallData->plane = i3;
+
+		    mouse.selectedType = mouseWallT;
+		    mouse.selectedThing = intersWallData;
+	      
+		    minDistToCamera = intersectionDistance;
+		}
+	    }
+	}
+    }
+  
+    for(int i=0;i<tilesStorageSize;i++){
+	Tile tl = tilesStorage[i];
+
+	//    vec3i ind = coords
+
+	// printf("%d %d\n",tl->pos.y == curFloor,(int)tl->pos.y, curFloor);
+    
+	//    if(tl->pos.y == curFloor){
+	if(true){
+	    const vec3 rt = { tl.pos.x + bBlockW, tl.pos.y, tl.pos.z + bBlockD };
+	    const vec3 lb = { tl.pos.x, tl.pos.y, tl.pos.z };
+
+	    //  printf("Rt: [%f %f %f] Lb [%f %f %f]\n", argVec3(rt), argVec3(lb));
+
+	    float intersectionDistance;
+	    vec3 intersection;
+
+	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
 
 	    if (isIntersect && minDistToCamera > intersectionDistance) {
-	      intersWallData->side = wallSide;
+		//	intersTileData->tile = tl;
+		intersTileData->tileId = i;
 
-	      int tx = bBlock->wall[wallSide]->planes[i3].txIndex;
+		intersTileData->pos = tl.pos;
 
-	      intersWallData->txIndex = tx;
-	      //intersWallData->tile = bBlock;
+		//intersTileData->grid = (vec2i){ tl->pos.x, tl->pos.z };
+		intersTileData->intersection = intersection;
 
-	      //intersWallData->type = type;
-	      intersWallData->plane = i3;
+		mouse.selectedType = mouseTileT;
+		mouse.selectedThing = intersTileData;
 
-	      mouse.selectedType = mouseWallT;
-	      mouse.selectedThing = intersWallData;
-	      
-	      minDistToCamera = intersectionDistance;
+		minDistToCamera = intersectionDistance;
 	    }
-	  }
 	}
-      }
-
     }
-  }
-
-  // lights
-  for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
-    for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
-      float intersectionDistance;
-
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightStorage[i2][i].lb, lightStorage[i2][i].rt, NULL, &intersectionDistance);
-
-      if (isIntersect && minDistToCamera > intersectionDistance) {
-	mouse.selectedThing = &lightStorage[i2][i];
-	mouse.selectedType = mouseLightT;
-	
-	minDistToCamera = intersectionDistance;
-      }
-    }
-  }
-
-  // models
-  for (int i = 0; i < curModelsSize; i++) {
-    float intersectionDistance = 0.0f;
-
-    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i].lb, curModels[i].rt, NULL, &intersectionDistance);
-
-    int name = curModels[i].name;
-
-    if (isIntersect && minDistToCamera > intersectionDistance) {
-      mouse.selectedThing = &curModels[i];
-      mouse.selectedType = mouseModelT;
-
-      minDistToCamera = intersectionDistance;
-    }
-  }
-
-  // net tile
-  if(curFloor != 0 && curInstance == editorInstance){
-    for(int i=0;i<netTileSize;i+=2){
-      const vec3 rt = { netTileAABB[i+1].x, curFloor, netTileAABB[i+1].z };
-      const vec3 lb = { netTileAABB[i].x, curFloor, netTileAABB[i].z };
-
-      float intersectionDistance;
-      vec3 intersection;
-
-      bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
-
-      if (isIntersect && minDistToCamera > intersectionDistance) {
-          vec3i gridInd = xyz_coordsToIndexes(netTileAABB[i].x, curFloor, netTileAABB[i].z);
-	//intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
-
-	//intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
-	intersTileData->intersection = intersection;
-
-	mouse.selectedType = mouseTileT;
-	mouse.selectedThing = intersTileData;
-
-	minDistToCamera = intersectionDistance;
-      }
-    }
-  }
+  
 
   selectedCollisionTileIndex = -1;
   if(navPointsDraw && mouse.selectedType == mouseTileT){

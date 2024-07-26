@@ -1,3 +1,4 @@
+
 #include "deps.h"
 #include "linearAlg.h"
 #include "main.h"
@@ -1381,44 +1382,6 @@ int main(int argc, char* argv[]) {
 		    exit(1);
 		}
 
-		if(event.key.keysym.scancode == SDL_SCANCODE_ESCAPE && ){
-		    
-		    entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize + 1) * 2));
-		    entityStorage[playerEntityT][0].pathSize = ((pathSize+1)*2);
-		    entityStorage[playerEntityT][0].curPath = 0;
-		    entityStorage[playerEntityT][0].frame = 0;
-
-		    entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)h + 0.2f, start.z * div + div/2.0f };
-		    entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)h + 0.2f, path[pathSize-1].z * div + div/2.0f };
-
-		    int index = 2;
-		    for(int i=pathSize-1;i>0;i--){
-			entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
-			index++;
-								
-			entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
-			index++;
-		    }
-
-		    glBindVertexArray(lastFindedPath.VAO); 
-		    glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
-
-		    lastFindedPath.VBOsize = (pathSize+1)*2;
-
-		    glBufferData(GL_ARRAY_BUFFER,
-				 sizeof(vec3) * ((pathSize+1)*2),
-				 entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
-
-		    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-		    glEnableVertexAttribArray(0);
-
-		    glBindBuffer(GL_ARRAY_BUFFER, 0);
-		    glBindVertexArray(0);
-		  
-//							    free(buf);
-		    free(path);
-		}
-
 		if(selectedTextInput2){
 		    if(!selectedTextInput2->buf){
 			selectedTextInput2->buf = calloc(1, sizeof(char) * (selectedTextInput2->limit + 1));
@@ -1536,11 +1499,8 @@ int main(int argc, char* argv[]) {
 	    glUseProgram(shadersId[mainShader]); 
 	    glUniform3f(cameraPos, argVec3(curCamera->pos));
 
-//	    uniformFloat(mainShader, "far_plane", far_plane);
-
-      
 	    ((void (*)(void))instances[curInstance][render3DFunc])();
-
+	    
 	    // windows 
 	    if(windowWindowsMesh.VBOsize){
 		glEnable(GL_BLEND);
@@ -1683,7 +1643,7 @@ int main(int argc, char* argv[]) {
 	    }
 
 	    // test anim
-	    if(entityStorageSize[playerEntityT] != 0){
+	    if(false && entityStorageSize[playerEntityT] != 0){
 		static int curAnimStage = 0;
 		static int frame = 0;
 
@@ -1812,6 +1772,89 @@ int main(int argc, char* argv[]) {
 		    glBindBuffer(GL_ARRAY_BUFFER, 0);
 		    glBindVertexArray(0);
 		}
+	    }
+
+	    
+	    if(currentKeyStates[SDL_SCANCODE_LSHIFT] && mouse.clickL
+	       && selectedCollisionTileIndex != -1 
+	       && entityStorage[playerEntityT] != NULL
+		){
+
+		float div = 1.0f / 3.0f;
+
+		int h = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y - 0.1f;
+
+		vec2i dist = { acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x / div,
+			       acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z / div };
+
+		vec2i start = { (entityStorage[playerEntityT]->mat.m[12] - div / 2.0f) / div,
+				(entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };
+
+		int pathSize;
+		//vec3* path = 
+		findPath(start, dist, h, &pathSize);
+		    
+		/*
+		  entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize + 1) * 2));
+		  entityStorage[playerEntityT][0].pathSize = ((pathSize+1)*2);
+		  entityStorage[playerEntityT][0].curPath = 0;
+		  entityStorage[playerEntityT][0].frame = 0;
+
+		  entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)h + 0.2f, start.z * div + div/2.0f };
+		  entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)h + 0.2f, path[pathSize-1].z * div + div/2.0f };
+
+		  int index = 2;
+		  for(int i=pathSize-1;i>0;i--){
+		  entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
+		  index++;
+								
+		  entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
+		  index++;
+		  }
+
+		  glBindVertexArray(lastFindedPath.VAO); 
+		  glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
+
+		  lastFindedPath.VBOsize = (pathSize+1)*2;
+
+		  glBufferData(GL_ARRAY_BUFFER,
+		  sizeof(vec3) * ((pathSize+1)*2),
+		  entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
+
+		  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+		  glEnableVertexAttribArray(0);
+
+		  glBindBuffer(GL_ARRAY_BUFFER, 0);
+		  glBindVertexArray(0);
+		  
+//							    free(buf);
+free(path);*/
+	    }
+
+
+	    
+            // entity box
+	    glUseProgram(shadersId[lightSourceShader]);
+    
+	    for(int i=0;i<entityTypesCounter;i++){
+		if(entityStorageSize[i] == 0){
+		    continue;
+		}
+
+		Matrix mat = IDENTITY_MATRIX;
+		    
+		uniformMat4(lightSourceShader, "model", mat.m);
+		uniformVec3(lightSourceShader, "color", (vec3) { cyan });
+
+		glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
+		glBindVertexArray(entitiesBatch[i].VAO);
+
+		glDrawArrays(GL_TRIANGLES, 0, entitiesBatch[i].VBOsize);
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
 	    }
 
 	    /*
@@ -7625,20 +7668,20 @@ void updateChildBonesMats(int jointIndex){
     }
 }
 
-void findPath(vec2i start, vec2i dist, int y){
+void findPath(vec2i start, vec2i dist, int y, int* size){
 //    case(SDL_SCANCODE_LSHIFT):{
 //	if (mouse.clickL) {
 //	    if (selectedCollisionTileIndex != -1 &&
 //		entityStorage[playerEntityT] != NULL) {
 
-		float div = 1.0f / 3.0f;
+/*		float div = 1.0f / 3.0f;
 		int h = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y - 0.1f;
 
 		vec2i dist = { acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x / div,
 			       acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z / div };
 
 		vec2i start = { (entityStorage[playerEntityT]->mat.m[12] - div / 2.0f) / div,
-				(entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };
+		(entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };*/
 
 		// astar
 		{
@@ -7759,28 +7802,37 @@ void findPath(vec2i start, vec2i dist, int y){
 					printf("%d %d -> ", path[i].z, path[i].x);
 				    }
 
-//							    printf("end: %d %d", dist.z, dist.x);
-
-				    vec3* finalPath = malloc(sizeof(vec3) * ((pathSize + 1) * 2));
-				    int pathSize = ((pathSize+1)*2);
+				    float div = 1.0f / 3.0f;
 				    
+				    if(entityStorage[playerEntityT][0].path){
+					free(entityStorage[playerEntityT][0].path);
+				    }
+							    
+				    entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize)*2));
+				    entityStorage[playerEntityT][0].pathSize = pathSize*2;
+				    entityStorage[playerEntityT][0].curPath = 0;
+				    entityStorage[playerEntityT][0].frame = 0;
+							    
+
+				    entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)y + 0.2f, start.z * div + div/2.0f };
+				    entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)y + 0.2f, path[pathSize-1].z * div + div/2.0f };
+
 				    int index = 2;
 				    for(int i=pathSize-1;i>0;i--){
-					entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
+					entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)y + 0.2f, path[i].z * div + div/2.0f };
 					index++;
 								
-					entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
+					entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)y + 0.2f, path[i-1].z * div + div/2.0f };
 					index++;
 				    }
 
 				    glBindVertexArray(lastFindedPath.VAO); 
 				    glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
 
-				    lastFindedPath.VBOsize = (pathSize+1)*2;
+				    lastFindedPath.VBOsize = (pathSize)*2;
 
 				    glBufferData(GL_ARRAY_BUFFER,
-						 sizeof(vec3) * ((pathSize+1)*2),
-						 entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
+						 sizeof(vec3) * (pathSize*2), entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
 
 				    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
 				    glEnableVertexAttribArray(0);
@@ -7788,12 +7840,11 @@ void findPath(vec2i start, vec2i dist, int y){
 				    glBindBuffer(GL_ARRAY_BUFFER, 0);
 				    glBindVertexArray(0);
 		  
-//							    free(buf);
 				    free(path);
 							    
 				    break;
 				}else if(!closedList[mCur.z][mCur.x]
-					 && !collisionGrid[h][mCur.z][mCur.x]){
+					 && !collisionGrid[y][mCur.z][mCur.x]){
 				    float gNew = cellsDetails[cur.z][cur.x].g + 1.0f;
 				    float hNew = sqrtf((mCur.z - dist.z) * (mCur.z - dist.z) + (mCur.x - dist.x) * (mCur.x - dist.x));
 				    float fNew = gNew + hNew;
@@ -7821,7 +7872,7 @@ void findPath(vec2i start, vec2i dist, int y){
 
 		    }
 
-		    if (pathFound) break;
+		   // if (pathFound) break;
 
 		    for(int z=0;z<gridZ*3;z++){
 			free(closedList[z]);
