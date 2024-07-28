@@ -42,6 +42,7 @@ void main()
 
     vec4 animatedPos = vec4(0.0f);
 
+/*
     for (int i = 0; i < MAX_BONE_INFLUENCE; i++) {
         if (weights[i] == 0.0) {
             continue;
@@ -51,9 +52,16 @@ void main()
             break;
         }
 
+	
+
         vec4 localPosition = finalBonesMatrices[boneIds[i]] * vec4(aPos, 1.0f);
         animatedPos += localPosition * weights[i];
-    }
+    }*/
 
-    gl_Position = proj * view * model * animatedPos;
+    mat4 skinMat = weights.x * finalBonesMatrices[boneIds.x] +
+    weights.y * finalBonesMatrices[boneIds.y] +
+    weights.z * finalBonesMatrices[boneIds.z] +
+    weights.w * finalBonesMatrices[boneIds.w];
+
+    gl_Position = proj * view * model * skinMat * vec4(aPos, 1.0f);
 }

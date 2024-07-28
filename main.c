@@ -495,6 +495,55 @@ int main(int argc, char* argv[]) {
 	glGenVertexArrays(1, &windowWindowsMesh.VAO);
     }
 
+    {
+	vec3 translation = { 10.0f, 20.0f, 30.0f };
+	vec3 scale = { 2.0f, 1.0f, 0.5f };
+	vec4 rot = { 0.259f, 0.0f, 0.0f, 0.966f };
+	
+	Matrix res = gltfTRS(scale, translation, rot);
+
+	for (int x = 0; x < 4; x++) {
+	    printf("\n");
+	    for (int i = 0; i < 4; i++) {
+		printf("%f ", res.m[(x*4) + i]);
+	    }
+	}
+	/*
+	Matrix R = mat4_from_quat(rot);
+
+	Matrix S = IDENTITY_MATRIX;
+        S.m[0] = scale.x;
+        S.m[5] = scale.y;
+        S.m[10] = scale.z;
+
+	for (int x = 0; x < 4; x++) {
+	    printf("\n");
+	    for (int i = 0; i < 4; i++) {
+		printf("%f ", S.m[(x*4) + i]);
+	    }
+	}
+
+	printf("\n");
+	
+	Matrix T = IDENTITY_MATRIX;
+	T.m[3] = translation.x;
+	T.m[7] = translation.y;
+	T.m[11] = translation.z;
+
+	
+	for (int x = 0; x < 4; x++) {
+	    printf("\n");
+	    for (int i = 0; i < 4; i++) {
+		printf("%f ", T.m[(x*4) + i]);
+	    }
+	}
+
+	printf("\n");*/
+
+    }
+    
+    
+
     // 2d free rect
     {
 	glGenBuffers(1, &hudRect.VBO);
@@ -1083,7 +1132,7 @@ int main(int argc, char* argv[]) {
 
 
 //    loadFBXModel("./assets/Doomer.gltf");
-  //  loadGLTFModel("./assets/Doomer.gltf");
+	loadGLTFModel("./assets/Doomer.gltf");
     
     // load 3d models
     /*{
@@ -1196,7 +1245,6 @@ int main(int argc, char* argv[]) {
     {
 	glGenFramebuffers(1, &depthMapFBO);
 	glGenTextures(1, &depthMaps);
-
 	glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
 	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT32, SHADOW_WIDTH, SHADOW_HEIGHT, 8, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 
@@ -1218,7 +1266,7 @@ int main(int argc, char* argv[]) {
 	    printf("main fbo creation failed! With %d \n", glCheckFramebufferStatus(GL_FRAMEBUFFER));
 	    exit(0);
 	}
-    
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
@@ -1478,9 +1526,34 @@ int main(int argc, char* argv[]) {
 
 	mouse.tileSide = -1;
 	//    checkMouseVSEntities();
-	((void (*)(int))instances[curInstance][mouseVSFunc])(mainShader);
-    
+	((void (*)(int))instances[curInstance][mouseVSFunc])(mainShader);    
 	((void (*)(float))instances[curInstance][preFrameFunc])(deltaTime);
+
+	// anim entities
+	for(int i=0;i<entityTypesCounter;i++){
+	    for(int i2=0;i2<entityStorageSize[i];i2++){
+		if(entityStorage[i][i2].path){
+		    entityStorage[i][i2].frame++;
+
+		    if(entityStorage[i][i2].frame == 20){		    
+			entityStorage[i][i2].mat.m[12] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].x + entitiesMats[i].m[12];
+			entityStorage[i][i2].mat.m[13] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].y + entitiesMats[i].m[13];
+			entityStorage[i][i2].mat.m[14] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].z + entitiesMats[i].m[14];
+		    
+			entityStorage[i][i2].curPath++;
+			entityStorage[i][i2].frame = 0;
+
+			batchEntitiesBoxes();
+		    }
+
+		    if(entityStorage[i][i2].curPath == entityStorage[i][i2].pathSize){
+			free(entityStorage[i][i2].path);
+			entityStorage[i][i2].path = NULL;
+			entityStorage[i][i2].pathSize = 0;
+		    }
+		}
+	    }
+	}
     
 	//  if (lightStorage)
 	{
@@ -1663,8 +1736,8 @@ int main(int argc, char* argv[]) {
 		    }
 
 		    for(int i=0;i<bonesSize;i++){
-				printf("T: %f %f %f R: %f %f %f %f S: %f %f %f \n", argVec3(bones[i].trans), argVec4(bones[i].rot), argVec3(bones[i].scale));
-			Matrix T = IDENTITY_MATRIX;
+			//	printf("T: %f %f %f R: %f %f %f %f S: %f %f %f \n", argVec3(bones[i].trans), argVec4(bones[i].rot), argVec3(bones[i].scale));
+			/*Matrix T = IDENTITY_MATRIX;
 			T.m[12] = bones[i].trans.x;
 			T.m[13] = bones[i].trans.y;
 			T.m[14] = bones[i].trans.z;
@@ -1673,11 +1746,9 @@ int main(int argc, char* argv[]) {
 			R = mat4_from_quat(bones[i].rot);
 
 			Matrix S = IDENTITY_MATRIX;
-			scale(&S, argVec3(bones[i].scale));
-			
-			bones[i].matrix = multiplymat4(multiplymat4(T, R), S);
-			
-			//bones[i].matrix = multiplymat4(S, multiplymat4(R, T));
+			scale(&S, argVec3(bones[i].scale));*/
+
+			bones[i].matrix = gltfTRS(bones[i].scale, bones[i].trans, bones[i].rot);
 		    }
 
 		    updateChildBonesMats(bones[0].id);
@@ -1685,7 +1756,7 @@ int main(int argc, char* argv[]) {
 		    char buf[64];
 		    for(int i=0;i<bonesSize;i++){
 			Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
-//			Matrix res = multiplymat4(inversedMats[i], bones[i].matrix);
+			//Matrix res = multiplymat4(inversedMats[i], bones[i].matrix);
 			
 			sprintf(buf, "finalBonesMatrices[%d]", i);
 			uniformMat4(animShader, buf, res.m);
@@ -1706,8 +1777,20 @@ int main(int argc, char* argv[]) {
 	    }
 
 	    // nav meshes drawing
+	    glUseProgram(shadersId[lightSourceShader]);
+	    
+	    {
+		glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
+		glBindVertexArray(lastFindedPath.VAO);
+
+		Matrix out = IDENTITY_MATRIX;
+		uniformMat4(lightSourceShader, "model", out.m);
+		uniformVec3(lightSourceShader, "color", (vec3) { redColor });
+		    
+		glDrawArrays(GL_LINES, 0, lastFindedPath.VBOsize);
+	    }
+	    
 	    if(navPointsDraw){
-		glUseProgram(shadersId[lightSourceShader]);
 
 		if(selectedCollisionTileIndex != -1){
 		    glBindBuffer(GL_ARRAY_BUFFER, selectedCollisionTileBuf.VBO);
@@ -1718,17 +1801,6 @@ int main(int argc, char* argv[]) {
 		    uniformVec3(lightSourceShader, "color", (vec3) { yellowColor });
 		    
 		    glDrawArrays(GL_TRIANGLES, 0, selectedCollisionTileBuf.VBOsize);
-		}
-		
-		{
-		    glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
-		    glBindVertexArray(lastFindedPath.VAO);
-
-		    Matrix out = IDENTITY_MATRIX;
-		    uniformMat4(lightSourceShader, "model", out.m);
-		    uniformVec3(lightSourceShader, "color", (vec3) { redColor });
-		    
-		    glDrawArrays(GL_LINES, 0, lastFindedPath.VBOsize);
 		}
 
 		for(int i=0;i< layersCounter;i++){
@@ -1774,66 +1846,31 @@ int main(int argc, char* argv[]) {
 		}
 	    }
 
-	    
-	    if(currentKeyStates[SDL_SCANCODE_LSHIFT] && mouse.clickL
-	       && selectedCollisionTileIndex != -1 
-	       && entityStorage[playerEntityT] != NULL
-		){
+	    glUseProgram(shadersId[animShader]);
+    
+	    for(int i=0;i<entityTypesCounter;i++){
+		if(entityStorageSize[i] == 0){
+		    continue;
+		}
+	
+		setSolidColorTx(blackColor, 1.0f);
+		glBindTexture(GL_TEXTURE_2D, solidColorTx);
 
-		float div = 1.0f / 3.0f;
+		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
 
-		int h = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y - 0.1f;
+		glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
+		glBindVertexArray(modelInfo2->mesh.VAO);
 
-		vec2i dist = { acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x / div,
-			       acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z / div };
+		glDrawArrays(GL_TRIANGLES, 0, modelInfo2->mesh.VBOsize);
 
-		vec2i start = { (entityStorage[playerEntityT]->mat.m[12] - div / 2.0f) / div,
-				(entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };
+		glBindTexture(GL_TEXTURE_2D, 0);
 
-		int pathSize;
-		//vec3* path = 
-		findPath(start, dist, h, &pathSize);
-		    
-		/*
-		  entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize + 1) * 2));
-		  entityStorage[playerEntityT][0].pathSize = ((pathSize+1)*2);
-		  entityStorage[playerEntityT][0].curPath = 0;
-		  entityStorage[playerEntityT][0].frame = 0;
-
-		  entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)h + 0.2f, start.z * div + div/2.0f };
-		  entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)h + 0.2f, path[pathSize-1].z * div + div/2.0f };
-
-		  int index = 2;
-		  for(int i=pathSize-1;i>0;i--){
-		  entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
-		  index++;
-								
-		  entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
-		  index++;
-		  }
-
-		  glBindVertexArray(lastFindedPath.VAO); 
-		  glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
-
-		  lastFindedPath.VBOsize = (pathSize+1)*2;
-
-		  glBufferData(GL_ARRAY_BUFFER,
-		  sizeof(vec3) * ((pathSize+1)*2),
-		  entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
-
-		  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-		  glEnableVertexAttribArray(0);
-
-		  glBindBuffer(GL_ARRAY_BUFFER, 0);
-		  glBindVertexArray(0);
-		  
-//							    free(buf);
-free(path);*/
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
 	    }
-
-
 	    
             // entity box
+	    /*
 	    glUseProgram(shadersId[lightSourceShader]);
     
 	    for(int i=0;i<entityTypesCounter;i++){
@@ -1855,7 +1892,7 @@ free(path);*/
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
-	    }
+	    }*/
 
 	    /*
 	      {
@@ -5600,11 +5637,11 @@ void loadGLTFModel(char* name){
 	    model[i].weights = rawAttr[indicies[i]].weights;
 	}
     
-	for(int i=0;i< data->meshes->primitives->indices->count;i++){
-	    printf("pos: %f %f %f uv: %f %f norm %f %f %f\n bonesId: %d %d %d %d weights: %f %f %f %f \n\n",
-		   argVec3(model[i].pos), argVec2(model[i].uv), argVec3(model[i].norm),
-		   argVec4(model[i].bonesId),argVec4(model[i].weights));
-	}
+//	for(int i=0;i< data->meshes->primitives->indices->count;i++){
+//	    printf("pos: %f %f %f uv: %f %f norm %f %f %f\n bonesId: %d %d %d %d weights: %f %f %f %f \n\n",
+//		   argVec3(model[i].pos), argVec2(model[i].uv), argVec3(model[i].norm),
+//		   argVec4(model[i].bonesId),argVec4(model[i].weights));
+//	}
 	
 	glBufferData(GL_ARRAY_BUFFER, sizeof(ModelAttr) * data->meshes->primitives->indices->count, model, GL_STATIC_DRAW);
 
@@ -5636,6 +5673,7 @@ void loadGLTFModel(char* name){
 	bones = malloc(sizeof(BoneInfo) * bonesSize);
 
 	inversedMats = malloc(sizeof(Matrix) * bonesSize);
+	//float* inversedMats = malloc(data->skins->inverse_bind_matrices->buffer_view->size);
 	fseek(fo, data->skins->inverse_bind_matrices->buffer_view->offset, SEEK_SET);
 	fread(inversedMats, data->skins->inverse_bind_matrices->buffer_view->size, 1, fo);
 
@@ -5650,34 +5688,44 @@ void loadGLTFModel(char* name){
 	    bones[i].matrix = IDENTITY_MATRIX;
 
 	    {
+		/*
 		Matrix T = IDENTITY_MATRIX;
 		T.m[12] = data->skins[0].joints[i]->translation[0];
 		T.m[13] = data->skins[0].joints[i]->translation[1];
 		T.m[14] = data->skins[0].joints[i]->translation[2];
 
 		Matrix R = IDENTITY_MATRIX;
-		vec4  rot = {
+//		R = mat4_from_quat(rot);
+
+		Matrix S = IDENTITY_MATRIX;
+		scale(&S, data->skins[0].joints[i]->scale[0], data->skins[0].joints[i]->scale[1], data->skins[0].joints[i]->scale[2]);*/
+
+		assert(data->skins[0].joints[i]->has_translation
+		       && data->skins[0].joints[i]->has_rotation
+		//       && data->skins[0].joints[i]->has_scale
+		);
+
+		vec3 T = { data->skins[0].joints[i]->translation[0],
+			   data->skins[0].joints[i]->translation[1],
+			   data->skins[0].joints[i]->translation[2]};
+		
+		vec3 S = { data->skins[0].joints[i]->scale[0],
+			   data->skins[0].joints[i]->scale[1],
+			   data->skins[0].joints[i]->scale[2]};
+
+
+		vec4 R = {
 		    data->skins[0].joints[i]->rotation[0],
 		    data->skins[0].joints[i]->rotation[1],
 		    data->skins[0].joints[i]->rotation[2],
 		    data->skins[0].joints[i]->rotation[3]
 		};
-//		R = mat4_from_quat(rot);
-
-		Matrix S = IDENTITY_MATRIX;
-		scale(&S, data->skins[0].joints[i]->scale[0], data->skins[0].joints[i]->scale[1], data->skins[0].joints[i]->scale[2]);
-
-		bones[i].matrix = multiplymat4(multiplymat4(T, R), S);
+		
+		bones[i].matrix = gltfTRS(S, T, R);
 	    }
 	    
 	    bones[i].inversedMat = inversedMats[i];
-
-	    Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
-
-	    sprintf(buf, "finalBonesMatrices[%d]", i);
-	    uniformMat4(animShader, buf, res.m);
-
-
+		int a = 1;
 	    /*
 	      Matrix ownMat = IDENTITY_MATRIX;
 	    if(data->skins[0].joints[i]->has_matrix){
@@ -5756,6 +5804,16 @@ void loadGLTFModel(char* name){
 	}
 
 	traverseBones(bones[0].id);
+    }
+
+    char buf[64];
+    updateChildBonesMats(bones[0].id);
+
+    for (int i = 0; i < data->skins[0].joints_count; i++) {
+	Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
+
+	sprintf(buf, "finalBonesMatrices[%d]", i);
+	uniformMat4(animShader, buf, res.m);
     }
 
     // parse anims
@@ -7495,15 +7553,23 @@ void generateNavTiles(){
     int tilesCounter = 0;
 	  
     for(int i=0; i<tilesStorageSize; i++){
+	if(tilesStorage[i].tx == -1){
+	    continue;
+	}
+		    
 	for(int row=0;row<3;row++){
 	    for(int col=0;col<3;col++){
 		tiles[tilesCounter].h = tilesStorage[i].pos.y;
 		
-		tiles[tilesCounter].rt = (vec2) { 1.0f * netPad[row+1] - squarePad + tilesStorage[i].pos.x,
-						  1.0f * netPad[col+1] - squarePad + tilesStorage[i].pos.z };
+		tiles[tilesCounter].rt = (vec2) { 1.0f * netPad[row+1] //- squarePad
+						  + tilesStorage[i].pos.x,
+						  1.0f * netPad[col+1] //- squarePad
+						  + tilesStorage[i].pos.z };
 
-		tiles[tilesCounter].lb = (vec2){ 1.0f * netPad[row] + squarePad + tilesStorage[i].pos.x,
-						 1.0f * netPad[col] + squarePad + tilesStorage[i].pos.z };
+		tiles[tilesCounter].lb = (vec2){ 1.0f * netPad[row] //+ squarePad
+						 + tilesStorage[i].pos.x,
+						 1.0f * netPad[col]// + squarePad
+						 + tilesStorage[i].pos.z };
 
 		tiles[tilesCounter].f = false;
 		collisionLayersSize[acceptedLayerT]++;
@@ -7516,6 +7582,10 @@ void generateNavTiles(){
     for(int i2=0;i2<wallsStorageSize;i2++){
 	for(int i=0;i<tilesCounter;i++){
 	    if(tiles[i].f == true){
+		continue;
+	    }
+
+	    if(tilesStorage[wallsStorage[i2]->tileId].pos.y != tiles[i].h){
 		continue;
 	    }
 	    
@@ -7531,10 +7601,6 @@ void generateNavTiles(){
 
 	    if(isIntersect){
 		tiles[i].f = true;
-
-		float div = 1.0f / 3.0f;
-		
-		collisionGrid[tiles[i].h][(int)(tiles[i].lb.z/div)][(int)(tiles[i].lb.x/div)] = true;
 		collisionLayersSize[acceptedLayerT]--;
 	    }
 	}
@@ -7569,6 +7635,12 @@ void generateNavTiles(){
 	    deniedTiles[(index*6) + 4] = (vec3){ tiles[i].rt.x, y, tiles[i].rt.z };
 
 	    deniedTiles[(index*6) + 5] = (vec3){ tiles[i].lb.x, y, tiles[i].rt.z };
+
+	    float div = 1.0f / 3.0f;
+	    int z = ceilf(tiles[i].lb.z / div);
+	    int x = ceilf(tiles[i].lb.x / div);
+
+	    collisionGrid[tiles[i].h][z][x] = 1;
 	    
 	    collisionLayersSize[deniedLayerT]++;
 	}else{
@@ -7683,8 +7755,15 @@ void findPath(vec2i start, vec2i dist, int y, int* size){
 		vec2i start = { (entityStorage[playerEntityT]->mat.m[12] - div / 2.0f) / div,
 		(entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };*/
 
-		// astar
-		{
+    for(int z=0;z<gridZ*3;z++){
+	for(int x=0;x<gridX*3;x++){
+	    printf("%d ", collisionGrid[0][z][x]);
+	}
+	printf("\n");
+    }
+
+    // astar
+    {
 		    //bool closedList[gridZ*3][gridX*3] = {{ 0 }};
 //					    AstarCell cellsDetails[gridZ][gridX] = {{ 0 }};
 
@@ -7708,12 +7787,12 @@ void findPath(vec2i start, vec2i dist, int y, int* size){
 		    for (int z = 0; z < gridZ*3; z++) {
 			for (int x = 0; x < gridX*3; x++) {
 			    cellsDetails[z][x].g = FLT_MAX;
-			    cellsDetails[z][x].g = FLT_MAX;
+			    cellsDetails[z][x].h = FLT_MAX;
 			    cellsDetails[z][x].f = FLT_MAX;
 			    cellsDetails[z][x].parX = -1;
 			    cellsDetails[z][x].parZ = -1;
 			}
-		    }
+		    }  
 
 		    cellsDetails[start.z][start.x].g = 0.0f;
 		    cellsDetails[start.z][start.x].h = 0.0f;
@@ -7753,7 +7832,7 @@ void findPath(vec2i start, vec2i dist, int y, int* size){
 
 				if(mCur.z < 0 || mCur.z >= (gridZ * 3)){
 				    continue;
-				}
+				} 
 
 				if(mCur.z == dist.z && mCur.x == dist.x){
 
@@ -7856,6 +7935,8 @@ void findPath(vec2i start, vec2i dist, int y, int* size){
 					    fNew, .z = mCur.z, .x = mCur.x
 					};
 					openCellsTop++;
+
+					assert(openCellsTop < gridX*3*gridZ*3);
 								
 					cellsDetails[mCur.z][mCur.x].g = gNew;
 					cellsDetails[mCur.z][mCur.x].h = hNew;
@@ -7871,6 +7952,8 @@ void findPath(vec2i start, vec2i dist, int y, int* size){
 			if (pathFound) break;
 
 		    }
+
+		    printf("Path not found: %d \n", collisionGrid[y][start.z][start.x]);
 
 		   // if (pathFound) break;
 

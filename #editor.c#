@@ -2532,6 +2532,8 @@ void editorPreFrame(float deltaTime) {
 				(entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };
 
 		int pathSize;
+
+		
 		findPath(start, dist, h, &pathSize);
 	    }
 		/*

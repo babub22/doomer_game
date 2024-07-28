@@ -98,13 +98,15 @@ typedef enum{
   RWallT,
   
   doorT,
-  hiddenDoorT,
   //  openedDoorT,
   
   windowT,
   
   halfWallT,
-  
+
+  // put hidden after this line (deps in VSmouse game.c)
+  // -----
+  hiddenDoorT,
   hiddenWallT,
   hiddenLRWallT,
   hiddenLWallT,
@@ -1472,4 +1474,4 @@ int windowsCounter;
 
 GLuint windowGlassId;
 
-void findPath(vec2i start, vec2i dist, int y);
+void findPath(vec2i start, vec2i dist, int y, int* size);

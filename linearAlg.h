@@ -120,3 +120,5 @@ Matrix lookAt(vec3 eye, vec3 target, vec3 up);
 void rotate(Matrix *m, float rad, float x, float y, float z);
 
 Matrix mat4_from_quat(vec4 q);
+
+Matrix gltfTRS(vec3 S, vec3 T, vec4 R);

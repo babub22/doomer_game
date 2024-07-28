@@ -233,11 +233,28 @@ void gameEvents(SDL_Event event){
 	  player = model;
 	}
       }else{
-	player = NULL;
+	  player = NULL;
       }
 
       frameCounter=0;
     }
+  }
+  
+  if(mouse.clickR
+     && selectedCollisionTileIndex != -1 
+     && entityStorage[playerEntityT] != NULL){
+      float div = 1.0f / 3.0f;
+
+      int h = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y - 0.1f;
+
+      vec2i dist = { acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x / div,
+		     acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z / div };
+
+      vec2i start = { (entityStorage[playerEntityT]->mat.m[12] - div / 2.0f) / div,
+		      (entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };
+
+      int pathSize;
+      findPath(start, dist, h, &pathSize);
   }
 };
 
@@ -259,6 +276,10 @@ void gameMouseVS(){
     {
 	for(int i=0;i<wallsStorageSize;i++){
 	    WallType type = wallsStorage[i]->type;
+
+	    if(type >= hiddenDoorT){
+		continue;
+	    }
       
 	    float intersectionDistance;
 
@@ -331,8 +352,10 @@ void gameMouseVS(){
   
 
   selectedCollisionTileIndex = -1;
-  if(navPointsDraw && mouse.selectedType == mouseTileT){
+  if(mouse.selectedType == mouseTileT){
       for(int i=0;i<collisionLayersSize[acceptedLayerT];i++){
+	//  printf("%f ", acceptedCollisionTilesAABB[i].lb.y - 0.1f);
+	  
 	  if((acceptedCollisionTilesAABB[i].lb.y - 0.1f) == intersTileData->pos.y){
 	      if(intersTileData->intersection.x >= acceptedCollisionTilesAABB[i].lb.x &&
 		 intersTileData->intersection.x <= acceptedCollisionTilesAABB[i].rt.x &&
