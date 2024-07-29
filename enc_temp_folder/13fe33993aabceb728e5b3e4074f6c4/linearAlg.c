@@ -7,8 +7,8 @@ Matrix multiplymat4(Matrix m1, Matrix m2) {
   Matrix out = IDENTITY_MATRIX;
   //  unsigned int row, column, row_offset;
 
-  for (int row = 0; row < 4; ++row) {
-    for (int column = 0; column < 4; ++column) {
+  for (unsigned int row = 0; row < 4; ++row) {
+    for (unsigned int column = 0; column < 4; ++column) {
       out.m[row * 4 + column] =
 	(m1.m[row * 4 + 0] * m2.m[column + 0]) +
 	(m1.m[row * 4 + 1] * m2.m[column + 4]) +

@@ -496,11 +496,17 @@ int main(int argc, char* argv[]) {
     }
 
     {
+		/*
 	vec3 translation = { 10.0f, 20.0f, 30.0f };
 	vec3 scale = { 2.0f, 1.0f, 0.5f };
-	vec4 rot = { 0.259f, 0.0f, 0.0f, 0.966f };
+	vec4 rot = { 0.259f, 0.0f, 0.0f, 0.966f };*/
+
+		vec3 translation = { 0.022038016468286514, -0.009772091172635555, -1.5621956586837769 };
+		vec3 scale = { 0.9999999403953552,0.9999999403953552,0.9999999403953552 };
+		vec4 rot = { -0.7071067690849304, 0.0f, 0.0f, 0.7071067690849304 };
 	
 	Matrix res = gltfTRS(scale, translation, rot);
+//		Matrix res = fromRotationTranslationScale(rot, translation, scale);
 
 	for (int x = 0; x < 4; x++) {
 	    printf("\n");
@@ -5724,6 +5730,7 @@ void loadGLTFModel(char* name){
 		bones[i].matrix = gltfTRS(S, T, R);
 	    }
 	    
+		// 0 -> 21 id
 	    bones[i].inversedMat = inversedMats[i];
 		int a = 1;
 	    /*

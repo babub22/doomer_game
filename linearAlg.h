@@ -122,3 +122,5 @@ void rotate(Matrix *m, float rad, float x, float y, float z);
 Matrix mat4_from_quat(vec4 q);
 
 Matrix gltfTRS(vec3 S, vec3 T, vec4 R);
+
+Matrix fromRotationTranslationScale(vec4 q, vec3 v, vec3 s);
