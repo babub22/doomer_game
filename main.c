@@ -1759,6 +1759,8 @@ int main(int argc, char* argv[]) {
 
 		    updateChildBonesMats(bones[0].id);
 
+		    glUseProgram(shadersId[animShader]);
+
 		    char buf[64];
 		    for(int i=0;i<bonesSize;i++){
 			Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
@@ -5683,7 +5685,6 @@ void loadGLTFModel(char* name){
 	fseek(fo, data->skins->inverse_bind_matrices->buffer_view->offset, SEEK_SET);
 	fread(inversedMats, data->skins->inverse_bind_matrices->buffer_view->size, 1, fo);
 
-	glUseProgram(shadersId[animShader]);
 	
 	char buf[64];
 	for (int i = 0; i < data->skins[0].joints_count; i++) {
@@ -5815,6 +5816,9 @@ void loadGLTFModel(char* name){
 
     char buf[64];
     updateChildBonesMats(bones[0].id);
+
+    glUseProgram(shadersId[animShader]);
+//    animShader
 
     for (int i = 0; i < data->skins[0].joints_count; i++) {
 	Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);

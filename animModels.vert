@@ -63,5 +63,7 @@ void main()
     weights.z * finalBonesMatrices[boneIds.z] +
     weights.w * finalBonesMatrices[boneIds.w];
 
-    gl_Position = proj * view * model * skinMat * vec4(aPos, 1.0f);
+    gl_Position = proj * view *
+    //model *
+    skinMat * vec4(aPos, 1.0f);
 }
