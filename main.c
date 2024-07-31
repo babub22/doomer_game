@@ -548,7 +548,7 @@ int main(int argc, char* argv[]) {
 
     }
     
-    
+    loadAnimation();
 
     // 2d free rect
     {
@@ -1722,59 +1722,43 @@ int main(int argc, char* argv[]) {
 	    }
 
 	    // test anim
-	    if(false && entityStorageSize[playerEntityT] != 0){
+	    if(entityStorageSize[playerEntityT] != 0){
 		static int curAnimStage = 0;
 		static int frame = 0;
 
 		if(frame == 30){
-		    glUseProgram(shadersId[animShader]);
+		    float* tempBuf = malloc(sizeof(float) * modelInfo2->mesh.VBOsize * 8);
+		    memcpy(tempBuf, playerModel->base, sizeof(float) * modelInfo2->mesh.VBOsize * 8);
 
-		    for(int i=0;i<boneAnimIndexedSize[curAnimStage];i++){
-			if(boneAnimIndexed[curAnimStage][i]->action == cgltf_animation_path_type_translation){
-			    bones[boneAnimIndexed[curAnimStage][i]->boneId].trans = (vec3){
-				argVec3(boneAnimIndexed[curAnimStage][i]->value) };
-			}else if(boneAnimIndexed[curAnimStage][i]->action == cgltf_animation_path_type_rotation){
-			    bones[boneAnimIndexed[curAnimStage][i]->boneId].rot = boneAnimIndexed[curAnimStage][i]->value;
-			}else if(boneAnimIndexed[curAnimStage][i]->action == cgltf_animation_path_type_scale){
-			    bones[boneAnimIndexed[curAnimStage][i]->boneId].scale = (vec3){
-				argVec3(boneAnimIndexed[curAnimStage][i]->value) };
+		    for(int i=0;i<playerModel->diffCounter[0][curAnimStage];i++){
+			for(int i2=0;i2<playerModel->diffVert[0][curAnimStage][i].arSize;i2++){
+			    int index = playerModel->diffVert[0][curAnimStage][i].vertexId;
+			    int localIndex = playerModel->diffVert[0][curAnimStage][i].arr[i2];
+			    tempBuf[index*8 + localIndex] = playerModel->diffVert[0][curAnimStage][i].values[i2];
 			}
 		    }
 
-		    for(int i=0;i<bonesSize;i++){
-			//	printf("T: %f %f %f R: %f %f %f %f S: %f %f %f \n", argVec3(bones[i].trans), argVec4(bones[i].rot), argVec3(bones[i].scale));
-			/*Matrix T = IDENTITY_MATRIX;
-			T.m[12] = bones[i].trans.x;
-			T.m[13] = bones[i].trans.y;
-			T.m[14] = bones[i].trans.z;
-			
-			Matrix R =  IDENTITY_MATRIX;
-			R = mat4_from_quat(bones[i].rot);
+		    glBindVertexArray(modelInfo2->mesh.VAO);
+		    glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
+    
+		    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * modelInfo2->mesh.VBOsize * 8, tempBuf, GL_STATIC_DRAW);
+			free(tempBuf);
 
-			Matrix S = IDENTITY_MATRIX;
-			scale(&S, argVec3(bones[i].scale));*/
+		    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
+		    glEnableVertexAttribArray(0);
 
-			bones[i].matrix = gltfTRS(bones[i].scale, bones[i].trans, bones[i].rot);
-		    }
+		    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+		    glEnableVertexAttribArray(1);
 
-		    updateChildBonesMats(bones[0].id);
+		    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+		    glEnableVertexAttribArray(2);
 
-		    glUseProgram(shadersId[animShader]);
-
-		    char buf[64];
-		    for(int i=0;i<bonesSize;i++){
-			Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
-			//Matrix res = multiplymat4(inversedMats[i], bones[i].matrix);
-			
-			sprintf(buf, "finalBonesMatrices[%d]", i);
-			uniformMat4(animShader, buf, res.m);
-		    }
-
-		    glUseProgram(shadersId[mainShader]);
+		    glBindBuffer(GL_ARRAY_BUFFER, 0);
+		    glBindVertexArray(0);
 
 		    curAnimStage++;
-
-		    if(curAnimStage == timesCounter-1){
+		    
+		    if(curAnimStage == playerModel->frameCounter[0]){
 			curAnimStage = 0;
 		    }
 		    
@@ -1854,7 +1838,7 @@ int main(int argc, char* argv[]) {
 		}
 	    }
 
-	    glUseProgram(shadersId[animShader]);
+	    glUseProgram(shadersId[mainShader]);
     
 	    for(int i=0;i<entityTypesCounter;i++){
 		if(entityStorageSize[i] == 0){
@@ -1864,7 +1848,7 @@ int main(int argc, char* argv[]) {
 		setSolidColorTx(blackColor, 1.0f);
 		glBindTexture(GL_TEXTURE_2D, solidColorTx);
 
-		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
+		uniformMat4(mainShader, "model", entityStorage[i][0].mat.m);
 
 		glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
 		glBindVertexArray(modelInfo2->mesh.VAO);
@@ -5529,6 +5513,7 @@ void assembleBlocks(){
 }
 
 void loadGLTFModel(char* name){
+    return;
     cgltf_options options = {0};
     cgltf_data* data = NULL;
     cgltf_result result = cgltf_parse_file(&options, name, &data);
@@ -7990,4 +7975,241 @@ void findPath(vec2i start, vec2i dist, int y, int* size){
 
 //	break;
 //    }
+}
+
+
+void loadAnimation(){
+    FILE* animSpecs = fopen(animFolder"animSpecs.txt", "r");
+
+    char** animsList = NULL;
+    char buf[128];
+    
+    fscanf(animSpecs, "%s", buf);
+    
+    char* modelName = malloc(sizeof(char) * (strlen(buf)+1));
+    strcpy(modelName,buf);
+
+    char ch = fgetc(animSpecs);
+    //ch = fgetc(animSpecs);
+    int index = 0;
+    int animsCounter = 0;
+
+
+    // parse model name and anims names
+    {
+	while(true){
+	    ch = fgetc(animSpecs);
+
+	    if(ch == ',' || ch == '\n'){
+		if(!animsList){
+		    animsList = malloc(sizeof(char*));
+		}else{
+		    animsList = realloc(animsList, sizeof(char*) * (animsCounter+1));
+		}
+	    
+		animsList[animsCounter] = malloc(sizeof(char) * (index+1));
+
+		buf[index] = '\0';
+		strcpy(animsList[animsCounter], buf);
+		
+		index++;
+		animsCounter++;
+
+		if(ch == '\n'){
+		    break;
+		}
+	    
+		index = 0;
+	    }else{
+		buf[index] = ch;
+		index++;
+	    }
+	
+	}
+
+	for(int i=0;i<animsCounter;i++){
+	    printf("%s ", animsList[i]);
+	}
+    }
+
+    fclose(animSpecs);
+
+    sprintf(buf, "%s%s.obj", animFolder, modelName);
+    fastObjMesh* baseMesh = fast_obj_read(buf);
+
+    float* mesh = malloc(sizeof(float) * baseMesh->index_count * 8);
+
+    modelInfo2 = malloc(sizeof(ModelInfo2));
+    modelInfo2->mesh.VBOsize = baseMesh->index_count;
+    
+    for(int i=0; i< baseMesh->index_count; i++){
+	int p = baseMesh->indices[i].p;
+	int t = baseMesh->indices[i].t;
+	int n = baseMesh->indices[i].n;
+	
+	mesh[(i*8)] = baseMesh->positions[p*3];
+	mesh[(i*8)+1] = baseMesh->positions[(p*3)+1];
+	mesh[(i*8)+2] = baseMesh->positions[(p*3)+2];
+
+	mesh[(i*8)+3] = baseMesh->texcoords[(t*2)+0];
+	mesh[(i*8)+4] = baseMesh->texcoords[(t*2)+1];
+       
+	mesh[(i*8)+5] = baseMesh->normals[(n*3)+0];
+	mesh[(i*8)+6] = baseMesh->normals[(n*3)+1];
+	mesh[(i*8)+7] = baseMesh->normals[(n*3)+2];
+    }
+
+    glGenVertexArrays(1, &modelInfo2->mesh.VAO);
+    glGenBuffers(1, &modelInfo2->mesh.VBO);
+
+    glBindVertexArray(modelInfo2->mesh.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
+    
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * baseMesh->index_count * 8, mesh, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    
+    fast_obj_destroy(baseMesh);
+
+    playerModel = calloc(1, sizeof(AnimModel));
+    playerModel->animSize = animsCounter;
+    playerModel->frameCounter = calloc(1, animsCounter * sizeof(int));
+    playerModel->diffCounter = calloc(1, animsCounter * sizeof(int*));
+
+    playerModel->diffVert = malloc(animsCounter * sizeof(DiffVertex**));
+    playerModel->base = mesh;
+    
+    float* prevKey = mesh;
+    float* tempBuf = malloc(sizeof(float) * modelInfo2->mesh.VBOsize * 8);
+    
+    for(int i=0;i<animsCounter;i++){       
+	for(int i2=0;i2<1000;i2++){
+	    sprintf(buf, "%s%s%s%04d.obj", animFolder,modelName, animsList[i],i2);
+	    
+	    FILE* file = fopen(buf, "r");
+
+	    if(!file){
+		break;
+	    }
+
+	    fclose(file);
+	    
+	    fastObjMesh* curAnimFrame = fast_obj_read(buf);
+	    playerModel->frameCounter[i]++;
+
+	    if(!playerModel->diffVert[i]){
+		playerModel->diffVert[i] = malloc(sizeof(DiffVertex*));
+		playerModel->diffCounter[i] = malloc(sizeof(int));
+	    }else{
+		playerModel->diffVert[i] = realloc(playerModel->diffVert[i], playerModel->frameCounter[i] * sizeof(DiffVertex*));
+		playerModel->diffCounter[i] = realloc(playerModel->diffCounter[i], playerModel->frameCounter[i] * sizeof(int));
+	    }
+
+	    playerModel->diffCounter[i][i2] = 0;
+	    playerModel->diffVert[i][i2] = malloc(sizeof(DiffVertex) * modelInfo2->mesh.VBOsize);
+	    
+	    for(int i3=0;i3<modelInfo2->mesh.VBOsize;i3++){
+		int p = curAnimFrame->indices[i3].p;
+		int t = curAnimFrame->indices[i3].t;
+		int n = curAnimFrame->indices[i3].n;
+		
+		float cur[8] = {curAnimFrame->positions[p*3],curAnimFrame->positions[(p*3)+1],curAnimFrame->positions[(p*3)+2]
+				,curAnimFrame->texcoords[(t*2)+0],curAnimFrame->texcoords[(t*2)+1]
+				,curAnimFrame->normals[(n*3)+0],curAnimFrame->normals[(n*3)+1],curAnimFrame->normals[(n*3)+2]
+		};
+
+		bool diffExists = false;
+		int diffCount = 0;
+		
+		for(int i4=0;i4<8;i4++){
+		    if(prevKey[(i3*8) + i4] != cur[i4]){
+			diffExists = true;
+			diffCount++;
+		    }
+		}
+
+		if(diffExists){
+		    int curDiff = playerModel->diffCounter[i][i2];
+		    
+		    playerModel->diffVert[i][i2][curDiff].vertexId = i3;
+		    playerModel->diffVert[i][i2][curDiff].arSize = 0;
+		    playerModel->diffVert[i][i2][curDiff].values = malloc(sizeof(float) * diffCount);
+		    
+		    for(int i4=0;i4<8;i4++){
+			if(prevKey[(i3*8) + i4] != cur[i4]){
+			    playerModel->diffVert[i][i2][curDiff].arSize++;
+			    int arrSize = playerModel->diffVert[i][i2][curDiff].arSize;
+
+			    playerModel->diffVert[i][i2][curDiff].arr[arrSize-1]=i4;
+			    playerModel->diffVert[i][i2][curDiff].values[arrSize-1] = cur[i4];
+			}
+		    }
+		    
+		    playerModel->diffCounter[i][i2]++;
+		}
+
+		memcpy(&tempBuf[i3*8], cur, sizeof(float) * 8);
+		bool a = true;
+
+
+		
+		/*
+		if(diffExists){
+		    int curDiff = playerModel->anims[i].diffCounter[i2];
+		    
+		    if(!playerModel->anims[i].diffVert[i2]){
+			playerModel->anims[i].diffVert[i2] = malloc(sizeof(DiffVertex));
+		    }else{
+			playerModel->anims[i].diffVert[i2] = realloc(playerModel->anims[i].diffVert[i2], sizeof(DiffVertex) * (playerModel->anims[i].diffCounter[i2] + 1));
+		    }
+
+		    playerModel->anims[i].diffVert[i2][curDiff].vertexId = i3;
+		    playerModel->anims[i].diffVert[i2][curDiff].arSize = 0;
+
+		    playerModel->anims[i].diffVert[i2][curDiff].values = malloc(sizeof(float) * diffCount);
+
+		    for(int i4=0;i4<8;i4++){
+			if(prevKey[(i3*8) + i4] != mesh2[i3*8 + i4]){
+			    playerModel->anims[i].diffVert[i2][curDiff].arSize++;
+			    int arrSize = playerModel->anims[i].diffVert[i2][curDiff].arSize;
+
+			    playerModel->anims[i].diffVert[i2][curDiff].arr[arrSize-1]=i4;
+
+			    playerModel->anims[i].diffVert[i2][curDiff].values[arrSize] = mesh2[i3*8 + i4];
+				
+			    sameCounter[i4]++;
+			}
+		    }
+		    
+		    playerModel->anims[i].diffCounter[i2]++;
+		}*/
+	    }
+
+	    playerModel->diffVert[i][i2] = realloc(playerModel->diffVert[i][i2],
+						   sizeof(DiffVertex) * playerModel->diffCounter[i][i2]);
+
+	    prevKey = tempBuf;
+	    fast_obj_destroy(curAnimFrame);
+	}
+    }
+
+    for(int i=0;false && i<animsCounter;i++){
+	for(int i2=0;i2<playerModel->frameCounter[i];i2++){
+	    for(int i3=0;i3<playerModel->diffCounter[i][i2];i3++){
+		printf("%d ", playerModel->diffVert[i][i2][i3].arSize);
+	    }
+	}
+    }
+
+    free(tempBuf);
 }

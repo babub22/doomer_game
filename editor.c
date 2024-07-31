@@ -5188,10 +5188,6 @@ void createModel(int index, ModelType type){
 	if(!playerModel){
 	    playerModel = &curModels[curModelsSize-1];
 	}
-    
-	playerModel->mat.m[12] = (int)curCamera->pos.x;
-	playerModel->mat.m[13] = (int)curCamera->pos.y;
-	playerModel->mat.m[14] = (int)curCamera->pos.z;
 	    
     }else{
 	curModels[curModelsSize-1].mat.m[12] = curCamera->pos.x;

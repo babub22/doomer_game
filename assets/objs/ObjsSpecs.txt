@@ -13,7 +13,6 @@ Table.obj Wood.png
 Sigi.obj Sigi.png 
 Book.obj Books.png 
 Bookshelf.obj Bookshelves.png 
-Doomer.obj Doomer.png Walk-40
 Snus.obj Snus.png 
 Milka.obj Milka.png 
 Kalik.obj Kalik.png 

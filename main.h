@@ -831,6 +831,7 @@ void assembleDoorBlockVBO();
 
 #define game "Doomer engine"
 #define texturesFolder "./assets/textures/"
+#define animFolder "./assets/anim/"
 #define objsFolder "./assets/objs/"
 
 #define speed 100.0f
@@ -1160,7 +1161,7 @@ typedef struct {
 BatchedTile* batchedGeometryIndexes;
 int batchedGeometryIndexesSize;
 
-Model* playerModel;
+//Model* playerModel;
 
 void assembleHideWallBlockVBO();
 
@@ -1475,3 +1476,34 @@ int windowsCounter;
 GLuint windowGlassId;
 
 void findPath(vec2i start, vec2i dist, int y, int* size);
+
+void loadAnimation();
+
+typedef enum{
+    diffX, diffY, diffZ,
+    difftX, difftY,
+    diffnX, diffnY, diffnZ
+} DiffTags;
+
+typedef struct {
+    uint16_t vertexId;
+
+    uint8_t arSize;
+    uint8_t arr[8];
+
+    float* values;
+} DiffVertex;
+
+typedef struct{
+    
+    int animSize;
+    int* frameCounter;
+    int** diffCounter;
+
+    DiffVertex*** diffVert;
+    // [animSize][frameCounter][diffCounter]
+    
+    float* base;
+} AnimModel;
+
+AnimModel* playerModel;
