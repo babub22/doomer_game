@@ -1477,8 +1477,6 @@ GLuint windowGlassId;
 
 void findPath(vec2i start, vec2i dist, int y, int* size);
 
-void loadAnimation();
-
 typedef enum{
     diffX, diffY, diffZ,
     difftX, difftY,
@@ -1504,6 +1502,7 @@ typedef struct{
     // [animSize][frameCounter][diffCounter]
     
     float* base;
+    char* baseName;
 } AnimModel;
 
 AnimModel* playerModel;
