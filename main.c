@@ -1720,7 +1720,7 @@ int main(int argc, char* argv[]) {
 	    }
 
 	    // test anim
-	    if(entityStorageSize[playerEntityT] != 0){
+	    if(false && entityStorageSize[playerEntityT] != 0){
 		static int curAnimStage = 0;
 		static int frame = 0;
 
@@ -1851,7 +1851,7 @@ int main(int argc, char* argv[]) {
 		}
 	    }
 
-	    glUseProgram(shadersId[mainShader]);
+	    glUseProgram(shadersId[animShader]);
     
 	    for(int i=0;i<entityTypesCounter;i++){
 		if(entityStorageSize[i] == 0){
@@ -1861,7 +1861,7 @@ int main(int argc, char* argv[]) {
 		setSolidColorTx(blackColor, 1.0f);
 		glBindTexture(GL_TEXTURE_2D, solidColorTx);
 
-		uniformMat4(mainShader, "model", entityStorage[i][0].mat.m);
+		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
 
 		glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
 		glBindVertexArray(modelInfo2->mesh.VAO);
@@ -5526,6 +5526,141 @@ void assembleBlocks(){
 }
 
 void loadGLTFModel(char* name){
+    cgltf_options options = {0};
+    cgltf_data* data = NULL;
+    cgltf_result result = cgltf_parse_file(&options, name, &data);
+
+    if (result != cgltf_result_success){
+	exit(-1);
+    }
+    
+    int mapSize[] = { [cgltf_type_vec3] = 3,[cgltf_type_vec4] = 4,[cgltf_type_vec2] = 2 };
+    int typeSize[] = {
+	[cgltf_component_type_r_32f] = sizeof(float),
+	[cgltf_component_type_r_16u] = sizeof(uint16_t),
+	[cgltf_component_type_r_8u] = sizeof(uint8_t) };
+
+    modelInfo2 = malloc(sizeof(ModelInfo2));
+    modelInfo2->mesh.VBOsize = data->meshes->primitives->indices->count;
+
+    FILE* fo = NULL;
+
+    // get path of .bin file
+    {
+	char* binPath = malloc(sizeof(char) * (strlen(name) + 1));
+	strcpy(binPath, name);
+
+	for (int i = 0; i < strlen(binPath); i++) {
+	    if (i != 0 && binPath[i] == '.') {
+		binPath[i] = '\0';
+		binPath = realloc(binPath, sizeof(binPath) * (strlen(binPath) + 1));
+		strcat(binPath, ".bin");
+		break;
+	    }
+	}
+
+        fo = fopen(binPath, "rb");
+	free(binPath);
+    }
+    
+    const int attrPad[] = {
+		[cgltf_attribute_type_position] = 0, [cgltf_attribute_type_normal] = 5,
+		[cgltf_attribute_type_texcoord] = 3, [cgltf_attribute_type_joints] = 8,
+		[cgltf_attribute_type_weights] = 12
+    };
+
+    float* mesh = malloc(sizeof(float)*data->meshes->primitives->indices->count*16);
+
+    int elementSize = typeSize[data->meshes->primitives->indices->component_type];
+    for (int i = 0; i < data->meshes->primitives->indices->count;i++) {
+	uint16_t index;
+	fseek(fo, data->meshes->primitives->indices->buffer_view->offset + i * elementSize, SEEK_SET);
+	fread(&index, elementSize, 1, fo);
+	
+	for(int i2=0;i2<data->meshes->primitives->attributes_count;i2++){
+	    int compSize = typeSize[data->meshes->primitives->attributes[i2].data->component_type];
+	    int vecLen = mapSize[data->meshes->primitives->attributes[i2].data->type];
+
+	    
+	    for(int i3=0;i3<vecLen;i3++){
+		fseek(fo, data->meshes->primitives->attributes[i2].data->buffer_view->offset
+		      + compSize*(vecLen * index + i3), SEEK_SET);
+		
+		if(data->meshes->primitives->attributes[i2].data->component_type
+		   !=cgltf_component_type_r_32f){
+		    uint8_t temp;
+		    fread(&temp, compSize, 1, fo);
+		    
+		    mesh[(i*16)+i3+attrPad[data->meshes->primitives->attributes[i2].type]] = (float)temp;
+		}else{
+		    fread(&mesh[(i*16)+i3+attrPad[data->meshes->primitives->attributes[i2].type]]
+			  ,compSize, 1, fo);
+		}
+		
+		
+//		mesh[(i*16)+i3+attrPad[data->meshes->primitives->attributes[i2].type]]=
+//			*tempVars[data->meshes->primitives->attributes[i2].data->component_type];
+	    }	    
+	}	
+    }
+
+    glGenVertexArrays(1, &modelInfo2->mesh.VAO);
+    glGenBuffers(1, &modelInfo2->mesh.VBO);
+
+    glBindVertexArray(modelInfo2->mesh.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
+    
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*data->meshes->primitives->indices->count*16
+		 , mesh, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(5 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+    
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
+
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(12 * sizeof(float)));
+    glEnableVertexAttribArray(4);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    free(mesh);
+
+    for (int i = 0; i < false && data->meshes->primitives->indices->count;i++) {
+	int pad = i*16;
+	printf("p:(%f %f %f) t:(%f %f) n:(%f %f %f) j:(%f %f %f %f) w:(%f %f %f %f)\n",
+	       mesh[pad], mesh[pad+1], mesh[pad+2], mesh[pad+3],mesh[pad+4],mesh[pad+5],mesh[pad+6],mesh[pad+7],mesh[pad+8],mesh[pad+9],mesh[pad+10], mesh[pad+11], mesh[pad+12],mesh[pad+13],mesh[pad+14],mesh[pad+15]);
+    }
+
+    // bones
+    {
+	vec3 T = { 10.0, 20.0, 30.0 };
+		
+	vec3 S = { 2.0, 1.0, 0.5 };
+
+	vec4 R = { 0.259, 0.0, 0.0, 0.966 };
+		
+	Matrix matrix = gltfTRS(S, T, R);
+
+	for (int i = 0; i < 4; i++) {
+	    printf("\n");
+	    for (int i2 = 0; i2 < 4; i2++) {
+		printf("%f ", matrix.m[i*4 +i2]);
+	    }
+
+	}
+
+    }
+}
+
+void loadGLTFModel2(char* name){
     return;
     cgltf_options options = {0};
     cgltf_data* data = NULL;
@@ -5536,7 +5671,10 @@ void loadGLTFModel(char* name){
     }
 
     int mapSize[] = { [cgltf_type_vec3] = 3,[cgltf_type_vec4] = 4,[cgltf_type_vec2] = 2 };
-    int typeSize[] = { [cgltf_component_type_r_32f] = sizeof(float), [cgltf_component_type_r_8u] = sizeof(uint8_t)};
+    int typeSize[] = { 
+		[cgltf_component_type_r_32f] = sizeof(float),
+		[cgltf_component_type_r_32f] = sizeof(uint16_t), 
+		[cgltf_component_type_r_8u] = sizeof(uint8_t)};
     
     modelInfo2 = malloc(sizeof(ModelInfo2));
     modelInfo2->mesh.VBOsize = data->meshes->primitives->indices->count;
@@ -5566,6 +5704,7 @@ void loadGLTFModel(char* name){
 
     glBindVertexArray(modelInfo2->mesh.VAO);
     glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
+
 
     // parse model attr
     {
@@ -5710,28 +5849,18 @@ void loadGLTFModel(char* name){
 		//       && data->skins[0].joints[i]->has_scale
 		);
 
-		vec3 T = { data->skins[0].joints[i]->translation[0],
-			   data->skins[0].joints[i]->translation[1],
-			   data->skins[0].joints[i]->translation[2]};
+		vec3 T = { 10.0, 20.0, 30.0 };
 		
-		vec3 S = { data->skins[0].joints[i]->scale[0],
-			   data->skins[0].joints[i]->scale[1],
-			   data->skins[0].joints[i]->scale[2]};
+		vec3 S = { 2.0, 1.0, 0.5 };
 
-
-		vec4 R = {
-		    data->skins[0].joints[i]->rotation[0],
-		    data->skins[0].joints[i]->rotation[1],
-		    data->skins[0].joints[i]->rotation[2],
-		    data->skins[0].joints[i]->rotation[3]
-		};
+		vec4 R = { 0.259, 0.0, 0.0, 0.966 };
 		
 		bones[i].matrix = gltfTRS(S, T, R);
 	    }
 	    
 		// 0 -> 21 id
-	    bones[i].inversedMat = inversedMats[i];
-		int a = 1;
+//	    bones[i].inversedMat = inversedMats[i];
+//		int a = 1;
 	    /*
 	      Matrix ownMat = IDENTITY_MATRIX;
 	    if(data->skins[0].joints[i]->has_matrix){
@@ -5989,6 +6118,7 @@ void loadGLTFModel(char* name){
 }
 
 void loadFBXModel(char* name){
+    return;
     cgltf_options options = {0};
     cgltf_data* data = NULL;
     cgltf_result result = cgltf_parse_file(&options, name, &data);

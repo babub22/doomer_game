@@ -3,7 +3,7 @@
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec2 aTexCoord;
 layout(location = 2) in vec3 aNormal;
-layout(location = 3) in ivec4 boneIds; 
+layout(location = 3) in vec4 boneIds; 
 layout(location = 4) in vec4 weights;
 
 uniform mat4 proj;
@@ -42,28 +42,13 @@ void main()
 
     vec4 animatedPos = vec4(0.0f);
 
-/*
-    for (int i = 0; i < MAX_BONE_INFLUENCE; i++) {
-        if (weights[i] == 0.0) {
-            continue;
-        }
-        if (boneIds[i] >= MAX_BONES) {
-            animatedPos = vec4(aPos, 1.0f);
-            break;
-        }
+    ivec4 ids = ivec4(boneIds);
+    
+    mat4 skinMat = weights.x * finalBonesMatrices[ids.x] +
+    weights.y * finalBonesMatrices[ids.y] +
+    weights.z * finalBonesMatrices[ids.z] +
+    weights.w * finalBonesMatrices[ids.w];
 
-	
-
-        vec4 localPosition = finalBonesMatrices[boneIds[i]] * vec4(aPos, 1.0f);
-        animatedPos += localPosition * weights[i];
-    }*/
-
-    mat4 skinMat = weights.x * finalBonesMatrices[boneIds.x] +
-    weights.y * finalBonesMatrices[boneIds.y] +
-    weights.z * finalBonesMatrices[boneIds.z] +
-    weights.w * finalBonesMatrices[boneIds.w];
-
-    gl_Position = proj * view *
-    //model *
+    gl_Position = proj * view * model *
     skinMat * vec4(aPos, 1.0f);
 }

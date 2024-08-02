@@ -402,9 +402,9 @@ Matrix gltfTRS(vec3 S, vec3 T, vec4 R){
     Matrix Rm = mat4_from_quat(R);
 
     Matrix Sm = IDENTITY_MATRIX;
-    Sm.m[12] = S.x;
-    Sm.m[13] = S.y;
-    Sm.m[14] = S.z;
+    Sm.m[0] = S.x;
+    Sm.m[5] = S.y;
+    Sm.m[10] = S.z;
 
     Matrix Tm = IDENTITY_MATRIX;
     Tm.m[3] = T.x;
