@@ -29,8 +29,8 @@ typedef struct{
     Matrix matrix;
 } BoneInfo;
 
-int bonesSize;
-BoneInfo* bones;
+//int bonesSize;
+//BoneInfo* bones;
 
 typedef struct{
   GLuint tx;
@@ -41,7 +41,7 @@ typedef struct{
   int w;
 
   int index1D;
-  int index2D; // where [from context][index2D]
+  int index2D; // where [frombones context][index2D]
 } Texture;
 
 typedef struct{
@@ -877,7 +877,7 @@ typedef enum{
   onSetFunc,
   mouseVSFunc,
   renderCursorFunc,
-  funcsCounter,
+  funcsCounter,
 } EngineInstanceFunc;
 
 Tile** markersStorage;
@@ -1381,9 +1381,6 @@ typedef struct{
 
 } ModelInfo2;
 
-BoneInfo* bones;
-int bonesSize;
-
 ModelInfo2* modelInfo2;
 
 typedef struct{
@@ -1506,3 +1503,15 @@ typedef struct{
 } AnimModel;
 
 AnimModel* playerModel;
+
+typedef struct{
+    Matrix mat;
+    int parent;
+    int childSize;
+    int* child;
+} Bone;
+
+Bone* bones;
+int bonesSize;
+
+void updateBones(Bone* cur);

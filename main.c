@@ -5639,912 +5639,117 @@ void loadGLTFModel(char* name){
 	       mesh[pad], mesh[pad+1], mesh[pad+2], mesh[pad+3],mesh[pad+4],mesh[pad+5],mesh[pad+6],mesh[pad+7],mesh[pad+8],mesh[pad+9],mesh[pad+10], mesh[pad+11], mesh[pad+12],mesh[pad+13],mesh[pad+14],mesh[pad+15]);
     }
 
+    {
+	vec3 T = {0.0, 1.0, 0.0};
+	vec3 S = {1.0, 1.0, 1.0};
+	vec4 R = {0.0, 0.0, 0.0, 1.0};
+
+	Matrix matrix = gltfTRS(S,T,R);
+	inverse(matrix.m,matrix.m);
+
+	
+	for (int x = 0; x < 4; x++) {
+	    printf("\n");
+	    for (int y = 0; y < 4; y++) {
+		printf("%f ", matrix.m[x*4+y]);
+	    }
+	}
+
+    }
+
     // bones
     {
-	vec3 T = { 10.0, 20.0, 30.0 };
-		
-	vec3 S = { 2.0, 1.0, 0.5 };
+	Matrix* invBindMats = malloc(sizeof(Matrix)*data->skins->joints_count);
 
-	vec4 R = { 0.259, 0.0, 0.0, 0.966 };
-		
-	Matrix matrix = gltfTRS(S, T, R);
-
-	for (int i = 0; i < 4; i++) {
-	    printf("\n");
-	    for (int i2 = 0; i2 < 4; i2++) {
-		printf("%f ", matrix.m[i*4 +i2]);
-	    }
-
-	}
-
-    }
-}
-
-void loadGLTFModel2(char* name){
-    return;
-    cgltf_options options = {0};
-    cgltf_data* data = NULL;
-    cgltf_result result = cgltf_parse_file(&options, name, &data);
-
-    if (result != cgltf_result_success){
-	exit(-1);
-    }
-
-    int mapSize[] = { [cgltf_type_vec3] = 3,[cgltf_type_vec4] = 4,[cgltf_type_vec2] = 2 };
-    int typeSize[] = { 
-		[cgltf_component_type_r_32f] = sizeof(float),
-		[cgltf_component_type_r_32f] = sizeof(uint16_t), 
-		[cgltf_component_type_r_8u] = sizeof(uint8_t)};
-    
-    modelInfo2 = malloc(sizeof(ModelInfo2));
-    modelInfo2->mesh.VBOsize = data->meshes->primitives->indices->count;
-
-    FILE* fo = NULL;
-
-    // get path of .bin file
-    {
-	char* binPath = malloc(sizeof(char) * (strlen(name) + 1));
-	strcpy(binPath, name);
-
-	for (int i = 0; i < strlen(binPath); i++) {
-	    if (i != 0 && binPath[i] == '.') {
-		binPath[i] = '\0';
-		binPath = realloc(binPath, sizeof(binPath) * (strlen(binPath) + 1));
-		strcat(binPath, ".bin");
-		break;
-	    }
-	}
-
-        fo = fopen(binPath, "rb");
-	free(binPath);
-    }
-
-    glGenVertexArrays(1, &modelInfo2->mesh.VAO);
-    glGenBuffers(1, &modelInfo2->mesh.VBO);
-
-    glBindVertexArray(modelInfo2->mesh.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
-
-
-    // parse model attr
-    {
-	fseek(fo, data->meshes->primitives->indices->buffer_view->offset, SEEK_SET);
-	uint16_t* indicies = malloc(data->meshes->primitives->indices->buffer_view->size);
-	fread(indicies, data->meshes->primitives->indices->buffer_view->size, 1, fo);
-
-	int rawAttrCount = data->meshes->primitives->attributes[0].data->buffer_view->size / typeSize[data->meshes->primitives->attributes[0].data->component_type] 
-		    / mapSize[data->meshes->primitives->attributes[0].data->type];
-	ModelAttr* rawAttr = malloc(sizeof(ModelAttr) * rawAttrCount);
-
-    	for (int i = 0; i < data->meshes->primitives->attributes_count; i++) {
-	    fseek(fo, data->meshes->primitives->attributes[i].data->buffer_view->offset, SEEK_SET);
-
-	    float* buf = NULL;
-	    uint8_t* buf2 = NULL;
-
-	    if (i == 3) {
-		buf2 = malloc(data->meshes->primitives->attributes[i].data->buffer_view->size);
-		fread(buf2, data->meshes->primitives->attributes[i].data->buffer_view->size, 1, fo);
-	    }
-	    else {
-		buf = malloc(data->meshes->primitives->attributes[i].data->buffer_view->size);
-		fread(buf, data->meshes->primitives->attributes[i].data->buffer_view->size, 1, fo);
-	    }
-
-	    int attrSize = data->meshes->primitives->attributes[i].data->buffer_view->size /
-		typeSize[data->meshes->primitives->attributes[i].data->component_type];
-
-	    int index = 0;
-	    
-	    for (int i2 = 0; i2 < attrSize; i2 += mapSize[data->meshes->primitives->attributes[i].data->type]) {
-		if(i==0){
-		    rawAttr[index].pos.x = buf[i2];
-		    rawAttr[index].pos.y = buf[i2 + 1];
-		    rawAttr[index].pos.z = buf[i2 + 2];
-		}else if(i==1){
-		    rawAttr[index].uv.x = buf[i2];
-		    rawAttr[index].uv.z = buf[i2 + 1];
-		}else if(i==2){
-		    rawAttr[index].norm.x = buf[i2];
-		    rawAttr[index].norm.y = buf[i2 + 1];
-		    rawAttr[index].norm.z = buf[i2 + 2];
-		}else if(i==3){
-		    rawAttr[index].bonesId.x = buf2[i2];
-		    rawAttr[index].bonesId.y = buf2[i2 + 1];
-		    rawAttr[index].bonesId.z = buf2[i2 + 2];
-		    rawAttr[index].bonesId.w = buf2[i2 + 3];
-		}else if(i==4){
-		    rawAttr[index].weights.x = buf[i2];
-		    rawAttr[index].weights.y = buf[i2 + 1];
-		    rawAttr[index].weights.z = buf[i2 + 2];
-		    rawAttr[index].weights.w = buf[i2 + 3];
-		}
-		
-		index++;
-	    }
-
-	    if(buf2){
-		free(buf2);
-	    }else{
-		free(buf);
-	    }
-	}
-
-
-	ModelAttr* model = malloc(sizeof(ModelAttr) * data->meshes->primitives->indices->count);
-
-	for(int i=0;i< data->meshes->primitives->indices->count;i++){	    
-	    model[i].pos = rawAttr[indicies[i]].pos;
-	    model[i].uv = rawAttr[indicies[i]].uv;
-	    model[i].norm = rawAttr[indicies[i]].norm;
-
-	    model[i].bonesId = rawAttr[indicies[i]].bonesId;
-	    model[i].weights = rawAttr[indicies[i]].weights;
-	}
-    
-//	for(int i=0;i< data->meshes->primitives->indices->count;i++){
-//	    printf("pos: %f %f %f uv: %f %f norm %f %f %f\n bonesId: %d %d %d %d weights: %f %f %f %f \n\n",
-//		   argVec3(model[i].pos), argVec2(model[i].uv), argVec3(model[i].norm),
-//		   argVec4(model[i].bonesId),argVec4(model[i].weights));
-//	}
-	
-	glBufferData(GL_ARRAY_BUFFER, sizeof(ModelAttr) * data->meshes->primitives->indices->count, model, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(5 * sizeof(float)));
-	glEnableVertexAttribArray(2);
-
-	glVertexAttribIPointer(3, 4, GL_INT, sizeof(ModelAttr), (void*)(8 * sizeof(float)));
-	glEnableVertexAttribArray(3);
-
-	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(8 * sizeof(float) + 4 * sizeof(int)));
-	glEnableVertexAttribArray(4);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	free(rawAttr);
-	free(model);
-    }
-
-    // parse bones
-    {
-	bonesSize = data->skins[0].joints_count;
-	bones = malloc(sizeof(BoneInfo) * bonesSize);
-
-	inversedMats = malloc(sizeof(Matrix) * bonesSize);
-	//float* inversedMats = malloc(data->skins->inverse_bind_matrices->buffer_view->size);
 	fseek(fo, data->skins->inverse_bind_matrices->buffer_view->offset, SEEK_SET);
-	fread(inversedMats, data->skins->inverse_bind_matrices->buffer_view->size, 1, fo);
+	fread(invBindMats, data->skins->inverse_bind_matrices->buffer_view->size, 1, fo);
 
 	
-	char buf[64];
-	for (int i = 0; i < data->skins[0].joints_count; i++) {
-	    bones[i].id = i;
-	    bones[i].name = malloc(sizeof(char) * (strlen(data->skins[0].joints[i]->name) + 1));
-	    strcpy(bones[i].name, data->skins[0].joints[i]->name);
+        bones = malloc(sizeof(Bone) * data->skins->joints_count);
+	bonesSize = data->skins->joints_count;
 
-	    bones[i].matrix = IDENTITY_MATRIX;
+	char** bonesNames = malloc(sizeof(char*) * data->skins->joints_count);
 
-	    {
-		/*
-		Matrix T = IDENTITY_MATRIX;
-		T.m[12] = data->skins[0].joints[i]->translation[0];
-		T.m[13] = data->skins[0].joints[i]->translation[1];
-		T.m[14] = data->skins[0].joints[i]->translation[2];
-
-		Matrix R = IDENTITY_MATRIX;
-//		R = mat4_from_quat(rot);
-
-		Matrix S = IDENTITY_MATRIX;
-		scale(&S, data->skins[0].joints[i]->scale[0], data->skins[0].joints[i]->scale[1], data->skins[0].joints[i]->scale[2]);*/
-
-		assert(data->skins[0].joints[i]->has_translation
-		       && data->skins[0].joints[i]->has_rotation
-		//       && data->skins[0].joints[i]->has_scale
-		);
-
-		vec3 T = { 10.0, 20.0, 30.0 };
-		
-		vec3 S = { 2.0, 1.0, 0.5 };
-
-		vec4 R = { 0.259, 0.0, 0.0, 0.966 };
-		
-		bones[i].matrix = gltfTRS(S, T, R);
-	    }
-	    
-		// 0 -> 21 id
-//	    bones[i].inversedMat = inversedMats[i];
-//		int a = 1;
-	    /*
-	      Matrix ownMat = IDENTITY_MATRIX;
-	    if(data->skins[0].joints[i]->has_matrix){
-		memcpy(ownMat.m, data->skins[0].joints[i]->matrix, sizeof(float) * 16);
-	    }
-
-	    Matrix traslMat = IDENTITY_MATRIX;
-
-	    if(data->skins[0].joints[i]->has_translation){
-		vec3 traslsatePar = { data->skins[0].joints[i]->translation[0],
-				      data->skins[0].joints[i]->translation[1],
-				      data->skins[0].joints[i]->translation[2] };
-	    
-		translate(&traslMat, argVec3(traslsatePar));
-	    }
-
-	    Matrix rotateMat =  IDENTITY_MATRIX;
-	    if(data->skins[0].joints[i]->has_rotation){
-		vec4 rotation = {data->skins[0].joints[i]->rotation[0],data->skins[0].joints[i]->rotation[1], data->skins[0].joints[i]->rotation[2], data->skins[0].joints[i]->rotation[3]};
-		rotateMat =  mat4_from_quat(rotation);
-	    }
-
-
-	    Matrix scaleMat = IDENTITY_MATRIX;
-	    if(data->skins[0].joints[i]->has_scale){
-		vec3 scalePar = { data->skins[0].joints[i]->scale[0],
-				  data->skins[0].joints[i]->scale[1],
-				  data->skins[0].joints[i]->scale[2]
-		};
-	    
-		scale(&scaleMat, argVec3(scalePar));
-	    }
-	    */
-
-	    //bones[i].defMat = multiplymat4(multiplymat4(multiplymat4(multiplymat4(traslMat, rotateMat), scaleMat), ownMat), inverseBindMatrix);
-	    
-	    //sprintf(buf, "finalBonesMatrices[%d]", i);
-	    //uniformMat4(animShader, buf, bones[i].defMat.m);
+	for (int i = 0; i < data->skins->joints_count; i++) {
+	    bonesNames[i] = malloc(sizeof(char) * (strlen(data->skins->joints[i]->name)+1));
+	    strcpy(bonesNames[i], data->skins->joints[i]->name);
 	}
 
-//	free(inversedMats);
+	
+	for (int i = 0; i < data->skins->joints_count; i++) {
+	    bones[i].childSize = data->skins->joints[i]->children_count;
+	    bones[i].child = malloc(sizeof(Bone)*bones[i].childSize);
+	    
+	    vec3 T = { data->skins->joints[i]->translation[0], data->skins->joints[i]->translation[1], data->skins->joints[i]->translation[2] };
+	    vec3 S = { data->skins->joints[i]->scale[0], data->skins->joints[i]->scale[1], data->skins->joints[i]->scale[2] };
+	    vec4 R = { data->skins->joints[i]->rotation[0], data->skins->joints[i]->rotation[1],
+		       data->skins->joints[i]->rotation[2], data->skins->joints[i]->rotation[3]};
+	    
+	    bones[i].mat = gltfTRS(S,T,R);//malloc(sizeof(Bone)*bones[i].childSize);
+	    Matrix temp;
+	    memcpy(&temp,&bones[i].mat, sizeof(Matrix));
+	    inverse(temp.m,temp.m);
+	    bones[i].mat = multiplymat4(bones[i].mat,temp);
+	    
+	    bones[i].parent = -1;
 
-	// set child info
-	for (int i = 0;i<data->skins[0].joints_count; i++) {
-	    bones[i].childSize = data->skins[0].joints[i]->children_count;
-	    bones[i].childIds = malloc(sizeof(int) * bones[i].childSize);
-
-	    bones[i].parentId = -1;
-
-	    // set parent id 
-	    if(data->skins[0].joints[i]->parent->name){
-		int boneId = -1;
-
-		for(int i3=0;i3<bonesSize;i3++){
-		    if(strcmp(bones[i3].name, data->skins[0].joints[i]->parent->name)==0){
-			boneId = bones[i3].id;
-			break;
+	    // data->skins->joints[i].children_count
+	    for (int i2 = 0; i2 < data->skins->joints_count; i2++) {
+		if(i!=0 && bones[i].parent == -1  && strcmp(data->skins->joints[i]->parent->name,
+			  data->skins->joints[i2]->name) == 0){
+		    bones[i].parent = i2;
+		}
+		
+		for (int i3 = 0; i3 < data->skins->joints[i]->children_count; i3++) {
+		    if(strcmp(data->skins->joints[i]->children[i3]->name,
+			   data->skins->joints[i2]->name) == 0){
+			bones[i].child[i3] = i2;
+			continue;
 		    }
 		}
-
-		bones[i].parentId = boneId;
-	    }
-	    
-	    for(int i2=0;i2<bones[i].childSize;i2++){
-		int boneId = -1;
-
-		for(int i3=0;i3<bonesSize;i3++){
-		    if(strcmp(bones[i3].name, data->skins[0].joints[i]->children[i2]->name)==0){
-			boneId = bones[i3].id;
-			break;
-		    }
-		}
-		
-		bones[i].childIds[i2] = boneId;
 	    }
 	}
 
-	traverseBones(bones[0].id);
-    }
+	updateBones(&bones[0]);
 
-    char buf[64];
-    updateChildBonesMats(bones[0].id);
-
-    glUseProgram(shadersId[animShader]);
-//    animShader
-
-    for (int i = 0; i < data->skins[0].joints_count; i++) {
-	Matrix res = multiplymat4(bones[i].matrix, bones[i].inversedMat);
-
-	sprintf(buf, "finalBonesMatrices[%d]", i);
-	uniformMat4(animShader, buf, res.m);
-    }
-
-    // parse anims
-    {
-	int animationSize = 0;
-
-	for (int i = 0; i < data->animations->samplers_count; i++) {
-	    animationSize += data->animations->channels[i].sampler->input->buffer_view->size / sizeof(float);
-	}
-
-	BoneAction* boneActions = malloc(sizeof(BoneAction) * animationSize);
-
-	int index = 0;
-
-	char* strType[] = {[cgltf_interpolation_type_linear] = "Linear",
-			   [cgltf_interpolation_type_step] = "Step",
-			   [cgltf_interpolation_type_cubic_spline] = "Cubic", [cgltf_interpolation_type_cubic_spline+1] = "ERROR" };
-
-	char* actionTypeStr[] = { [cgltf_animation_path_type_invalid] = "INVALID" ,
-				  [cgltf_animation_path_type_translation] = "Translation",
-				  [cgltf_animation_path_type_rotation] = "Rotation",
-				  [cgltf_animation_path_type_scale] = "Scale",
-				  [cgltf_animation_path_type_weights] = "Weithg",[cgltf_animation_path_type_weights+1] = "ERROR" };
-
-	for (int i = 0; i < data->animations->samplers_count; i++) {
-	    float* time = malloc(data->animations->channels[i].sampler->input->buffer_view->size);
-	    float* transform = malloc(data->animations->channels[i].sampler->output->buffer_view->size);
-
-	    fseek(fo, data->animations->channels[i].sampler->input->buffer_view->offset, SEEK_SET);
-	    fread(time, data->animations->channels[i].sampler->input->buffer_view->size, 1, fo);
-
-	    fseek(fo, data->animations->channels[i].sampler->output->buffer_view->offset, SEEK_SET);
-	    fread(transform, data->animations->channels[i].sampler->output->buffer_view->size, 1, fo);
-
-
-	    int boneId = -1;
-
-	    for(int i2=0;i2<bonesSize;i2++){
-		if(strcmp(bones[i2].name, data->animations->channels[i].target_node->name)==0){
-		    boneId = bones[i2].id;
-		    break;
-		}
-	    }
-
-	    assert(boneId != -1);
-
-	    int index2 = 0;
-		
-	    for (int i2 = 0; i2 < data->animations->channels[i].sampler->output->buffer_view->size / sizeof(float);
-		 i2 += mapSize[data->animations->channels[i].sampler->output->type]) {
-
-		boneActions[index].time = time[index2];
-		boneActions[index].boneId = boneId;
-
-		boneActions[index].action = data->animations->channels[i].target_path;
-		boneActions[index].interp = data->animations->channels[i].sampler->interpolation;
-
-		boneActions[index].value = (vec4){
-		    transform[i2], transform[i2 + 1], transform[i2 + 2], transform[i2 + 3]
-		};
-
-		if(mapSize[data->animations->channels[i].sampler->output->type] == 3){
-		    //  printf("%s: t: %f transf: %f %f %f \n", data->animations->channels[i].target_node->name, time[index2], transform[i2], transform[i2 + 1], transform[i2 + 2]);
-		}else{
-//		    printf("%s: t: %f rot: %f %f %f %f \n", data->animations->channels[i].target_node->name, time[index2], transform[i2], transform[i2 + 1], transform[i2 + 2], transform[i2 + 3]);
-		}
-			
-		index2++;
-		index++;
-	    }
-
-			/*
-	    for (int i2 = 0; i2 < data->animations->channels[i].sampler->input->buffer_view->size / sizeof(float); i2++) {
-		boneActions[index].time = time[i2];
-		boneActions[index].boneId = boneId;
-
-		boneActions[index].action = data->animations->channels[i].target_path;
-		boneActions[index].interp = data->animations->channels[i].sampler->interpolation;
-		    
-	    }*/
-
-	    free(time);
-	}
-
-	qsort(boneActions, animationSize, sizeof(BoneAction), sortBonesByTime);
-
-	timesCounter = 0;
-	float curTime = boneActions[0].time;
-
-	for(int i=0;i<animationSize;i++){
-	    if(curTime != boneActions[i].time || i == animationSize - 1){
-		timesCounter++;
-		curTime = boneActions[i].time;
-	    }
-	}
-
-	boneAnimIndexedSize = malloc(sizeof(int) * timesCounter);
-
-	curTime = boneActions[0].time;
-	timesCounter = 0;
-	int endOfPrev = 0;
-
-	for (int i = 0; i < animationSize; i++) {
-		if (curTime != boneActions[i].time || i == animationSize - 1) {
-			boneAnimIndexedSize[timesCounter] = i - endOfPrev;
-
-			endOfPrev = i;
-			timesCounter++;
-			curTime = boneActions[i].time;
-		}
-	}
-
-	boneAnimIndexed = malloc(sizeof(BoneAction**) * timesCounter);
-
-	for (int i = 0; i < timesCounter; i++) {
-	    boneAnimIndexed[i] = malloc(sizeof(BoneAction*) * boneAnimIndexedSize[i]);
-	}
-	
-	curTime = boneActions[0].time;
-	timesCounter = 0;
-	endOfPrev = 0;
-
-	for(int i=0;i<animationSize;i++){
-	    if(curTime != boneActions[i].time){			
-		int index = 0;
-		
-		for(int i2=endOfPrev;i2<i;i2++){
-		    boneAnimIndexed[timesCounter][index] = &boneActions[i2];
-		    boneActions[i2].index = timesCounter;
-		    index++;
-		}
-
-		endOfPrev = i;
-		timesCounter++;
-		curTime = boneActions[i].time;
-	    }else if(i == animationSize-1){
-		int index = 0;
-		
-		for(int i2=endOfPrev;i2<(i+1);i2++){
-		    boneAnimIndexed[timesCounter][index] = &boneActions[i2];
-		    boneActions[i2].index = timesCounter;
-		    index++;
-		}
-		
-		timesCounter++;
-	    }
-	}
-	
-//	/*
-	for(int i=0;i<timesCounter;i++){
-	    for(int i2=0;i2<boneAnimIndexedSize[i];i2++){
-		//	printf("%d: bone: %d: time: %f \n", i, boneAnimIndexed[i][i2]->boneId, boneAnimIndexed[i][i2]->time);
-	    }
-	}//*/
-
-	for(int i=0;i<animationSize;i++){
-//	    printf("%d: bone: %d: time: %f trasf %s-%s: %f %f %f %f \n", boneActions[i].index ,boneActions[i].boneId, boneActions[i].time,
-//		   actionTypeStr[boneActions[i].action], strType[boneActions[i].interp], argVec4(boneActions[i].value));
-	}
-    }
-    
-    fclose(fo);
-    cgltf_free(data);
-}
-
-void loadFBXModel(char* name){
-    return;
-    cgltf_options options = {0};
-    cgltf_data* data = NULL;
-    cgltf_result result = cgltf_parse_file(&options, name, &data);
-
-    int vertexSize = sizeof(vec3) * 2 + sizeof(vec2) + sizeof(vec4) + sizeof(vec4i);
-    
-    if (result == cgltf_result_success){
-	modelInfo2 = malloc(sizeof(ModelInfo2));
-	modelInfo2->mesh.VBOsize = data->meshes->primitives->indices->count;
-
-	char* binPath = malloc(sizeof(char) * (strlen(name) + 1));
-	strcpy(binPath, name);
-
-	for (int i = 0; i < strlen(binPath); i++) {
-	    if (i != 0 && binPath[i] == '.') {
-		binPath[i] = '\0';
-		binPath = realloc(binPath, sizeof(binPath) * (strlen(binPath) + 1));
-		strcat(binPath, ".bin");
-		break;
-	    }
-	}
-
-	FILE* fo = fopen(binPath, "rb");
-	free(binPath);
-
-	glGenVertexArrays(1, &modelInfo2->mesh.VAO);
-	glGenBuffers(1, &modelInfo2->mesh.VBO);
-
-	glBindVertexArray(modelInfo2->mesh.VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
-
-	int size = 0;
-
-	int mapSize[] = { [cgltf_type_vec3] = 3,[cgltf_type_vec4] = 4,[cgltf_type_vec2] = 2 };
-	int typeSize[] = { [cgltf_component_type_r_32f] = sizeof(float), [cgltf_component_type_r_8u] = sizeof(uint8_t)};
-
-	for (int i = 0; i < data->meshes->primitives->attributes_count; i++) {
-	    size += typeSize[data->meshes->primitives->attributes[i].data->component_type] * mapSize[data->meshes->primitives->attributes[i].data->type];
-	}
-
-	fseek(fo, data->meshes->primitives->indices->buffer_view->offset, SEEK_SET);
-	uint16_t* indicies = malloc(data->meshes->primitives->indices->buffer_view->size);
-	fread(indicies, data->meshes->primitives->indices->buffer_view->size, 1, fo);
-
-	for(int i=0;i<data->meshes->primitives->indices->buffer_view->size/sizeof(uint16_t);i++){
-	    //printf("%d \n", indicies[i]);
-	}
-
-	char buf[128];	
 	glUseProgram(shadersId[animShader]);
-
-	bonesSize = data->skins[0].joints_count;
-	bones = malloc(sizeof(BoneInfo) * bonesSize);
-
-	Matrix inverseBindMatrix = IDENTITY_MATRIX;
-
-	fseek(fo, data->skins[0].inverse_bind_matrices->buffer_view->offset, SEEK_SET);
-	//float* inverseMat = malloc(data->skins[0].inverse_bind_matrices->buffer_view->size);
-	fread(inverseBindMatrix.m, sizeof(float) * 16, 1, fo);
-
-	
-	for (int i = 0;i<data->skins[0].joints_count; i++) {
-	    bones[i].id = i;
-	    bones[i].name = malloc(sizeof(char) * (strlen(data->skins[0].joints[i]->name)+1));
-	    strcpy(bones[i].name, data->skins[0].joints[i]->name);
-			
-//	    printf("%s  - %d \n", bones[i].name, strcmp(bones[i].name, data->skins[0].joints[i]->name));
-
-	    Matrix ownMat = IDENTITY_MATRIX;
-	    if(data->skins[0].joints[i]->has_matrix){
-		memcpy(ownMat.m, data->skins[0].joints[i]->matrix, sizeof(float) * 16);
-	    }
-//	    memcpy(bones[i].defMat.m, data->skins[0].joints[i]->matrix, sizeof(float) * 16);
-
-
-	    Matrix traslMat = IDENTITY_MATRIX;
-
-	    if(data->skins[0].joints[i]->has_translation){
-		vec3 traslsatePar = { data->skins[0].joints[i]->translation[0],
-				      data->skins[0].joints[i]->translation[1],
-				      data->skins[0].joints[i]->translation[2] };
+	char buf[128];
+	for (int i = 0; i < data->skins->joints_count; i++) {
+//	    Matrix res;
+//	    inverse(invBindMats[i].m,res.m);
+//	    bones[i].mat = multiplymat4(bones[i].mat, res);
 	    
-		translate(&traslMat, argVec3(traslsatePar));
-	    }
+	    sprintf(buf, "finalBonesMatrices[%d]", i);
+	    uniformMat4(animShader, buf, bones[i].mat.m);
+	}
 
-	    Matrix rotateMat =  IDENTITY_MATRIX;
-	    if(data->skins[0].joints[i]->has_rotation){
-		vec4 rotation = {data->skins[0].joints[i]->rotation[0],data->skins[0].joints[i]->rotation[1], data->skins[0].joints[i]->rotation[2], data->skins[0].joints[i]->rotation[3]};
-		rotateMat =  mat4_from_quat(rotation);
-	    }
+	for (int i = 0; i < data->skins->joints_count; i++) {
+	    printf("%s: ", bonesNames[i]);
 
-
-	    Matrix scaleMat = IDENTITY_MATRIX;
-	    if(data->skins[0].joints[i]->has_scale){
-		vec3 scalePar = { data->skins[0].joints[i]->scale[0],
-				  data->skins[0].joints[i]->scale[1],
-				  data->skins[0].joints[i]->scale[2]
-		};
-	    
-		scale(&scaleMat, argVec3(scalePar));
-	    }
-
-	    bones[i].defMat = multiplymat4(multiplymat4(multiplymat4(multiplymat4(traslMat, rotateMat), scaleMat), ownMat), inverseBindMatrix);
-
-	    
-	    //bones[i].defMat = multiplymat4(multiplymat4(multiplymat4(traslMat, IDENTITY_MATRIX), IDENTITY_MATRIX), ownMat);
-	    
-
-	    /*
-	    Matrix scaleMat = IDENTITY_MATRIX;
-		
-	    scaleMat.m[0] = data->skins[0].joints[i]->scale[0];
-	    scaleMat.m[5] = data->skins[0].joints[i]->scale[1];
-	    scaleMat.m[10] = data->skins[0].joints[i]->scale[2];
-		
-	    bones[i].defMat = multiplymat4(bones[i].defMat, scaleMat);
-
-	    Matrix transfMat = IDENTITY_MATRIX;
-
-	    transfMat.m[12] = data->skins[0].joints[i]->translation[0];
-	    transfMat.m[13] = data->skins[0].joints[i]->translation[1];
-	    transfMat.m[14] = data->skins[0].joints[i]->translation[2];
-
-	    bones[i].defMat = multiplymat4(bones[i].defMat, transfMat);
-
-	    vec4 rotation = {data->skins[0].joints[i]->rotation[0],data->skins[0].joints[i]->rotation[1], data->skins[0].joints[i]->rotation[2], data->skins[0].joints[i]->rotation[3]};
-	    Matrix rotateMat =  mat4_from_quat(rotation);
-
-	    bones[i].defMat = multiplymat4(bones[i].defMat, rotateMat);
-
-	    bones[i].defMat = multiplymat4(bones[i].defMat, ownMat);*/
-	    
-//	    sprintf(buf, "finalBonesMatrices[%d]", i);
-//	    uniformMat4(animShader, buf, bones[i].defMat.m);
-	}	
-
-	int attributeSizeCap = data->meshes->primitives->attributes[0].data->buffer_view->size / typeSize[data->meshes->primitives->attributes[0].data->component_type] 
-		/ mapSize[data->meshes->primitives->attributes[0].data->type];
-
-	vec3* pos = malloc(sizeof(vec3) * attributeSizeCap);
-	vec2* uv = malloc(sizeof(vec2) * attributeSizeCap);
-	vec3* norm = malloc(sizeof(vec3) * attributeSizeCap);
-
-	vec4i* bonesId = malloc(sizeof(vec4i) * attributeSizeCap);
-	vec4* weights = malloc(sizeof(vec4) * attributeSizeCap);
-
-	int offset[] = { [0] = 0, [1]=3,[2]=5,[3]=8,[4]=12  };
-
-	for (int i = 0; i < data->meshes->primitives->attributes_count; i++) {
-	    fseek(fo, data->meshes->primitives->attributes[i].data->buffer_view->offset, SEEK_SET);
-
-	    float* buf = NULL;
-	    uint8_t* buf2 = NULL;
-
-	    if (i == 3) {
-		buf2 = malloc(data->meshes->primitives->attributes[i].data->buffer_view->size);
-		fread(buf2, data->meshes->primitives->attributes[i].data->buffer_view->size, 1, fo);
-	    }
-	    else {
-		buf = malloc(data->meshes->primitives->attributes[i].data->buffer_view->size);
-		fread(buf, data->meshes->primitives->attributes[i].data->buffer_view->size, 1, fo);
-	    }
-
-	    int attrSize = data->meshes->primitives->attributes[i].data->buffer_view->size /
-		typeSize[data->meshes->primitives->attributes[i].data->component_type];
-
-	    int index = 0;
-	    
-	    for (int i2 = 0; i2 < attrSize; i2 += mapSize[data->meshes->primitives->attributes[i].data->type]) {
-		if(i==0){
-		    pos[index].x = buf[i2];
-		    pos[index].y = buf[i2 + 1];
-		    pos[index].z = buf[i2 + 2];
-		}else if(i==1){
-		    uv[index].x = buf[i2];
-		    uv[index].z = buf[i2 + 1];
-		}else if(i==2){
-		    norm[index].x = buf[i2];
-		    norm[index].y = buf[i2 + 1];
-		    norm[index].z = buf[i2 + 2];
-		}else if(i==3){
-		    bonesId[index].x = buf2[i2];
-		    bonesId[index].y = buf2[i2 + 1];
-		    bonesId[index].z = buf2[i2 + 2];
-		    bonesId[index].w = buf2[i2 + 3];
-		}else if(i==4){
-		    weights[index].x = buf[i2];
-		    weights[index].y = buf[i2 + 1];
-		    weights[index].z = buf[i2 + 2];
-		    weights[index].w = buf[i2 + 3];
+	    for (int x = 0; x < 4; x++) {
+		printf("\n");
+		for (int y = 0; y < 4; y++) {
+		    printf("%f ", bones[i].mat.m[x*4+y]);
 		}
-		
-		index++;
 	    }
 
-	    if(buf2){
-		free(buf2);
-	    }else{
-		free(buf);
-	    }
+	    printf("\n");
 	}
 
-        ModelAttr* model = malloc(sizeof(ModelAttr) * data->meshes->primitives->indices->count);
-
-	for(int i=0;i< data->meshes->primitives->indices->count;i++){	    
-	    model[i].pos = pos[indicies[i]];
-	    model[i].uv = uv[indicies[i]];
-	    model[i].norm = norm[indicies[i]];
-
-	    model[i].bonesId = bonesId[indicies[i]];
-	    model[i].weights = weights[indicies[i]];
-	}
-
-	/*for(int i=0;i< data->meshes->primitives->indices->count;i++){
-	    printf("pos: %f %f %f uv: %f %f norm %f %f %f\n bonesId: %d %d %d %d weights: %f %f %f %f \n\n",
-		   argVec3(model[i].pos), argVec2(model[i].uv), argVec3(model[i].norm),
-		   argVec4(model[i].bonesId),argVec4(model[i].weights));
-		   }*/
-
-	glBufferData(GL_ARRAY_BUFFER, sizeof(ModelAttr) * data->meshes->primitives->indices->count, model, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(5 * sizeof(float)));
-	glEnableVertexAttribArray(2);
-
-	glVertexAttribIPointer(3, 4, GL_INT, sizeof(ModelAttr), (void*)(8 * sizeof(float)));
-	glEnableVertexAttribArray(3);
-
-	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(ModelAttr), (void*)(8 * sizeof(float) + 4 * sizeof(int)));
-	glEnableVertexAttribArray(4);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
 	
-	assert(data->animations->samplers_count == data->animations->channels_count);
-
-	int animationSize = 0;
-
-	for (int i = 0; i < data->animations->samplers_count; i++) {
-	    animationSize += data->animations->channels[i].sampler->input->buffer_view->size / sizeof(float);
-	}
-
-	BoneAction* boneActions = malloc(sizeof(BoneAction) * animationSize);
-
-	int index = 0;
-
-	char* strType[] = {[cgltf_interpolation_type_linear] = "Linear",
-			   [cgltf_interpolation_type_step] = "Step",
-			   [cgltf_interpolation_type_cubic_spline] = "Cubic", [cgltf_interpolation_type_cubic_spline+1] = "ERROR" };
-
-	char* actionTypeStr[] = { [cgltf_animation_path_type_invalid] = "INVALID" ,
-				  [cgltf_animation_path_type_translation] = "Translation",
-				  [cgltf_animation_path_type_rotation] = "Rotation",
-				  [cgltf_animation_path_type_scale] = "Scale",
-				  [cgltf_animation_path_type_weights] = "Weithg",[cgltf_animation_path_type_weights+1] = "ERROR" };
-
-	for (int i = 0; i < data->animations->samplers_count; i++) {
-		float* time = malloc(data->animations->channels[i].sampler->input->buffer_view->size);
-		float* transform = malloc(data->animations->channels[i].sampler->output->buffer_view->size);
-
-		fseek(fo, data->animations->channels[i].sampler->input->buffer_view->offset, SEEK_SET);
-		fread(time, data->animations->channels[i].sampler->input->buffer_view->size, 1, fo);
-
-		fseek(fo, data->animations->channels[i].sampler->output->buffer_view->offset, SEEK_SET);
-		fread(transform, data->animations->channels[i].sampler->output->buffer_view->size, 1, fo);
-
-
-		int boneId = -1;
-
-		for(int i2=0;i2<bonesSize;i2++){
-		    if(strcmp(bones[i2].name, data->animations->channels[i].target_node->name)==0){
-			boneId = bones[i2].id;
-			break;
-		    }
-		}
-
-		assert(boneId != -1);
-			
-		for (int i2 = 0; i2 < data->animations->channels[i].sampler->input->buffer_view->size / sizeof(float); i2++) {
-			boneActions[index].time = time[i2];
-			boneActions[index].boneId = boneId;
-
-			boneActions[index].action = data->animations->channels[i].target_path;
-			boneActions[index].interp = data->animations->channels[i].sampler->interpolation;
-
-			if (data->animations->channels[i].sampler->output->type == 3) {
-			    //boneActions[index].tValue = (vec4){transform[i2], transform[i2 + 1], transform[i2 + 2], 0.0f};
-			}
-			else {
-			    //boneActions[index].tValue = (vec4){ transform[i2], transform[i2 + 1], transform[i2 + 2], transform[i2 + 3] };
-			}
-
-			//	bones[boneId].defMat;
-
-			Matrix scaleMat = IDENTITY_MATRIX;
-			Matrix transfMat = IDENTITY_MATRIX;
-			Matrix rotate = IDENTITY_MATRIX;
-		    
-		    
-
-		    
-		    //boneActions[index].mat.m;
-		    
-//		    printf("%d for bone: %d: time: %f trasf %s-%s: %f %f %f \n", i, boneId, time[i2], actionTypeStr[data->animations->channels[i].target_path], strType[data->animations->channels[i].sampler->interpolation], transform[i2], transform[i2 + 1], transform[i2 + 2]);
-		    index++;
-		}
-
-		free(time);
-	}
-
-	qsort(boneActions, animationSize, sizeof(BoneAction), sortBonesByTime);
-
-	for(int i=0;i<animationSize;i++){
-	  //  printf("bone: %d: time: %f trasf %s-%s: %f %f %f %f \n", boneActions[i].boneId, boneActions[i].time, actionTypeStr[boneActions[i].action], strType[boneActions[i].interp], argVec4(boneActions[i].tValue));
-	}
 	
-	fclose(fo);
-	cgltf_free(data);
-
-	free(bonesId);
-	free(weights);
-	free(pos);
-	free(uv);
-	free(norm);
-	free(model);
     }
-
-    
-    /*
-    char** bonesStrs = NULL;
-    int bonesSize = 0;
-    
-    ufbx_scene* scene = ufbx_load_file(name, NULL, NULL);
-
-    for (size_t i = 0; i < scene->nodes.count; i++) {
-	ufbx_node *node = scene->nodes.data[i];
-	if (node->is_root) continue;
-
-	if(node->bone) bonesSize++;
-    }
-
-    bonesStrs = malloc(sizeof(char*) * bonesSize);
-    bones = malloc(sizeof(BoneInfo) * bonesSize);
-    
-	int lastBoneIndex = 0;
-			      
-    for (size_t i = 0; i < scene->nodes.count; i++) {
-	ufbx_node *node = scene->nodes.data[i];
-	if (node->is_root) continue;
-
-	if (node->bone) {
-		int boneId = -1;
-
-//		if (boneId == -1) {
-			bones[i].id = lastBoneIndex;
-
-			bonesStrs[i] = malloc(sizeof(char) * node->bone->name.length);
-			strcpy(bonesStrs[i], node->bone->name.data);
-
-			lastBoneIndex++;
-
-			bones[i].offset = IDENTITY_MATRIX;
-			for (int i2 = 0; i2 < 12; i2++) {
-			    bones[i].offset.m[i2] = node->bone->instances.data[0]->geometry_to_node.v[i2];
-			}
-
-
-//			boneId = bones[i].id;
-
-//		}
-	}
-
-	// num_vertices;
-
-	if (node->mesh) {
-	    modelInfo2 = malloc(sizeof(ModelInfo2));
-	
-	    modelInfo2->buf = malloc(sizeof(float) * 8 * node->mesh->num_indices);
-	    modelInfo2->mesh.VBOsize = node->mesh->num_indices;
-
-	    for(int i=0;i< node->mesh->num_indices;i++){
-		int vertIndx = node->mesh->vertex_indices.data[i];
-		int index = i * 8;
-
-		modelInfo2->buf[index+0] = node->mesh->vertex_position.values.data[vertIndx].x;
-		modelInfo2->buf[index+1] = node->mesh->vertex_position.values.data[vertIndx].y;
-		modelInfo2->buf[index+2] = node->mesh->vertex_position.values.data[vertIndx].z;
-
-		modelInfo2->buf[index+3] = node->mesh->vertex_uv.values.data[vertIndx].x;
-		modelInfo2->buf[index+4] = node->mesh->vertex_uv.values.data[vertIndx].y;
-	    
-		modelInfo2->buf[index+5] = node->mesh->vertex_normal.values.data[vertIndx].x;
-		modelInfo2->buf[index+6] = node->mesh->vertex_normal.values.data[vertIndx].y;
-		modelInfo2->buf[index+7] = node->mesh->vertex_normal.values.data[vertIndx].z;
-	    }
-
-	    glGenVertexArrays(1, &modelInfo2->mesh.VAO);
-	    glGenBuffers(1, &modelInfo2->mesh.VBO);
-	    
-	    glBindVertexArray(modelInfo2->mesh.VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
-
-	    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 8 * node->mesh->num_indices,
-			modelInfo2->buf, GL_STATIC_DRAW);
-
-	    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
-	    glEnableVertexAttribArray(0);
-
-	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-	    glEnableVertexAttribArray(1);
-
-	    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
-	    glEnableVertexAttribArray(2);
-
-	    glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    glBindVertexArray(0);
-	}
-    }
-*/
 }
 
+void updateBones(Bone* cur){
+    if(cur->parent != -1){
+	cur->mat = multiplymat4(bones[cur->parent].mat,cur->mat);
+    }
+
+    for(int i=0;i<cur->childSize;i++){
+	updateBones(&bones[cur->child[i]]);
+    }
+}
 
 // make render for shadow and for normal
 void renderScene(GLuint curShader){
@@ -7856,27 +7061,6 @@ int sortBonesByTime(BoneAction* a, BoneAction* b){
     }
     
     return 0;  
-}
-
-void traverseBones(int jointIndex){
-    printf(" %s ", bones[jointIndex].name);
-
-    for(int i=0; i<bones[jointIndex].childSize;i++){
-	printf("->");
-	traverseBones(bones[jointIndex].childIds[i]);
-    }
-    printf("\n");
-}
-
-void updateChildBonesMats(int jointIndex){
-    if (bones[jointIndex].parentId != -1){
-	bones[jointIndex].matrix =
-	    multiplymat4(bones[bones[jointIndex].parentId].matrix, bones[jointIndex].matrix);
-    }
-
-    for (int i = 0; i < bones[jointIndex].childSize; ++i){
-	updateChildBonesMats(bones[jointIndex].childIds[i]);
-    }
 }
 
 void findPath(vec2i start, vec2i dist, int y, int* size){
