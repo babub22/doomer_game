@@ -365,7 +365,7 @@ void rotate(Matrix *m, float rad, float x, float y, float z) {
 
 Matrix mat4_from_quat(vec4 q) {
     Matrix M = IDENTITY_MATRIX;
-    
+    /*
     float w = q.w;
     float x = q.x;
     float y = q.y;
@@ -393,12 +393,84 @@ Matrix mat4_from_quat(vec4 q) {
     M.m[12] = 0;
     M.m[13] = 0;
     M.m[14] = 0;
+    M.m[15] = 1;*/
+
+    float w = q.w;
+    float x = q.x;
+    float y = q.y;
+    float z = q.z;
+
+    float xy = x * y;
+    float xz = x * z;
+    float xw = x * w;
+    float yz = y * z;
+    float yw = y * w;
+    float zw = z * w;
+    float xSquared = x * x;
+    float ySquared = y * y;
+    float zSquared = z * z;
+    M.m[0] = 1 - 2 * (ySquared + zSquared);
+    M.m[1] = 2 * (xy - zw);
+    M.m[2] = 2 * (xz + yw);
+    M.m[3] = 0;
+    M.m[4] = 2 * (xy + zw);
+    M.m[5] = 1 - 2 * (xSquared + zSquared);
+    M.m[6] = 2 * (yz - xw);
+    M.m[7] = 0;
+    M.m[8] = 2 * (xz - yw);
+    M.m[9] = 2 * (yz + xw);
+    M.m[10] = 1 - 2 * (xSquared + ySquared);
+    M.m[11] = 0;
+    M.m[12] = 0;
+    M.m[13] = 0;
+    M.m[14] = 0;
     M.m[15] = 1;
 
     return M;
 }
 
 Matrix gltfTRS(vec3 S, vec3 T, vec4 R){
+    float x = R.x;
+    float y = R.y;
+    float z = R.z;
+    float w = R.w;
+    
+    float x2 = x + x;
+    float y2 = y + y;
+    float z2 = z + z;
+    float xx = x * x2;
+    float xy = x * y2;
+    float xz = x * z2;
+    float yy = y * y2;
+    float yz = y * z2;
+    float zz = z * z2;
+    float wx = w * x2;
+    float wy = w * y2;
+    float wz = w * z2;
+    float sx = S.x;
+    float sy = S.y;
+    float sz = S.z;
+
+    Matrix out;
+    
+    out.m[0] = (1 - (yy + zz)) * sx;
+    out.m[1] = (xy + wz) * sx;
+    out.m[2] = (xz - wy) * sx;
+    out.m[3] = 0;
+    out.m[4] = (xy - wz) * sy;
+    out.m[5] = (1 - (xx + zz)) * sy;
+    out.m[6] = (yz + wx) * sy;
+    out.m[7] = 0;
+    out.m[8] = (xz + wy) * sz;
+    out.m[9] = (yz - wx) * sz;
+    out.m[10] = (1 - (xx + yy)) * sz;
+    out.m[11] = 0;
+    out.m[12] = T.x;
+    out.m[13] = T.y;
+    out.m[14] = T.z;
+    out.m[15] = 1;
+    return out;
+  
     Matrix Rm = mat4_from_quat(R);
 
     Matrix Sm = IDENTITY_MATRIX;
@@ -407,9 +479,9 @@ Matrix gltfTRS(vec3 S, vec3 T, vec4 R){
     Sm.m[10] = S.z;
 
     Matrix Tm = IDENTITY_MATRIX;
-    Tm.m[3] = T.x;
-    Tm.m[7] = T.y;
-    Tm.m[11] = T.z;
+    Tm.m[12] = T.x;
+    Tm.m[13] = T.y;
+    Tm.m[14] = T.z;
 
     Matrix res = multiplymat4(multiplymat4(Tm,Rm), Sm);
     return res;

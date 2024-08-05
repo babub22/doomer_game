@@ -1514,4 +1514,6 @@ typedef struct{
 Bone* bones;
 int bonesSize;
 
+char** bonesNames;
+
 void updateBones(Bone* cur);

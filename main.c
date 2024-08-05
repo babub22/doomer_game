@@ -5686,7 +5686,7 @@ void loadGLTFModel(char* name){
 	    }
 	}
 
-	char** bonesNames = malloc(sizeof(char*) * data->skins->joints_count);
+        bonesNames = malloc(sizeof(char*) * data->skins->joints_count);
 
 	for (int i = 0; i < data->skins->joints_count; i++) {
 	    bonesNames[i] = malloc(sizeof(char) * (strlen(data->skins->joints[i]->name)+1));
@@ -5725,8 +5725,12 @@ void loadGLTFModel(char* name){
 		    }
 		}*/
 
-	    
+	    printf("\n");
 	    printf("transf %s: ", bonesNames[i]);
+
+	    printf("t:(%f %f %f) \n", argVec3(T));
+	    printf("s:(%f %f %f) \n", argVec3(S));
+	    printf("r:(%f %f %f %f) \n", argVec4(R));
 
 	    for (int x = 0; x < 4; x++) {
 		printf("\n");
@@ -5736,19 +5740,53 @@ void loadGLTFModel(char* name){
 	    }
 	}
 
+	
+	vec3 T = { data->skins->joints[0]->parent->translation[0], data->skins->joints[0]->parent->translation[1], data->skins->joints[0]->parent->translation[2] };
+	vec3 S = { data->skins->joints[0]->parent->scale[0], data->skins->joints[0]->parent->scale[1], data->skins->joints[0]->parent->scale[2] };
+	vec4 R = { data->skins->joints[0]->parent->rotation[0], data->skins->joints[0]->parent->rotation[1],
+		   data->skins->joints[0]->parent->rotation[2], data->skins->joints[0]->rotation[3]};
+	    
+	Matrix matOfZeroBone = gltfTRS(S,T,R);
+	bones[0].mat = multiplymat4(matOfZeroBone, bones[0].mat);
+	
+
 	for (int i = 0; i < data->skins->joints_count; i++) {
-	   if (bones[i].parent == -1) {
-	       bones[i].mat = multiplymat4(bones[bones[i].parent].mat, bones[i].mat);
-	   }
+	    if (bones[i].parent != -1) {
+		bones[i].mat = multiplymat4(bones[bones[i].parent].mat, bones[i].mat);
+
+		printf("\n");
+		printf("world %s: ", bonesNames[i]);
+		for (int x = 0; x < 4; x++) {
+		    printf("\n");
+		    for (int y = 0; y < 4; y++) {
+			printf("%f ", bones[i].mat.m[x*4+y]);
+		    }
+		}
+
+		printf("\n");
+	
+		printf("parent %s: ", bonesNames[bones[i].parent]);
+		for (int x = 0; x < 4; x++) {
+		    printf("\n");
+		    for (int y = 0; y < 4; y++) {
+			printf("%f ", bones[bones[i].parent].mat.m[x*4+y]);
+		    }
+		}
+		
+		printf("\n");
+	    }
 	}
+
+//	updateBones(&bones[0]);
     
 
 	glUseProgram(shadersId[animShader]);
 	char buf[128];
 	for (int i = 0; i < data->skins->joints_count; i++) {
-	    //Matrix temp;
-//	    inverse(invBindMats[i].m, temp.m);
-	    bones[i].mat = multiplymat4(bones[i].mat, invBindMats[i]);
+	    
+	    Matrix temp;
+	    inverse(bones[i].mat.m, temp.m);
+	    bones[i].mat = multiplymat4(temp, invBindMats[i]);
 	    sprintf(buf, "finalBonesMatrices[%d]", i);
 	    uniformMat4(animShader, buf, bones[i].mat.m);
 	    
@@ -5772,13 +5810,34 @@ void loadGLTFModel(char* name){
     }
 }
 
-void updateBones(Bone* cur){
+void updateBones(Bone* cur, int i){
     if(cur->parent != -1){
 	cur->mat = multiplymat4(bones[cur->parent].mat,cur->mat);
+
+	printf("\n");
+	printf("world %s: ", bonesNames[i]);
+	for (int x = 0; x < 4; x++) {
+	    printf("\n");
+	    for (int y = 0; y < 4; y++) {
+		printf("%f ", bones[i].mat.m[x*4+y]);
+	    }
+	}
+
+	printf("\n");
+	
+	printf("parent %s: ", bonesNames[cur->parent]);
+	for (int x = 0; x < 4; x++) {
+	    printf("\n");
+	    for (int y = 0; y < 4; y++) {
+		printf("%f ", bones[cur->parent].mat.m[x*4+y]);
+	    }
+	}
+		
+	printf("\n");
     }
 
     for(int i=0;i<cur->childSize;i++){
-	updateBones(&bones[cur->child[i]]);
+	updateBones(&bones[cur->child[i]], i);
     }
 }
 
