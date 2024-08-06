@@ -5324,9 +5324,15 @@ void editorRenderCursor(){
 void setPlayerEntityBrush(){
     Entity* entity = calloc(1,sizeof(Entity));
     entity->type = playerEntityT;
+
+    // redo with specs
+    entity->model = malloc(sizeof(ModelData));
+    entity->model->data = &modelsData[0];
+    entity->mat = IDENTITY_MATRIX;
+    
     entity->dir = (vec3){ 0, 0, 1.0f};
 
-    memcpy(entity->mat.m, &entitiesMats[entity->type], sizeof(float)*16);
+//    memcpy(entity->mat.m, &entitiesMats[entity->type], sizeof(float)*16);
     
     mouse.brushType = mouseEntityBrushT;
     mouse.brushThing = entity;

@@ -429,7 +429,7 @@ Matrix mat4_from_quat(vec4 q) {
     return M;
 }
 
-Matrix gltfTRS(vec3 S, vec3 T, vec4 R){
+Matrix gltfTRS(vec3 T, vec4 R, vec3 S){
     float x = R.x;
     float y = R.y;
     float z = R.z;
@@ -530,4 +530,62 @@ Matrix fromRotationTranslationScale(vec4 q, vec3 v, vec3 s) {
     out.m[15] = 1;
 
     return out;
+}
+
+Matrix multMat4(Matrix a, Matrix b){
+    Matrix out;
+    
+    float     a00 = a.m[0];
+    float    a01 = a.m[1];
+    float    a02 = a.m[2];
+    float	a03 = a.m[3];
+    float	 a10 = a.m[4];
+    float	a11 = a.m[5];
+    float	a12 = a.m[6];
+				 float	a13 = a.m[7];
+    float	 a20 = a.m[8];
+    float	a21 = a.m[9];
+    float	a22 = a.m[10];
+    float	a23 = a.m[11];
+    float	 a30 = a.m[12];
+    float	a31 = a.m[13];
+    float	a32 = a.m[14];
+    float	a33 = a.m[15];
+
+    float b0,b1,b2,b3;
+
+    b0 = b.m[0],
+	b1 = b.m[1],
+	b2 = b.m[2],
+	b3 = b.m[3];
+    out.m[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out.m[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out.m[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out.m[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    b0 = b.m[4];
+    b1 = b.m[5];
+    b2 = b.m[6];
+    b3 = b.m[7];
+    out.m[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out.m[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out.m[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out.m[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    b0 = b.m[8];
+    b1 = b.m[9];
+    b2 = b.m[10];
+    b3 = b.m[11];
+    out.m[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out.m[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out.m[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out.m[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    b0 = b.m[12];
+    b1 = b.m[13];
+    b2 = b.m[14];
+    b3 = b.m[15];
+    out.m[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out.m[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out.m[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out.m[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    return out;
+
 }

@@ -877,7 +877,8 @@ typedef enum{
   onSetFunc,
   mouseVSFunc,
   renderCursorFunc,
-  funcsCounter,
+  funcsCounter,
+
 } EngineInstanceFunc;
 
 Tile** markersStorage;
@@ -1341,20 +1342,6 @@ typedef enum{
 
 Matrix entitiesMats[entityTypesCounter];
 
-typedef struct{
-    Matrix mat;
-    EntityType type;
-
-    vec3 dir;
-
-    vec3* path;
-    int pathSize;
-    int curPath;
-    int frame;
-} Entity;
-
-Entity* entityStorage[entityTypesCounter];
-int entityStorageSize[entityTypesCounter];
 
 const char* entityTypeStr[];
 
@@ -1506,6 +1493,8 @@ AnimModel* playerModel;
 
 typedef struct{
     Matrix mat;
+    Matrix invWorldT;
+    
     int parent;
     int childSize;
     int* child;
@@ -1516,4 +1505,84 @@ int bonesSize;
 
 char** bonesNames;
 
-void updateBones(Bone* cur);
+void updateNodes(int curIndex, int parentIndex, int modelsDataIndex);
+
+typedef struct{
+    Matrix globalMat;
+    Matrix invGlobalMat;
+
+    vec3 baseT;
+    vec3 baseS;
+    vec4 baseR;
+
+    int parent;
+
+    int childSize;
+    int* child;
+
+    char* name;
+} GLTFNode;
+
+typedef struct{
+    float time;
+    
+    uint8_t act;
+    uint8_t move;
+
+    int bone;
+    
+    float data[4];
+} AnimStep;
+
+typedef struct{
+    char* name;
+    
+    GLTFNode* nodes;
+    int nodesSize;
+    
+    uint8_t* jointsIdxs; // in nodes
+    uint8_t jointsIdxsSize;
+    
+    Matrix* invBindMats;
+
+    GLuint tx;
+    MeshBuffer mesh;
+
+    uint8_t animSize;
+    int* animChannelsSize;
+    
+    char** animNames;
+    AnimStep** anim;
+} ModelData;
+
+typedef struct{
+    ModelData* data;
+
+    // AABB
+    
+    Matrix* jointsMats;
+    int jointsNum;
+} Model2;
+
+ModelData* modelsData;
+int modelsDataSize;
+    
+GLTFNode* nodes;
+int nodesSize;
+
+typedef struct {
+    Matrix mat;
+    EntityType type;
+
+    Model2* model;
+
+    vec3 dir;
+
+    vec3* path;
+    int pathSize;
+    int curPath;
+    int frame;
+} Entity;
+
+Entity* entityStorage[entityTypesCounter];
+int entityStorageSize[entityTypesCounter];

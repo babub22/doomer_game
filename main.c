@@ -505,7 +505,7 @@ int main(int argc, char* argv[]) {
 		vec3 scale = { 0.9999999403953552,0.9999999403953552,0.9999999403953552 };
 		vec4 rot = { -0.7071067690849304, 0.0f, 0.0f, 0.7071067690849304 };
 	
-	Matrix res = gltfTRS(scale, translation, rot);
+	Matrix res = gltfTRS(scale, rot, translation);
 //		Matrix res = fromRotationTranslationScale(rot, translation, scale);
 
 	for (int x = 0; x < 4; x++) {
@@ -1136,7 +1136,7 @@ int main(int argc, char* argv[]) {
 
 
 //    loadFBXModel("./assets/Doomer.gltf");
-	loadGLTFModel("./assets/Doomer.gltf");
+	loadGLTFModel("./assets/objs/Doomer.gltf");
     
     // load 3d models
     /*{313
@@ -1859,14 +1859,14 @@ int main(int argc, char* argv[]) {
 		}
 	
 		setSolidColorTx(blackColor, 1.0f);
-		glBindTexture(GL_TEXTURE_2D, solidColorTx);
+		glBindTexture(GL_TEXTURE_2D, solidColorTx);// entityStorage[i][0].model->data->tx);
 
 		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
 
-		glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
-		glBindVertexArray(modelInfo2->mesh.VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, entityStorage[i][0].model->data->mesh.VBO);
+		glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
 
-		glDrawArrays(GL_TRIANGLES, 0, modelInfo2->mesh.VBOsize);
+		glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -5525,6 +5525,50 @@ void assembleBlocks(){
     }
 }
 
+void updateNodes(int curIndex, int parentIndex, int modelsDataIndex){
+    modelsData[modelsDataIndex].nodes[curIndex].globalMat = gltfTRS(
+	modelsData[modelsDataIndex].nodes[curIndex].baseT,  
+	modelsData[modelsDataIndex].nodes[curIndex].baseR, 
+	modelsData[modelsDataIndex].nodes[curIndex].baseS);
+
+
+    if(parentIndex != -1){
+	modelsData[modelsDataIndex].nodes[curIndex].globalMat =
+	    multMat4(modelsData[modelsDataIndex].nodes[parentIndex].globalMat,
+		     modelsData[modelsDataIndex].nodes[curIndex].globalMat);
+	
+	printf("%s-%s\n", modelsData[modelsDataIndex].nodes[curIndex].name,
+	       modelsData[modelsDataSize].nodes[parentIndex].name);
+
+	printf("\n");
+	printf("Node: %s \n", modelsData[modelsDataIndex].nodes[curIndex].name);
+	    
+	for (int x = 0; x < 4; x++) {
+	    printf("\n");
+	    for (int y = 0; y < 4; y++) {
+		printf("%f ", modelsData[modelsDataIndex].nodes[curIndex].globalMat.m[x*4+y]);
+	    }
+	}
+	printf("\n Par:");
+	for (int x = 0; x < 4; x++) {
+	    printf("\n");
+	    for (int y = 0; y < 4; y++) {
+		printf("%f ", modelsData[modelsDataIndex].nodes[parentIndex].globalMat.m[x*4+y]);
+	    }
+	}
+	printf("\n");
+    }
+
+    inverse(modelsData[modelsDataIndex].nodes[curIndex].globalMat.m,
+	    modelsData[modelsDataIndex].nodes[curIndex].invGlobalMat.m);    
+    
+    for(int i=0;i< modelsData[modelsDataIndex].nodes[curIndex].childSize;i++){
+        updateNodes(modelsData[modelsDataIndex].nodes[curIndex].child[i],
+		    curIndex,
+		    modelsDataIndex);
+    }    
+}
+
 void loadGLTFModel(char* name){
     cgltf_options options = {0};
     cgltf_data* data = NULL;
@@ -5540,8 +5584,16 @@ void loadGLTFModel(char* name){
 	[cgltf_component_type_r_16u] = sizeof(uint16_t),
 	[cgltf_component_type_r_8u] = sizeof(uint8_t) };
 
-    modelInfo2 = malloc(sizeof(ModelInfo2));
-    modelInfo2->mesh.VBOsize = data->meshes->primitives->indices->count;
+
+    if(!modelsData){
+	modelsData = malloc(sizeof(ModelData));
+    }else{
+	modelsData = realloc(modelsData,sizeof(ModelData)*(modelsDataSize+1));
+    }
+
+    modelsData[modelsDataSize].mesh.VBOsize = data->meshes->primitives->indices->count;
+    
+//    modelsDataSize++;
 
     FILE* fo = NULL;
 
@@ -5550,8 +5602,8 @@ void loadGLTFModel(char* name){
 	char* binPath = malloc(sizeof(char) * (strlen(name) + 1));
 	strcpy(binPath, name);
 
-	for (int i = 0; i < strlen(binPath); i++) {
-	    if (i != 0 && binPath[i] == '.') {
+	for (int i = 1; i < strlen(binPath); i++) {
+	    if (binPath[i] == '.') {
 		binPath[i] = '\0';
 		binPath = realloc(binPath, sizeof(binPath) * (strlen(binPath) + 1));
 		strcat(binPath, ".bin");
@@ -5580,7 +5632,6 @@ void loadGLTFModel(char* name){
 	for(int i2=0;i2<data->meshes->primitives->attributes_count;i2++){
 	    int compSize = typeSize[data->meshes->primitives->attributes[i2].data->component_type];
 	    int vecLen = mapSize[data->meshes->primitives->attributes[i2].data->type];
-
 	    
 	    for(int i3=0;i3<vecLen;i3++){
 		fseek(fo, data->meshes->primitives->attributes[i2].data->buffer_view->offset
@@ -5596,22 +5647,17 @@ void loadGLTFModel(char* name){
 		    fread(&mesh[(i*16)+i3+attrPad[data->meshes->primitives->attributes[i2].type]]
 			  ,compSize, 1, fo);
 		}
-		
-		
-//		mesh[(i*16)+i3+attrPad[data->meshes->primitives->attributes[i2].type]]=
-//			*tempVars[data->meshes->primitives->attributes[i2].data->component_type];
 	    }	    
 	}	
     }
 
-    glGenVertexArrays(1, &modelInfo2->mesh.VAO);
-    glGenBuffers(1, &modelInfo2->mesh.VBO);
+    glGenVertexArrays(1, &modelsData[modelsDataSize].mesh.VAO);
+    glGenBuffers(1, &modelsData[modelsDataSize].mesh.VBO);
 
-    glBindVertexArray(modelInfo2->mesh.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, modelInfo2->mesh.VBO);
+    glBindVertexArray(modelsData[modelsDataSize].mesh.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, modelsData[modelsDataSize].mesh.VBO);
     
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*data->meshes->primitives->indices->count*16
-		 , mesh, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*data->meshes->primitives->indices->count*16, mesh, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)0);
     glEnableVertexAttribArray(0);
@@ -5620,7 +5666,7 @@ void loadGLTFModel(char* name){
     glEnableVertexAttribArray(1);
 
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(5 * sizeof(float)));
-	glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(2);
     
     glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(8 * sizeof(float)));
     glEnableVertexAttribArray(3);
@@ -5633,180 +5679,175 @@ void loadGLTFModel(char* name){
 
     free(mesh);
 
-    for (int i = 0; i < false && data->meshes->primitives->indices->count;i++) {
-	int pad = i*16;
-	printf("p:(%f %f %f) t:(%f %f) n:(%f %f %f) j:(%f %f %f %f) w:(%f %f %f %f)\n",
-	       mesh[pad], mesh[pad+1], mesh[pad+2], mesh[pad+3],mesh[pad+4],mesh[pad+5],mesh[pad+6],mesh[pad+7],mesh[pad+8],mesh[pad+9],mesh[pad+10], mesh[pad+11], mesh[pad+12],mesh[pad+13],mesh[pad+14],mesh[pad+15]);
-    }
-
+    // bones
     {
-	vec3 T = {0.0, 1.0, 0.0};
-	vec3 S = {1.0, 1.0, 1.0};
-	vec4 R = {0.0, 0.0, 0.0, 1.0};
+	modelsData[modelsDataSize].invBindMats = malloc(sizeof(Matrix)*data->skins->joints_count);
 
-	Matrix matrix = gltfTRS(S,T,R);
-	inverse(matrix.m,matrix.m);
+	fseek(fo, data->skins->inverse_bind_matrices->buffer_view->offset, SEEK_SET);
+	fread(modelsData[modelsDataSize].invBindMats, data->skins->inverse_bind_matrices->buffer_view->size, 1, fo);
 
-	
-	for (int x = 0; x < 4; x++) {
-	    printf("\n");
-	    for (int y = 0; y < 4; y++) {
-		printf("%f ", matrix.m[x*4+y]);
+	modelsData[modelsDataSize].nodes = malloc(sizeof(GLTFNode)*data->nodes_count);
+	modelsData[modelsDataSize].nodesSize = data->nodes_count;
+
+	int parentIndex = -1;
+	int rootIndex = -1;
+	for(int i=0;i<data->nodes_count;i++){
+	    if(!data->nodes[i].parent){
+		rootIndex = i;
+	    }
+	    
+	    if(data->nodes[i].skin && data->nodes[i].mesh){
+		parentIndex = i;
+	    }
+
+	    modelsData[modelsDataSize].nodes[i].name = malloc(sizeof(char)*(strlen(data->nodes[i].name)+1));
+	    strcpy(modelsData[modelsDataSize].nodes[i].name, data->nodes[i].name);
+
+	    modelsData[modelsDataSize].nodes[i].baseT = (vec3){data->nodes[i].translation[0],data->nodes[i].translation[1], data->nodes[i].translation[2]};
+	    modelsData[modelsDataSize].nodes[i].baseS = (vec3){data->nodes[i].scale[0], data->nodes[i].scale[1], data->nodes[i].scale[2]};
+	    modelsData[modelsDataSize].nodes[i].baseR = (vec4){data->nodes[i].rotation[0], data->nodes[i].rotation[1], data->nodes[i].rotation[2], data->nodes[i].rotation[3]};
+	}
+
+	for(int i=0;i<data->nodes_count;i++){
+	    modelsData[modelsDataSize].nodes[i].childSize = data->nodes[i].children_count;
+	    modelsData[modelsDataSize].nodes[i].child = malloc(sizeof(int) * data->nodes[i].children_count);
+
+	    modelsData[modelsDataSize].nodes[i].parent = -1;
+
+	    
+	    for(int i3=0;i3<data->nodes_count;i3++){
+		if(data->nodes[i].parent && modelsData[modelsDataSize].nodes[i].parent == -1 &&
+		   strcmp(data->nodes[i3].name, data->nodes[i].parent->name) == 0){
+		    modelsData[modelsDataSize].nodes[i].parent = i3;
+		}
+		
+		for(int i2=0;i2<data->nodes[i].children_count;i2++){		    
+		    if(strcmp(data->nodes[i3].name, data->nodes[i].children[i2]->name) == 0){
+			modelsData[modelsDataSize].nodes[i].child[i2] = i3;
+			break;
+		    }
+		}
 	    }
 	}
 
-    }
+	updateNodes(rootIndex, -1, modelsDataSize);
 
-    // bones
-    {
-	Matrix* invBindMats = malloc(sizeof(Matrix)*data->skins->joints_count);
+	glUseProgram(shadersId[animShader]);
+	char buf[128];
 
-	fseek(fo, data->skins->inverse_bind_matrices->buffer_view->offset, SEEK_SET);
-	fread(invBindMats, data->skins->inverse_bind_matrices->buffer_view->size, 1, fo);
-
+	modelsData[modelsDataSize].jointsIdxsSize = data->skins->joints_count;
+	modelsData[modelsDataSize].jointsIdxs = malloc(sizeof(uint8_t)*data->skins->joints_count);
 	
-        bones = malloc(sizeof(Bone) * data->skins->joints_count);
-	bonesSize = data->skins->joints_count;
-
-	Matrix rootInv;
-	// root inv
-	{
-	    for(int i=0;i<data->nodes_count;i++){
-		if(strcmp(data->nodes[i].name, data->skins->name)==0){
-		    
-		    vec3 T = { data->nodes[i].translation[0], data->nodes[i].translation[1], data->nodes[i].translation[2] };
-		    vec3 S = { data->nodes[i].scale[0], data->nodes[i].scale[1], data->nodes[i].scale[2] };
-		    vec4 R = { data->nodes[i].rotation[0], data->nodes[i].rotation[1],
-			       data->nodes[i].rotation[2], data->nodes[i].rotation[3]};
-	    
-		    rootInv = gltfTRS(S,T,R);
-		    inverse(rootInv.m,rootInv.m);
+	for(int i=0;i< data->skins->joints_count;i++){
+	    for(int i2=0;i<data->nodes_count;i2++){
+		if(strcmp(modelsData[modelsDataSize].nodes[i2].name, data->skins->joints[i]->name)==0){
+		    modelsData[modelsDataSize].jointsIdxs[i] = i2;
 		    break;
 		};
 	    }
 	}
 
-        bonesNames = malloc(sizeof(char*) * data->skins->joints_count);
-
-	for (int i = 0; i < data->skins->joints_count; i++) {
-	    bonesNames[i] = malloc(sizeof(char) * (strlen(data->skins->joints[i]->name)+1));
-	    strcpy(bonesNames[i], data->skins->joints[i]->name);
-	}
-
-	
-	for (int i = 0; i < data->skins->joints_count; i++) {
-//	    bones[i].childSize = data->skins->joints[i]->children_count;
-//	    bones[i].child = malloc(sizeof(Bone)*bones[i].childSize);
+	for(int i=0;i< data->skins->joints_count;i++){
+	    int index = modelsData[modelsDataSize].jointsIdxs[i];
 	    
-	    vec3 T = { data->skins->joints[i]->translation[0], data->skins->joints[i]->translation[1], data->skins->joints[i]->translation[2] };
-	    vec3 S = { data->skins->joints[i]->scale[0], data->skins->joints[i]->scale[1], data->skins->joints[i]->scale[2] };
-	    vec4 R = { data->skins->joints[i]->rotation[0], data->skins->joints[i]->rotation[1],
-		       data->skins->joints[i]->rotation[2], data->skins->joints[i]->rotation[3]};
-	    
-	    bones[i].mat = gltfTRS(S,T,R);	    
-	    bones[i].parent = -1;
-
-	    if(i!=0){
-		for (int i2 = 0; i2 < data->skins->joints_count; i2++) {
-		    if(strcmp(data->skins->joints[i]->parent->name,
-							data->skins->joints[i2]->name) == 0){
-			bones[i].parent = i2;
-		        break;
-		    }
-		}
-	    }
-	    
-		/*
-		for (int i3 = 0; i3 < data->skins->joints[i]->children_count; i3++) {
-		    if(strcmp(data->skins->joints[i]->children[i3]->name,
-			   data->skins->joints[i2]->name) == 0){
-			bones[i].child[i3] = i2;
-			continue;
-		    }
-		}*/
-
-	    printf("\n");
-	    printf("transf %s: ", bonesNames[i]);
-
-	    printf("t:(%f %f %f) \n", argVec3(T));
-	    printf("s:(%f %f %f) \n", argVec3(S));
-	    printf("r:(%f %f %f %f) \n", argVec4(R));
-
-	    for (int x = 0; x < 4; x++) {
-		printf("\n");
-		for (int y = 0; y < 4; y++) {
-		    printf("%f ", bones[i].mat.m[x*4+y]);
-		}
-	    }
-	}
-
-	
-	vec3 T = { data->skins->joints[0]->parent->translation[0], data->skins->joints[0]->parent->translation[1], data->skins->joints[0]->parent->translation[2] };
-	vec3 S = { data->skins->joints[0]->parent->scale[0], data->skins->joints[0]->parent->scale[1], data->skins->joints[0]->parent->scale[2] };
-	vec4 R = { data->skins->joints[0]->parent->rotation[0], data->skins->joints[0]->parent->rotation[1],
-		   data->skins->joints[0]->parent->rotation[2], data->skins->joints[0]->rotation[3]};
-	    
-	Matrix matOfZeroBone = gltfTRS(S,T,R);
-	bones[0].mat = multiplymat4(matOfZeroBone, bones[0].mat);
-	
-
-	for (int i = 0; i < data->skins->joints_count; i++) {
-	    if (bones[i].parent != -1) {
-		bones[i].mat = multiplymat4(bones[bones[i].parent].mat, bones[i].mat);
-
-		printf("\n");
-		printf("world %s: ", bonesNames[i]);
-		for (int x = 0; x < 4; x++) {
-		    printf("\n");
-		    for (int y = 0; y < 4; y++) {
-			printf("%f ", bones[i].mat.m[x*4+y]);
-		    }
-		}
-
-		printf("\n");
-	
-		printf("parent %s: ", bonesNames[bones[i].parent]);
-		for (int x = 0; x < 4; x++) {
-		    printf("\n");
-		    for (int y = 0; y < 4; y++) {
-			printf("%f ", bones[bones[i].parent].mat.m[x*4+y]);
-		    }
-		}
-		
-		printf("\n");
-	    }
-	}
-
-//	updateBones(&bones[0]);
-    
-
-	glUseProgram(shadersId[animShader]);
-	char buf[128];
-	for (int i = 0; i < data->skins->joints_count; i++) {
-	    
-	    Matrix temp;
-	    inverse(bones[i].mat.m, temp.m);
-	    bones[i].mat = multiplymat4(temp, invBindMats[i]);
+	    Matrix jointMat;
+	    jointMat = multMat4(modelsData[modelsDataSize].nodes[index].globalMat, modelsData[modelsDataSize].invBindMats[i]);
+	    jointMat = multMat4(modelsData[modelsDataSize].nodes[parentIndex].invGlobalMat, jointMat);
+	    	    
 	    sprintf(buf, "finalBonesMatrices[%d]", i);
-	    uniformMat4(animShader, buf, bones[i].mat.m);
-	    
-	    printf("%s: ", bonesNames[i]);
+	    uniformMat4(animShader, buf, jointMat.m);
+	}
 
-	    for (int x = 0; x < 4; x++) {
-		printf("\n");
-		for (int y = 0; y < 4; y++) {
-		    printf("%f ", bones[i].mat.m[x*4+y]);
+	// anims
+	{
+	    static char* strType[] = {[cgltf_interpolation_type_linear] = "Linear",
+			       [cgltf_interpolation_type_step] = "Step",
+			       [cgltf_interpolation_type_cubic_spline] = "Cubic", [cgltf_interpolation_type_cubic_spline+1] = "ERROR" };
+
+	    static char* actionTypeStr[] = { [cgltf_animation_path_type_invalid] = "INVALID" ,
+				      [cgltf_animation_path_type_translation] = "Translation",
+				      [cgltf_animation_path_type_rotation] = "Rotation",
+				      [cgltf_animation_path_type_scale] = "Scale",
+				      [cgltf_animation_path_type_weights] = "Weithg",[cgltf_animation_path_type_weights+1] = "ERROR" };
+	
+	    modelsData[modelsDataSize].animSize = data->animations_count;
+	    modelsData[modelsDataSize].animChannelsSize = malloc(sizeof(int)*data->animations_count);
+	    modelsData[modelsDataSize].animNames = malloc(sizeof(char*)*data->animations_count);
+	    modelsData[modelsDataSize].anim = malloc(sizeof(AnimStep*)*data->animations_count);
+	    
+	    for(int i=0;i<data->animations_count;i++){
+		modelsData[modelsDataSize].animNames[i] = malloc(sizeof(char)*(strlen(data->animations[i].name)+1));
+		strcpy(modelsData[modelsDataSize].animNames[i], data->animations[i].name);
+
+		int samplerIndex = 0;
+		for (int i2 = 0; i2 < data->animations->samplers_count; i2++) {
+		    samplerIndex += data->animations->samplers[i2].input->buffer_view->size / sizeof(float);
+		}
+
+		printf("samplerIndex: %d\n", samplerIndex);
+
+		modelsData[modelsDataSize].anim[i] = malloc(sizeof(AnimStep)*data->animations[i].samplers_count);
+		modelsData[modelsDataSize].animChannelsSize[i] = data->animations[i].samplers_count;
+
+
+	        samplerIndex = 0;
+		for(int i2=0;i2<data->animations[i].channels_count;i2++){
+		    int index;
+		    for(int i3=0;i3<modelsData[modelsDataSize].jointsIdxsSize;i3++){
+		        index = modelsData[modelsDataSize].jointsIdxs[i3];
+			
+			if(strcmp(modelsData[modelsDataSize].nodes[index].name,
+				  data->animations[i].channels[i2].target_node->name)==0){
+			    break;
+			};
+		    }
+
+
+		    int samplerNum = data->animations[i].channels[i2].sampler->output->buffer_view->size / elementSize;
+		    int elementSize = typeSize[data->animations[i].channels[i2].sampler->input->component_type];
+		    int vecLen = mapSize[data->animations[i].channels[i2].sampler->output->type];		    
+
+		    for(int i3=0;i3<samplerNum;i3++){
+			elementSize = typeSize[data->animations[i].channels[i2].sampler->output->component_type];
+			
+			fseek(fo, data->animations[i].channels[i2].sampler->output->buffer_view->offset + i3 * (elementSize*vecLen), SEEK_SET);
+			fread(modelsData[modelsDataSize].anim[i][samplerIndex].data, (elementSize*vecLen), 1, fo);
+
+			elementSize = typeSize[data->animations[i].channels[i2].sampler->input->component_type];
+			fseek(fo, data->animations[i].channels[i2].sampler->input->buffer_view->offset + i3 * elementSize, SEEK_SET);
+			fread(&modelsData[modelsDataSize].anim[i][samplerIndex].time, elementSize, 1, fo);
+		    
+			modelsData[modelsDataSize].anim[i][samplerIndex].act = data->animations[i].channels[i2].target_path;
+			modelsData[modelsDataSize].anim[i][samplerIndex].move = data->animations[i].channels[i2].sampler->interpolation;		
+			modelsData[modelsDataSize].anim[i][samplerIndex].bone = index;
+			samplerIndex++;
+		    }
+		    
+		    
+		    
 		}
 	    }
+
+
+	    for(int i=0;i<data->animations_count;i++){
+		printf("\n\n%s:", modelsData[modelsDataSize].animNames[i]);
+		
+		for(int i2=0;i2<modelsData[modelsDataSize].animChannelsSize[i];i2++){
+		    printf("t:%f b:%d data: (%f %f %f %f) a:%s i:%s \n",
+			   modelsData[modelsDataSize].anim[i][i2].time,
+			   modelsData[modelsDataSize].anim[i][i2].bone,
+			   modelsData[modelsDataSize].anim[i][i2].data[0],
+			   modelsData[modelsDataSize].anim[i][i2].data[1],
+			   modelsData[modelsDataSize].anim[i][i2].data[2],
+			   modelsData[modelsDataSize].anim[i][i2].data[3],
+			   actionTypeStr[modelsData[modelsDataSize].anim[i][i2].act],
+			   strType[modelsData[modelsDataSize].anim[i][i2].move]);
+		}
+	    }
+	    
 	}
 
-	for (int i = 0; i < data->skins->joints_count; i++) {
-
-	    printf("\n");
-	}
-
-	
-	
+	modelsDataSize++;
     }
 }
 
