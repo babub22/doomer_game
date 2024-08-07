@@ -1505,15 +1505,13 @@ int bonesSize;
 
 char** bonesNames;
 
-void updateNodes(int curIndex, int parentIndex, int modelsDataIndex);
-
 typedef struct{
     Matrix globalMat;
     Matrix invGlobalMat;
 
-    vec3 baseT;
-    vec3 baseS;
-    vec4 baseR;
+    vec3 T;
+    vec3 S;
+    vec4 R;
 
     int parent;
 
@@ -1529,7 +1527,8 @@ typedef struct{
     uint8_t act;
     uint8_t move;
 
-    int bone;
+    uint8_t boneInNodes; // in nodes array
+    uint8_t bone; // for invbind
     
     float data[4];
 } AnimStep;
@@ -1545,23 +1544,28 @@ typedef struct{
     
     Matrix* invBindMats;
 
+    uint8_t rootNode;
+    uint8_t parentNode;
+
     GLuint tx;
     MeshBuffer mesh;
 
-    uint8_t animSize;
-    int* animChannelsSize;
-    
     char** animNames;
-    AnimStep** anim;
+
+    float** stageTime; // [anim][stage]
+    uint16_t** animKeysSize; //[anim][stage]
+    uint8_t* stage; // [anim]
+    
+    uint8_t animSize;
+    AnimStep*** anim; // [anim][keys][stage]
 } ModelData;
 
 typedef struct{
     ModelData* data;
-
-    // AABB
+    GLTFNode* nodes;
     
-    Matrix* jointsMats;
-    int jointsNum;
+//    Matrix* jointsMats;
+    //  int jointsNum;
 } Model2;
 
 ModelData* modelsData;
@@ -1586,3 +1590,10 @@ typedef struct {
 
 Entity* entityStorage[entityTypesCounter];
 int entityStorageSize[entityTypesCounter];
+
+int sortAnimStepsByTime(AnimStep* a, AnimStep* b);
+
+
+//void updateNodes(int curIndex, int parentIndex, int modelsDataIndex);
+void updateNodes(int curIndex, int parentIndex, GLTFNode** nodes);
+

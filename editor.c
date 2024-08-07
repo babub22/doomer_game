@@ -5328,6 +5328,12 @@ void setPlayerEntityBrush(){
     // redo with specs
     entity->model = malloc(sizeof(ModelData));
     entity->model->data = &modelsData[0];
+
+    entity->model->nodes = malloc(sizeof(GLTFNode)* entity->model->data->nodesSize);
+    memcpy(entity->model->nodes,
+	   entity->model->data->nodes,
+	   sizeof(GLTFNode)* entity->model->data->nodesSize);
+    
     entity->mat = IDENTITY_MATRIX;
     
     entity->dir = (vec3){ 0, 0, 1.0f};
