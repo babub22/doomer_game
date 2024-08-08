@@ -41,51 +41,7 @@ int frameCounter;
 vec3 targetPos;
 
 void gamePreFrame(float deltaTime){
-  printf("%d %d %d \n", frameCounter == 20, targetPos.x != 0, frameCounter);
-  
-  if(frameCounter == 20){
-    if(targetPos.x != 0){
-      //   targetPos.x;
-      //    targetPos.y;
 
-      vec3 playerPos = { 
-	player->mat.m[12],
-	0.0f,
-	player->mat.m[14]
-      };
-
-      printf("%f %f %f \n", argVec3(playerPos));
-
-      if(playerPos.x > targetPos.x){
-	playerPos.x -= 0.1f;
-    }else if(playerPos.x < targetPos.x){
-      playerPos.x += 0.1f;
-    }
-
-      if(playerPos.z > targetPos.z){
-	playerPos.z -= 0.1f;
-      }else if(playerPos.z < targetPos.z){
-	playerPos.z += 0.1f;
-      }
-
-      if(playerPos.z == targetPos.z && playerPos.x == targetPos.x){
-	targetPos.x = 0;
-      }
-
-      player->mat.m[12] = playerPos.x;
-      player->mat.m[13] = 0.0f;
-      player->mat.m[14] = playerPos.z;
-
-      calculateModelAABB(player);
-      batchModels();
-    
-    }
-    
-    frameCounter=0;
-  }
-
-  
-  frameCounter++;
 };
 
 void gameMatsSetup(int curShader){
@@ -107,18 +63,12 @@ void gameMatsSetup(int curShader){
 
     glUseProgram(shadersId[curShader]);
 
-   // vec3 front  = ((vec3){ view.m[8], view.m[9], view.m[10] });
-
-   // curCamera->Z = normalize3((vec3) { front.x * -1.0f, front.y * 1.0f, front.z * 1.0f });
-   // curCamera->X = normalize3(cross3(curCamera->Z, curCamera->up));
-   // curCamera->Y = (vec3){ 0,dotf3(curCamera->X, curCamera->Z),0 };
-
     // cursor things
     {
-      float x = mouse.cursor.x;//(2.0f * mouse.cursor.x) / windowW - 1.0f;
+	float x = mouse.cursor.x;//(2.0f * mouse.cursor.x) / windowW - 1.0f;
 	float y = mouse.cursor.z;//1.0f - (2.0f * mouse.cursor.z) / windowH;
-      float z = 1.0f;
-      vec4 rayClip = { x, y, -1.0, 1.0 };
+	float z = 1.0f;
+	vec4 rayClip = { x, y, -1.0, 1.0 };
 
       Matrix inversedProj = IDENTITY_MATRIX;
       
@@ -146,16 +96,54 @@ void gamePreLoop(){
 };
 
 void gameEvents(SDL_Event event){
-  if (event.type == SDL_MOUSEMOTION) {
-    float x = -1.0 + 2.0 * (event.motion.x / windowW);
-    float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
+    if (event.type == SDL_MOUSEMOTION) {
+	if(false && entityStorageSize[playerEntityT] && mouse.selectedType == mouseTileT){
+	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
+	    
+	    vec3 v2 = (vec3){
+		    tileData->intersection.x - entityStorage[playerEntityT][0].mat.m[12],
+		    tileData->intersection.y - entityStorage[playerEntityT][0].mat.m[13],
+		    tileData->intersection.z - entityStorage[playerEntityT][0].mat.m[14]
+		};
 
-    mouse.cursor.x = x;
-    mouse.cursor.z = y;
+	    float r = .4f;
+	    if((v2.x*v2.x) + (v2.z*v2.z) > r * r){
+		v2 = normalize3(v2);
+		vec3 v1 = entityStorage[playerEntityT][0].dir;
 
-    float cameraSpeed = 0.015f;
+		float angle = angle2Vec((vec2) { v1.x, v1.z }, (vec2) { v2.x, v2.z });
 
-    // UP
+		float cosTheta = cosf(angle);
+		float sinTheta = sinf(angle);
+
+		entityStorage[playerEntityT][0].dir.x = v1.x * cosTheta - v1.z * sinTheta;
+		entityStorage[playerEntityT][0].dir.z = v1.x * sinTheta + v1.z * cosTheta;
+
+		float tempX = entityStorage[playerEntityT][0].mat.m[12];
+		float tempY = entityStorage[playerEntityT][0].mat.m[13];
+		float tempZ = entityStorage[playerEntityT][0].mat.m[14];
+
+		entityStorage[playerEntityT][0].mat.m[12]=0;
+		entityStorage[playerEntityT][0].mat.m[13]=0;
+		entityStorage[playerEntityT][0].mat.m[14]=0;
+	    
+		rotate(&entityStorage[playerEntityT][0].mat, angle, .0f, 1.0f, .0f);
+		
+		entityStorage[playerEntityT][0].mat.m[12] = tempX;
+		entityStorage[playerEntityT][0].mat.m[13] = tempY;
+		entityStorage[playerEntityT][0].mat.m[14] = tempZ;
+	    }
+	}
+      
+	float x = -1.0 + 2.0 * (event.motion.x / windowW);
+	float y = -(-1.0 + 2.0 * (event.motion.y / windowH));
+
+	mouse.cursor.x = x;
+	mouse.cursor.z = y;
+
+	float cameraSpeed = 0.015f;
+
+	// UP
     if (mouse.cursor.z >= 1.0f - cursorH) {
       curCamera->pos.x -= cameraSpeed;
       curCamera->pos.z += cameraSpeed;

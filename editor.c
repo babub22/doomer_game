@@ -4755,9 +4755,10 @@ void uniformLights(){
     GLint curShader = 0;
     glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
 
-    int shaderTable[2] = { mainShader, snowShader };
+    int shaderTable[] = { mainShader, snowShader, animShader };
+	int shaderTableSize = sizeof(shaderTable) / sizeof(shaderTable[0]);
 
-    for(int s=0;s<2;s++){
+    for(int s=0;s<shaderTableSize;s++){
 	glUseProgram(shadersId[shaderTable[s]]);
 
 	char buf[64];
@@ -5336,9 +5337,7 @@ void setPlayerEntityBrush(){
     
     entity->mat = IDENTITY_MATRIX;
     
-    entity->dir = (vec3){ 0, 0, 1.0f};
-
-//    memcpy(entity->mat.m, &entitiesMats[entity->type], sizeof(float)*16);
+    entity->dir = (vec3){ .0f, .0f, .5f};
     
     mouse.brushType = mouseEntityBrushT;
     mouse.brushThing = entity;

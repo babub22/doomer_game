@@ -313,6 +313,8 @@ Camera* curCamera = &camera1;
 
 bool fullScreen = 0;
 
+MeshBuffer dirPointerLine;
+
 Light lightDef[lightsTypeCounter] = {
     [pointLightT] = {.r = 253, .g=244, .b=220, .curLightPresetIndex = 11},
     [dirLightShadowT] = {.r = 253, .g=244, .b=220, .curLightPresetIndex = 11},
@@ -328,9 +330,9 @@ float windowH = 1080.0f;
 
 float dofPercent = 1.0f;
 
-int gridX = 500;
+int gridX = 120;
 int gridY = 15;
-int gridZ = 500;
+int gridZ = 120;
 
 // ~~~~~~~~~~~~~~~~~
 
@@ -494,57 +496,15 @@ int main(int argc, char* argv[]) {
 	glGenVertexArrays(1, &windowWindowsMesh.VAO);
     }
 
+    allocateAstar(gridX, gridY, gridZ);
+
+    // 2d free rect
     {
-		/*
-	vec3 translation = { 10.0f, 20.0f, 30.0f };
-	vec3 scale = { 2.0f, 1.0f, 0.5f };
-	vec4 rot = { 0.259f, 0.0f, 0.0f, 0.966f };*/
+	glGenBuffers(1, &dirPointerLine.VBO);
+	glGenVertexArrays(1, &dirPointerLine.VAO);
 
-		vec3 translation = { 0.022038016468286514, -0.009772091172635555, -1.5621956586837769 };
-		vec3 scale = { 0.9999999403953552,0.9999999403953552,0.9999999403953552 };
-		vec4 rot = { -0.7071067690849304, 0.0f, 0.0f, 0.7071067690849304 };
-	
-	Matrix res = gltfTRS(scale, rot, translation);
-//		Matrix res = fromRotationTranslationScale(rot, translation, scale);
-
-	for (int x = 0; x < 4; x++) {
-	    printf("\n");
-	    for (int i = 0; i < 4; i++) {
-		printf("%f ", res.m[(x*4) + i]);
-	    }
-	}
-	/*
-	Matrix R = mat4_from_quat(rot);
-
-	Matrix S = IDENTITY_MATRIX;
-        S.m[0] = scale.x;
-        S.m[5] = scale.y;
-        S.m[10] = scale.z;
-
-	for (int x = 0; x < 4; x++) {
-	    printf("\n");
-	    for (int i = 0; i < 4; i++) {
-		printf("%f ", S.m[(x*4) + i]);
-	    }
-	}
-
-	printf("\n");
-	
-	Matrix T = IDENTITY_MATRIX;
-	T.m[3] = translation.x;
-	T.m[7] = translation.y;
-	T.m[11] = translation.z;
-
-	
-	for (int x = 0; x < 4; x++) {
-	    printf("\n");
-	    for (int i = 0; i < 4; i++) {
-		printf("%f ", T.m[(x*4) + i]);
-	    }
-	}
-
-	printf("\n");*/
-
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
     }
 
     // 2d free rect
@@ -1129,107 +1089,107 @@ int main(int argc, char* argv[]) {
 
 	free(indexesTrackerFor2DTex);
     }
-	{
-		txOfGround = texture1DIndexByName("Zemlia1");
-	}
+    {
+	txOfGround = texture1DIndexByName("Zemlia1");
+    }
 
 
 //    loadFBXModel("./assets/Doomer.gltf");
-	loadGLTFModel("./assets/objs/Doomer.gltf");
+    loadGLTFModel("./assets/objs/Doomer.gltf");
     
     // load 3d models
     /*{313
-	FILE* objsSpecs = fopen("./assets/objs/ObjsSpecs.txt", "r");
+      FILE* objsSpecs = fopen("./assets/objs/ObjsSpecs.txt", "r");
 
-	if (!objsSpecs) {
-	    printf("ObjsSpecs.txt was not found! \n");
-	}
-	else {
-	    char textureName[50];
-	    char objName[50];
-	    char typeStr[10];
+      if (!objsSpecs) {
+      printf("ObjsSpecs.txt was not found! \n");
+      }
+      else {
+      char textureName[50];
+      char objName[50];
+      char typeStr[10];
 
-	    int charsCounter = 0;
-	    int objsCounter = 0;
+      int charsCounter = 0;
+      int objsCounter = 0;
 
-	    while (fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF) {
-		if (strcmp(typeStr, "Player") == 0) {
-		    charsCounter++;
-		}
-		else if (strcmp(typeStr, "Obj") == 0) {
-		    objsCounter++;
-		}
-		else {
-		    printf("Model %s has wrong type %s \n", objName, typeStr);
-		    exit(0);
-		}
-	    };
+      while (fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF) {
+      if (strcmp(typeStr, "Player") == 0) {
+      charsCounter++;
+      }
+      else if (strcmp(typeStr, "Obj") == 0) {
+      objsCounter++;
+      }
+      else {
+      printf("Model %s has wrong type %s \n", objName, typeStr);
+      exit(0);
+      }
+      };
 
-	    loadedModels1D = malloc(sizeof(ModelInfo) * (charsCounter + objsCounter));
+      loadedModels1D = malloc(sizeof(ModelInfo) * (charsCounter + objsCounter));
 
-	    loadedModels2D = malloc(sizeof(ModelInfo*) * modelTypeCounter);
-	    loadedModels2D[objectModelType] = malloc(sizeof(ModelInfo) * objsCounter);
-	    loadedModels2D[playerModelT] = malloc(sizeof(ModelInfo) * objsCounter);
+      loadedModels2D = malloc(sizeof(ModelInfo*) * modelTypeCounter);
+      loadedModels2D[objectModelType] = malloc(sizeof(ModelInfo) * objsCounter);
+      loadedModels2D[playerModelT] = malloc(sizeof(ModelInfo) * objsCounter);
 
-	    rewind(objsSpecs);
+      rewind(objsSpecs);
 
-	    bool playerModelIsLoaded = false;
+      bool playerModelIsLoaded = false;
 
-	    while (fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF) {
-		char* fullObjPath = malloc(strlen(objName) + strlen(objsFolder) + 1);
+      while (fscanf(objsSpecs, "%s %s %s\n", objName, textureName, typeStr) != EOF) {
+      char* fullObjPath = malloc(strlen(objName) + strlen(objsFolder) + 1);
 
-		strcpy(fullObjPath, objsFolder);
-		strcat(fullObjPath, objName);
+      strcpy(fullObjPath, objsFolder);
+      strcat(fullObjPath, objName);
 
-		char* fullTxPath = malloc(strlen(textureName) + strlen(objsFolder) + 1);
+      char* fullTxPath = malloc(strlen(textureName) + strlen(objsFolder) + 1);
 
-		strcpy(fullTxPath, objsFolder);
-		strcat(fullTxPath, textureName);
+      strcpy(fullTxPath, objsFolder);
+      strcat(fullTxPath, textureName);
 
-		ModelType type = -1;
+      ModelType type = -1;
 
-		for (int i2 = 0; i2 < modelTypeCounter; i2++) {
-		    if (strcmp(typeStr, modelsTypesInfo[i2].str) == 0) {
-			type = i2;
-			break;
-		    }
-		}
+      for (int i2 = 0; i2 < modelTypeCounter; i2++) {
+      if (strcmp(typeStr, modelsTypesInfo[i2].str) == 0) {
+      type = i2;
+      break;
+      }
+      }
 
-		ModelInfo* loadedModel = loadOBJ(fullObjPath, fullTxPath);
+      ModelInfo* loadedModel = loadOBJ(fullObjPath, fullTxPath);
 
-		if (strcmp(typeStr, modelsTypesInfo[playerModelT].str) == 0) {
-		    if(playerModelIsLoaded){
-			printf("You're trying to load more than 1 model for player");
-			exit(0);
-		    }
+      if (strcmp(typeStr, modelsTypesInfo[playerModelT].str) == 0) {
+      if(playerModelIsLoaded){
+      printf("You're trying to load more than 1 model for player");
+      exit(0);
+      }
 	  
-		    loadedModel->type = playerModelT;
-		    playerModelIsLoaded= true;
-		}else{
-		    loadedModel->type = objectModelType;
-		}
+      loadedModel->type = playerModelT;
+      playerModelIsLoaded= true;
+      }else{
+      loadedModel->type = objectModelType;
+      }
 
-		loadedModel->name = malloc(sizeof(char) * (strlen(objName) + 1));
-		strcpy(loadedModel->name, objName);
-		strcut(loadedModel->name, strlen(objName) - 4, strlen(objName));
-		loadedModel->index1D = loadedModelsSize;
-		loadedModel->index2D = modelsTypesInfo[type].counter;
+      loadedModel->name = malloc(sizeof(char) * (strlen(objName) + 1));
+      strcpy(loadedModel->name, objName);
+      strcut(loadedModel->name, strlen(objName) - 4, strlen(objName));
+      loadedModel->index1D = loadedModelsSize;
+      loadedModel->index2D = modelsTypesInfo[type].counter;
 
-		loadedModels1D[loadedModelsSize] = *loadedModel;
-		loadedModels2D[type][modelsTypesInfo[type].counter] = *loadedModel;
+      loadedModels1D[loadedModelsSize] = *loadedModel;
+      loadedModels2D[type][modelsTypesInfo[type].counter] = *loadedModel;
 
-		free(fullObjPath);
-		free(fullTxPath);
+      free(fullObjPath);
+      free(fullTxPath);
 
-		printf("Loaded %s\n", objName);
+      printf("Loaded %s\n", objName);
 
-		modelsTypesInfo[type].counter++;
-		loadedModelsSize++;
-	    }
+      modelsTypesInfo[type].counter++;
+      loadedModelsSize++;
+      }
 
-	    fclose(objsSpecs);
-	}
-    }*/
+      fclose(objsSpecs);
+      }
+      }*/
 
     geomentyByTxCounter = calloc(loadedTexturesCounter, sizeof(size_t));
     modelsBatch = calloc(loadedModelsTxSize, sizeof(Geometry));
@@ -1536,24 +1496,77 @@ int main(int argc, char* argv[]) {
 	for(int i=0;i<entityTypesCounter;i++){
 	    for(int i2=0;i2<entityStorageSize[i];i2++){
 		if(entityStorage[i][i2].path){
-		    entityStorage[i][i2].frame++;
 
-		    if(entityStorage[i][i2].frame == 20){		    
-			entityStorage[i][i2].mat.m[12] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].x + entitiesMats[i].m[12];
-			entityStorage[i][i2].mat.m[13] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].y + entitiesMats[i].m[13];
-			entityStorage[i][i2].mat.m[14] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].z + entitiesMats[i].m[14];
+			/*
+		    float t = entityStorage[i][i2].frame / 20.0f;
+
+		    vec2 cur;
+
+		    if(entityStorage[i][i2].curPath+1 != entityStorage[i][i2].pathSize)
+		    {
+			vec2 v1 = { entityStorage[playerEntityT][0].mat.m[12], entityStorage[playerEntityT][0].mat.m[14] };
+			vec2 v2 = { entityStorage[i][i2].path[entityStorage[i][i2].curPath+1].x, entityStorage[i][i2].path[entityStorage[i][i2].curPath+1].z };
 		    
+			cur.x = v1.x * (1 - t) + v2.x * t;
+			cur.z = v1.z * (1 - t) + v2.z * t;
+		    }*/
+
+
+		    if(entityStorage[i][i2].frame == 20){
+		    float tempY = entityStorage[playerEntityT][0].mat.m[13];
+		    
+			{
+			    vec3 v1 = entityStorage[playerEntityT][0].dir;
+			    vec3 v2 = normalize3((vec3){
+				    entityStorage[i][i2].path[entityStorage[i][i2].curPath].x - entityStorage[playerEntityT][0].mat.m[12],
+				    .0f,
+				    entityStorage[i][i2].path[entityStorage[i][i2].curPath].z - entityStorage[playerEntityT][0].mat.m[14]
+				});
+
+			    float angle = angle2Vec((vec2) { v1.x, v1.z }, (vec2) { v2.x, v2.z });
+				
+			    float cosTheta = cosf(angle);
+			    float sinTheta = sinf(angle);
+
+			    entityStorage[playerEntityT][0].dir.x = v1.x * cosTheta - v1.z * sinTheta;
+			    entityStorage[playerEntityT][0].dir.z = v1.x * sinTheta + v1.z * cosTheta;
+			
+			    entityStorage[playerEntityT][0].mat.m[12]=0;
+			    entityStorage[playerEntityT][0].mat.m[13]=0;
+			    entityStorage[playerEntityT][0].mat.m[14]=0;
+	    
+			    rotate(&entityStorage[playerEntityT][0].mat, angle, .0f, 1.0f, .0f);
+			}
+			
+			entityStorage[i][i2].mat.m[12] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].x;
+			entityStorage[i][i2].mat.m[13] = tempY;
+			entityStorage[i][i2].mat.m[14] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].z;
+			
 			entityStorage[i][i2].curPath++;
 			entityStorage[i][i2].frame = 0;
-
-			batchEntitiesBoxes();
 		    }
+		    
+
 
 		    if(entityStorage[i][i2].curPath == entityStorage[i][i2].pathSize){
 			free(entityStorage[i][i2].path);
 			entityStorage[i][i2].path = NULL;
 			entityStorage[i][i2].pathSize = 0;
 		    }
+			
+		    
+		    /*if(entityStorage[i][i2].frame == 20){		    
+			entityStorage[i][i2].curPath++;
+			entityStorage[i][i2].frame = 0;
+		    }*/
+
+		    entityStorage[i][i2].frame++;
+		    
+		    /*if(entityStorage[i][i2].curPath == entityStorage[i][i2].pathSize){
+			free(entityStorage[i][i2].path);
+			entityStorage[i][i2].path = NULL;
+			entityStorage[i][i2].pathSize = 0;
+		    }*/
 		}
 	    }
 	}
@@ -1718,35 +1731,39 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(0);
 	    }
 
+	    static uint8_t padTable[] = {
+		[cgltf_animation_path_type_rotation] = 6,
+		[cgltf_animation_path_type_translation]=0,
+		[cgltf_animation_path_type_scale]= 3
+	    };
+
+	    static uint8_t sizeTable[] = {
+		[cgltf_animation_path_type_rotation] = 4,
+		[cgltf_animation_path_type_translation]=3,
+		[cgltf_animation_path_type_scale]= 3
+	    };
+
 	    // test anim
 	    if(entityStorageSize[playerEntityT] != 0){
 		static int curAnimStage = 0;
 		static int frame = 0;
 
-		if(frame == 5){		    
+		if(frame == 3){		    
 		    for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize[0][curAnimStage];i3++){
 			int index = entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].boneInNodes;
+			int act =entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].act;
 
-			if(entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].act
-			   == cgltf_animation_path_type_rotation){
-			    memcpy(&entityStorage[playerEntityT]->model->nodes[index].R, 
-					entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].data, sizeof(float)*4);
-			}else if(entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].act
-				 == cgltf_animation_path_type_scale){
-			    memcpy(&entityStorage[playerEntityT]->model->nodes[index].S, entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].data, sizeof(float)*3);
-			}else{
-			    memcpy(&entityStorage[playerEntityT]->model->nodes[index].T, entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].data, sizeof(float)*3);
-			}
+			memcpy(entityStorage[playerEntityT]->model->nodes[index].t+padTable[act], 
+			       entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].data,
+			       sizeof(float)*sizeTable[act]);
 		    }
 
-		    
-//		    updateNodes(modelsData[modelsDataSize].rootNode, -1, modelsDataSize);
-			updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
+		    updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
 				&entityStorage[playerEntityT]->model->nodes);
 
 		    glUseProgram(shadersId[animShader]);
 		    
-			char buf[64];
+		    char buf[64];
 		    for(int i=0;i< entityStorage[playerEntityT]->model->data->jointsIdxsSize;i++){
 			int index = entityStorage[playerEntityT]->model->data->jointsIdxs[i];
 	    
@@ -1852,15 +1869,47 @@ int main(int argc, char* argv[]) {
 		    continue;
 		}
 	
-		setSolidColorTx(blackColor, 1.0f);
-		glBindTexture(GL_TEXTURE_2D, solidColorTx);// entityStorage[i][0].model->data->tx);
-
+		glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
 		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
 
 		glBindBuffer(GL_ARRAY_BUFFER, entityStorage[i][0].model->data->mesh.VBO);
 		glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
 
 		glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
+
+		// draw dir
+		{
+		    glUseProgram(shadersId[lightSourceShader]);
+	    
+		    glBindBuffer(GL_ARRAY_BUFFER, dirPointerLine.VBO);
+		    glBindVertexArray(dirPointerLine.VAO);
+
+		    Matrix out = IDENTITY_MATRIX;
+		    out.m[12] = entityStorage[i][0].mat.m[12];
+		    out.m[13] = entityStorage[i][0].mat.m[13];
+		    out.m[14] = entityStorage[i][0].mat.m[14];
+		    
+		    uniformMat4(lightSourceShader, "model", out.m);
+		    uniformVec3(lightSourceShader, "color", (vec3) { redColor });
+		    
+		    
+		    float line[] = {			
+			.0f, 1.2f, .0f,			
+		        entityStorage[i][0].dir.x,
+			entityStorage[i][0].dir.y + 1.2f,
+			entityStorage[i][0].dir.z
+		    };
+	
+		    glBufferData(GL_ARRAY_BUFFER, sizeof(line), line, GL_STATIC_DRAW);
+
+		    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+		    glEnableVertexAttribArray(0);
+		    
+		    glDrawArrays(GL_LINES, 0, 2);
+		    
+		    glUseProgram(shadersId[animShader]);
+		}
+		
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -1870,28 +1919,28 @@ int main(int argc, char* argv[]) {
 	    
             // entity box
 	    /*
-	    glUseProgram(shadersId[lightSourceShader]);
+	      glUseProgram(shadersId[lightSourceShader]);
     
-	    for(int i=0;i<entityTypesCounter;i++){
-		if(entityStorageSize[i] == 0){
-		    continue;
-		}
+	      for(int i=0;i<entityTypesCounter;i++){
+	      if(entityStorageSize[i] == 0){
+	      continue;
+	      }
 
-		Matrix mat = IDENTITY_MATRIX;
+	      Matrix mat = IDENTITY_MATRIX;
 		    
-		uniformMat4(lightSourceShader, "model", mat.m);
-		uniformVec3(lightSourceShader, "color", (vec3) { cyan });
+	      uniformMat4(lightSourceShader, "model", mat.m);
+	      uniformVec3(lightSourceShader, "color", (vec3) { cyan });
 
-		glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
-		glBindVertexArray(entitiesBatch[i].VAO);
+	      glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
+	      glBindVertexArray(entitiesBatch[i].VAO);
 
-		glDrawArrays(GL_TRIANGLES, 0, entitiesBatch[i].VBOsize);
+	      glDrawArrays(GL_TRIANGLES, 0, entitiesBatch[i].VBOsize);
 
-		glBindTexture(GL_TEXTURE_2D, 0);
+	      glBindTexture(GL_TEXTURE_2D, 0);
 
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-	    }*/
+	      glBindBuffer(GL_ARRAY_BUFFER, 0);
+	      glBindVertexArray(0);
+	      }*/
 
 	    /*
 	      {
@@ -3428,6 +3477,7 @@ SDL_Surface* IMG_Load_And_Flip_Vertical(char* path){
 
     SDL_UnlockSurface(surface);
 
+
     return surface;
 }
 
@@ -4682,12 +4732,12 @@ void assembleWindowBlockVBO(){
     float windowPlaneFront[] = {
 	// cap bot
 	/*0.0f, botH, winPad,   1.0f, 0.0f,
-	w,  h-capH, winPad,    0.0f, 1.0f,
-	0.0f, h-capH, winPad, 1.0f, 1.0f,
+	  w,  h-capH, winPad,    0.0f, 1.0f,
+	  0.0f, h-capH, winPad, 1.0f, 1.0f,
 
-	0.0f, botH, winPad,    1.0f, 0.0f,
-	w, botH, winPad,       0.0f, 0.0f,
-	w,  h-capH, winPad,    0.0f, 1.0f,*/
+	  0.0f, botH, winPad,    1.0f, 0.0f,
+	  w, botH, winPad,       0.0f, 0.0f,
+	  w,  h-capH, winPad,    0.0f, 1.0f,*/
 
 	// front plane
 	wStart, botH, winPad,   1.0f, 0.0f,
@@ -4762,7 +4812,7 @@ void assembleWindowBlockVBO(){
         w, botH, winPad,       0.0f, 0.0f,
         w,  h-capH, winPad,    0.0f, 1.0f,
 	*/
-	    };
+    };
 
     float windowPlane[] = {
 	// left window
@@ -4983,14 +5033,16 @@ void rerenderShadowsForAllLights(){
 	glActiveTexture(GL_TEXTURE0);
 	renderScene(dirShadowShader);
     
-	glUseProgram(shadersId[snowShader]);
 	sprintf(buf, "lightSpaceMatrix[%d]", i);
+	
+	glUseProgram(shadersId[snowShader]);
 	uniformMat4(snowShader, buf, lightSpaceMatrix.m);
 	
 	glUseProgram(shadersId[mainShader]);
-	sprintf(buf, "lightSpaceMatrix[%d]", i);
 	uniformMat4(mainShader, buf, lightSpaceMatrix.m);
 
+	glUseProgram(shadersId[animShader]);
+	uniformMat4(animShader, buf, lightSpaceMatrix.m);
     }
 
     batchAllGeometry();
@@ -5042,14 +5094,16 @@ void rerenderShadowForLight(int lightId){
     glActiveTexture(GL_TEXTURE0);
     renderScene(dirShadowShader);
     
-    glUseProgram(shadersId[snowShader]);
     sprintf(buf, "lightSpaceMatrix[%d]", lightId);
+    
+    glUseProgram(shadersId[snowShader]);
     uniformMat4(snowShader, buf, lightSpaceMatrix.m);
     
     glUseProgram(shadersId[mainShader]);
-    sprintf(buf, "lightSpaceMatrix[%d]", lightId);
     uniformMat4(mainShader, buf, lightSpaceMatrix.m);
 
+    glUseProgram(shadersId[animShader]);
+    uniformMat4(animShader, buf, lightSpaceMatrix.m);
 
     batchAllGeometry();
     glUseProgram(curShader);
@@ -5520,10 +5574,11 @@ void assembleBlocks(){
 }
 
 void updateNodes(int curIndex, int parentIndex, GLTFNode** nodes){
-    (*nodes)[curIndex].globalMat = gltfTRS(
-	(*nodes)[curIndex].T,  
-	(*nodes)[curIndex].R, 
-	(*nodes)[curIndex].S);
+    (*nodes)[curIndex].globalMat = gltfTRS((*nodes)[curIndex].t);
+    
+//	(*nodes)[curIndex].T,  
+//	(*nodes)[curIndex].R, 
+    //(*nodes)[curIndex].S
 
 
     if(parentIndex != -1){
@@ -5562,6 +5617,8 @@ void loadGLTFModel(char* name){
     if (result != cgltf_result_success){
 	exit(-1);
     }
+
+    char buf[128];
     
     int mapSize[] = { [cgltf_type_vec3] = 3,[cgltf_type_vec4] = 4,[cgltf_type_vec2] = 2 };
     int typeSize[] = {
@@ -5582,26 +5639,23 @@ void loadGLTFModel(char* name){
 
     // get path of .bin file
     {
-	char* binPath = malloc(sizeof(char) * (strlen(name) + 1));
-	strcpy(binPath, name);
+	strcpy(buf, name);
 
-	for (int i = 1; i < strlen(binPath); i++) {
-	    if (binPath[i] == '.') {
-		binPath[i] = '\0';
-		binPath = realloc(binPath, sizeof(binPath) * (strlen(binPath) + 1));
-		strcat(binPath, ".bin");
+	for (int i = 1; i < strlen(buf); i++) {
+	    if (buf[i] == '.') {
+		buf[i] = '\0';
+		strcat(buf, ".bin");
 		break;
 	    }
 	}
 
-        fo = fopen(binPath, "rb");
-	free(binPath);
+        fo = fopen(buf, "rb");
     }
     
     const int attrPad[] = {
-		[cgltf_attribute_type_position] = 0, [cgltf_attribute_type_normal] = 5,
-		[cgltf_attribute_type_texcoord] = 3, [cgltf_attribute_type_joints] = 8,
-		[cgltf_attribute_type_weights] = 12
+	[cgltf_attribute_type_position] = 0, [cgltf_attribute_type_normal] = 5,
+	[cgltf_attribute_type_texcoord] = 3, [cgltf_attribute_type_joints] = 8,
+	[cgltf_attribute_type_weights] = 12
     };
 
     float* mesh = malloc(sizeof(float)*data->meshes->primitives->indices->count*16);
@@ -5664,46 +5718,50 @@ void loadGLTFModel(char* name){
 
     // bones
     {
-	modelsData[modelsDataSize].invBindMats = malloc(sizeof(Matrix)*data->skins->joints_count);
+	modelsData[modelsDataSize].invBindMats = malloc(sizeof(Matrix) * data->skins->joints_count);
 
 	fseek(fo, data->skins->inverse_bind_matrices->buffer_view->offset, SEEK_SET);
 	fread(modelsData[modelsDataSize].invBindMats, data->skins->inverse_bind_matrices->buffer_view->size, 1, fo);
 
-	modelsData[modelsDataSize].nodes = malloc(sizeof(GLTFNode)*data->nodes_count);
+	modelsData[modelsDataSize].nodes = malloc(sizeof(GLTFNode) * data->nodes_count);
 	modelsData[modelsDataSize].nodesSize = data->nodes_count;
 
-	for(int i=0;i<data->nodes_count;i++){
-	    if(!data->nodes[i].parent){
+	for (int i = 0; i < data->nodes_count; i++) {
+	    if (!data->nodes[i].parent) {
 		modelsData[modelsDataSize].rootNode = i;
 	    }
-	    
-	    if(data->nodes[i].skin && data->nodes[i].mesh){
+
+	    if (data->nodes[i].skin && data->nodes[i].mesh) {
 		modelsData[modelsDataSize].parentNode = i;
 	    }
 
-	    modelsData[modelsDataSize].nodes[i].name = malloc(sizeof(char)*(strlen(data->nodes[i].name)+1));
+	    modelsData[modelsDataSize].nodes[i].name = malloc(sizeof(char) * (strlen(data->nodes[i].name) + 1));
 	    strcpy(modelsData[modelsDataSize].nodes[i].name, data->nodes[i].name);
 
-	    modelsData[modelsDataSize].nodes[i].T = (vec3){data->nodes[i].translation[0],data->nodes[i].translation[1], data->nodes[i].translation[2]};
-	    modelsData[modelsDataSize].nodes[i].S = (vec3){data->nodes[i].scale[0], data->nodes[i].scale[1], data->nodes[i].scale[2]};
-	    modelsData[modelsDataSize].nodes[i].R = (vec4){data->nodes[i].rotation[0], data->nodes[i].rotation[1], data->nodes[i].rotation[2], data->nodes[i].rotation[3]};
+	    memcpy(modelsData[modelsDataSize].nodes[i].t, data->nodes[i].translation, sizeof(float) * 3);
+	    memcpy(modelsData[modelsDataSize].nodes[i].t + 3, data->nodes[i].scale, sizeof(float) * 3);
+	    memcpy(modelsData[modelsDataSize].nodes[i].t + 6, data->nodes[i].rotation, sizeof(float) * 4);
+	    /*
+	      modelsData[modelsDataSize].nodes[i].T = (vec3){data->nodes[i].translation[0],data->nodes[i].translation[1], data->nodes[i].translation[2]};
+	      modelsData[modelsDataSize].nodes[i].S = (vec3){data->nodes[i].scale[0], data->nodes[i].scale[1], data->nodes[i].scale[2]};
+	      modelsData[modelsDataSize].nodes[i].R = (vec4){data->nodes[i].rotation[0], data->nodes[i].rotation[1], data->nodes[i].rotation[2], data->nodes[i].rotation[3]};*/
 	}
 
-	for(int i=0;i<data->nodes_count;i++){
+	for (int i = 0; i < data->nodes_count; i++) {
 	    modelsData[modelsDataSize].nodes[i].childSize = data->nodes[i].children_count;
 	    modelsData[modelsDataSize].nodes[i].child = malloc(sizeof(int) * data->nodes[i].children_count);
 
 	    modelsData[modelsDataSize].nodes[i].parent = -1;
 
-	    
-	    for(int i3=0;i3<data->nodes_count;i3++){
-		if(data->nodes[i].parent && modelsData[modelsDataSize].nodes[i].parent == -1 &&
-		   strcmp(data->nodes[i3].name, data->nodes[i].parent->name) == 0){
+
+	    for (int i3 = 0; i3 < data->nodes_count; i3++) {
+		if (data->nodes[i].parent && modelsData[modelsDataSize].nodes[i].parent == -1 &&
+		    strcmp(data->nodes[i3].name, data->nodes[i].parent->name) == 0) {
 		    modelsData[modelsDataSize].nodes[i].parent = i3;
 		}
-		
-		for(int i2=0;i2<data->nodes[i].children_count;i2++){		    
-		    if(strcmp(data->nodes[i3].name, data->nodes[i].children[i2]->name) == 0){
+
+		for (int i2 = 0; i2 < data->nodes[i].children_count; i2++) {
+		    if (strcmp(data->nodes[i3].name, data->nodes[i].children[i2]->name) == 0) {
 			modelsData[modelsDataSize].nodes[i].child[i2] = i3;
 			break;
 		    }
@@ -5711,139 +5769,153 @@ void loadGLTFModel(char* name){
 	    }
 	}
 
-//	updateNodes(modelsData[modelsDataSize].rootNode, -1, modelsDataSize);
+	//	updateNodes(modelsData[modelsDataSize].rootNode, -1, modelsDataSize);
 	updateNodes(modelsData[modelsDataSize].rootNode, -1, &modelsData[modelsDataSize].nodes);
 
 	glUseProgram(shadersId[animShader]);
-	char buf[128];
 
 	modelsData[modelsDataSize].jointsIdxsSize = data->skins->joints_count;
-	modelsData[modelsDataSize].jointsIdxs = malloc(sizeof(uint8_t)*data->skins->joints_count);
-	
-	for(int i=0;i< data->skins->joints_count;i++){
-	    for(int i2=0;i<data->nodes_count;i2++){
-		if(strcmp(modelsData[modelsDataSize].nodes[i2].name, data->skins->joints[i]->name)==0){
+	modelsData[modelsDataSize].jointsIdxs = malloc(sizeof(uint8_t) * data->skins->joints_count);
+
+	for (int i = 0; i < data->skins->joints_count; i++) {
+	    for (int i2 = 0; i < data->nodes_count; i2++) {
+		if (strcmp(modelsData[modelsDataSize].nodes[i2].name, data->skins->joints[i]->name) == 0) {
 		    modelsData[modelsDataSize].jointsIdxs[i] = i2;
 		    break;
 		};
 	    }
 	}
 
-	for(int i=0;i< data->skins->joints_count;i++){
+	for (int i = 0; i < data->skins->joints_count; i++) {
 	    int index = modelsData[modelsDataSize].jointsIdxs[i];
-	    
+
 	    Matrix jointMat;
 	    jointMat = multMat4(modelsData[modelsDataSize].nodes[index].globalMat, modelsData[modelsDataSize].invBindMats[i]);
 	    jointMat = multMat4(modelsData[modelsDataSize].nodes[modelsData[modelsDataSize].parentNode].invGlobalMat,
 				jointMat);
-	    	    
+
 	    sprintf(buf, "finalBonesMatrices[%d]", i);
 	    uniformMat4(animShader, buf, jointMat.m);
 	}
+    }
 
-	// anims
-	{
-	    static char* strType[] = {[cgltf_interpolation_type_linear] = "Linear",
-			       [cgltf_interpolation_type_step] = "Step",
-			       [cgltf_interpolation_type_cubic_spline] = "Cubic", [cgltf_interpolation_type_cubic_spline+1] = "ERROR" };
+    // anims
+    {
+	static char* strType[] = {[cgltf_interpolation_type_linear] = "Linear",
+				  [cgltf_interpolation_type_step] = "Step",
+				  [cgltf_interpolation_type_cubic_spline] = "Cubic", [cgltf_interpolation_type_cubic_spline+1] = "ERROR" };
 
-	    static char* actionTypeStr[] = { [cgltf_animation_path_type_invalid] = "INVALID" ,
-				      [cgltf_animation_path_type_translation] = "Translation",
-				      [cgltf_animation_path_type_rotation] = "Rotation",
-				      [cgltf_animation_path_type_scale] = "Scale",
-				      [cgltf_animation_path_type_weights] = "Weithg",[cgltf_animation_path_type_weights+1] = "ERROR" };
+	static char* actionTypeStr[] = { [cgltf_animation_path_type_invalid] = "INVALID" ,
+					 [cgltf_animation_path_type_translation] = "Translation",
+					 [cgltf_animation_path_type_rotation] = "Rotation",
+					 [cgltf_animation_path_type_scale] = "Scale",
+					 [cgltf_animation_path_type_weights] = "Weithg",[cgltf_animation_path_type_weights+1] = "ERROR" };
 	
-	    modelsData[modelsDataSize].animSize = data->animations_count;
-	    modelsData[modelsDataSize].animKeysSize = malloc(sizeof(int)*data->animations_count);
-	    modelsData[modelsDataSize].animNames = malloc(sizeof(char*)*data->animations_count);
-	    modelsData[modelsDataSize].stage = calloc(1,sizeof(int)*data->animations_count);
+	modelsData[modelsDataSize].animSize = data->animations_count;
+	modelsData[modelsDataSize].animKeysSize = malloc(sizeof(int)*data->animations_count);
+	modelsData[modelsDataSize].animNames = malloc(sizeof(char*)*data->animations_count);
+	modelsData[modelsDataSize].stage = calloc(1,sizeof(int)*data->animations_count);
 	    
-	    modelsData[modelsDataSize].stageTime = malloc(sizeof(float**)*data->animations_count);
-	    modelsData[modelsDataSize].anim = malloc(sizeof(AnimStep**)*data->animations_count);
+	modelsData[modelsDataSize].stageTime = malloc(sizeof(float**)*data->animations_count);
+	modelsData[modelsDataSize].anim = malloc(sizeof(AnimStep**)*data->animations_count);
 	    
-	    for(int i=0;i<data->animations_count;i++){
-		int curAnimKeysCounter = 0;
+	for(int i=0;i<data->animations_count;i++){
+	    int curAnimKeysCounter = 0;
 		
-		modelsData[modelsDataSize].animNames[i] = malloc(sizeof(char)*(strlen(data->animations[i].name)+1));
-		strcpy(modelsData[modelsDataSize].animNames[i], data->animations[i].name);
+	    modelsData[modelsDataSize].animNames[i] = malloc(sizeof(char)*(strlen(data->animations[i].name)+1));
+	    strcpy(modelsData[modelsDataSize].animNames[i], data->animations[i].name);
+
+	    int elementSize = typeSize[data->animations[i].samplers->input->component_type];
+	    for(int i2=0;i2<data->animations[i].channels_count;i2++){
+		curAnimKeysCounter += data->animations[i].channels[i2].sampler->input->buffer_view->size / elementSize;
+	    }
+
+	    AnimStep* anim = malloc(sizeof(AnimStep)* curAnimKeysCounter);
+		
+	    int curIndex = 0;
+	    for(int i2=0;i2< data->animations[i].channels_count;i2++){
+		int index = -1;
+		for(int i3=0;i3<modelsData[modelsDataSize].jointsIdxsSize;i3++){
+		    index = modelsData[modelsDataSize].jointsIdxs[i3];
+			
+		    if(strcmp(modelsData[modelsDataSize].nodes[index].name,
+			      data->animations[i].channels[i2].target_node->name)==0){
+			break;
+		    };
+		}
 
 		int elementSize = typeSize[data->animations[i].samplers->input->component_type];
-		for(int i2=0;i2<data->animations[i].channels_count;i2++){
-		    curAnimKeysCounter += data->animations[i].channels[i2].sampler->input->buffer_view->size / elementSize;
-		}
-
-		AnimStep* anim = malloc(sizeof(AnimStep)* curAnimKeysCounter);
-		
-		int curIndex = 0;
-		for(int i2=0;i2< data->animations[i].channels_count;i2++){
-		    int index = -1;
-		    for(int i3=0;i3<modelsData[modelsDataSize].jointsIdxsSize;i3++){
-		        index = modelsData[modelsDataSize].jointsIdxs[i3];
-			
-			if(strcmp(modelsData[modelsDataSize].nodes[index].name,
-				  data->animations[i].channels[i2].target_node->name)==0){
-			    break;
-			};
-		    }
-
-		    int elementSize = typeSize[data->animations[i].samplers->input->component_type];
-		    int curSamplers = data->animations[i].channels[i2].sampler->input->buffer_view->size / elementSize;
-		    int vecLen = mapSize[data->animations[i].channels[i2].sampler->output->type];
+		int curSamplers = data->animations[i].channels[i2].sampler->input->buffer_view->size / elementSize;
+		int vecLen = mapSize[data->animations[i].channels[i2].sampler->output->type];
 		    
-		    for(int i3=0;i3<curSamplers;i3++){
-			elementSize = typeSize[data->animations[i].channels[i2].sampler->output->component_type];
+		for(int i3=0;i3<curSamplers;i3++){
+		    elementSize = typeSize[data->animations[i].channels[i2].sampler->output->component_type];
 			
-			fseek(fo, data->animations[i].channels[i2].sampler->output->buffer_view->offset + i3 * (elementSize*vecLen), SEEK_SET);
-			fread(anim[curIndex].data, (elementSize*vecLen), 1, fo);
+		    fseek(fo, data->animations[i].channels[i2].sampler->output->buffer_view->offset + i3 * (elementSize*vecLen), SEEK_SET);
+		    fread(anim[curIndex].data, (elementSize*vecLen), 1, fo);
 
-			elementSize = typeSize[data->animations[i].channels[i2].sampler->input->component_type];
-			fseek(fo, data->animations[i].channels[i2].sampler->input->buffer_view->offset + i3 * elementSize, SEEK_SET);
-			fread(&anim[curIndex].time, elementSize, 1, fo);
+		    elementSize = typeSize[data->animations[i].channels[i2].sampler->input->component_type];
+		    fseek(fo, data->animations[i].channels[i2].sampler->input->buffer_view->offset + i3 * elementSize, SEEK_SET);
+		    fread(&anim[curIndex].time, elementSize, 1, fo);
 			
-			anim[curIndex].act = data->animations[i].channels[i2].target_path;
-			anim[curIndex].move = data->animations[i].channels[i2].sampler->interpolation;		
+		    anim[curIndex].act = data->animations[i].channels[i2].target_path;
+		    anim[curIndex].move = data->animations[i].channels[i2].sampler->interpolation;		
 //			anim[curIndex].bone = ;
-			anim[curIndex].boneInNodes = index;			
-			curIndex++;			
-		    }
+		    anim[curIndex].boneInNodes = index;			
+		    curIndex++;			
 		}
+	    }
 		
-		qsort(anim, curAnimKeysCounter,
-		      sizeof(AnimStep), sortAnimStepsByTime);
+	    qsort(anim, curAnimKeysCounter,
+		  sizeof(AnimStep), sortAnimStepsByTime);
 
-		float lastVal = anim[0].time;
-		int prevIndex = 0;
-		for(int i2=0;i2< curAnimKeysCounter;i2++){
-		    if(anim[i2].time != lastVal){
-			int curStage = modelsData[modelsDataSize].stage[i];
+	    float lastVal = anim[0].time;
+	    int prevIndex = 0;
+	    for(int i2=0;i2< curAnimKeysCounter;i2++){
+		if(anim[i2].time != lastVal){
+		    int curStage = modelsData[modelsDataSize].stage[i];
 			
-			if(curStage==0){
-			    modelsData[modelsDataSize].anim[i] = malloc(sizeof(AnimStep*)*(curStage+1));
-			    modelsData[modelsDataSize].stageTime[i] = malloc(sizeof(float)*(curStage+1));
-			    modelsData[modelsDataSize].animKeysSize[i] = malloc(sizeof(int)*(curStage+1));
-			}else{
-			    modelsData[modelsDataSize].anim[i] = realloc(modelsData[modelsDataSize].anim[i], sizeof(AnimStep*)*(curStage+1));
-			    modelsData[modelsDataSize].stageTime[i] = realloc(modelsData[modelsDataSize].stageTime[i], sizeof(float)*(curStage+1));
-			    modelsData[modelsDataSize].animKeysSize[i] = realloc(modelsData[modelsDataSize].animKeysSize[i], sizeof(int)*(curStage+1));
-			}
-
-			modelsData[modelsDataSize].animKeysSize[i][curStage] = i2-prevIndex;
-			modelsData[modelsDataSize].anim[i][curStage] = malloc(sizeof(AnimStep)*(i2-prevIndex));
-			memcpy(modelsData[modelsDataSize].anim[i][curStage], &anim[prevIndex], sizeof(AnimStep)* (i2 - prevIndex));
-			prevIndex = i2;
-			
-			modelsData[modelsDataSize].stageTime[i][curStage] = lastVal;
-			modelsData[modelsDataSize].stage[i]++;
-			lastVal = anim[i2].time;
+		    if(curStage==0){
+			modelsData[modelsDataSize].anim[i] = malloc(sizeof(AnimStep*)*(curStage+1));
+			modelsData[modelsDataSize].stageTime[i] = malloc(sizeof(float)*(curStage+1));
+			modelsData[modelsDataSize].animKeysSize[i] = malloc(sizeof(int)*(curStage+1));
+		    }else{
+			modelsData[modelsDataSize].anim[i] = realloc(modelsData[modelsDataSize].anim[i], sizeof(AnimStep*)*(curStage+1));
+			modelsData[modelsDataSize].stageTime[i] = realloc(modelsData[modelsDataSize].stageTime[i], sizeof(float)*(curStage+1));
+			modelsData[modelsDataSize].animKeysSize[i] = realloc(modelsData[modelsDataSize].animKeysSize[i], sizeof(int)*(curStage+1));
 		    }
+
+		    modelsData[modelsDataSize].animKeysSize[i][curStage] = i2-prevIndex;
+		    modelsData[modelsDataSize].anim[i][curStage] = malloc(sizeof(AnimStep)*(i2-prevIndex));
+		    memcpy(modelsData[modelsDataSize].anim[i][curStage], &anim[prevIndex], sizeof(AnimStep)* (i2 - prevIndex));
+		    prevIndex = i2;
+			
+		    modelsData[modelsDataSize].stageTime[i][curStage] = lastVal;
+		    modelsData[modelsDataSize].stage[i]++;
+		    lastVal = anim[i2].time;
 		}
+	    }
 		
-		free(anim);
-	    }	    
+	    free(anim);
+	}	    
+    }
+
+    // texture
+    {
+	sprintf(buf, "%s%s", objsFolder, data->textures->image->uri);
+	SDL_Surface* texture = IMG_Load(buf);
+    
+	if (!texture) {
+	    printf("Loading of texture \"%s\" failed", buf);
+	    exit(0);
 	}
 
-	modelsDataSize++;
+	createTexture(&modelsData[modelsDataSize].tx, texture->w,texture->h, texture->pixels);
+  
+	SDL_FreeSurface(texture);
     }
+
+    modelsDataSize++;
 }
 
 void updateBones(Bone* cur, int i){
@@ -6349,7 +6421,7 @@ void batchAllGeometry(){
 
 	windowWindowsMesh.VBOsize = windowGlassPair.vertexNum * placedWallCounter[windowT];
 	glBufferData(GL_ARRAY_BUFFER, (sizeof(float) * 8) *
-				    windowGlassPair.vertexNum * placedWallCounter[windowT], windowWindowsBatch, GL_STATIC_DRAW);
+		     windowGlassPair.vertexNum * placedWallCounter[windowT], windowWindowsBatch, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
@@ -6368,7 +6440,7 @@ void batchAllGeometry(){
 	int index = i * 8;
 	printf("v: %f %f %f uv: %f %f n: %f %f %f \n", windowWindowsBatch[index], windowWindowsBatch[index+1], windowWindowsBatch[index+2],
 	       windowWindowsBatch[index+3], windowWindowsBatch[index+4], windowWindowsBatch[index+5], windowWindowsBatch[index+6],
-	    windowWindowsBatch[index+7]);
+	       windowWindowsBatch[index+7]);
     }
   
     // planes
@@ -6919,37 +6991,37 @@ void generateShowAreas(){
     
     index = 0;
 //    for(int y=0;y<maxY;y++){
-	for(int i=0;i<tilesCounter[acceptedLayerT];i++){
-	    vec3 lb = bufs[acceptedLayerT][i*6 + 2];
+    for(int i=0;i<tilesCounter[acceptedLayerT];i++){
+	vec3 lb = bufs[acceptedLayerT][i*6 + 2];
 
-	    for(int i2=0;i2<oneColParticles;i2++){
-		//	float fY = y + ((float)(rand() % 1000) / 1000.0f);
-		float fY = ((float)(rand() % (maxY * 100))) / 100.0f;
-		float fZ = lb.z + ((float)(rand() % 1000) / 1000.0f);
-		float fX = lb.x + ((float)(rand() % 1000) / 1000.0f);
+	for(int i2=0;i2<oneColParticles;i2++){
+	    //	float fY = y + ((float)(rand() % 1000) / 1000.0f);
+	    float fY = ((float)(rand() % (maxY * 100))) / 100.0f;
+	    float fZ = lb.z + ((float)(rand() % 1000) / 1000.0f);
+	    float fX = lb.x + ((float)(rand() % 1000) / 1000.0f);
  
-		snowParticles.buf[snowParticles.size] = (vec3){ fX, fY, fZ };
-		snowParticles.buf[snowParticles.size+1] = (vec3){ fX, fY+snowFH, fZ };
-		snowParticles.buf[snowParticles.size+2] = (vec3){ fX+snowFH, fY+snowFH, fZ };
+	    snowParticles.buf[snowParticles.size] = (vec3){ fX, fY, fZ };
+	    snowParticles.buf[snowParticles.size+1] = (vec3){ fX, fY+snowFH, fZ };
+	    snowParticles.buf[snowParticles.size+2] = (vec3){ fX+snowFH, fY+snowFH, fZ };
 
-		snowParticles.buf[snowParticles.size+3] = (vec3){ fX, fY, fZ };
-		snowParticles.buf[snowParticles.size+4] = (vec3){ fX+snowFH, fY+snowFH, fZ };
-		snowParticles.buf[snowParticles.size+5] = (vec3){ fX+snowFH, fY, fZ };
+	    snowParticles.buf[snowParticles.size+3] = (vec3){ fX, fY, fZ };
+	    snowParticles.buf[snowParticles.size+4] = (vec3){ fX+snowFH, fY+snowFH, fZ };
+	    snowParticles.buf[snowParticles.size+5] = (vec3){ fX+snowFH, fY, fZ };
 
-		snowParticles.size+=6;
-		index++;
-	    }
-	    
-	    // from x, z
-
-	    // to x + bBlockW, z + bBlockD
-
+	    snowParticles.size+=6;
+	    index++;
 	}
-	//  }
+	    
+	// from x, z
+
+	// to x + bBlockW, z + bBlockD
+
+    }
+    //  }
 
     
     
-	//  for(int i=0;i<snowParticles.size;i+=2){
+    //  for(int i=0;i<snowParticles.size;i+=2){
 //	snowParticles.buf[i+1] = (vec3){ snowParticles.buf[i].x , snowParticles.buf[i].y + 0.01f, snowParticles.buf[i].z };
 //    }
 
@@ -7136,7 +7208,7 @@ void generateNavTiles(){
     }
     
 
-	printf("AfterL %d \n", collisionLayersSize[acceptedLayerT]);
+    printf("AfterL %d \n", collisionLayersSize[acceptedLayerT]);
     free(tiles);
 
     {
@@ -7146,7 +7218,7 @@ void generateNavTiles(){
 	navigationTilesMesh[0].VBOsize = 6 * collisionLayersSize[acceptedLayerT];
 
 	glBufferData(GL_ARRAY_BUFFER,
-		sizeof(square) * collisionLayersSize[acceptedLayerT], acceptedTiles, GL_STATIC_DRAW);
+		     sizeof(square) * collisionLayersSize[acceptedLayerT], acceptedTiles, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
 	glEnableVertexAttribArray(0);
@@ -7187,236 +7259,210 @@ int sortBonesByTime(BoneAction* a, BoneAction* b){
     return 0;  
 }
 
-void findPath(vec2i start, vec2i dist, int y, int* size){
-//    case(SDL_SCANCODE_LSHIFT):{
-//	if (mouse.clickL) {
-//	    if (selectedCollisionTileIndex != -1 &&
-//		entityStorage[playerEntityT] != NULL) {
+void allocateAstar(int gX, int gY, int gZ){
+    closedList = malloc(sizeof(bool*) * gZ*3);
 
-/*		float div = 1.0f / 3.0f;
-		int h = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y - 0.1f;
+    for(int z=0;z<gZ*3;z++){
+	closedList[z] = calloc(1,sizeof(bool) * gX*3);
+    }
+					    
+    cellsDetails = malloc(sizeof(AstarCell*) * gZ*3);
 
-		vec2i dist = { acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x / div,
-			       acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z / div };
-
-		vec2i start = { (entityStorage[playerEntityT]->mat.m[12] - div / 2.0f) / div,
-		(entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };*/
-
-    for(int z=0;z<gridZ*3;z++){
-	for(int x=0;x<gridX*3;x++){
-	    printf("%d ", collisionGrid[0][z][x]);
-	}
-	printf("\n");
+    for(int z=0;z<gZ*3;z++){
+	cellsDetails[z] = calloc(1,sizeof(AstarCell) * gX*3);
     }
 
+    openCells = malloc(sizeof(AstarOpenCell) * (gZ*3) * (gX * 3));
+}
+
+void findPath(vec2i start, vec2i dist, int y, int* size){
+    clock_t t;
+    t = clock();
+    
     // astar
     {
-		    //bool closedList[gridZ*3][gridX*3] = {{ 0 }};
-//					    AstarCell cellsDetails[gridZ][gridX] = {{ 0 }};
+	int openCellsTop = 0;
 
-		    bool** closedList = malloc(sizeof(bool*) * gridZ*3);
+	bool pathFound = false;
 
-		    for(int z=0;z<gridZ*3;z++){
-			closedList[z] = malloc(sizeof(bool) * gridX*3);
-		    }
+	for (int z = 0; z < gridZ*3; z++) {
+	    memset(closedList[z], 0 , sizeof(bool) * gridX*3);
+	    
+	    for (int x = 0; x < gridX*3; x++) {
+		cellsDetails[z][x].g = FLT_MAX;
+		cellsDetails[z][x].h = FLT_MAX;
+		cellsDetails[z][x].f = FLT_MAX;
+		cellsDetails[z][x].parX = -1;
+		cellsDetails[z][x].parZ = -1;
+		
+		openCells[z*gridZ*3+x].f = FLT_MAX;
+	    }
+	}  
+
+	cellsDetails[start.z][start.x].g = 0.0f;
+	cellsDetails[start.z][start.x].h = 0.0f;
+	cellsDetails[start.z][start.x].f = 0.0f;
+	cellsDetails[start.z][start.x].parX = start.x;
+	cellsDetails[start.z][start.x].parZ = start.z;
+
+	openCells[openCellsTop] = (AstarOpenCell){
+	    cellsDetails[start.z][start.x].f, .x = start.x, .z= start.z
+	};
+	openCellsTop++;
 					    
-		    AstarCell** cellsDetails = malloc(sizeof(AstarCell*) * gridZ*3);
-
-		    for(int z=0;z<gridZ*3;z++){
-			cellsDetails[z] = malloc(sizeof(AstarCell) * gridX*3);
-		    }
-
-		    AstarOpenCell* openCells = malloc(sizeof(AstarOpenCell) * (gridZ*3) * (gridX * 3));
-		    int openCellsTop = 0;
-
-		    bool pathFound = false;
-
-		    for (int z = 0; z < gridZ*3; z++) {
-			for (int x = 0; x < gridX*3; x++) {
-			    cellsDetails[z][x].g = FLT_MAX;
-			    cellsDetails[z][x].h = FLT_MAX;
-			    cellsDetails[z][x].f = FLT_MAX;
-			    cellsDetails[z][x].parX = -1;
-			    cellsDetails[z][x].parZ = -1;
-			}
-		    }  
-
-		    cellsDetails[start.z][start.x].g = 0.0f;
-		    cellsDetails[start.z][start.x].h = 0.0f;
-		    cellsDetails[start.z][start.x].f = 0.0f;
-		    cellsDetails[start.z][start.x].parX = start.x;
-		    cellsDetails[start.z][start.x].parZ = start.z;
-
-		    openCells[openCellsTop] = (AstarOpenCell){
-			cellsDetails[start.z][start.x].f, .x = start.x, .z= start.z
-		    };
-		    openCellsTop++;
-					    
-		    while(openCellsTop != 0){
-			int curIndex = 0;
-			for (int i = 1; i < openCellsTop; i++) {
-			    if (openCells[i].f < openCells[curIndex].f) {
-				curIndex = i;
-			    }
-			}
-
-			AstarOpenCell cur = openCells[curIndex];
-			openCells[curIndex] = openCells[--openCellsTop];
-						
-			closedList[cur.z][cur.x] = true;
-
-			for(int dz=-1;dz<2;dz++){
-			    for(int dx=-1;dx<2;dx++){
-				if(dx==0 && dz == 0){
-				    continue;
-				}
-
-				vec2i mCur = { cur.x + dx, cur.z + dz };
-							
-				if(mCur.x < 0 || mCur.x >= (gridX * 3)){
-				    continue;
-				}
-
-				if(mCur.z < 0 || mCur.z >= (gridZ * 3)){
-				    continue;
-				} 
-
-				if(mCur.z == dist.z && mCur.x == dist.x){
-
-				    printf("pre dest: %d %d dest: %d %d \n", cur.z, cur.x, dist.z, dist.x);
-							    
-				    cellsDetails[mCur.z][mCur.x].parX = cur.x;
-				    cellsDetails[mCur.z][mCur.x].parZ = cur.z;
-							    
-				    printf("Destination found!: ");
-				    pathFound = true;
-
-				    int diZ = dist.z;
-				    int diX = dist.x;
-
-				    int pathSize = 0;
-							    
-				    while (!(diZ == start.z && diX == start.x)) {
-					pathSize++;
-					int tZ = cellsDetails[diZ][diX].parZ;
-					int tX = cellsDetails[diZ][diX].parX;
-					diZ = tZ;
-					diX = tX;
-				    }
-
-				    vec2i* path = malloc(sizeof(vec2i) * pathSize);
-				    pathSize = 0;
-
-				    diZ = dist.z;
-				    diX = dist.x;
-								
-				    while (!(diZ == start.z && diX == start.x)) {
-					path[pathSize].z = diZ;
-					path[pathSize].x = diX;
-					pathSize++;
-
-					int tZ = cellsDetails[diZ][diX].parZ;
-					int tX = cellsDetails[diZ][diX].parX;
-								
-					diZ = tZ;
-					diX = tX;
-				    }
-
-				    printf("start: %d %d -> ", start.z, start.x);
-
-				    for(int i=pathSize-1;i>=0;i--){
-					printf("%d %d -> ", path[i].z, path[i].x);
-				    }
-
-				    float div = 1.0f / 3.0f;
-				    
-				    if(entityStorage[playerEntityT][0].path){
-					free(entityStorage[playerEntityT][0].path);
-				    }
-							    
-				    entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize)*2));
-				    entityStorage[playerEntityT][0].pathSize = pathSize*2;
-				    entityStorage[playerEntityT][0].curPath = 0;
-				    entityStorage[playerEntityT][0].frame = 0;							    
-
-				    entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)y + 0.2f, start.z * div + div/2.0f };
-				    entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)y + 0.2f, path[pathSize-1].z * div + div/2.0f };
-
-				    int index = 2;
-				    for(int i=pathSize-1;i>0;i--){
-					entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)y + 0.2f, path[i].z * div + div/2.0f };
-					index++;
-								
-					entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)y + 0.2f, path[i-1].z * div + div/2.0f };
-					index++;
-				    }
-
-				    glBindVertexArray(lastFindedPath.VAO); 
-				    glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
-
-				    lastFindedPath.VBOsize = (pathSize)*2;
-
-				    glBufferData(GL_ARRAY_BUFFER,
-						 sizeof(vec3) * (pathSize*2), entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
-
-				    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-				    glEnableVertexAttribArray(0);
-
-				    glBindBuffer(GL_ARRAY_BUFFER, 0);
-				    glBindVertexArray(0);
-		  
-				    free(path);
-							    
-				    break;
-				}else if(!closedList[mCur.z][mCur.x]
-					 && !collisionGrid[y][mCur.z][mCur.x]){
-				    float gNew = cellsDetails[cur.z][cur.x].g + 1.0f;
-				    float hNew = sqrtf((mCur.z - dist.z) * (mCur.z - dist.z) + (mCur.x - dist.x) * (mCur.x - dist.x));
-				    float fNew = gNew + hNew;
-
-				    if(cellsDetails[mCur.z][mCur.x].f == FLT_MAX ||
-				       cellsDetails[mCur.z][mCur.x].f > fNew){
-
-					openCells[openCellsTop] = (AstarOpenCell){
-					    fNew, .z = mCur.z, .x = mCur.x
-					};
-					openCellsTop++;
-
-					assert(openCellsTop < gridX*3*gridZ*3);
-								
-					cellsDetails[mCur.z][mCur.x].g = gNew;
-					cellsDetails[mCur.z][mCur.x].h = hNew;
-					cellsDetails[mCur.z][mCur.x].f = fNew;
-					cellsDetails[mCur.z][mCur.x].parX = cur.x;
-					cellsDetails[mCur.z][mCur.x].parZ = cur.z;
-				    }
-				}
-							
-			    }
-			}
-
-			if (pathFound) break;
-
-		    }
-
-		    printf("Path not found: %d \n", collisionGrid[y][start.z][start.x]);
-
-		   // if (pathFound) break;
-
-		    for(int z=0;z<gridZ*3;z++){
-			free(closedList[z]);
-		    }
-
-		    free(closedList);
-
-		    for(int z=0;z<gridZ*3;z++){
-			free(cellsDetails[z]);
-		    }
-
-		    free(cellsDetails);
-		    free(openCells);
+	while(openCellsTop != 0){
+	    int curIndex = 0;
+	    for (int i = 1; i < openCellsTop; i++) {
+		if (openCells[i].f < openCells[curIndex].f) {
+		    curIndex = i;
 		}
+	    }
 
+	    AstarOpenCell cur = openCells[curIndex];
+	    int index = 0;
+	    for (int i = 0; i < openCellsTop; i++) {
+		if(i==curIndex){
+		    continue;
+		}
+		
+		openCells[index] = openCells[i];
+		index++;
+	    }
+	    openCellsTop--;
+						
+	    closedList[cur.z][cur.x] = true;
 
-		printf("start: %d %d dist: %d %d \n", argVec2(start), argVec2(dist));
+	    for(int dz=-1;dz<2;dz++){
+		for(int dx=-1;dx<2;dx++){
+		    if(dx==0 && dz == 0){
+			continue;
+		    }
+
+		    vec2i mCur = { cur.x + dx, cur.z + dz };
+							
+		    if(mCur.x < 0 || mCur.x >= (gridX * 3)){
+			continue;
+		    }
+
+		    if(mCur.z < 0 || mCur.z >= (gridZ * 3)){
+			continue;
+		    } 
+
+		    if(mCur.z == dist.z && mCur.x == dist.x){
+
+//			printf("pre dest: %d %d dest: %d %d \n", cur.z, cur.x, dist.z, dist.x);
+							    
+			cellsDetails[mCur.z][mCur.x].parX = cur.x;
+			cellsDetails[mCur.z][mCur.x].parZ = cur.z;
+							    
+//			printf("Destination found!: ");
+			pathFound = true;
+
+			int diZ = dist.z;
+			int diX = dist.x;
+
+			int pathSize = 0;
+							    
+			while (!(diZ == start.z && diX == start.x)) {
+			    pathSize++;
+			    int tZ = cellsDetails[diZ][diX].parZ;
+			    int tX = cellsDetails[diZ][diX].parX;
+			    diZ = tZ;
+			    diX = tX;
+			}
+
+			vec2i* path = malloc(sizeof(vec2i) * pathSize);
+			pathSize = 0;
+
+			diZ = dist.z;
+			diX = dist.x;
+								
+			while (!(diZ == start.z && diX == start.x)) {
+			    path[pathSize].z = diZ;
+			    path[pathSize].x = diX;
+			    pathSize++;
+
+			    int tZ = cellsDetails[diZ][diX].parZ;
+			    int tX = cellsDetails[diZ][diX].parX;
+								
+			    diZ = tZ;
+			    diX = tX;
+			}
+
+			float div = 1.0f / 3.0f;
+				    
+			if(entityStorage[playerEntityT][0].path){
+			    free(entityStorage[playerEntityT][0].path);
+			}
+							    
+			entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize)*2));
+			entityStorage[playerEntityT][0].pathSize = pathSize*2;
+			entityStorage[playerEntityT][0].curPath = 0;
+			entityStorage[playerEntityT][0].frame = 0;							    
+
+			entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)y + 0.2f, start.z * div + div/2.0f };
+			
+			entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)y + 0.2f, path[pathSize-1].z * div + div/2.0f };
+
+			int index = 2;
+			for(int i=pathSize-1;i>0;i--){
+			    entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)y + 0.2f, path[i].z * div + div/2.0f };
+			    index++;
+								
+			    entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)y + 0.2f, path[i-1].z * div + div/2.0f };
+			    index++;
+			}
+
+			glBindVertexArray(lastFindedPath.VAO); 
+			glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
+
+			lastFindedPath.VBOsize = (pathSize)*2;
+
+			glBufferData(GL_ARRAY_BUFFER,
+				     sizeof(vec3) * (pathSize*2), entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
+
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+			glEnableVertexAttribArray(0);
+
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindVertexArray(0);
+		  
+			free(path);
+							    
+			break;
+		    }else if(!closedList[mCur.z][mCur.x]
+			     && !collisionGrid[y][mCur.z][mCur.x]){
+			float gNew = cellsDetails[cur.z][cur.x].g + 1.0f;
+			float hNew = sqrtf((mCur.z - dist.z) * (mCur.z - dist.z) + (mCur.x - dist.x) * (mCur.x - dist.x));
+			float fNew = gNew + hNew;
+
+			if(cellsDetails[mCur.z][mCur.x].f == FLT_MAX ||
+			   cellsDetails[mCur.z][mCur.x].f > fNew){
+
+			    openCells[openCellsTop] = (AstarOpenCell){
+				fNew, .z = mCur.z, .x = mCur.x
+			    };
+			    openCellsTop++;
+
+			    assert(openCellsTop < gridX*3*gridZ*3);
+								
+			    cellsDetails[mCur.z][mCur.x].g = gNew;
+			    cellsDetails[mCur.z][mCur.x].h = hNew;
+			    cellsDetails[mCur.z][mCur.x].f = fNew;
+			    cellsDetails[mCur.z][mCur.x].parX = cur.x;
+			    cellsDetails[mCur.z][mCur.x].parZ = cur.z;
+			}
+		    }
+							
+		}
+	    }
+
+	    if (pathFound) break;
+
+	}
+    }
+
+    t = clock() - t; 
+    double time_taken = ((double)t)/CLOCKS_PER_SEC;
+    printf("Astar speed: %lf \n", time_taken);
 }

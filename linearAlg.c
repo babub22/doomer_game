@@ -429,11 +429,12 @@ Matrix mat4_from_quat(vec4 q) {
     return M;
 }
 
-Matrix gltfTRS(vec3 T, vec4 R, vec3 S){
-    float x = R.x;
-    float y = R.y;
-    float z = R.z;
-    float w = R.w;
+//Matrix gltfTRS(vec3 T, vec4 R, vec3 S){
+Matrix gltfTRS(float* t){
+    float x = t[6];
+    float y = t[7];
+    float z = t[8];
+    float w = t[9];
     
     float x2 = x + x;
     float y2 = y + y;
@@ -447,9 +448,9 @@ Matrix gltfTRS(vec3 T, vec4 R, vec3 S){
     float wx = w * x2;
     float wy = w * y2;
     float wz = w * z2;
-    float sx = S.x;
-    float sy = S.y;
-    float sz = S.z;
+    float sx = t[3];
+    float sy = t[4];
+    float sz = t[5];
 
     Matrix out;
     
@@ -465,26 +466,12 @@ Matrix gltfTRS(vec3 T, vec4 R, vec3 S){
     out.m[9] = (yz - wx) * sz;
     out.m[10] = (1 - (xx + yy)) * sz;
     out.m[11] = 0;
-    out.m[12] = T.x;
-    out.m[13] = T.y;
-    out.m[14] = T.z;
+    out.m[12] = t[0];
+    out.m[13] = t[1];
+    out.m[14] = t[2];
     out.m[15] = 1;
+    
     return out;
-  
-    Matrix Rm = mat4_from_quat(R);
-
-    Matrix Sm = IDENTITY_MATRIX;
-    Sm.m[0] = S.x;
-    Sm.m[5] = S.y;
-    Sm.m[10] = S.z;
-
-    Matrix Tm = IDENTITY_MATRIX;
-    Tm.m[12] = T.x;
-    Tm.m[13] = T.y;
-    Tm.m[14] = T.z;
-
-    Matrix res = multiplymat4(multiplymat4(Tm,Rm), Sm);
-    return res;
 }
 
 
@@ -588,4 +575,31 @@ Matrix multMat4(Matrix a, Matrix b){
     out.m[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
     return out;
 
+}
+
+// it should be normalized
+// v1 - dir v2 = v2 - P
+// where P - center
+float angle2Vec(vec2 v1, vec2 v2){    
+    float dot = v1.x * v2.x + v1.z * v2.z;
+    float mag_v1 = sqrtf(v1.x * v1.x + v1.z * v1.z);
+    float mag_v2 = sqrtf(v2.x * v2.x + v2.z * v2.z);
+    float angle = acosf(dot / (mag_v1 * mag_v2));
+
+    float cross = v1.x * v2.z - v1.z * v2.x;
+
+    if (mag_v1 == 0 || mag_v2 == 0) {
+	angle = 0.0f;  
+    }else {
+	float cosTheta = dot / (mag_v1 * mag_v2);
+	if (cosTheta > 1.0f) cosTheta = 1.0f;
+	if (cosTheta < -1.0f) cosTheta = -1.0f;
+	angle = acosf(cosTheta);
+    }
+
+    if (cross < 0) {
+	angle *= -1;
+    }
+
+    return angle;
 }

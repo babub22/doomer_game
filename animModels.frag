@@ -7,8 +7,6 @@ uniform sampler2DArray shadowMap;
 
 uniform float radius;
 
-uniform vec3 lightPoss;	
-
 in vec2 TexCoord;
 in vec3 Normal;
 in vec3 FragPos;
@@ -167,7 +165,7 @@ return 	(ambient + (1.0f - 0.0f) * (diffuse + specular));
 
 
 void main(void){
-/*vec4 tex = texture(colorMap, TexCoord);
+vec4 tex = texture(colorMap, TexCoord);
 vec3 color = tex.rgb;	
 
 if(tex.a == 0.0){
@@ -194,5 +192,6 @@ res+= pointLightCalc(pointLights[i], norm, viewDir);
 float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
-gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);*/
+//gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
+gl_FragColor = vec4(res * color,1.0f);// * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
 }

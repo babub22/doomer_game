@@ -1509,9 +1509,12 @@ typedef struct{
     Matrix globalMat;
     Matrix invGlobalMat;
 
-    vec3 T;
-    vec3 S;
-    vec4 R;
+    //  vec3 T;
+//    vec3 S;
+    //vec4 R;
+
+    // 0-3/T 3-6/S 6-10/R
+    float t[10];
 
     int parent;
 
@@ -1596,4 +1599,10 @@ int sortAnimStepsByTime(AnimStep* a, AnimStep* b);
 
 //void updateNodes(int curIndex, int parentIndex, int modelsDataIndex);
 void updateNodes(int curIndex, int parentIndex, GLTFNode** nodes);
+
+bool** closedList;
+AstarCell** cellsDetails;
+AstarOpenCell* openCells;
+
+void allocateAstar(int gX, int gY, int gZ);
 
