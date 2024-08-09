@@ -3,7 +3,7 @@
 #include "main.h"
 #include "game.h"
 
-float gameFov = 35.0f;
+float gameFov = 45.0f;
 int gameCameraFloor = 1;
 
 #define cameraFloor (bBlockH * ((float)gameCameraFloor+1.0f) + bBlockH)
@@ -45,15 +45,48 @@ void gamePreFrame(float deltaTime){
 };
 
 void gameMatsSetup(int curShader){
-    Matrix proj = perspective(rad(gameFov), windowW / windowH, 0.01f, 1000.0f);
+    Matrix proj = perspective(rad(gameFov), windowW / windowH, FLT_MIN, 1000.0f);
 
-    Matrix view = IDENTITY_MATRIX;
-    vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
+    Matrix view;// = IDENTITY_MATRIX;
+
+    {
+	vec3 dir = entityStorage[playerEntityT][0].dir;
+
+	float dist = fabsf(entityStorage[playerEntityT][0].model->data->center[0]) * 4.0f;//*1.0f;
+
+	float x = entityStorage[playerEntityT][0].model->jointsMats[entityStorage[playerEntityT][0].model->data->headNode].m[12];
+	float z = entityStorage[playerEntityT][0].model->jointsMats[entityStorage[playerEntityT][0].model->data->headNode].m[14];
+
+	vec3 origin = { entityStorage[playerEntityT][0].mat.m[12],// + dist*0.4f,
+			entityStorage[playerEntityT][0].mat.m[13],
+			entityStorage[playerEntityT][0].mat.m[14]// + dist*0.4f
+	};
+
+	origin.x += (dist*dir.x);
+	origin.y += entityStorage[playerEntityT][0].model->data->size[1]*0.95f;
+	origin.z += (dist*dir.z);
+
+	x*=5;
+	origin.x += (x*dir.x);
+	origin.z += (x*dir.z);
+
+	origin.y *= -1.0f;
+	origin.z *= -1.0f;
+	
+	vec3 target = { origin.x + dir.x,
+			origin.y + dir.y,
+			origin.z + dir.z
+	};
+
+	view = lookAt(origin, target, (vec3){.0f, 1.0f, .0f });
+    }
+    
+/*    vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
 
     translate(&view, argVec3(negPos));
 
     rotateY(&view, rad(-135.0f));
-    rotateX(&view, rad(-45.0f));      
+    rotateX(&view, rad(-45.0f)); */     
 
     for (int i = 0; i < shadersCounter; i++) {
       glUseProgram(shadersId[i]);
@@ -97,6 +130,55 @@ void gamePreLoop(){
 
 void gameEvents(SDL_Event event){
     if (event.type == SDL_MOUSEMOTION) {
+	float xoffset = event.motion.xrel;
+	float yoffset = -event.motion.yrel;
+
+	const float sensitivity = 0.03f;
+	xoffset *= sensitivity;
+	yoffset *= sensitivity;
+
+	// calculate yaw, pitch
+	{
+	    curCamera->yaw += xoffset;
+	    curCamera->pitch += yoffset;
+
+	    if (curCamera->pitch > 70.0f)
+		curCamera->pitch = 70.0f;
+	    if (curCamera->pitch <= -74.5f)
+		curCamera->pitch = -74.5f;
+
+	    if (curCamera->yaw > 180.0f)
+		curCamera->yaw = -180.0f;
+	    if (curCamera->yaw < -180.0f)
+		curCamera->yaw = 180.0f;
+
+	    vec3 dir;
+	    dir.x = cosf(rad(curCamera->yaw)) * cosf(rad(curCamera->pitch));
+	    dir.y = sinf(rad(curCamera->pitch));
+	    dir.z = (sinf(rad(curCamera->yaw)) * cosf(rad(curCamera->pitch)));
+
+	    float angle = angle2Vec(
+		(vec2){entityStorage[playerEntityT][0].dir.x,
+		       entityStorage[playerEntityT][0].dir.z},
+		(vec2){dir.x, dir.z});
+	    
+	    float tempX = entityStorage[playerEntityT][0].mat.m[12];
+	    float tempY = entityStorage[playerEntityT][0].mat.m[13];
+	    float tempZ = entityStorage[playerEntityT][0].mat.m[14];
+
+	    entityStorage[playerEntityT][0].mat.m[12]=0;
+	    entityStorage[playerEntityT][0].mat.m[13]=0;
+	    entityStorage[playerEntityT][0].mat.m[14]=0;
+	    
+	    rotate(&entityStorage[playerEntityT][0].mat, angle, .0f, 1.0f, .0f);
+		
+	    entityStorage[playerEntityT][0].mat.m[12] = tempX;
+	    entityStorage[playerEntityT][0].mat.m[13] = tempY;
+	    entityStorage[playerEntityT][0].mat.m[14] = tempZ;
+	    
+	    entityStorage[playerEntityT][0].dir = dir;	    
+	}
+	    
 	if(false && entityStorageSize[playerEntityT] && mouse.selectedType == mouseTileT){
 	    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 	    
@@ -143,6 +225,7 @@ void gameEvents(SDL_Event event){
 
 	float cameraSpeed = 0.015f;
 
+	/*
 	// UP
     if (mouse.cursor.z >= 1.0f - cursorH) {
       curCamera->pos.x -= cameraSpeed;
@@ -171,7 +254,7 @@ void gameEvents(SDL_Event event){
       curCamera->pos.x += cameraSpeed;
       
       mouse.cursor.x += cursorW;
-    }
+    }*/
   }
         
   if (event.type == SDL_MOUSEBUTTONUP) {
@@ -193,8 +276,6 @@ void gameEvents(SDL_Event event){
 
     // if click missing foucedThing reset focus
     if(mouse.focusedThing != mouse.selectedThing){
-      //      cursorMode = moveMode;
-      
       mouse.focusedThing = NULL;
       mouse.focusedType = 0;
     }
@@ -202,17 +283,67 @@ void gameEvents(SDL_Event event){
 
 
   if(event.type == SDL_KEYDOWN){
-    if(event.key.keysym.scancode == SDL_SCANCODE_MINUS){
-      gameFov--;
-    }else if(event.key.keysym.scancode == SDL_SCANCODE_EQUALS){
-      gameFov++;
-    }else if(event.key.keysym.scancode == SDL_SCANCODE_E){
-      gameCameraFloor--;
-      curCamera->pos.y = cameraFloor;
-    }else if(event.key.keysym.scancode == SDL_SCANCODE_Q){
-      gameCameraFloor++;
-      curCamera->pos.y = cameraFloor;
-    }else if(event.key.keysym.scancode == SDL_SCANCODE_F){
+      float step = 0.1f;
+      if(event.key.keysym.scancode == SDL_SCANCODE_MINUS){
+	  gameFov--;
+      }else if(event.key.keysym.scancode == SDL_SCANCODE_EQUALS){
+	  gameFov++;
+      }else if(event.key.keysym.scancode == SDL_SCANCODE_E){
+	  gameCameraFloor--;
+	  curCamera->pos.y = cameraFloor;
+      }
+
+      vec2 nextPos = {0};
+      bool move = false;
+      if(event.key.keysym.scancode == SDL_SCANCODE_W){
+	  nextPos.x += entityStorage[playerEntityT][0].mat.m[12] + entityStorage[playerEntityT][0].dir.x * step;
+	  nextPos.z += entityStorage[playerEntityT][0].mat.m[14] + entityStorage[playerEntityT][0].dir.z * step;
+	  move = true;
+	  
+//	  entityStorage[playerEntityT][0].mat.m[12] += entityStorage[playerEntityT][0].dir.x * step;
+//	  entityStorage[playerEntityT][0].mat.m[14] += entityStorage[playerEntityT][0].dir.z * step;
+      }else if(event.key.keysym.scancode == SDL_SCANCODE_S){
+	  nextPos.x += entityStorage[playerEntityT][0].mat.m[12] - entityStorage[playerEntityT][0].dir.x * step;
+	  nextPos.z += entityStorage[playerEntityT][0].mat.m[14] - entityStorage[playerEntityT][0].dir.z * step;
+	  move = true;
+		  
+//	  entityStorage[playerEntityT][0].mat.m[12] -= entityStorage[playerEntityT][0].dir.x * step;
+//	  entityStorage[playerEntityT][0].mat.m[14] -= entityStorage[playerEntityT][0].dir.z * step;
+      }else if(event.key.keysym.scancode == SDL_SCANCODE_A){
+	  vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, entityStorage[playerEntityT][0].dir);
+	  nextPos.x += entityStorage[playerEntityT][0].mat.m[12] + right.x * step;
+	  nextPos.z += entityStorage[playerEntityT][0].mat.m[14] + right.z * step;
+	  move = true;
+	  
+//	  entityStorage[playerEntityT][0].mat.m[12] += right.x * step;
+//	  entityStorage[playerEntityT][0].mat.m[14] += right.z * step;
+      }else if(event.key.keysym.scancode == SDL_SCANCODE_D){
+	  vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, entityStorage[playerEntityT][0].dir);
+
+	  nextPos.x += entityStorage[playerEntityT][0].mat.m[12] - right.x * step;
+	  nextPos.z += entityStorage[playerEntityT][0].mat.m[14] - right.z * step;
+	  move = true;
+	  
+	  //entityStorage[playerEntityT][0].mat.m[12] -= right.x * step;
+	  //entityStorage[playerEntityT][0].mat.m[14] -= right.z * step;
+      }
+
+      if(move){
+	  float div = 1.0f / 3.0f;
+	  int z = ceilf(nextPos.z / div);
+	  int x = ceilf(nextPos.x / div);
+
+	  if(!collisionGrid[0][z][x]){
+	      entityStorage[playerEntityT][0].mat.m[12] = nextPos.x;
+	      entityStorage[playerEntityT][0].mat.m[14] = nextPos.z;
+	  };
+      }
+
+
+/*else if(event.key.keysym.scancode == SDL_SCANCODE_Q){
+	 gameCameraFloor++;
+	 curCamera->pos.y = cameraFloor;
+	 }else if(event.key.keysym.scancode == SDL_SCANCODE_F){
       if(mouse.selectedType == mouseModelT){
 	Model* model = (Model*)mouse.selectedThing;
 
@@ -225,7 +356,7 @@ void gameEvents(SDL_Event event){
       }
 
       frameCounter=0;
-    }
+    }*/
   }
   
   if(mouse.clickR
@@ -396,7 +527,7 @@ void gameMouseVS(){
 }
 
 void gameRenderCursor(){
-
+    return;
   glBindTexture(GL_TEXTURE_2D, solidColorTx);
   setSolidColorTx(whiteColor, 1.0f);
       

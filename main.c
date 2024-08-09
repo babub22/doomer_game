@@ -1304,6 +1304,8 @@ int main(int argc, char* argv[]) {
     // set up camera
     GLint cameraPos = glGetUniformLocation(shadersId[mainShader], "cameraPos");
     {
+	camera1.yaw = 0.0f;
+	camera1.pitch = 0.0f;
 	camera1.pos = (vec3)xyz_indexesToCoords(gridX / 2, 10, gridZ / 2);
 	//    camera1.pos = (vec3)xyz_indexesToCoords(29, 14, 56);
 	//    camera1.pos = (vec3){35, 16, 63};
@@ -1497,23 +1499,23 @@ int main(int argc, char* argv[]) {
 	    for(int i2=0;i2<entityStorageSize[i];i2++){
 		if(entityStorage[i][i2].path){
 
-			/*
-		    float t = entityStorage[i][i2].frame / 20.0f;
+		    /*
+		      float t = entityStorage[i][i2].frame / 20.0f;
 
-		    vec2 cur;
+		      vec2 cur;
 
-		    if(entityStorage[i][i2].curPath+1 != entityStorage[i][i2].pathSize)
-		    {
-			vec2 v1 = { entityStorage[playerEntityT][0].mat.m[12], entityStorage[playerEntityT][0].mat.m[14] };
-			vec2 v2 = { entityStorage[i][i2].path[entityStorage[i][i2].curPath+1].x, entityStorage[i][i2].path[entityStorage[i][i2].curPath+1].z };
+		      if(entityStorage[i][i2].curPath+1 != entityStorage[i][i2].pathSize)
+		      {
+		      vec2 v1 = { entityStorage[playerEntityT][0].mat.m[12], entityStorage[playerEntityT][0].mat.m[14] };
+		      vec2 v2 = { entityStorage[i][i2].path[entityStorage[i][i2].curPath+1].x, entityStorage[i][i2].path[entityStorage[i][i2].curPath+1].z };
 		    
-			cur.x = v1.x * (1 - t) + v2.x * t;
-			cur.z = v1.z * (1 - t) + v2.z * t;
-		    }*/
+		      cur.x = v1.x * (1 - t) + v2.x * t;
+		      cur.z = v1.z * (1 - t) + v2.z * t;
+		      }*/
 
 
 		    if(entityStorage[i][i2].frame == 20){
-		    float tempY = entityStorage[playerEntityT][0].mat.m[13];
+			float tempY = entityStorage[playerEntityT][0].mat.m[13];
 		    
 			{
 			    vec3 v1 = entityStorage[playerEntityT][0].dir;
@@ -1556,17 +1558,17 @@ int main(int argc, char* argv[]) {
 			
 		    
 		    /*if(entityStorage[i][i2].frame == 20){		    
-			entityStorage[i][i2].curPath++;
-			entityStorage[i][i2].frame = 0;
-		    }*/
+		      entityStorage[i][i2].curPath++;
+		      entityStorage[i][i2].frame = 0;
+		      }*/
 
 		    entityStorage[i][i2].frame++;
 		    
 		    /*if(entityStorage[i][i2].curPath == entityStorage[i][i2].pathSize){
-			free(entityStorage[i][i2].path);
-			entityStorage[i][i2].path = NULL;
-			entityStorage[i][i2].pathSize = 0;
-		    }*/
+		      free(entityStorage[i][i2].path);
+		      entityStorage[i][i2].path = NULL;
+		      entityStorage[i][i2].pathSize = 0;
+		      }*/
 		}
 	    }
 	}
@@ -1625,14 +1627,13 @@ int main(int argc, char* argv[]) {
 		    Matrix out = IDENTITY_MATRIX;
 		    uniformMat4(snowShader, "model", out.m);
 		    
-		    glDrawArrays(GL_TRIANGLES, 0, snowMesh.VBOsize);
+		    glDrawArrays(GL_LINES, 0, snowMesh.VBOsize);
 
 		    glBindBuffer(GL_ARRAY_BUFFER, 0);
 		    glBindVertexArray(0);
 		    glDisable(GL_BLEND);
 		}
 	    }
-
 	    static int oppositeSnowDir[snowDirCounter] = {
 		[X_MINUS_SNOW] = X_PLUS_SNOW,
 		[X_PLUS_SNOW] = X_MINUS_SNOW,
@@ -1641,77 +1642,78 @@ int main(int argc, char* argv[]) {
 	    };
 
 	    // process snow
-//	    if(false)
 	    {
 		static float dMove = 0.0005f;
-		
+
 		int index = 0;
-		for(int i=0;i<snowParticles.size;i+=6){
-		    if(snowParticles.buf[i].y > 0){
-			for(int i2=0;i2<6;i2++){
-			    snowParticles.buf[i+i2].y -= 0.0025f;
-			}
-//			snowParticles.buf[i+1].y -= 0.0025f;
-		    }else{
-			if(snowParticles.action[index] != WAITING_Y){
-			    snowParticles.timers[index] = 120;
+		for (int i = 0; i < snowParticles.size; i += 2) {
+		    if (snowParticles.buf[i].y > 0) {
+			snowParticles.buf[i].y -= 0.0025f;
+			snowParticles.buf[i + 1].y -= 0.0025f;
+		    }
+		    else {
+			if (snowParticles.action[index] != WAITING_Y) {
+			    snowParticles.timers[index] = 360;
 			    snowParticles.action[index] = WAITING_Y;
 			}
 		    }
 
-		    if(snowParticles.timers[index] == 0){
-			if(snowParticles.action[index] == WAITING_Y){
-			    for(int i2=0;i2<6;i2++){
-				snowParticles.buf[i+i2].y = (gridY * 2) - 0.025f;
-			    }
-//			    snowParticles.buf[i+1].y = gridY * 2;
+		    if (snowParticles.timers[index] == 0) {
+			if (snowParticles.action[index] == WAITING_Y) {
+			    snowParticles.buf[i].y = (gridY * 2) - 0.025f;
+			    snowParticles.buf[i + 1].y = gridY * 2;
 
 			    snowParticles.action[index] = rand() % snowDirCounter;
-			}else{
+			}
+			else {
 			    snowParticles.speeds[index] = (rand() % 6) / 10000.0f;
 			    float maxDist;
-			
+
 			    snowParticles.action[index] = oppositeSnowDir[snowParticles.action[index]];
-			
-			    if(snowParticles.action[index] == X_PLUS_SNOW){
-				maxDist = ((int)snowParticles.buf[i+2].x + 1) - snowParticles.buf[i+2].x;
-			    }else if(snowParticles.action[index] == X_MINUS_SNOW){
-				maxDist = snowParticles.buf[i+2].x - (int)snowParticles.buf[i+2].x;
-			    }else if(snowParticles.action[index] == Z_MINUS_SNOW){
-				maxDist = snowParticles.buf[i+1].z - (int)snowParticles.buf[i+1].z;
-			    }else if(snowParticles.action[index] == Z_PLUS_SNOW){
-				maxDist = ((int)snowParticles.buf[i+1].z + 1) - snowParticles.buf[i+1].z;
+
+			    if (snowParticles.action[index] == X_PLUS_SNOW) {
+				maxDist = ((int)snowParticles.buf[i].x + 1) - snowParticles.buf[i].x;
+			    }
+			    else if (snowParticles.action[index] == X_MINUS_SNOW) {
+				maxDist = snowParticles.buf[i].x - (int)snowParticles.buf[i].x;
+			    }
+			    else if (snowParticles.action[index] == Z_MINUS_SNOW) {
+				maxDist = snowParticles.buf[i].z - (int)snowParticles.buf[i].z;
+			    }
+			    else if (snowParticles.action[index] == Z_PLUS_SNOW) {
+				maxDist = ((int)snowParticles.buf[i].z + 1) - snowParticles.buf[i].z;
 			    }
 
 			    maxDist -= snowParticles.speeds[index];
-			
+
 			    snowParticles.timers[index] = maxDist / dMove;
 			}
-		    }else{
+		    }
+		    else {
 			snowParticles.timers[index]--;
 
-			if(snowParticles.action[index] != WAITING_Y){
+			if (snowParticles.action[index] != WAITING_Y) {
 			    float dX = 0.0f;
 			    float dZ = 0.0f;
-			
-			    if(snowParticles.action[index] == X_PLUS_SNOW){
+
+			    if (snowParticles.action[index] == X_PLUS_SNOW) {
 				dX = snowParticles.speeds[index];
-			    }else if(snowParticles.action[index] == X_MINUS_SNOW){
+			    }
+			    else if (snowParticles.action[index] == X_MINUS_SNOW) {
 				dX = -snowParticles.speeds[index];
-			    }else if(snowParticles.action[index] == Z_MINUS_SNOW){
+			    }
+			    else if (snowParticles.action[index] == Z_MINUS_SNOW) {
 				dZ = -snowParticles.speeds[index];
-			    }else if(snowParticles.action[index] == Z_PLUS_SNOW){
+			    }
+			    else if (snowParticles.action[index] == Z_PLUS_SNOW) {
 				dZ = snowParticles.speeds[index];
 			    }
 
-			    for(int i2=0;i2<6;i2++){
-				snowParticles.buf[i+i2].x += dX;
-				snowParticles.buf[i+i2].z += dZ;
-			    }
+			    snowParticles.buf[i].x += dX;
+			    snowParticles.buf[i + 1].x += dX;
 
-//			    snowParticles.buf[i+1].x += dX;
-
-//			    snowParticles.buf[i+1].z += dZ;
+			    snowParticles.buf[i].z += dZ;
+			    snowParticles.buf[i + 1].z += dZ;
 			}
 		    }
 
@@ -1764,15 +1766,17 @@ int main(int argc, char* argv[]) {
 		    glUseProgram(shadersId[animShader]);
 		    
 		    char buf[64];
+
+		
+		    
 		    for(int i=0;i< entityStorage[playerEntityT]->model->data->jointsIdxsSize;i++){
 			int index = entityStorage[playerEntityT]->model->data->jointsIdxs[i];
 	    
-			Matrix jointMat;
-			jointMat = multMat4(entityStorage[playerEntityT]->model->nodes[index].globalMat, entityStorage[playerEntityT]->model->data->invBindMats[i]);
-			jointMat = multMat4(entityStorage[playerEntityT]->model->nodes[entityStorage[playerEntityT]->model->data->parentNode].invGlobalMat, jointMat);
+			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[index].globalMat, entityStorage[playerEntityT]->model->data->invBindMats[i]);
+			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[entityStorage[playerEntityT]->model->data->parentNode].invGlobalMat, entityStorage[playerEntityT]->model->jointsMats[i]);
 	    	    
 			sprintf(buf, "finalBonesMatrices[%d]", i);
-			uniformMat4(animShader, buf, jointMat.m);
+			uniformMat4(animShader, buf, entityStorage[playerEntityT]->model->jointsMats[i].m);
 		    }
 		    
 		    curAnimStage++;
@@ -1870,6 +1874,7 @@ int main(int argc, char* argv[]) {
 		}
 	
 		glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
+		
 		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
 
 		glBindBuffer(GL_ARRAY_BUFFER, entityStorage[i][0].model->data->mesh.VBO);
@@ -1906,9 +1911,46 @@ int main(int argc, char* argv[]) {
 		    glEnableVertexAttribArray(0);
 		    
 		    glDrawArrays(GL_LINES, 0, 2);
-		    
-		    glUseProgram(shadersId[animShader]);
 		}
+
+		{
+		    glUseProgram(shadersId[lightSourceShader]);
+	    
+		    glBindBuffer(GL_ARRAY_BUFFER, dirPointerLine.VBO);
+		    glBindVertexArray(dirPointerLine.VAO);
+
+		    Matrix out = IDENTITY_MATRIX;
+		    
+		    out.m[12] = entityStorage[i][0].mat.m[12];
+		    out.m[13] = entityStorage[i][0].mat.m[13];
+		    out.m[14] = entityStorage[i][0].mat.m[14];
+		    
+		    uniformMat4(lightSourceShader, "model", out.m);
+		    uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
+
+		    float dist = fabsf(entityStorage[playerEntityT][0].model->data->center[0]) * 4.0f;
+		    
+		    float line[] = {			
+			(dist)*entityStorage[i][0].dir.x,
+			entityStorage[playerEntityT][0].model->data->size[1]*0.95f,
+			(dist)*entityStorage[i][0].dir.z,
+			
+		        entityStorage[i][0].dir.x,
+		        entityStorage[playerEntityT][0].model->data->size[1]*0.95f,
+			entityStorage[i][0].dir.z
+		    };
+	
+		    glBufferData(GL_ARRAY_BUFFER, sizeof(line), line, GL_STATIC_DRAW);
+
+		    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+		    glEnableVertexAttribArray(0);
+		    
+		    glDrawArrays(GL_LINES, 0, 2);
+		}
+		    
+
+			
+		glUseProgram(shadersId[animShader]);
 		
 
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -5660,6 +5702,14 @@ void loadGLTFModel(char* name){
 
     float* mesh = malloc(sizeof(float)*data->meshes->primitives->indices->count*16);
 
+    for(int i=0;i<3;i++){
+	modelsData[modelsDataSize].size[i] = fabsf(data->meshes->primitives->attributes->data->min[i]) +
+	    data->meshes->primitives->attributes->data->max[i];
+	modelsData[modelsDataSize].center[i] = (data->meshes->primitives->attributes->data->min[i]) +
+	    data->meshes->primitives->attributes->data->max[i] / 2.0f;
+    }
+    
+
     int elementSize = typeSize[data->meshes->primitives->indices->component_type];
     for (int i = 0; i < data->meshes->primitives->indices->count;i++) {
 	uint16_t index;
@@ -5734,6 +5784,10 @@ void loadGLTFModel(char* name){
 	    if (data->nodes[i].skin && data->nodes[i].mesh) {
 		modelsData[modelsDataSize].parentNode = i;
 	    }
+	    
+	    if (strcmp(data->nodes[i].name, "Head")==0) {
+		modelsData[modelsDataSize].headNode = i;
+	    }
 
 	    modelsData[modelsDataSize].nodes[i].name = malloc(sizeof(char) * (strlen(data->nodes[i].name) + 1));
 	    strcpy(modelsData[modelsDataSize].nodes[i].name, data->nodes[i].name);
@@ -5785,18 +5839,18 @@ void loadGLTFModel(char* name){
 		};
 	    }
 	}
+/*
+  for (int i = 0; i < data->skins->joints_count; i++) {
+  int index = modelsData[modelsDataSize].jointsIdxs[i];
 
-	for (int i = 0; i < data->skins->joints_count; i++) {
-	    int index = modelsData[modelsDataSize].jointsIdxs[i];
+  Matrix jointMat;
+  jointMat = multMat4(modelsData[modelsDataSize].nodes[index].globalMat, modelsData[modelsDataSize].invBindMats[i]);
+  jointMat = multMat4(modelsData[modelsDataSize].nodes[modelsData[modelsDataSize].parentNode].invGlobalMat,
+  jointMat);
 
-	    Matrix jointMat;
-	    jointMat = multMat4(modelsData[modelsDataSize].nodes[index].globalMat, modelsData[modelsDataSize].invBindMats[i]);
-	    jointMat = multMat4(modelsData[modelsDataSize].nodes[modelsData[modelsDataSize].parentNode].invGlobalMat,
-				jointMat);
-
-	    sprintf(buf, "finalBonesMatrices[%d]", i);
-	    uniformMat4(animShader, buf, jointMat.m);
-	}
+//	    sprintf(buf, "finalBonesMatrices[%d]", i);
+//    uniformMat4(animShader, buf, jointMat.m);
+}*/
     }
 
     // anims
@@ -6969,7 +7023,7 @@ void generateShowAreas(){
 
     int maxY = gridY * 2;
 
-    int oneColParticles = 5;
+    int oneColParticles = 15; // was 5
     int particlesSize = tilesCounter[acceptedLayerT] * oneColParticles * 6;
     int uqParticlesSize = particlesSize / 6;
 
@@ -6987,7 +7041,7 @@ void generateShowAreas(){
     
     snowParticles.size = 0;// = tilesCounter[acceptedLayerT] * gridY;
 
-    float snowFH = 0.01f;
+    float snowFH = 0.02f; // was 0.01f
     
     index = 0;
 //    for(int y=0;y<maxY;y++){
@@ -7002,13 +7056,13 @@ void generateShowAreas(){
  
 	    snowParticles.buf[snowParticles.size] = (vec3){ fX, fY, fZ };
 	    snowParticles.buf[snowParticles.size+1] = (vec3){ fX, fY+snowFH, fZ };
-	    snowParticles.buf[snowParticles.size+2] = (vec3){ fX+snowFH, fY+snowFH, fZ };
+	    /*snowParticles.buf[snowParticles.size+2] = (vec3){ fX+snowFH, fY+snowFH, fZ };
 
-	    snowParticles.buf[snowParticles.size+3] = (vec3){ fX, fY, fZ };
-	    snowParticles.buf[snowParticles.size+4] = (vec3){ fX+snowFH, fY+snowFH, fZ };
-	    snowParticles.buf[snowParticles.size+5] = (vec3){ fX+snowFH, fY, fZ };
+	      snowParticles.buf[snowParticles.size+3] = (vec3){ fX, fY, fZ };
+	      snowParticles.buf[snowParticles.size+4] = (vec3){ fX+snowFH, fY+snowFH, fZ };
+	      snowParticles.buf[snowParticles.size+5] = (vec3){ fX+snowFH, fY, fZ };*/
 
-	    snowParticles.size+=6;
+	    snowParticles.size+=2;
 	    index++;
 	}
 	    
@@ -7152,7 +7206,7 @@ void generateNavTiles(){
 
     acceptedCollisionTilesAABB = malloc(sizeof(AABB) * collisionLayersSize[acceptedLayerT]);
 
-    printf("Before %d \n", collisionLayersSize[acceptedLayerT]);
+//    printf("Before %d \n", collisionLayersSize[acceptedLayerT]);
 
     collisionLayersSize[acceptedLayerT] = 0;
 

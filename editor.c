@@ -3079,19 +3079,19 @@ void editor3dRender() {
 	    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
 	    glBindVertexArray(cube.VAO);
 
-	    Matrix mat;
-	    memcpy(mat.m, entitiesMats[entity->type].m, sizeof(float) * 16);
+//	    Matrix mat;
+//	    memcpy(mat.m, entitiesMats[entity->type].m, sizeof(float) * 16);
 
 	    float div = 1.0f / 3.0f / 2.0f;
-	    mat.m[12] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x + div;
-	    mat.m[13] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y;
-	    mat.m[14] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z + div;
+	    entity->mat.m[12] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x+div;// + entity->model->data->center[0];;
+	    entity->mat.m[13] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y;
+	    entity->mat.m[14] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z+div;// + entity->model->data->center[2];
 
-	    entity->mat.m[12] = mat.m[12];
-	    entity->mat.m[13] = mat.m[13];
-	    entity->mat.m[14] = mat.m[14];
+//	    entity->mat.m[12] = mat.m[12];
+//	    entity->mat.m[13] = mat.m[13];
+//	    entity->mat.m[14] = mat.m[14];
 
-	    uniformMat4(lightSourceShader, "model", mat.m);
+	    uniformMat4(lightSourceShader, "model", entity->mat.m);
 	    uniformVec3(lightSourceShader, "color", (vec3){ cyan } );
 	    
 	    glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
@@ -3516,7 +3516,7 @@ void editor2dRender() {
 		 mouse.brushThing = NULL;
 		 mouse.brushType = 0;
 
-		 batchEntitiesBoxes();
+		 //batchEntitiesBoxes();
 	     }
 
 	     break;
@@ -5334,10 +5334,12 @@ void setPlayerEntityBrush(){
     memcpy(entity->model->nodes,
 	   entity->model->data->nodes,
 	   sizeof(GLTFNode)* entity->model->data->nodesSize);
+
+    entity->model->jointsMats = malloc(sizeof(Matrix)*entity->model->data->jointsIdxsSize);
     
     entity->mat = IDENTITY_MATRIX;
     
-    entity->dir = (vec3){ .0f, .0f, .5f};
+    entity->dir = (vec3){ .0f, .0f, 1.0f};
     
     mouse.brushType = mouseEntityBrushT;
     mouse.brushThing = entity;

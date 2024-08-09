@@ -1549,11 +1549,15 @@ typedef struct{
 
     uint8_t rootNode;
     uint8_t parentNode;
+    uint8_t headNode;
 
     GLuint tx;
     MeshBuffer mesh;
 
     char** animNames;
+    
+    float size[3];
+    float center[3];
 
     float** stageTime; // [anim][stage]
     uint16_t** animKeysSize; //[anim][stage]
@@ -1567,8 +1571,7 @@ typedef struct{
     ModelData* data;
     GLTFNode* nodes;
     
-//    Matrix* jointsMats;
-    //  int jointsNum;
+    Matrix* jointsMats;
 } Model2;
 
 ModelData* modelsData;
@@ -1603,6 +1606,8 @@ void updateNodes(int curIndex, int parentIndex, GLTFNode** nodes);
 bool** closedList;
 AstarCell** cellsDetails;
 AstarOpenCell* openCells;
+
+//vec3 playerSizes;
 
 void allocateAstar(int gX, int gY, int gZ);
 

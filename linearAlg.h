@@ -128,3 +128,5 @@ Matrix fromRotationTranslationScale(vec4 q, vec3 v, vec3 s);
 Matrix multMat4(Matrix a, Matrix b);
 
 float angle2Vec(vec2 v1, vec2 v2);
+
+Matrix lootAt2(vec3 eye, vec3 center, vec3 up);

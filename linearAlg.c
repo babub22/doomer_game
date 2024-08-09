@@ -603,3 +603,80 @@ float angle2Vec(vec2 v1, vec2 v2){
 
     return angle;
 }
+
+Matrix lootAt2(vec3 eye, vec3 center, vec3 up){
+  float x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
+  float eyex = eye.x;
+  float eyey = eye.y;
+  float eyez = eye.z;
+  float upx = up.x;
+  float upy = up.y;
+  float upz = up.z;
+  float centerx = center.x;
+  float centery = center.y;
+  float centerz = center.z;
+
+  ///if (absf(eyex - centerx) < ENPSI && absf(eyey - centery) < EPSILON && absf(eyez - centerz) < EPSILON) {
+  //  return IDENTITY_MATRIX;
+  //}
+
+  z0 = eyex - centerx;
+  z1 = eyey - centery;
+  z2 = eyez - centerz;
+  len = 1 / hypotf(z0, z1, z2);
+  z0 *= len;
+  z1 *= len;
+  z2 *= len;
+  x0 = upy * z2 - upz * z1;
+  x1 = upz * z0 - upx * z2;
+  x2 = upx * z1 - upy * z0;
+  len = hypotf(x0, x1, x2);
+
+  if (!len) {
+    x0 = 0;
+    x1 = 0;
+    x2 = 0;
+  } else {
+    len = 1 / len;
+    x0 *= len;
+    x1 *= len;
+    x2 *= len;
+  }
+
+  y0 = z1 * x2 - z2 * x1;
+  y1 = z2 * x0 - z0 * x2;
+  y2 = z0 * x1 - z1 * x0;
+  len = hypotf(y0, y1, y2);
+
+  if (!len) {
+    y0 = 0;
+    y1 = 0;
+    y2 = 0;
+  } else {
+    len = 1 / len;
+    y0 *= len;
+    y1 *= len;
+    y2 *= len;
+  }
+
+  Matrix out;
+
+  out.m[0] = x0;
+  out.m[1] = y0;
+  out.m[2] = z0;
+  out.m[3] = 0;
+  out.m[4] = x1;
+  out.m[5] = y1;
+  out.m[6] = z1;
+  out.m[7] = 0;
+  out.m[8] = x2;
+  out.m[9] = y2;
+  out.m[10] = z2;
+  out.m[11] = 0;
+  out.m[12] = -(x0 * eyex + x1 * eyey + x2 * eyez);
+  out.m[13] = -(y0 * eyex + y1 * eyey + y2 * eyez);
+  out.m[14] = -(z0 * eyex + z1 * eyey + z2 * eyez);
+  out.m[15] = 1;
+  
+  return out;
+}
