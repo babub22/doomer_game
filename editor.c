@@ -3083,13 +3083,9 @@ void editor3dRender() {
 //	    memcpy(mat.m, entitiesMats[entity->type].m, sizeof(float) * 16);
 
 	    float div = 1.0f / 3.0f / 2.0f;
-	    entity->mat.m[12] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x+div;// + entity->model->data->center[0];;
+	    entity->mat.m[12] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x+div;
 	    entity->mat.m[13] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y;
-	    entity->mat.m[14] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z+div;// + entity->model->data->center[2];
-
-//	    entity->mat.m[12] = mat.m[12];
-//	    entity->mat.m[13] = mat.m[13];
-//	    entity->mat.m[14] = mat.m[14];
+	    entity->mat.m[14] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z+div;
 
 	    uniformMat4(lightSourceShader, "model", entity->mat.m);
 	    uniformVec3(lightSourceShader, "color", (vec3){ cyan } );
@@ -5336,6 +5332,10 @@ void setPlayerEntityBrush(){
 	   sizeof(GLTFNode)* entity->model->data->nodesSize);
 
     entity->model->jointsMats = malloc(sizeof(Matrix)*entity->model->data->jointsIdxsSize);
+    
+    entity->model->curAnim = idleAnim;
+    entity->model->curStage = 0;
+    entity->model->mirrored = false;
     
     entity->mat = IDENTITY_MATRIX;
     

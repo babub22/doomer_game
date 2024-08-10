@@ -1747,16 +1747,20 @@ int main(int argc, char* argv[]) {
 
 	    // test anim
 	    if(entityStorageSize[playerEntityT] != 0){
-		static int curAnimStage = 0;
-		static int frame = 0;
+		int stage = entityStorage[playerEntityT][0].model->curStage;
+		int anim = entityStorage[playerEntityT][0].model->curAnim;
 
-		if(frame == 3){		    
-		    for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize[0][curAnimStage];i3++){
-			int index = entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].boneInNodes;
-			int act =entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].act;
-
+		if(entityStorage[playerEntityT][0].frame== 3){
+		    if(entityStorage[playerEntityT][0].model->mirrored){
+			stage = entityStorage[playerEntityT]->model->data->stage[anim] - stage - 1;
+		    }
+		    
+		    for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize[anim][stage];i3++){
+			int index = entityStorage[playerEntityT]->model->data->anim[anim][stage][i3].boneInNodes;
+			int act =entityStorage[playerEntityT]->model->data->anim[anim][stage][i3].act;
+			   
 			memcpy(entityStorage[playerEntityT]->model->nodes[index].t+padTable[act], 
-			       entityStorage[playerEntityT]->model->data->anim[0][curAnimStage][i3].data,
+			       entityStorage[playerEntityT]->model->data->anim[anim][stage][i3].data,
 			       sizeof(float)*sizeTable[act]);
 		    }
 
@@ -1766,8 +1770,6 @@ int main(int argc, char* argv[]) {
 		    glUseProgram(shadersId[animShader]);
 		    
 		    char buf[64];
-
-		
 		    
 		    for(int i=0;i< entityStorage[playerEntityT]->model->data->jointsIdxsSize;i++){
 			int index = entityStorage[playerEntityT]->model->data->jointsIdxs[i];
@@ -1779,21 +1781,34 @@ int main(int argc, char* argv[]) {
 			uniformMat4(animShader, buf, entityStorage[playerEntityT]->model->jointsMats[i].m);
 		    }
 		    
-		    curAnimStage++;
+		    entityStorage[playerEntityT][0].model->curStage++;
+			stage = entityStorage[playerEntityT][0].model->curStage;
 
-		    if(curAnimStage == entityStorage[playerEntityT]->model->data->stage[0]){
+		    int finalStage;
+
+		    if(entityStorage[playerEntityT][0].model->mirrored){
+			stage =entityStorage[playerEntityT]->model->data->stage[anim] -stage - 1;
+			finalStage = -1;
+		    }else{
+			stage = entityStorage[playerEntityT][0].model->curStage;
+			finalStage = entityStorage[playerEntityT]->model->data->stage[anim];
+		    }
+
+		    if(stage == finalStage){
 			// set to base
 			memcpy(entityStorage[playerEntityT]->model->nodes,
 			       entityStorage[playerEntityT]->model->data->nodes,
 			       sizeof(GLTFNode)*entityStorage[playerEntityT]->model->data->nodesSize);
 			
-		        curAnimStage = 0;
+			entityStorage[playerEntityT][0].model->curStage = 0;
+			entityStorage[playerEntityT][0].model->curAnim = idleAnim;
+			entityStorage[playerEntityT][0].model->mirrored = false;
 		    }
 
-		    frame = 0;
+		    entityStorage[playerEntityT][0].frame = 0;
 		}
 
-		frame++;
+		entityStorage[playerEntityT][0].frame++;
 	    }
 
 	    // nav meshes drawing
@@ -1872,7 +1887,9 @@ int main(int argc, char* argv[]) {
 		if(entityStorageSize[i] == 0){
 		    continue;
 		}
-	
+
+
+		//	glDisable(GL_DEPTH_TEST);
 		glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
 		
 		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
@@ -1881,6 +1898,7 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
 
 		glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
+		//	glEnable(GL_DEPTH_TEST);
 
 		// draw dir
 		{
@@ -5866,7 +5884,7 @@ void loadGLTFModel(char* name){
 					 [cgltf_animation_path_type_weights] = "Weithg",[cgltf_animation_path_type_weights+1] = "ERROR" };
 	
 	modelsData[modelsDataSize].animSize = data->animations_count;
-	modelsData[modelsDataSize].animKeysSize = malloc(sizeof(int)*data->animations_count);
+	modelsData[modelsDataSize].animKeysSize = malloc(sizeof(int*)*data->animations_count);
 	modelsData[modelsDataSize].animNames = malloc(sizeof(char*)*data->animations_count);
 	modelsData[modelsDataSize].stage = calloc(1,sizeof(int)*data->animations_count);
 	    
@@ -5875,9 +5893,23 @@ void loadGLTFModel(char* name){
 	    
 	for(int i=0;i<data->animations_count;i++){
 	    int curAnimKeysCounter = 0;
+
+	    int animIndex;
+
+	    if(strcmp(data->animations[i].name,"Idle")==0){
+		animIndex= idleAnim;
+	    }else if(strcmp(data->animations[i].name,"Pick")==0){
+		animIndex= pickAnim;
+	    }else if(strcmp(data->animations[i].name,"Walk")==0){
+		animIndex= walkAnim;
+	    }else if(strcmp(data->animations[i].name,"Strafe")==0){
+		animIndex= strafeAnim;
+	    }else if(strcmp(data->animations[i].name,"Sit")==0){
+		animIndex= sitAnim;
+	    }
 		
-	    modelsData[modelsDataSize].animNames[i] = malloc(sizeof(char)*(strlen(data->animations[i].name)+1));
-	    strcpy(modelsData[modelsDataSize].animNames[i], data->animations[i].name);
+	    modelsData[modelsDataSize].animNames[animIndex] = malloc(sizeof(char)*(strlen(data->animations[i].name)+1));
+	    strcpy(modelsData[modelsDataSize].animNames[animIndex], data->animations[i].name);
 
 	    int elementSize = typeSize[data->animations[i].samplers->input->component_type];
 	    for(int i2=0;i2<data->animations[i].channels_count;i2++){
@@ -5927,25 +5959,25 @@ void loadGLTFModel(char* name){
 	    int prevIndex = 0;
 	    for(int i2=0;i2< curAnimKeysCounter;i2++){
 		if(anim[i2].time != lastVal){
-		    int curStage = modelsData[modelsDataSize].stage[i];
+		    int curStage = modelsData[modelsDataSize].stage[animIndex];
 			
 		    if(curStage==0){
-			modelsData[modelsDataSize].anim[i] = malloc(sizeof(AnimStep*)*(curStage+1));
-			modelsData[modelsDataSize].stageTime[i] = malloc(sizeof(float)*(curStage+1));
-			modelsData[modelsDataSize].animKeysSize[i] = malloc(sizeof(int)*(curStage+1));
+			modelsData[modelsDataSize].anim[animIndex] = malloc(sizeof(AnimStep*)*(curStage+1));
+			modelsData[modelsDataSize].stageTime[animIndex] = malloc(sizeof(float)*(curStage+1));
+			modelsData[modelsDataSize].animKeysSize[animIndex] = malloc(sizeof(int)*(curStage+1));
 		    }else{
-			modelsData[modelsDataSize].anim[i] = realloc(modelsData[modelsDataSize].anim[i], sizeof(AnimStep*)*(curStage+1));
-			modelsData[modelsDataSize].stageTime[i] = realloc(modelsData[modelsDataSize].stageTime[i], sizeof(float)*(curStage+1));
-			modelsData[modelsDataSize].animKeysSize[i] = realloc(modelsData[modelsDataSize].animKeysSize[i], sizeof(int)*(curStage+1));
+			modelsData[modelsDataSize].anim[animIndex] = realloc(modelsData[modelsDataSize].anim[animIndex], sizeof(AnimStep*)*(curStage+1));
+			modelsData[modelsDataSize].stageTime[animIndex] = realloc(modelsData[modelsDataSize].stageTime[animIndex], sizeof(float)*(curStage+1));
+			modelsData[modelsDataSize].animKeysSize[animIndex] = realloc(modelsData[modelsDataSize].animKeysSize[animIndex], sizeof(int)*(curStage+1));
 		    }
 
-		    modelsData[modelsDataSize].animKeysSize[i][curStage] = i2-prevIndex;
-		    modelsData[modelsDataSize].anim[i][curStage] = malloc(sizeof(AnimStep)*(i2-prevIndex));
-		    memcpy(modelsData[modelsDataSize].anim[i][curStage], &anim[prevIndex], sizeof(AnimStep)* (i2 - prevIndex));
+		    modelsData[modelsDataSize].animKeysSize[animIndex][curStage] = i2-prevIndex;
+		    modelsData[modelsDataSize].anim[animIndex][curStage] = malloc(sizeof(AnimStep)*(i2-prevIndex));
+		    memcpy(modelsData[modelsDataSize].anim[animIndex][curStage], &anim[prevIndex], sizeof(AnimStep)* (i2 - prevIndex));
 		    prevIndex = i2;
 			
-		    modelsData[modelsDataSize].stageTime[i][curStage] = lastVal;
-		    modelsData[modelsDataSize].stage[i]++;
+		    modelsData[modelsDataSize].stageTime[animIndex][curStage] = lastVal;
+		    modelsData[modelsDataSize].stage[animIndex]++;
 		    lastVal = anim[i2].time;
 		}
 	    }

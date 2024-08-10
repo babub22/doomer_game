@@ -1536,6 +1536,11 @@ typedef struct{
     float data[4];
 } AnimStep;
 
+typedef enum{
+    idleAnim, walkAnim, pickAnim,
+    strafeAnim, sitAnim, animCounter
+}AnimIndex;
+
 typedef struct{
     char* name;
     
@@ -1570,6 +1575,10 @@ typedef struct{
 typedef struct{
     ModelData* data;
     GLTFNode* nodes;
+
+    uint8_t curAnim;
+    uint8_t curStage;
+    bool mirrored;
     
     Matrix* jointsMats;
 } Model2;
