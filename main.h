@@ -1555,6 +1555,7 @@ typedef struct{
     uint8_t rootNode;
     uint8_t parentNode;
     uint8_t headNode;
+    uint8_t neckNode;
 
     GLuint tx;
     MeshBuffer mesh;
@@ -1620,3 +1621,4 @@ AstarOpenCell* openCells;
 
 void allocateAstar(int gX, int gY, int gZ);
 
+float maxZVertex[16];

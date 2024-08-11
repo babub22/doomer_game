@@ -680,3 +680,23 @@ Matrix lootAt2(vec3 eye, vec3 center, vec3 up){
   
   return out;
 }
+
+Matrix addMats(Matrix a, Matrix b){
+    Matrix out = {.m={0}};
+
+    for(int i=0;i<16;i++){
+	out.m[i] = a.m[i] + b.m[i];
+    }
+
+    return out;
+}
+
+Matrix mulMatNum(Matrix a, float n){
+    Matrix out = {.m={0}};
+
+    for(int i=0;i<16;i++){
+	out.m[i] = a.m[i] * n;
+    }
+
+    return out;
+}

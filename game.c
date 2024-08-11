@@ -3,7 +3,7 @@
 #include "main.h"
 #include "game.h"
 
-float gameFov = 35.0f;
+float gameFov = 45.0f;
 int gameCameraFloor = 1;
 
 #define cameraFloor (bBlockH * ((float)gameCameraFloor+1.0f) + bBlockH)
@@ -41,7 +41,7 @@ int frameCounter;
 vec3 targetPos;
 
 void gamePreFrame(float deltaTime){
-    float step = 0.1f;
+    float step = 0.05f;
     
     vec2 nextPos = {0};
     bool move = false;
@@ -56,18 +56,14 @@ void gamePreFrame(float deltaTime){
 	entityStorage[playerEntityT][0].model->mirrored = false;
 	preferedAnim = walkAnim;
 //	entityStorage[playerEntityT][0].model->curStage = 0;
-    }
-    
-    if(currentKeyStates[SDL_SCANCODE_S]){
+    }else if(currentKeyStates[SDL_SCANCODE_S]){
 	nextPos.x += entityStorage[playerEntityT][0].mat.m[12] - entityStorage[playerEntityT][0].dir.x * step;
 	nextPos.z += entityStorage[playerEntityT][0].mat.m[14] - entityStorage[playerEntityT][0].dir.z * step;
 	move = true;
 	entityStorage[playerEntityT][0].model->mirrored = true;
 	preferedAnim = walkAnim;
 //	entityStorage[playerEntityT][0].model->curStage = 0;
-    }
-
-    if(currentKeyStates[SDL_SCANCODE_A]){
+    }else if(currentKeyStates[SDL_SCANCODE_A]){
 	vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, entityStorage[playerEntityT][0].dir);
 	nextPos.x += entityStorage[playerEntityT][0].mat.m[12] + right.x * step;
 	nextPos.z += entityStorage[playerEntityT][0].mat.m[14] + right.z * step;
@@ -76,9 +72,7 @@ void gamePreFrame(float deltaTime){
 	entityStorage[playerEntityT][0].model->mirrored = false;
 	preferedAnim = strafeAnim;
 //	entityStorage[playerEntityT][0].model->curStage = 0;
-    }
-
-    if(currentKeyStates[SDL_SCANCODE_D]){
+    }else if(currentKeyStates[SDL_SCANCODE_D]){
 	vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, entityStorage[playerEntityT][0].dir);
 
 	nextPos.x += entityStorage[playerEntityT][0].mat.m[12] - right.x * step;
@@ -119,40 +113,40 @@ void gamePreFrame(float deltaTime){
 };
 
 void gameMatsSetup(int curShader){
-    Matrix proj = perspective(rad(gameFov), (windowW) / (windowH), 0.1f, 1000.0f);
+    Matrix proj = perspective(rad(gameFov), (windowW) / (windowH), .1f, 1000.0f);
 
     Matrix view;// = IDENTITY_MATRIX;
 
     {
 	vec3 dir = entityStorage[playerEntityT][0].dir;
 
-	float dist = fabsf(entityStorage[playerEntityT][0].model->data->center[0]) * 2.0f;//*1.0f;
+        vec4 pos = { maxZVertex[0], maxZVertex[1], maxZVertex[2], 1.0f };
 
-	float x = entityStorage[playerEntityT][0].model->jointsMats[entityStorage[playerEntityT][0].model->data->headNode].m[12];
-	float z = entityStorage[playerEntityT][0].model->jointsMats[entityStorage[playerEntityT][0].model->data->headNode].m[14];
+	Matrix skinMat = {.m={0}};
+	for(int i=0;i<4;i++){
+	    if(maxZVertex[12+i]==0.0f) continue;
 
-	vec3 origin = { entityStorage[playerEntityT][0].mat.m[12],// + dist*0.4f,
-			entityStorage[playerEntityT][0].mat.m[13],
-			entityStorage[playerEntityT][0].mat.m[14]// + dist*0.4f
-	};
+	    int joint = maxZVertex[8+i];
+	    skinMat = addMats(skinMat, mulMatNum(entityStorage[playerEntityT][0].model->jointsMats[joint], maxZVertex[12+i]));
+	}
 
-	origin.x += (dist*dir.x);
-	origin.y += entityStorage[playerEntityT][0].model->data->size[1]*0.95f;
-	origin.z += (dist*dir.z);
+	pos = mulmatvec4(skinMat, pos);
 
-//	x*=5;
-//	origin.x += (x*dir.x);
-//	origin.z += (x*dir.z);
+	pos = mulmatvec4(entityStorage[playerEntityT][0].mat, pos);
 
-	origin.y *= -1.0f;
-	origin.z *= -1.0f;
+	float dist = 0.1f;
+	pos.x += (dist*dir.x);
+	pos.z += (dist*dir.z);
+		
+	pos.y *= -1.0f;
+	pos.z *= -1.0f;
 	
-	vec3 target = { origin.x + dir.x,
-			origin.y + dir.y,
-			origin.z + dir.z
+	vec3 target = { pos.x + dir.x,
+			pos.y + dir.y,
+			pos.z + dir.z
 	};
-
-	view = lookAt(origin, target, (vec3){.0f, 1.0f, .0f });
+	
+	view = lookAt((vec3){argVec3(pos)}, target, (vec3) { .0f, 1.0f, .0f });
     }
     
 /*    vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };
@@ -218,8 +212,8 @@ void gameEvents(SDL_Event event){
 
 	    if (curCamera->pitch > 70.0f)
 		curCamera->pitch = 70.0f;
-	    if (curCamera->pitch <= -74.5f)
-		curCamera->pitch = -74.5f;
+	    if (curCamera->pitch <= -75.0f)
+		curCamera->pitch = -75.0f;
 
 	    if (curCamera->yaw > 180.0f)
 		curCamera->yaw = -180.0f;
@@ -367,6 +361,16 @@ void gameEvents(SDL_Event event){
 	  curCamera->pos.y = cameraFloor;
       }else if(event.key.keysym.scancode == SDL_SCANCODE_F){
 	  entityStorage[playerEntityT][0].model->curAnim = pickAnim;
+	  entityStorage[playerEntityT][0].model->curStage = 0;
+	  entityStorage[playerEntityT][0].frame = 0;
+	  entityStorage[playerEntityT][0].model->mirrored = false;
+      }else if(event.key.keysym.scancode == SDL_SCANCODE_C){
+	  if(entityStorage[playerEntityT][0].model->curAnim){
+	      entityStorage[playerEntityT][0].model->curAnim = idleAnim;
+	  }else{
+	      entityStorage[playerEntityT][0].model->curAnim = sitAnim;
+	  }
+	  
 	  entityStorage[playerEntityT][0].model->curStage = 0;
 	  entityStorage[playerEntityT][0].frame = 0;
 	  entityStorage[playerEntityT][0].model->mirrored = false;

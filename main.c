@@ -840,6 +840,8 @@ int main(int argc, char* argv[]) {
 	glDepthFunc(GL_LEQUAL);
 	glEnable(GL_MULTISAMPLE);
 
+	glEnable(GL_DEPTH_CLAMP);
+
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
@@ -1773,9 +1775,29 @@ int main(int argc, char* argv[]) {
 		    
 		    for(int i=0;i< entityStorage[playerEntityT]->model->data->jointsIdxsSize;i++){
 			int index = entityStorage[playerEntityT]->model->data->jointsIdxs[i];
+
+			if(index == entityStorage[playerEntityT][0].model->data->neckNode){
+			    vec3 dir2 = {entityStorage[playerEntityT][0].dir.x , 0.0f ,entityStorage[playerEntityT][0].dir.z};
+			    vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, dir2);
+
+			    float tempX = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12];
+			    float tempY = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13];
+			    float tempZ = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14];
+
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = 0;
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = 0;
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = 0;
+			    
+			    rotate(&entityStorage[playerEntityT]->model->nodes[index].globalMat, rad(60.0f), argVec3(right));
+			    
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = tempX;
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = tempY;
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = tempZ;
+			}
 	    
 			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[index].globalMat, entityStorage[playerEntityT]->model->data->invBindMats[i]);
 			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[entityStorage[playerEntityT]->model->data->parentNode].invGlobalMat, entityStorage[playerEntityT]->model->jointsMats[i]);
+
 	    	    
 			sprintf(buf, "finalBonesMatrices[%d]", i);
 			uniformMat4(animShader, buf, entityStorage[playerEntityT]->model->jointsMats[i].m);
@@ -1796,13 +1818,13 @@ int main(int argc, char* argv[]) {
 
 		    if(stage == finalStage){
 			// set to base
-			memcpy(entityStorage[playerEntityT]->model->nodes,
-			       entityStorage[playerEntityT]->model->data->nodes,
-			       sizeof(GLTFNode)*entityStorage[playerEntityT]->model->data->nodesSize);
-			
-			entityStorage[playerEntityT][0].model->curStage = 0;
+			//	memcpy(entityStorage[playerEntityT]->model->nodes,
+			//	       entityStorage[playerEntityT]->model->data->nodes,
+			//	       sizeof(GLTFNode)*entityStorage[playerEntityT]->model->data->nodesSize);
+
 			entityStorage[playerEntityT][0].model->curAnim = idleAnim;
 			entityStorage[playerEntityT][0].model->mirrored = false;
+			entityStorage[playerEntityT][0].model->curStage = 0;
 		    }
 
 		    entityStorage[playerEntityT][0].frame = 0;
@@ -1890,6 +1912,7 @@ int main(int argc, char* argv[]) {
 
 
 		//	glDisable(GL_DEPTH_TEST);
+		glClear(GL_DEPTH_BUFFER_BIT);
 		glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
 		
 		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
@@ -1917,7 +1940,8 @@ int main(int argc, char* argv[]) {
 		    
 		    
 		    float line[] = {			
-			.0f, 1.2f, .0f,			
+			.0f, 1.2f, .0f,
+			
 		        entityStorage[i][0].dir.x,
 			entityStorage[i][0].dir.y + 1.2f,
 			entityStorage[i][0].dir.z
@@ -1946,7 +1970,7 @@ int main(int argc, char* argv[]) {
 		    uniformMat4(lightSourceShader, "model", out.m);
 		    uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
 
-		    float dist = fabsf(entityStorage[playerEntityT][0].model->data->center[0]) * 4.0f;
+		    float dist = 0.1f;
 		    
 		    float line[] = {			
 			(dist)*entityStorage[i][0].dir.x,
@@ -5753,8 +5777,28 @@ void loadGLTFModel(char* name){
 			  ,compSize, 1, fo);
 		}
 	    }	    
-	}	
+	}
     }
+
+    float maxZ = data->meshes->primitives->attributes->data->max[2] / 2.0f;
+    float curY = data->meshes->primitives->attributes->data->max[1] / 2.0f;
+
+    for(int i=0;i<data->meshes->primitives->indices->count;i++){
+	int index = i*16;
+
+	if(mesh[index+2]>maxZ && mesh[index+1]>curY){
+	    curY = mesh[index+1];
+	    maxZ = mesh[index+2];
+	    
+	    printf("Max Z:! %f - p:(%f %f %f) t:(%f %f) n:(%f %f %f) j:(%f %f %f %f) w:(%f %f %f %f)\n", maxZ,
+		   mesh[index], mesh[index+1],mesh[index+2],mesh[index+3], mesh[index+4], mesh[index+5]
+		   ,mesh[index+6], mesh[index+7], mesh[index+8], mesh[index+9], mesh[index+10],
+		   mesh[index+11], mesh[index+12], mesh[index+13], mesh[index+14], mesh[index+15]);
+
+	    memcpy(maxZVertex, &mesh[index], sizeof(float)*16);
+	}
+    }
+    
 
     glGenVertexArrays(1, &modelsData[modelsDataSize].mesh.VAO);
     glGenBuffers(1, &modelsData[modelsDataSize].mesh.VBO);
@@ -5805,6 +5849,10 @@ void loadGLTFModel(char* name){
 	    
 	    if (strcmp(data->nodes[i].name, "Head")==0) {
 		modelsData[modelsDataSize].headNode = i;
+	    }
+
+	    if (strcmp(data->nodes[i].name, "Neck")==0) {
+		modelsData[modelsDataSize].neckNode = i;
 	    }
 
 	    modelsData[modelsDataSize].nodes[i].name = malloc(sizeof(char) * (strlen(data->nodes[i].name) + 1));
