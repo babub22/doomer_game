@@ -569,6 +569,7 @@ typedef enum {
   mouseWallT,
   mouseBlockT,
   mousePlaneT,
+  mouseMirrorT,
   mouseTileT,
   mouseLightT,
   mouseMarkerT,
@@ -1622,3 +1623,20 @@ AstarOpenCell* openCells;
 void allocateAstar(int gX, int gY, int gZ);
 
 float maxZVertex[16];
+
+typedef struct{
+    int id;
+  
+    int tx;
+    int writeFbo;
+    int readFbo;
+
+    vec3 dir;
+    Matrix mat;
+  
+    vec3 lb;
+    vec3 rt;
+} Mirror;
+
+Mirror* mirrorsStorage;
+uint8_t mirrorsStorageSize;

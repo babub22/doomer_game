@@ -54,6 +54,7 @@ const void(*stancilHighlight[mouseSelectionTypesCounter])() = {
     [mousePlaneT] = noHighlighting,
     [mouseTileT] = noHighlighting,
     [mouseLightT] = noHighlighting,
+	[mouseMirrorT]= noHighlighting,
 };
 
 const int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;  
@@ -1456,7 +1457,7 @@ int main(int argc, char* argv[]) {
 		}
 
 
-		if (event.key.keysym.scancode == SDL_SCANCODE_M && !selectedTextInput2) {
+		if (false && event.key.keysym.scancode == SDL_SCANCODE_M && !selectedTextInput2) {
 		    const EngineInstance instanceTrasferTable[4] = {
 			[gameMapInstance] = gameInstance,
 			[editorMapInstance] = editorInstance,
@@ -1497,7 +1498,7 @@ int main(int argc, char* argv[]) {
 	((void (*)(float))instances[curInstance][preFrameFunc])(deltaTime);
 
 	// anim entities
-	for(int i=0;i<entityTypesCounter;i++){
+	for(int i=0;false && i<entityTypesCounter;i++){
 	    for(int i2=0;i2<entityStorageSize[i];i2++){
 		if(entityStorage[i][i2].path){
 
@@ -1903,6 +1904,16 @@ int main(int argc, char* argv[]) {
 		}
 	    }
 
+	    glUseProgram(shadersId[mainShader]);
+
+	    for(int i=0;i<mirrorsStorageSize;i++){		
+		glBindVertexArray(planePairs.VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, planePairs.VBO);
+		glBindTexture(GL_TEXTURE_2D, mirrorsStorage[i].tx);
+		uniformMat4(mainShader, "model", mirrorsStorage[i].mat.m);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+	    }
+
 	    glUseProgram(shadersId[animShader]);
     
 	    for(int i=0;i<entityTypesCounter;i++){
@@ -1912,7 +1923,6 @@ int main(int argc, char* argv[]) {
 
 
 		//	glDisable(GL_DEPTH_TEST);
-		glClear(GL_DEPTH_BUFFER_BIT);
 		glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
 		
 		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
@@ -2055,7 +2065,88 @@ int main(int argc, char* argv[]) {
 
 	    // render to fbo 
 	    glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
-	    //glClear(GL_COLOR_BUFFER_BIT);
+
+
+
+
+//	    glEnable(GL_DEPTH_TEST);
+	    // update mirrors tx's
+	    {
+		for(int i=0;i<mirrorsStorageSize;i++){
+		    
+		    vec3 dir = mirrorsStorage[i].dir;
+		    vec3 origin = {
+			mirrorsStorage[i].mat.m[12],
+			-mirrorsStorage[i].mat.m[13],
+			-mirrorsStorage[i].mat.m[14]
+		    };
+		    
+		    
+		    Matrix view = lookAt(origin,
+					 (vec3){ origin.x+dir.x,
+						 origin.y+dir.y,
+						 origin.z+dir.z},
+					 (vec3){.0f,1.0f,.0f});
+		    
+		    glBindFramebuffer(GL_FRAMEBUFFER, mirrorsStorage[i].writeFbo);
+		    
+		    vec3 fogColor = { 0.5f, 0.5f, 0.5f };
+		    glClearColor(argVec3(fogColor), 1.0f);
+		    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		   
+		    
+		    {
+			// all 3d
+			glUseProgram(shadersId[mainShader]); 
+			uniformMat4(mainShader,"view", view.m);
+
+			((void (*)(void))instances[curInstance][render3DFunc])();
+
+			// snow
+			glEnable(GL_BLEND);
+			glBindBuffer(GL_ARRAY_BUFFER, snowMesh.VBO);
+			glBindVertexArray(snowMesh.VAO);
+
+			Matrix out = IDENTITY_MATRIX;
+			glUseProgram(shadersId[snowShader]);
+			uniformMat4(snowShader,"view", view.m);
+			uniformMat4(snowShader, "model", out.m);
+		    
+			glDrawArrays(GL_LINES, 0, snowMesh.VBOsize);
+			glDisable(GL_BLEND);
+
+			// player
+			glUseProgram(shadersId[animShader]);
+
+			if(entityStorageSize[i] == 1){
+			    glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
+		
+			    uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
+			    uniformMat4(animShader, "view", view.m);
+
+			    glBindBuffer(GL_ARRAY_BUFFER, entityStorage[i][0].model->data->mesh.VBO);
+			    glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
+
+			    glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
+
+			}
+			
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindVertexArray(0);
+		    }
+
+		    glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+		    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		    glClearColor(argVec3(fogColor), 1.0f);
+		    glClear(GL_COLOR_BUFFER_BIT);		   
+		}
+//		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	    }
+
+
+
+
 	    glDisable(GL_DEPTH_TEST);
 
 	    glUseProgram(shadersId[screenShader]);
@@ -2069,11 +2160,18 @@ int main(int argc, char* argv[]) {
 	    glBindVertexArray(quad.VAO);
 	    glBindTexture(GL_TEXTURE_2D, screenTexture);
 	    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	    glBindTexture(GL_TEXTURE_2D, 0);
+	    glBindFramebuffer(GL_FRAMEBUFFER, 0); 
+	    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); 
+
+	
+
+
 	}
 
-
-	// 2d ui drawing
-	glDisable(GL_DEPTH_TEST);
+	    // 2d ui drawing
+	    glDisable(GL_DEPTH_TEST);
 	glUseProgram(shadersId[hudShader]);   
 
 	instances[curInstance][render2DFunc]();

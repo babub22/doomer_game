@@ -1173,6 +1173,10 @@ void editorEvents(SDL_Event event){
 			model = (Model*)mouse.selectedThing; 
 			mat = &model->mat; 
 		    }
+		    else if (mouse.selectedType == mouseMirrorT) {
+			Mirror* mirror = (Mirror*)mouse.selectedThing;
+			mat = &mirror->mat;
+		    }
 		    else if (mouse.selectedType == mousePlaneT) {
 			Picture* plane = (Picture*)mouse.selectedThing;
 			mat = &plane->mat;
@@ -1594,25 +1598,59 @@ void editorEvents(SDL_Event event){
 		}
 				  
 		break;
-	    }      /*case(SDL_SCANCODE_M): {
-		     Light* light = NULL;
-	    
-		     if(mouse.focusedType == mouseLightT){
-		     light = (Light*) mouse.focusedThing;
-		     }else if(mouse.selectedType == mouseLightT){
-		     light = (Light*) mouse.selectedThing;
-		     }
+	    }      case(SDL_SCANCODE_M): {
+		       mirrorsStorageSize++;
+		
+		       if(mirrorsStorage){
+			   mirrorsStorage = realloc(mirrorsStorage, sizeof(Mirror) * mirrorsStorageSize);
+		       }else{
+			   mirrorsStorage = malloc(sizeof(Mirror));
+		       }
 
-		     if(light){
-		     light->r = rand() % 255;
-		     light->g = rand() % 255;
-		     light->b = rand() % 255;
+		       glGenFramebuffers(1, &mirrorsStorage[mirrorsStorageSize-1].writeFbo);
+		       glBindFramebuffer(GL_FRAMEBUFFER, mirrorsStorage[mirrorsStorageSize-1].writeFbo);
+/*
+		       glGenFramebuffers(1, &fbo);
+		       glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-		     uniformLights();
-		     }
+		       glGenTextures(1, &textureColorBufferMultiSampled);
+		       glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
+		       glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, windowW, windowH, GL_TRUE);
+		       glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+		       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);*/
+
+		       glGenTextures(1, &mirrorsStorage[mirrorsStorageSize-1].tx);
+		       glBindTexture(GL_TEXTURE_2D, mirrorsStorage[mirrorsStorageSize-1].tx);
+		       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windowW, windowH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+					      GL_TEXTURE_2D, mirrorsStorage[mirrorsStorageSize-1].tx, 0);
+		       
+		       if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			   printf("intermediateFBO creation failed! With %d \n", glCheckFramebufferStatus(GL_FRAMEBUFFER));
+			   exit(0);
+		       }
+
+		       glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		       
+		       geomentyByTxCounter[0] += 6 * 8 * sizeof(float);
+		
+		       mirrorsStorage[mirrorsStorageSize-1].id = mirrorsStorageSize-1;
+
+		       mirrorsStorage[mirrorsStorageSize-1].mat = IDENTITY_MATRIX;
+		       mirrorsStorage[mirrorsStorageSize-1].mat.m[12] = curCamera->pos.x;
+		       mirrorsStorage[mirrorsStorageSize-1].mat.m[13] = curCamera->pos.y;
+		       mirrorsStorage[mirrorsStorageSize-1].mat.m[14] = curCamera->pos.z;
+		       mirrorsStorage[mirrorsStorageSize - 1].dir = (vec3){ .0f,.0f,1.0f };
+
+
+		       calculateAABB(mirrorsStorage[mirrorsStorageSize-1].mat,
+				     planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize,
+				     &mirrorsStorage[mirrorsStorageSize-1].lb, &mirrorsStorage[mirrorsStorageSize-1].rt);
 				  
-		     break;
-		     }*/
+		       break;
+		   }
 	    case(SDL_SCANCODE_P): {
 		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
@@ -1629,10 +1667,7 @@ void editorEvents(SDL_Event event){
 		geomentyByTxCounter[0] += 6 * 8 * sizeof(float);
 		
 		picturesStorage[picturesStorageSize-1].id = picturesStorageSize-1;
-		
-		//		picturesStorage[picturesStorageSize-1].w = picturesStorageSize-1;
-		//		picturesStorage[picturesStorageSize-1].h = picturesStorageSize-1;
-		
+
 		picturesStorage[picturesStorageSize-1].mat = IDENTITY_MATRIX;
 		picturesStorage[picturesStorageSize-1].mat.m[12] = curCamera->pos.x;
 		picturesStorage[picturesStorageSize-1].mat.m[13] = curCamera->pos.y;
@@ -1642,13 +1677,8 @@ void editorEvents(SDL_Event event){
 			      planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize,
 			      &picturesStorage[picturesStorageSize-1].lb, &picturesStorage[picturesStorageSize-1].rt);
 
-		/*		printf("RT: %f %f %f LB: %f %f %f \n",
-				argVec3(picturesStorage[picturesStorageSize-1].rt),
-				argVec3(picturesStorage[picturesStorageSize-1].lb));*/
 		
 		batchAllGeometry();
-		
-		//}
 	     
 		break;
 	    }case(SDL_SCANCODE_T):{
@@ -1879,7 +1909,7 @@ void editorEvents(SDL_Event event){
 	// set focused to object under click
 	if (mouse.leftDown &&
 	    cursorMode &&
-	    (mouse.selectedType == mouseModelT || mouse.selectedType == mouseLightT || mouse.selectedType == mousePlaneT) && mouse.focusedThing != mouse.selectedThing) {
+	    (mouse.selectedType == mouseModelT || mouse.selectedType == mouseMirrorT || mouse.selectedType == mouseLightT || mouse.selectedType == mousePlaneT) && mouse.focusedThing != mouse.selectedThing) {
 
 	    initGizmosAABBFromSelected();
 	}
@@ -1907,6 +1937,10 @@ void editorEvents(SDL_Event event){
 	    if (mouse.focusedType == mouseModelT) {
 		Model* model = (Model*)mouse.focusedThing;
 		mat = &model->mat;
+	    }
+	    else if (mouse.focusedType == mouseMirrorT) {
+		Mirror* mirror = (Mirror*)mouse.focusedThing;
+		mat = &mirror->mat;
 	    }
 	    else if (mouse.focusedType == mousePlaneT) {
 		Picture* plane = (Picture*)mouse.focusedThing;
@@ -1944,6 +1978,10 @@ void editorEvents(SDL_Event event){
 	    if (mouse.selectedType == mouseModelT) {
 		model = (Model*)mouse.selectedThing;
 		mat = &model->mat;
+	    }
+	    else if (mouse.selectedType == mouseMirrorT) {
+		Mirror* mirror = (Mirror*)mouse.selectedThing;
+		mat = &mirror->mat;
 	    }
 	    else if (mouse.selectedType == mousePlaneT) {
 		Picture* plane = (Picture*)mouse.selectedThing;
@@ -2254,6 +2292,7 @@ void editorPreFrame(float deltaTime) {
 	Matrix* mat = NULL;
 	Light* light = NULL;
 	Picture* picture = NULL;
+	Mirror* mirror = NULL;
 
 	if (mouse.focusedType == mouseModelT) {
 	    model = (Model*)mouse.focusedThing;
@@ -2262,6 +2301,10 @@ void editorPreFrame(float deltaTime) {
 	else if (mouse.focusedType == mousePlaneT) {
 	    picture = (Picture*)mouse.focusedThing;
 	    mat = &picture->mat;
+	}
+	else if (mouse.focusedType == mouseMirrorT) {
+	    mirror = (Mirror*)mouse.focusedThing;
+	    mat = &mirror->mat;
 	}
 	else if (mouse.focusedType == mouseLightT) {
 	    light = (Light*)mouse.focusedThing;
@@ -2327,8 +2370,8 @@ void editorPreFrame(float deltaTime) {
 		    mat->m[13] = yTemp;
 		    mat->m[14] = zTemp;
 
-		    calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
-		    batchAllGeometry();
+		    // calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
+		    //batchAllGeometry();
 		}else{
 		    if (selectedGizmoAxis == XCircle) {
 			mat->m[12] += diffDrag.x;
@@ -2479,6 +2522,10 @@ void editorPreFrame(float deltaTime) {
 	if (picture) {
 	    calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
 	    batchAllGeometry();
+	}
+
+	if (mirror) {
+	    calculateAABB(mirror->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &mirror->lb, &mirror->rt);
 	}
 
 	if (model) {
@@ -2906,6 +2953,10 @@ void editor3dRender() {
 	if (mouse.focusedType == mouseModelT) {
 	    Model* model = (Model*)mouse.focusedThing;
 	    mat = &model->mat;
+	}
+	else if (mouse.focusedType == mouseMirrorT) {
+	    Mirror* mirror = (Mirror*)mouse.focusedThing;
+	    mat = &mirror->mat;
 	}
 	else if (mouse.focusedType == mousePlaneT) {
 	    Picture* plane = (Picture*)mouse.focusedThing;
@@ -3613,7 +3664,13 @@ void editor2dRender() {
 	      sprintf(buf, "Selected block: [%s]", tileBlocksStr[data->type]);
 
 	      break;
-	  }case(mousePlaneT): {
+	  }case(mouseMirrorT): {
+	       Mirror* data = (Mirror*)mouse.selectedThing;
+
+	       sprintf(buf, "Selected mirror: [ID: %d]", data->id);
+
+	       break;
+	   }case(mousePlaneT): {
 	       Picture* data = (Picture*)mouse.selectedThing;
 
 	       sprintf(buf, "Selected plane: [ID: %d] tx: [%s]", data->id, loadedTexturesNames[data->txIndex]);
@@ -4907,6 +4964,19 @@ void editorMouseVS(){
 	}
     }
 
+    // mirrors
+    for(int i=0;i<mirrorsStorageSize;i++){
+	float intersectionDistance;
+	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, mirrorsStorage[i].lb, mirrorsStorage[i].rt, NULL, &intersectionDistance);   
+
+	if (isIntersect && minDistToCamera > intersectionDistance) {
+	    mouse.selectedThing = &mirrorsStorage[i];
+	    mouse.selectedType = mouseMirrorT;
+
+	    mouse.interDist = intersectionDistance; 
+	    minDistToCamera = intersectionDistance; 
+	}
+    }
 
     // pictures
     for(int i=0;i<picturesStorageSize;i++){
@@ -5121,6 +5191,10 @@ void initGizmosAABBFromSelected(){
     else if (mouse.selectedType == mousePlaneT) {
 	Picture* plane = (Picture*)mouse.selectedThing;
 	mat = &plane->mat;
+    }
+    else if (mouse.selectedType == mouseMirrorT) {
+	Mirror* mirror = (Mirror*)mouse.selectedThing;
+	mat = &mirror->mat;
     }
     else if (mouse.selectedType == mouseLightT) {
 	Light* light = (Light*)mouse.selectedThing;
