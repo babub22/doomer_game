@@ -1622,6 +1622,7 @@ void editorEvents(SDL_Event event){
 		       glGenTextures(1, &mirrorsStorage[mirrorsStorageSize-1].tx);
 		       glBindTexture(GL_TEXTURE_2D, mirrorsStorage[mirrorsStorageSize-1].tx);
 		       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windowW, windowH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+//		       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 720, 720, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 		       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -2317,7 +2318,7 @@ void editorPreFrame(float deltaTime) {
 	    //   printf("diff %f %f %f\n", argVec3(diffDrag));
 
 	    if (cursorMode == moveMode) {
-		if(picture && currentKeyStates[SDL_SCANCODE_LSHIFT]){
+		if((picture || mirror) && currentKeyStates[SDL_SCANCODE_LSHIFT]){
 		    float xTemp = mat->m[12];
 		    float yTemp = mat->m[13];
 		    float zTemp = mat->m[14];
@@ -2370,8 +2371,12 @@ void editorPreFrame(float deltaTime) {
 		    mat->m[13] = yTemp;
 		    mat->m[14] = zTemp;
 
-		    // calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
-		    //batchAllGeometry();
+		    if(picture){
+			calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
+			batchAllGeometry();
+		    }else{
+			calculateAABB(mirror->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &mirror->lb, &mirror->rt);
+		    }
 		}else{
 		    if (selectedGizmoAxis == XCircle) {
 			mat->m[12] += diffDrag.x;
@@ -2459,16 +2464,34 @@ void editorPreFrame(float deltaTime) {
 			if (rotationGizmodegAcc >= rad(15.0f)) {
 			    rotate(mat, rad(15.0f), argVec3(axis[selectedGizmoAxis - 1]));
 			    rotationGizmodegAcc = 0.0f;
+
+			    if(mirror){
+				vec4 newDir = mulmatvec4(*mat,(vec4){ .0f, .0f, 1.0f, 1.0f });
+				mirror->dir = ((vec3){argVec3(newDir)});
+			    }
+
 			}
 			else if (rotationGizmodegAcc <= -rad(15.0f)) {
 			    rotate(mat, -rad(15.0f), argVec3(axis[selectedGizmoAxis - 1]));
 			    rotationGizmodegAcc = 0.0f;
+
+			    if(mirror){
+				vec4 newDir = mulmatvec4(*mat,(vec4){ .0f, .0f, 1.0f , 1.0f });
+				mirror->dir = ((vec3){argVec3(newDir)});
+			    }
+
 			}
 		    }
-		    else {
+		    else {			
 			rotate(mat, angle, argVec3(axis[selectedGizmoAxis - 1]));
+			if(mirror){
+			    vec4 newDir = mulmatvec4(*mat,(vec4){ .0f, .0f, 1.0f , 1.0f });
+			    mirror->dir = ((vec3){argVec3(newDir)});
+			}
+			
 		    }
 
+		    
 		    mat->m[12] = tempX;
 		    mat->m[13] = tempY;
 		    mat->m[14] = tempZ;

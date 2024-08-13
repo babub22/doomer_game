@@ -750,6 +750,12 @@ int main(int argc, char* argv[]) {
 	glBindVertexArray(0);
     }
 
+    // setup proj mat for mirrors
+    {
+	mirrorProj = perspective(rad(45.0f), 1.0f, 0.01f, 1000.0f);
+	//mirrorProj = orthogonal(-1.0f, 1.0f, -1.0f, 1.0f, 0.1f, 100.0f);
+    }
+
 
     // snowflakes
     {
@@ -1750,7 +1756,19 @@ int main(int argc, char* argv[]) {
 
 	    // test anim
 	    if(entityStorageSize[playerEntityT] != 0){
-		int stage = entityStorage[playerEntityT][0].model->curStage;
+		int stage = entityStorage[playerEntityT][0].model->curStage; // of cur anim
+		
+		if(entityStorage[playerEntityT][0].model->curAnim !=
+		   entityStorage[playerEntityT][0].model->prevAnim){
+
+		    if(entityStorage[playerEntityT][0].model->blendFactor == 10){
+			entityStorage[playerEntityT][0].model->blendFactor = 0;
+			entityStorage[playerEntityT][0].model->prevAnim = entityStorage[playerEntityT][0].model->curAnim;
+		    }else{
+			entityStorage[playerEntityT][0].model->blendFactor++;
+		    }
+		}
+		
 		int anim = entityStorage[playerEntityT][0].model->curAnim;
 
 		if(entityStorage[playerEntityT][0].frame== 3){
@@ -1904,14 +1922,47 @@ int main(int argc, char* argv[]) {
 		}
 	    }
 
-	    glUseProgram(shadersId[mainShader]);
 
 	    for(int i=0;i<mirrorsStorageSize;i++){		
+		glUseProgram(shadersId[mainShader]);
 		glBindVertexArray(planePairs.VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, planePairs.VBO);
 		glBindTexture(GL_TEXTURE_2D, mirrorsStorage[i].tx);
 		uniformMat4(mainShader, "model", mirrorsStorage[i].mat.m);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		// draw dir
+		{
+		    glUseProgram(shadersId[lightSourceShader]);
+	    
+		    glBindBuffer(GL_ARRAY_BUFFER, dirPointerLine.VBO);
+		    glBindVertexArray(dirPointerLine.VAO);
+
+		    vec3 centeroid = {
+			(mirrorsStorage[i].rt.x+mirrorsStorage[i].lb.x)/2.0f,
+			(mirrorsStorage[i].rt.y+mirrorsStorage[i].lb.y)/2.0f,
+			(mirrorsStorage[i].rt.z+mirrorsStorage[i].lb.z)/2.0f,
+		    };
+
+		    Matrix out = IDENTITY_MATRIX;
+		    uniformMat4(lightSourceShader, "model", out.m);
+		    uniformVec3(lightSourceShader, "color", (vec3) { redColor });
+		    		    
+		    float line[] = {			
+			centeroid.x, centeroid.y, centeroid.z,
+			
+		        centeroid.x + mirrorsStorage[i].dir.x,
+			centeroid.y + mirrorsStorage[i].dir.y,
+			centeroid.z + mirrorsStorage[i].dir.z
+		    };
+	
+		    glBufferData(GL_ARRAY_BUFFER, sizeof(line), line, GL_STATIC_DRAW);
+
+		    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+		    glEnableVertexAttribArray(0);
+		    
+		    glDrawArrays(GL_LINES, 0, 2);
+		}		
 	    }
 
 	    glUseProgram(shadersId[animShader]);
@@ -2080,12 +2131,20 @@ int main(int argc, char* argv[]) {
 			-mirrorsStorage[i].mat.m[13],
 			-mirrorsStorage[i].mat.m[14]
 		    };
+
+		    vec3 centeroid = {
+			(mirrorsStorage[i].rt.x+mirrorsStorage[i].lb.x)/2.0f,
+			(mirrorsStorage[i].rt.y+mirrorsStorage[i].lb.y)/2.0f,
+			(mirrorsStorage[i].rt.z+mirrorsStorage[i].lb.z)/2.0f,
+		    };
+
+		    centeroid.y *= -1.0f;
+		    centeroid.z *= -1.0f;
 		    
-		    
-		    Matrix view = lookAt(origin,
-					 (vec3){ origin.x+dir.x,
-						 origin.y+dir.y,
-						 origin.z+dir.z},
+		    Matrix view = lookAt(centeroid,
+					 (vec3){ centeroid.x+dir.x,
+						 centeroid.y+dir.y,
+						 centeroid.z+dir.z},
 					 (vec3){.0f,1.0f,.0f});
 		    
 		    glBindFramebuffer(GL_FRAMEBUFFER, mirrorsStorage[i].writeFbo);
@@ -2098,6 +2157,7 @@ int main(int argc, char* argv[]) {
 			// all 3d
 			glUseProgram(shadersId[mainShader]); 
 			uniformMat4(mainShader,"view", view.m);
+			uniformMat4(mainShader, "proj", mirrorProj.m);
 
 			((void (*)(void))instances[curInstance][render3DFunc])();
 
@@ -2109,6 +2169,7 @@ int main(int argc, char* argv[]) {
 			Matrix out = IDENTITY_MATRIX;
 			glUseProgram(shadersId[snowShader]);
 			uniformMat4(snowShader,"view", view.m);
+			uniformMat4(snowShader, "proj", mirrorProj.m);
 			uniformMat4(snowShader, "model", out.m);
 		    
 			glDrawArrays(GL_LINES, 0, snowMesh.VBOsize);
@@ -2122,12 +2183,12 @@ int main(int argc, char* argv[]) {
 		
 			    uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
 			    uniformMat4(animShader, "view", view.m);
+			    uniformMat4(animShader, "proj", mirrorProj.m);
 
 			    glBindBuffer(GL_ARRAY_BUFFER, entityStorage[i][0].model->data->mesh.VBO);
 			    glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
 
 			    glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
-
 			}
 			
 			glBindBuffer(GL_ARRAY_BUFFER, 0);

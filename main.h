@@ -1576,9 +1576,15 @@ typedef struct{
 
 typedef struct{
     ModelData* data;
-    GLTFNode* nodes;
 
+    GLTFNode* nodes;
     uint8_t curAnim;
+    
+    uint8_t blendFactor;
+    
+    GLTFNode* prevNodes;
+    int8_t prevAnim;
+    
     uint8_t curStage;
     bool mirrored;
     
@@ -1640,3 +1646,5 @@ typedef struct{
 
 Mirror* mirrorsStorage;
 uint8_t mirrorsStorageSize;
+
+Matrix mirrorProj;
