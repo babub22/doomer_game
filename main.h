@@ -1532,8 +1532,7 @@ typedef struct{
     uint8_t move;
 
     uint8_t boneInNodes; // in nodes array
-    uint8_t bone; // for invbind
-    
+
     float data[4];
 } AnimStep;
 
@@ -1574,18 +1573,23 @@ typedef struct{
     AnimStep*** anim; // [anim][keys][stage]
 } ModelData;
 
+typedef enum{
+    playAnimT, blendAnimsT
+} AnimAction;
+
 typedef struct{
     ModelData* data;
-
     GLTFNode* nodes;
+
+    uint8_t action; // AnimAction
+    
+    uint8_t nextAnim; // blend from cur to this anim
+    
     uint8_t curAnim;
+    uint8_t curStage;
     
     uint8_t blendFactor;
     
-    GLTFNode* prevNodes;
-    int8_t prevAnim;
-    
-    uint8_t curStage;
     bool mirrored;
     
     Matrix* jointsMats;

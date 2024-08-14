@@ -1755,34 +1755,80 @@ int main(int argc, char* argv[]) {
 	    };
 
 	    // test anim
+
 	    if(entityStorageSize[playerEntityT] != 0){
-		int stage = entityStorage[playerEntityT][0].model->curStage; // of cur anim
-		
-		if(entityStorage[playerEntityT][0].model->curAnim !=
-		   entityStorage[playerEntityT][0].model->prevAnim){
-
-		    if(entityStorage[playerEntityT][0].model->blendFactor == 10){
-			entityStorage[playerEntityT][0].model->blendFactor = 0;
-			entityStorage[playerEntityT][0].model->prevAnim = entityStorage[playerEntityT][0].model->curAnim;
-		    }else{
-			entityStorage[playerEntityT][0].model->blendFactor++;
-		    }
-		}
-		
-		int anim = entityStorage[playerEntityT][0].model->curAnim;
-
 		if(entityStorage[playerEntityT][0].frame== 3){
-		    if(entityStorage[playerEntityT][0].model->mirrored){
-			stage = entityStorage[playerEntityT]->model->data->stage[anim] - stage - 1;
-		    }
+		    bool changeStage = false;
+		
+		    int curAnim = entityStorage[playerEntityT][0].model->curAnim;
+		    int curStage = entityStorage[playerEntityT][0].model->curStage;
+
+		    if(entityStorage[playerEntityT][0].model->action == playAnimT){
+			if(entityStorage[playerEntityT][0].model->mirrored){
+			    curStage = entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
+			}
 		    
-		    for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize[anim][stage];i3++){
-			int index = entityStorage[playerEntityT]->model->data->anim[anim][stage][i3].boneInNodes;
-			int act =entityStorage[playerEntityT]->model->data->anim[anim][stage][i3].act;
+			for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize[curAnim][curStage];i3++){
+			    int index = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;
+			    int act =entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
 			   
-			memcpy(entityStorage[playerEntityT]->model->nodes[index].t+padTable[act], 
-			       entityStorage[playerEntityT]->model->data->anim[anim][stage][i3].data,
-			       sizeof(float)*sizeTable[act]);
+			    memcpy(entityStorage[playerEntityT]->model->nodes[index].t+padTable[act], 
+				   entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data,
+				   sizeof(float)*sizeTable[act]);
+			}
+
+			entityStorage[playerEntityT][0].model->curStage++;
+			curStage = entityStorage[playerEntityT][0].model->curStage;
+		    }else if(entityStorage[playerEntityT][0].model->action == blendAnimsT){
+			int nextAnim = entityStorage[playerEntityT][0].model->nextAnim;
+			float blendFactor = entityStorage[playerEntityT]->model->blendFactor/10.0f;
+		    
+			for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize
+				[curAnim][curStage];i3++){
+			    int boneIndex = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;			
+			    int fromAct = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
+
+			    int correspoingActionInNext = -1;
+
+			    // find coresponding
+			    for(int i4=0;i4<entityStorage[playerEntityT]->model->data->animKeysSize
+				    [nextAnim][0];i4++){
+				if(fromAct == entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i4].act
+				   && boneIndex == entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i4].boneInNodes){
+				    correspoingActionInNext = i4;
+				    break;
+				}
+			    }
+
+			    if(fromAct == cgltf_animation_path_type_rotation){
+				vec4 rotCur;
+				vec4 rotNext;
+				
+				memcpy(&rotNext, entityStorage[playerEntityT]->model->data->anim[nextAnim][0][correspoingActionInNext].data, sizeof(vec4));
+				memcpy(&rotCur, entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data, sizeof(vec4));
+
+				vec4 inter = slerp(rotCur, rotNext, blendFactor);
+
+				memcpy(entityStorage[playerEntityT]->model->nodes[boneIndex].t+padTable[fromAct],&inter, sizeof(vec4));
+			    }else{
+				for(int i4=0;i4<sizeTable[fromAct];i4++){
+				    float valCur = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data[i4];
+				    float valNext = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][correspoingActionInNext].data[i4];
+			    
+				    entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i4] =
+					(1.0f - blendFactor) * valCur + valNext * blendFactor;
+				}
+			    }
+			}
+
+			if(entityStorage[playerEntityT][0].model->blendFactor == 10){
+			    entityStorage[playerEntityT][0].model->blendFactor = 0;
+			    entityStorage[playerEntityT][0].model->action = playAnimT;
+			    entityStorage[playerEntityT][0].model->curAnim = entityStorage[playerEntityT][0].model->nextAnim;
+			    entityStorage[playerEntityT][0].model->curStage = 0;
+			}else{
+			    entityStorage[playerEntityT][0].model->blendFactor+=2;
+			}
 		    }
 
 		    updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
@@ -1795,7 +1841,7 @@ int main(int argc, char* argv[]) {
 		    for(int i=0;i< entityStorage[playerEntityT]->model->data->jointsIdxsSize;i++){
 			int index = entityStorage[playerEntityT]->model->data->jointsIdxs[i];
 
-			if(index == entityStorage[playerEntityT][0].model->data->neckNode){
+			if(false && index == entityStorage[playerEntityT][0].model->data->neckNode){
 			    vec3 dir2 = {entityStorage[playerEntityT][0].dir.x , 0.0f ,entityStorage[playerEntityT][0].dir.z};
 			    vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, dir2);
 
@@ -1821,34 +1867,27 @@ int main(int argc, char* argv[]) {
 			sprintf(buf, "finalBonesMatrices[%d]", i);
 			uniformMat4(animShader, buf, entityStorage[playerEntityT]->model->jointsMats[i].m);
 		    }
-		    
-		    entityStorage[playerEntityT][0].model->curStage++;
-			stage = entityStorage[playerEntityT][0].model->curStage;
 
-		    int finalStage;
+		    // chage stage to next
+		    if(entityStorage[playerEntityT][0].model->action != blendAnimsT){
+			int finalStage;
 
-		    if(entityStorage[playerEntityT][0].model->mirrored){
-			stage =entityStorage[playerEntityT]->model->data->stage[anim] -stage - 1;
-			finalStage = -1;
-		    }else{
-			stage = entityStorage[playerEntityT][0].model->curStage;
-			finalStage = entityStorage[playerEntityT]->model->data->stage[anim];
-		    }
+			if(entityStorage[playerEntityT][0].model->mirrored){
+			    curStage =entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
+			    finalStage = -1;
+			}else{
+			    curStage = entityStorage[playerEntityT][0].model->curStage;
+			    finalStage = entityStorage[playerEntityT]->model->data->stage[curAnim];
+			}
 
-		    if(stage == finalStage){
-			// set to base
-			//	memcpy(entityStorage[playerEntityT]->model->nodes,
-			//	       entityStorage[playerEntityT]->model->data->nodes,
-			//	       sizeof(GLTFNode)*entityStorage[playerEntityT]->model->data->nodesSize);
-
-			entityStorage[playerEntityT][0].model->curAnim = idleAnim;
-			entityStorage[playerEntityT][0].model->mirrored = false;
-			entityStorage[playerEntityT][0].model->curStage = 0;
+			if(curStage == finalStage){
+			    entityStorage[playerEntityT][0].model->curStage = 0;
+			}
 		    }
 
 		    entityStorage[playerEntityT][0].frame = 0;
 		}
-
+		    
 		entityStorage[playerEntityT][0].frame++;
 	    }
 

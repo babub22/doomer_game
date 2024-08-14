@@ -59,7 +59,7 @@ Matrix fpsView(vec3 eye, float pitch, float yaw);
 #define rad(deg) deg * 3.14159265358979323846/180.0
 
 #define dotf3(v1,v2) v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
-#define dotf4(v1,v2) v1.m[0] * v2.m[0] + v1.m[1] * v2.m[1] + v1.m[2] * v2.m[2] + v1.m[3] * v2.m[3]
+#define dotf4(v1,v2) v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w
 
 static const vec4 X_AXIS = {1, 0, 0, 0};
 static const vec4 Y_AXIS = {0, 1, 0, 0};
@@ -94,6 +94,11 @@ Matrix multiplymat4(Matrix m1, Matrix m2);
 vec4 mulmatvec4(Matrix m, vec4 v);
 vec4 cross4(vec4 v1, vec4 v2);
 vec3 normalize3(const vec3 vec);
+
+float magnitude4(vec4 v);
+vec4 addvec4(vec4 v1, vec4 v2);
+vec4 multvec4(vec4 v, float n);
+vec4 slerp(vec4 p0, vec4 p1, float t);
 
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
 void mat4transpose(float *M, const float *N);
@@ -133,3 +138,5 @@ Matrix lootAt2(vec3 eye, vec3 center, vec3 up);
 
 Matrix addMats(Matrix a, Matrix b);
 Matrix mulMatNum(Matrix a, float n);
+
+vec4 normalize4(vec4 v);

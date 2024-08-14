@@ -700,3 +700,86 @@ Matrix mulMatNum(Matrix a, float n){
 
     return out;
 }
+
+float magnitude4(vec4 v){
+    float dot = dotf4(v, v);
+    return sqrtf(dot);
+}
+
+vec4 addvec4(vec4 v1, vec4 v2){
+    return (vec4){v1.x+v2.x,v1.y+v2.y,v1.z+v2.z,v1.w+v2.w};
+}
+
+vec4 multvec4(vec4 v, float n){
+    return (vec4){v.x*n,v.y*n,v.z*n,v.w*n};
+}
+
+vec4 normalize4(vec4 v) {
+    float length = sqrtf(dotf4(v, v));
+    return multvec4(v, 1.0f / length);
+}
+
+/*vec4 slerp(vec4 p0, vec4 p1, float t) {
+    float norm_p0 = magnitude4(p0);
+    float norm_p1 = magnitude4(p1);
+    float dot_product = dotf4(p0, p1) / (norm_p0 * norm_p1);
+    
+    // Clamp the dot product to avoid numerical issues
+    if (dot_product > 1.0f) dot_product = 1.0f;
+    if (dot_product < -1.0f) dot_product = -1.0f;
+
+    float omega = acosf(dot_product);
+    float so = sinf(omega);
+    
+    if (so == 0.0f) {
+        // If sin(omega) is zero, return one of the endpoints
+        return p0;
+    }
+    
+    float factor_0 = sinf((1.0f - t) * omega) / so;
+    float factor_1 = sinf(t * omega) / so;
+    
+    vec4 term1 = multvec4(p0, factor_0);
+    vec4 term2 = multvec4(p1, factor_1);
+    
+    return addvec4(term1, term2);
+    }*/
+
+vec4 negate4(vec4 v) {
+    return (vec4) {-v.x,-v.y,-v.z,-v.w};
+}
+
+vec4 slerp(vec4 p0, vec4 p1, float t) {
+    // Normalize p0 and p1 to ensure they are unit quaternions
+    p0 = normalize4(p0);
+    p1 = normalize4(p1);
+
+    float dot_product = dotf4(p0, p1);
+
+    // Clamp the dot product to avoid numerical issues
+    if (dot_product > 1.0f) dot_product = 1.0f;
+    if (dot_product < -1.0f) dot_product = -1.0f;
+
+    // If the dot product is negative, SLERP won't take the shorter path
+    // so we invert one quaternion to ensure the shorter path is taken
+    if (dot_product < 0.0f) {
+        p1 = negate4(p1);
+        dot_product = -dot_product;
+    }
+
+    float omega = acosf(dot_product);
+    float so = sinf(omega);
+
+    // If omega is very small, fall back to linear interpolation to avoid division by a small number
+    if (so < 1e-6) {
+        return addvec4(multvec4(p0, 1.0f - t), multvec4(p1, t));
+    }
+
+    float factor_0 = sinf((1.0f - t) * omega) / so;
+    float factor_1 = sinf(t * omega) / so;
+
+    vec4 term1 = multvec4(p0, factor_0);
+    vec4 term2 = multvec4(p1, factor_1);
+
+    return addvec4(term1, term2);
+}

@@ -84,28 +84,41 @@ void gamePreFrame(float deltaTime){
     }
 
     if(move){
-	if(entityStorage[playerEntityT][0].model->curAnim != walkAnim
-	   && entityStorage[playerEntityT][0].model->curAnim != strafeAnim){
-	    entityStorage[playerEntityT][0].model->curStage = 0;
-	    entityStorage[playerEntityT][0].frame = 0;
+	bool nonMoveAnims = entityStorage[playerEntityT][0].model->curAnim != walkAnim
+	    && entityStorage[playerEntityT][0].model->curAnim != strafeAnim;
+
+	if(nonMoveAnims &&
+	    entityStorage[playerEntityT][0].model->action != blendAnimsT){
+	    entityStorage[playerEntityT][0].model->nextAnim = preferedAnim;
+	    entityStorage[playerEntityT][0].model->action = blendAnimsT;
+	    entityStorage[playerEntityT][0].model->blendFactor = 0;
+	}else{
+	    entityStorage[playerEntityT][0].mat.m[12] = nextPos.x;
+	    entityStorage[playerEntityT][0].mat.m[14] = nextPos.z;
 	}
 
-	entityStorage[playerEntityT][0].model->curAnim = preferedAnim;
-	  
-	//float div = 1.0f / 3.0f;
-//	int z = ceilf(nextPos.z / div);
-//	int x = ceilf(nextPos.x / div);
 
-//	if(!collisionGrid[0][z][x]){
-	entityStorage[playerEntityT][0].mat.m[12] = nextPos.x;
-	entityStorage[playerEntityT][0].mat.m[14] = nextPos.z;
+
+	
+	
+
+//	if (entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim) {
+//		entityStorage[playerEntityT][0].model->action = playAnimT;
+//	}
+//	else {
+//	}
+	
+
 	//};
-    }else{
+    }else if(entityStorage[playerEntityT][0].model->nextAnim != idleAnim){
 	if(entityStorage[playerEntityT][0].model->curAnim == walkAnim ||
-	    entityStorage[playerEntityT][0].model->curAnim == strafeAnim){
-	    entityStorage[playerEntityT][0].model->curStage = 0;
-	    entityStorage[playerEntityT][0].frame = 0;
-	    entityStorage[playerEntityT][0].model->curAnim = idleAnim;
+	   entityStorage[playerEntityT][0].model->curAnim == strafeAnim){
+	    entityStorage[playerEntityT][0].model->blendFactor = 0;
+	    // entityStorage[playerEntityT][0].frame = 0;
+	    
+	    entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
+	    entityStorage[playerEntityT][0].model->action = blendAnimsT;
+	    
 	    entityStorage[playerEntityT][0].model->mirrored = false;
 	}
     }

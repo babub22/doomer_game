@@ -5420,7 +5420,7 @@ void setPlayerEntityBrush(){
     entity->type = playerEntityT;
 
     // redo with specs
-    entity->model = malloc(sizeof(ModelData));
+    entity->model = calloc(1,sizeof(ModelData));
     entity->model->data = &modelsData[0];
 
     entity->model->nodes = malloc(sizeof(GLTFNode)* entity->model->data->nodesSize);
@@ -5429,10 +5429,12 @@ void setPlayerEntityBrush(){
 	   sizeof(GLTFNode)* entity->model->data->nodesSize);
 
     entity->model->jointsMats = malloc(sizeof(Matrix)*entity->model->data->jointsIdxsSize);
-    
-    entity->model->curAnim = idleAnim;
+
+    /*
+    entity->model->prevAnim = 0;
+    entity->model->curAnim = 0;
     entity->model->curStage = 0;
-    entity->model->mirrored = false;
+    entity->model->mirrored = false;*/
     
     entity->mat = IDENTITY_MATRIX;
     
