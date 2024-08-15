@@ -7,6 +7,8 @@ uniform sampler2DArray shadowMap;
 
 uniform float radius;
 
+uniform vec3 discardVert;	
+
 in vec2 TexCoord;
 in vec3 Normal;
 in vec3 FragPos;
@@ -161,10 +163,10 @@ diffuse *= attenuation;
 specular *= attenuation;
 
 return 	(ambient + (1.0f - 0.0f) * (diffuse + specular));
-} 
-
+}
 
 void main(void){
+
 vec4 tex = texture(colorMap, TexCoord);
 vec3 color = tex.rgb;	
 

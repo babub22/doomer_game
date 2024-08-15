@@ -844,7 +844,9 @@ int main(int argc, char* argv[]) {
     {
 	glEnable(GL_TEXTURE_2D);
 	glEnable(GL_DEPTH_TEST);
+
 	glDepthFunc(GL_LEQUAL);
+
 	glEnable(GL_MULTISAMPLE);
 
 	glEnable(GL_DEPTH_CLAMP);
@@ -1590,6 +1592,169 @@ int main(int argc, char* argv[]) {
 	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	    glEnable(GL_DEPTH_TEST);
+
+	    
+	    static uint8_t padTable[] = {
+		[cgltf_animation_path_type_rotation] = 6,
+		[cgltf_animation_path_type_translation]=0,
+		[cgltf_animation_path_type_scale]= 3
+	    };
+
+	    static uint8_t sizeTable[] = {
+		[cgltf_animation_path_type_rotation] = 4,
+		[cgltf_animation_path_type_translation]=3,
+		[cgltf_animation_path_type_scale]= 3
+	    };
+
+	    // test anim
+	    if(entityStorageSize[playerEntityT] != 0){
+//		if(entityStorage[playerEntityT][0].frame== 3){
+		    bool changeStage = false;
+		
+		    int curAnim = entityStorage[playerEntityT][0].model->curAnim;
+		    int curStage = entityStorage[playerEntityT][0].model->curStage;
+
+		    if(entityStorage[playerEntityT][0].model->mirrored){
+			curStage = entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
+		    }
+
+		    if(curAnim != entityStorage[playerEntityT][0].model->nextAnim){
+			// then blend it
+			int nextAnim = entityStorage[playerEntityT][0].model->nextAnim;
+			float blendFactor = entityStorage[playerEntityT]->model->blendFactor/10.0f;
+		    
+			for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize
+				[curAnim][curStage];i3++){
+			    int boneIndex = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;			
+			    int fromAct = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
+
+			    int correspoingActionInNext = -1;
+
+			    // find coresponding
+			    for(int i4=0;i4<entityStorage[playerEntityT]->model->data->animKeysSize
+				    [nextAnim][0];i4++){
+				if(fromAct == entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i4].act
+				   && boneIndex == entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i4].boneInNodes){
+				    correspoingActionInNext = i4;
+				    break;
+				}
+			    }
+
+			    if(fromAct == cgltf_animation_path_type_rotation){
+				vec4 rotCur;
+				vec4 rotNext;
+				
+				memcpy(&rotNext, entityStorage[playerEntityT]->model->data->anim[nextAnim][0][correspoingActionInNext].data, sizeof(vec4));
+				memcpy(&rotCur, entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data, sizeof(vec4));
+
+				vec4 inter = slerp(rotCur, rotNext, blendFactor);
+
+				memcpy(entityStorage[playerEntityT]->model->nodes[boneIndex].t+padTable[fromAct],&inter, sizeof(vec4));
+			    }else{
+				for(int i4=0;i4<sizeTable[fromAct];i4++){
+				    float valCur = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data[i4];
+				    float valNext = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][correspoingActionInNext].data[i4];
+			    
+				    entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i4] =
+					(1.0f - blendFactor) * valCur + valNext * blendFactor;
+				}
+			    }
+			}
+
+			if(blendFactor == 1.0f){
+			    entityStorage[playerEntityT][0].model->blendFactor = 0;
+			    entityStorage[playerEntityT][0].model->curAnim = entityStorage[playerEntityT][0].model->nextAnim;
+			    entityStorage[playerEntityT][0].model->curStage = 0;
+			}else{
+			    entityStorage[playerEntityT][0].model->blendFactor+=1;
+			}
+		    }else {
+			if(entityStorage[playerEntityT][0].model->action == playAnimOnceT ||
+			   entityStorage[playerEntityT][0].model->action == playAnimInLoopT ||
+			   entityStorage[playerEntityT][0].model->action == playAnimAndPauseT){		   
+			    for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize[curAnim][curStage];i3++){
+				int index = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;
+				int act =entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
+			   
+				memcpy(entityStorage[playerEntityT]->model->nodes[index].t+padTable[act], 
+				       entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data,
+				       sizeof(float)*sizeTable[act]);
+			    }
+
+			    entityStorage[playerEntityT][0].model->curStage++;
+			    curStage = entityStorage[playerEntityT][0].model->curStage;
+
+			    entityStorage[playerEntityT][0].frame = 0;
+			}
+		    }
+		    
+		    updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
+				&entityStorage[playerEntityT]->model->nodes);
+
+		    glUseProgram(shadersId[animShader]);
+		    
+		    char buf[64];
+		    
+		    for(int i=0;i< entityStorage[playerEntityT]->model->data->jointsIdxsSize;i++){
+			int index = entityStorage[playerEntityT]->model->data->jointsIdxs[i];
+
+			if(false && index == entityStorage[playerEntityT][0].model->data->neckNode){
+			    vec3 dir2 = {entityStorage[playerEntityT][0].dir.x , 0.0f ,entityStorage[playerEntityT][0].dir.z};
+			    vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, dir2);
+
+			    float tempX = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12];
+			    float tempY = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13];
+			    float tempZ = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14];
+
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = 0;
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = 0;
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = 0;
+			    
+			    rotate(&entityStorage[playerEntityT]->model->nodes[index].globalMat, rad(60.0f), argVec3(right));
+			    
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = tempX;
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = tempY;
+			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = tempZ;
+			}
+	    
+			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[index].globalMat, entityStorage[playerEntityT]->model->data->invBindMats[i]);
+			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[entityStorage[playerEntityT]->model->data->parentNode].invGlobalMat, entityStorage[playerEntityT]->model->jointsMats[i]);
+
+	    	    
+			sprintf(buf, "finalBonesMatrices[%d]", i);
+			uniformMat4(animShader, buf, entityStorage[playerEntityT]->model->jointsMats[i].m);
+		    }
+
+		    // chage stage to next
+		    if(entityStorage[playerEntityT][0].model->curAnim == entityStorage[playerEntityT][0].model->nextAnim){
+			int finalStage;
+
+			if(entityStorage[playerEntityT][0].model->mirrored){
+			    curStage =entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
+			    finalStage = -1;
+			}else{
+			    curStage = entityStorage[playerEntityT][0].model->curStage;
+			    finalStage = entityStorage[playerEntityT]->model->data->stage[curAnim];
+			}
+
+			if(curStage == finalStage){
+			    if(entityStorage[playerEntityT][0].model->action == playAnimAndPauseT){
+				entityStorage[playerEntityT][0].model->curStage--;
+			    }else if(entityStorage[playerEntityT][0].model->action == playAnimInLoopT){
+				entityStorage[playerEntityT][0].model->curStage = 0;
+			    }else if(entityStorage[playerEntityT][0].model->action == playAnimOnceT){
+				entityStorage[playerEntityT][0].model->curStage--;
+				entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
+				entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
+			    }
+			}
+		    }
+
+//		    entityStorage[playerEntityT][0].frame = 0;
+//		}
+		    
+		entityStorage[playerEntityT][0].frame++;
+	    }
 	
 	    ((void (*)(int))instances[curInstance][matsSetup])(mainShader);
 
@@ -1741,156 +1906,7 @@ int main(int argc, char* argv[]) {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 	    }
-
-	    static uint8_t padTable[] = {
-		[cgltf_animation_path_type_rotation] = 6,
-		[cgltf_animation_path_type_translation]=0,
-		[cgltf_animation_path_type_scale]= 3
-	    };
-
-	    static uint8_t sizeTable[] = {
-		[cgltf_animation_path_type_rotation] = 4,
-		[cgltf_animation_path_type_translation]=3,
-		[cgltf_animation_path_type_scale]= 3
-	    };
-
-	    // test anim
-
-	    if(entityStorageSize[playerEntityT] != 0){
-		if(entityStorage[playerEntityT][0].frame== 3){
-		    bool changeStage = false;
-		
-		    int curAnim = entityStorage[playerEntityT][0].model->curAnim;
-		    int curStage = entityStorage[playerEntityT][0].model->curStage;
-
-		    if(entityStorage[playerEntityT][0].model->action == playAnimT){
-			if(entityStorage[playerEntityT][0].model->mirrored){
-			    curStage = entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
-			}
-		    
-			for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize[curAnim][curStage];i3++){
-			    int index = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;
-			    int act =entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
-			   
-			    memcpy(entityStorage[playerEntityT]->model->nodes[index].t+padTable[act], 
-				   entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data,
-				   sizeof(float)*sizeTable[act]);
-			}
-
-			entityStorage[playerEntityT][0].model->curStage++;
-			curStage = entityStorage[playerEntityT][0].model->curStage;
-		    }else if(entityStorage[playerEntityT][0].model->action == blendAnimsT){
-			int nextAnim = entityStorage[playerEntityT][0].model->nextAnim;
-			float blendFactor = entityStorage[playerEntityT]->model->blendFactor/10.0f;
-		    
-			for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize
-				[curAnim][curStage];i3++){
-			    int boneIndex = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;			
-			    int fromAct = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
-
-			    int correspoingActionInNext = -1;
-
-			    // find coresponding
-			    for(int i4=0;i4<entityStorage[playerEntityT]->model->data->animKeysSize
-				    [nextAnim][0];i4++){
-				if(fromAct == entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i4].act
-				   && boneIndex == entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i4].boneInNodes){
-				    correspoingActionInNext = i4;
-				    break;
-				}
-			    }
-
-			    if(fromAct == cgltf_animation_path_type_rotation){
-				vec4 rotCur;
-				vec4 rotNext;
-				
-				memcpy(&rotNext, entityStorage[playerEntityT]->model->data->anim[nextAnim][0][correspoingActionInNext].data, sizeof(vec4));
-				memcpy(&rotCur, entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data, sizeof(vec4));
-
-				vec4 inter = slerp(rotCur, rotNext, blendFactor);
-
-				memcpy(entityStorage[playerEntityT]->model->nodes[boneIndex].t+padTable[fromAct],&inter, sizeof(vec4));
-			    }else{
-				for(int i4=0;i4<sizeTable[fromAct];i4++){
-				    float valCur = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data[i4];
-				    float valNext = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][correspoingActionInNext].data[i4];
-			    
-				    entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i4] =
-					(1.0f - blendFactor) * valCur + valNext * blendFactor;
-				}
-			    }
-			}
-
-			if(entityStorage[playerEntityT][0].model->blendFactor == 10){
-			    entityStorage[playerEntityT][0].model->blendFactor = 0;
-			    entityStorage[playerEntityT][0].model->action = playAnimT;
-			    entityStorage[playerEntityT][0].model->curAnim = entityStorage[playerEntityT][0].model->nextAnim;
-			    entityStorage[playerEntityT][0].model->curStage = 0;
-			}else{
-			    entityStorage[playerEntityT][0].model->blendFactor+=2;
-			}
-		    }
-
-		    updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
-				&entityStorage[playerEntityT]->model->nodes);
-
-		    glUseProgram(shadersId[animShader]);
-		    
-		    char buf[64];
-		    
-		    for(int i=0;i< entityStorage[playerEntityT]->model->data->jointsIdxsSize;i++){
-			int index = entityStorage[playerEntityT]->model->data->jointsIdxs[i];
-
-			if(false && index == entityStorage[playerEntityT][0].model->data->neckNode){
-			    vec3 dir2 = {entityStorage[playerEntityT][0].dir.x , 0.0f ,entityStorage[playerEntityT][0].dir.z};
-			    vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, dir2);
-
-			    float tempX = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12];
-			    float tempY = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13];
-			    float tempZ = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14];
-
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = 0;
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = 0;
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = 0;
-			    
-			    rotate(&entityStorage[playerEntityT]->model->nodes[index].globalMat, rad(60.0f), argVec3(right));
-			    
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = tempX;
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = tempY;
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = tempZ;
-			}
 	    
-			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[index].globalMat, entityStorage[playerEntityT]->model->data->invBindMats[i]);
-			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[entityStorage[playerEntityT]->model->data->parentNode].invGlobalMat, entityStorage[playerEntityT]->model->jointsMats[i]);
-
-	    	    
-			sprintf(buf, "finalBonesMatrices[%d]", i);
-			uniformMat4(animShader, buf, entityStorage[playerEntityT]->model->jointsMats[i].m);
-		    }
-
-		    // chage stage to next
-		    if(entityStorage[playerEntityT][0].model->action != blendAnimsT){
-			int finalStage;
-
-			if(entityStorage[playerEntityT][0].model->mirrored){
-			    curStage =entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
-			    finalStage = -1;
-			}else{
-			    curStage = entityStorage[playerEntityT][0].model->curStage;
-			    finalStage = entityStorage[playerEntityT]->model->data->stage[curAnim];
-			}
-
-			if(curStage == finalStage){
-			    entityStorage[playerEntityT][0].model->curStage = 0;
-			}
-		    }
-
-		    entityStorage[playerEntityT][0].frame = 0;
-		}
-		    
-		entityStorage[playerEntityT][0].frame++;
-	    }
-
 	    // nav meshes drawing
 	    glUseProgram(shadersId[lightSourceShader]);
 	    
@@ -2004,15 +2020,17 @@ int main(int argc, char* argv[]) {
 		}		
 	    }
 
-	    glUseProgram(shadersId[animShader]);
     
 	    for(int i=0;i<entityTypesCounter;i++){
 		if(entityStorageSize[i] == 0){
 		    continue;
 		}
 
+		glUseProgram(shadersId[animShader]);
 
-		//	glDisable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		
 		glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
 		
 		uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
@@ -2021,7 +2039,7 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
 
 		glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
-		//	glEnable(GL_DEPTH_TEST);
+		glDisable(GL_CULL_FACE);
 
 		// draw dir
 		{
@@ -2159,9 +2177,9 @@ int main(int argc, char* argv[]) {
 
 
 
-//	    glEnable(GL_DEPTH_TEST);
 	    // update mirrors tx's
 	    {
+		glEnable(GL_DEPTH_TEST);
 		for(int i=0;i<mirrorsStorageSize;i++){
 		    
 		    vec3 dir = mirrorsStorage[i].dir;
@@ -2190,7 +2208,7 @@ int main(int argc, char* argv[]) {
 		    
 		    vec3 fogColor = { 0.5f, 0.5f, 0.5f };
 		    glClearColor(argVec3(fogColor), 1.0f);
-		    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		   
+		    glClear(GL_COLOR_BUFFER_BIT);// | GL_DEPTH_BUFFER_BIT);		   
 		    
 		    {
 			// all 3d
@@ -2215,9 +2233,12 @@ int main(int argc, char* argv[]) {
 			glDisable(GL_BLEND);
 
 			// player
-			glUseProgram(shadersId[animShader]);
-
 			if(entityStorageSize[i] == 1){
+			    glUseProgram(shadersId[animShader]);
+			    
+			    glEnable(GL_CULL_FACE);
+			    glCullFace(GL_BACK);
+			    
 			    glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
 		
 			    uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
@@ -2228,7 +2249,9 @@ int main(int argc, char* argv[]) {
 			    glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
 
 			    glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
+			    glDisable(GL_CULL_FACE);
 			}
+			
 			
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			glBindVertexArray(0);
@@ -2238,8 +2261,8 @@ int main(int argc, char* argv[]) {
 
 		    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-		    glClearColor(argVec3(fogColor), 1.0f);
-		    glClear(GL_COLOR_BUFFER_BIT);		   
+		    //	    glClearColor(argVec3(fogColor), 1.0f);
+		    //	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		}
 //		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	    }
@@ -5988,10 +6011,10 @@ void loadGLTFModel(char* name){
 	    curY = mesh[index+1];
 	    maxZ = mesh[index+2];
 	    
-	    printf("Max Z:! %f - p:(%f %f %f) t:(%f %f) n:(%f %f %f) j:(%f %f %f %f) w:(%f %f %f %f)\n", maxZ,
-		   mesh[index], mesh[index+1],mesh[index+2],mesh[index+3], mesh[index+4], mesh[index+5]
-		   ,mesh[index+6], mesh[index+7], mesh[index+8], mesh[index+9], mesh[index+10],
-		   mesh[index+11], mesh[index+12], mesh[index+13], mesh[index+14], mesh[index+15]);
+//	    printf("Max Z:! %f - p:(%f %f %f) t:(%f %f) n:(%f %f %f) j:(%f %f %f %f) w:(%f %f %f %f)\n", maxZ,
+//		   mesh[index], mesh[index+1],mesh[index+2],mesh[index+3], mesh[index+4], mesh[index+5]
+//		   ,mesh[index+6], mesh[index+7], mesh[index+8], mesh[index+9], mesh[index+10],
+//		   mesh[index+11], mesh[index+12], mesh[index+13], mesh[index+14], mesh[index+15]);
 
 	    memcpy(maxZVertex, &mesh[index], sizeof(float)*16);
 	}
@@ -6004,7 +6027,7 @@ void loadGLTFModel(char* name){
     glBindVertexArray(modelsData[modelsDataSize].mesh.VAO);
     glBindBuffer(GL_ARRAY_BUFFER, modelsData[modelsDataSize].mesh.VBO);
     
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*data->meshes->primitives->indices->count*16, mesh, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*modelsData[modelsDataSize].mesh.VBOsize*16, mesh, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)0);
     glEnableVertexAttribArray(0);

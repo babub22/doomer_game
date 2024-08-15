@@ -10,6 +10,8 @@ uniform mat4 proj;
 uniform mat4 view;
 uniform mat4 model;
 
+uniform vec3 discardVert;
+
 const int MAX_BONES = 100;
 const int MAX_BONE_INFLUENCE = 4;
 uniform mat4 finalBonesMatrices[MAX_BONES];
@@ -23,13 +25,15 @@ out vec3 FragPos;
 out vec4 FragPosLightSpace[8];
 out vec3 vertexToPlayer;
 
+out vec4 modelPos;
+
 uniform vec3 cameraPos;
-uniform sampler2D colorMap; // This is not used in the vertex shader, it's typically used in the fragment shader
+uniform sampler2D colorMap; 
 uniform float radius; // This is also not used in the vertex shader
 
 void main()
 {
-    TexCoord = aTexCoord;
+	TexCoord = aTexCoord;
     Normal = aNormal;
 
     FragPos = vec3(model * vec4(aPos, 1.0));
@@ -49,6 +53,7 @@ void main()
     weights.z * finalBonesMatrices[ids.z] +
     weights.w * finalBonesMatrices[ids.w];
 
-    gl_Position = proj * view * model *
+    modelPos =  model *
     skinMat * vec4(aPos, 1.0f);
+    gl_Position = proj * view * modelPos;
 }

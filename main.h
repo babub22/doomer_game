@@ -1574,7 +1574,7 @@ typedef struct{
 } ModelData;
 
 typedef enum{
-    playAnimT, blendAnimsT
+    playAnimInLoopT, playAnimAndPauseT, playAnimOnceT//, blendAnimsT
 } AnimAction;
 
 typedef struct{

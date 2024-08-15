@@ -41,88 +41,67 @@ int frameCounter;
 vec3 targetPos;
 
 void gamePreFrame(float deltaTime){
-    float step = 0.05f;
+    float step = 0.02f;
     
     vec2 nextPos = {0};
     bool move = false;
-    int preferedAnim;
+    int preferedAnim = -1;
     
     currentKeyStates = SDL_GetKeyboardState(NULL);
 
+    vec3 forward = entityStorage[playerEntityT][0].dir;
+    forward.y = 0.0f;
+    forward = normalize3(forward);
+    
+    vec3 right = normalize3(cross3((vec3) { .0f, 1.0f, .0f }, forward));
+
     if(currentKeyStates[SDL_SCANCODE_W]){
-	nextPos.x += entityStorage[playerEntityT][0].mat.m[12] + entityStorage[playerEntityT][0].dir.x * step;
-	nextPos.z += entityStorage[playerEntityT][0].mat.m[14] + entityStorage[playerEntityT][0].dir.z * step;
+	nextPos.x += entityStorage[playerEntityT][0].mat.m[12] + forward.x * step;
+	nextPos.z += entityStorage[playerEntityT][0].mat.m[14] + forward.z * step;
+	
 	move = true;
 	entityStorage[playerEntityT][0].model->mirrored = false;
 	preferedAnim = walkAnim;
-//	entityStorage[playerEntityT][0].model->curStage = 0;
     }else if(currentKeyStates[SDL_SCANCODE_S]){
-	nextPos.x += entityStorage[playerEntityT][0].mat.m[12] - entityStorage[playerEntityT][0].dir.x * step;
-	nextPos.z += entityStorage[playerEntityT][0].mat.m[14] - entityStorage[playerEntityT][0].dir.z * step;
+	nextPos.x += entityStorage[playerEntityT][0].mat.m[12] - forward.x * step;
+	nextPos.z += entityStorage[playerEntityT][0].mat.m[14] - forward.z * step;
+	
 	move = true;
 	entityStorage[playerEntityT][0].model->mirrored = true;
 	preferedAnim = walkAnim;
-//	entityStorage[playerEntityT][0].model->curStage = 0;
     }else if(currentKeyStates[SDL_SCANCODE_A]){
-	vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, entityStorage[playerEntityT][0].dir);
 	nextPos.x += entityStorage[playerEntityT][0].mat.m[12] + right.x * step;
 	nextPos.z += entityStorage[playerEntityT][0].mat.m[14] + right.z * step;
-	move = true;
 
+	move = true;
 	entityStorage[playerEntityT][0].model->mirrored = false;
 	preferedAnim = strafeAnim;
-//	entityStorage[playerEntityT][0].model->curStage = 0;
     }else if(currentKeyStates[SDL_SCANCODE_D]){
-	vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, entityStorage[playerEntityT][0].dir);
-
 	nextPos.x += entityStorage[playerEntityT][0].mat.m[12] - right.x * step;
 	nextPos.z += entityStorage[playerEntityT][0].mat.m[14] - right.z * step;
+	
 	move = true;
 	entityStorage[playerEntityT][0].model->mirrored = true;
 	preferedAnim = strafeAnim;
-//	entityStorage[playerEntityT][0].model->curStage = 0;
     }
 
+    bool isMoveAnims = entityStorage[playerEntityT][0].model->curAnim == walkAnim
+	|| entityStorage[playerEntityT][0].model->curAnim == strafeAnim;
+    
     if(move){
-	bool nonMoveAnims = entityStorage[playerEntityT][0].model->curAnim != walkAnim
-	    && entityStorage[playerEntityT][0].model->curAnim != strafeAnim;
+	entityStorage[playerEntityT][0].mat.m[12] = nextPos.x;
+	entityStorage[playerEntityT][0].mat.m[14] = nextPos.z;
 
-	if(nonMoveAnims &&
-	    entityStorage[playerEntityT][0].model->action != blendAnimsT){
+	if((!isMoveAnims && entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim) || entityStorage[playerEntityT][0].model->curAnim != preferedAnim){
 	    entityStorage[playerEntityT][0].model->nextAnim = preferedAnim;
-	    entityStorage[playerEntityT][0].model->action = blendAnimsT;
-	    entityStorage[playerEntityT][0].model->blendFactor = 0;
-	}else{
-	    entityStorage[playerEntityT][0].mat.m[12] = nextPos.x;
-	    entityStorage[playerEntityT][0].mat.m[14] = nextPos.z;
+	    entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
 	}
-
-
-
-	
-	
-
-//	if (entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim) {
-//		entityStorage[playerEntityT][0].model->action = playAnimT;
-//	}
-//	else {
-//	}
-	
-
-	//};
-    }else if(entityStorage[playerEntityT][0].model->nextAnim != idleAnim){
-	if(entityStorage[playerEntityT][0].model->curAnim == walkAnim ||
-	   entityStorage[playerEntityT][0].model->curAnim == strafeAnim){
-	    entityStorage[playerEntityT][0].model->blendFactor = 0;
-	    // entityStorage[playerEntityT][0].frame = 0;
-	    
+    }else{
+	if(isMoveAnims && entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim){
 	    entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
-	    entityStorage[playerEntityT][0].model->action = blendAnimsT;
-	    
-	    entityStorage[playerEntityT][0].model->mirrored = false;
+	    entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
 	}
     }
-
 };
 
 void gameMatsSetup(int curShader){
@@ -133,28 +112,27 @@ void gameMatsSetup(int curShader){
     {
 	vec3 dir = entityStorage[playerEntityT][0].dir;
 
-        vec4 pos = { maxZVertex[0], maxZVertex[1], maxZVertex[2], 1.0f };
+	float dist = 0.015f;
+         
+        vec4 pos = { maxZVertex[0],
+		     maxZVertex[1],
+		     maxZVertex[2] + dist, 1.0f };
 
 	Matrix skinMat = {.m={0}};
 	for(int i=0;i<4;i++){
 	    if(maxZVertex[12+i]==0.0f) continue;
 
-	    int joint = maxZVertex[8+i];
+	    int joint = maxZVertex[8+i];	    
 	    skinMat = addMats(skinMat, mulMatNum(entityStorage[playerEntityT][0].model->jointsMats[joint], maxZVertex[12+i]));
 	}
-
+	
 	pos = mulmatvec4(skinMat, pos);
-
 	pos = mulmatvec4(entityStorage[playerEntityT][0].mat, pos);
-
-	float dist = 0.1f;
-	pos.x += (dist*dir.x);
-	pos.z += (dist*dir.z);
-		
+	
 	pos.y *= -1.0f;
 	pos.z *= -1.0f;
 	
-	vec3 target = { pos.x + dir.x,
+	vec3 target =  {pos.x + dir.x,
 			pos.y + dir.y,
 			pos.z + dir.z
 	};
@@ -174,6 +152,7 @@ void gameMatsSetup(int curShader){
       uniformMat4(i, "proj", proj.m);
       uniformMat4(i, "view", view.m);
     }
+
 
     glUseProgram(shadersId[curShader]);
 
@@ -373,20 +352,20 @@ void gameEvents(SDL_Event event){
 	  gameCameraFloor--;
 	  curCamera->pos.y = cameraFloor;
       }else if(event.key.keysym.scancode == SDL_SCANCODE_F){
-	  entityStorage[playerEntityT][0].model->curAnim = pickAnim;
-	  entityStorage[playerEntityT][0].model->curStage = 0;
-	  entityStorage[playerEntityT][0].frame = 0;
-	  entityStorage[playerEntityT][0].model->mirrored = false;
-      }else if(event.key.keysym.scancode == SDL_SCANCODE_C){
-	  if(entityStorage[playerEntityT][0].model->curAnim){
-	      entityStorage[playerEntityT][0].model->curAnim = idleAnim;
-	  }else{
-	      entityStorage[playerEntityT][0].model->curAnim = sitAnim;
+	  if(entityStorage[playerEntityT][0].model->curAnim != pickAnim){
+	      entityStorage[playerEntityT][0].model->nextAnim = pickAnim;
+	      entityStorage[playerEntityT][0].model->action = playAnimOnceT;
+	      entityStorage[playerEntityT][0].model->mirrored = false;
+	      entityStorage[playerEntityT][0].model->blendFactor = 0;
 	  }
-	  
-	  entityStorage[playerEntityT][0].model->curStage = 0;
-	  entityStorage[playerEntityT][0].frame = 0;
-	  entityStorage[playerEntityT][0].model->mirrored = false;
+      }else if(event.key.keysym.scancode == SDL_SCANCODE_C){
+	  if(entityStorage[playerEntityT][0].model->curAnim != sitAnim){
+	      entityStorage[playerEntityT][0].model->nextAnim = sitAnim;
+	      entityStorage[playerEntityT][0].model->action = playAnimAndPauseT;
+	      
+	      entityStorage[playerEntityT][0].model->mirrored = false;
+	      entityStorage[playerEntityT][0].model->blendFactor = 0;
+	  }
       }
 
 
@@ -522,6 +501,7 @@ void gameMouseVS(){
 
   selectedCollisionTileIndex = -1;
   if(mouse.selectedType == mouseTileT){
+
       for(int i=0;i<collisionLayersSize[acceptedLayerT];i++){
 	//  printf("%f ", acceptedCollisionTilesAABB[i].lb.y - 0.1f);
 	  
@@ -530,6 +510,7 @@ void gameMouseVS(){
 		 intersTileData->intersection.x <= acceptedCollisionTilesAABB[i].rt.x &&
 		 intersTileData->intersection.z >= acceptedCollisionTilesAABB[i].lb.z &&
 		 intersTileData->intersection.z <= acceptedCollisionTilesAABB[i].rt.z){
+
 		  selectedCollisionTileIndex = i;
 		  break;
 	      }

@@ -1627,6 +1627,7 @@ void editorEvents(SDL_Event event){
 		       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
 					      GL_TEXTURE_2D, mirrorsStorage[mirrorsStorageSize-1].tx, 0);
+
 		       
 		       if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 			   printf("intermediateFBO creation failed! With %d \n", glCheckFramebufferStatus(GL_FRAMEBUFFER));
