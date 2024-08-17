@@ -39,6 +39,7 @@ uniform int dirLightsSize;
 uniform PointLight dirLights[MAX_LIGHTS];
 
 in vec3 vertexToPlayer;
+in float z;
 
 float ambientC = .25f;
 float specularC = .2f;
@@ -196,4 +197,5 @@ float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
 //gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
 gl_FragColor = vec4(res * color,1.0f);// * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
+//gl_FragDepth = clamp(z, 0.0, 1.0);
 }

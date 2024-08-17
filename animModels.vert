@@ -31,6 +31,8 @@ uniform vec3 cameraPos;
 uniform sampler2D colorMap; 
 uniform float radius; // This is also not used in the vertex shader
 
+out float z;
+
 void main()
 {
 	TexCoord = aTexCoord;
@@ -53,7 +55,13 @@ void main()
     weights.z * finalBonesMatrices[ids.z] +
     weights.w * finalBonesMatrices[ids.w];
 
+
     modelPos =  model *
     skinMat * vec4(aPos, 1.0f);
     gl_Position = proj * view * modelPos;
+
+    //gl_Position.z = 0.0;
+  //  z = gl_Position.z / gl_Position.w;
+//    z = (gl_DepthRange.diff * z + gl_DepthRange.near + gl_DepthRange.far) * 0.5;
+
 }

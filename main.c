@@ -848,8 +848,8 @@ int main(int argc, char* argv[]) {
 	glDepthFunc(GL_LEQUAL);
 
 	glEnable(GL_MULTISAMPLE);
-
 	glEnable(GL_DEPTH_CLAMP);
+	glDepthRange(0.0f, 1.0f);
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
@@ -1501,88 +1501,9 @@ int main(int argc, char* argv[]) {
 	}
 
 	mouse.tileSide = -1;
-	//    checkMouseVSEntities();
+
 	((void (*)(int))instances[curInstance][mouseVSFunc])(mainShader);    
 	((void (*)(float))instances[curInstance][preFrameFunc])(deltaTime);
-
-	// anim entities
-	for(int i=0;false && i<entityTypesCounter;i++){
-	    for(int i2=0;i2<entityStorageSize[i];i2++){
-		if(entityStorage[i][i2].path){
-
-		    /*
-		      float t = entityStorage[i][i2].frame / 20.0f;
-
-		      vec2 cur;
-
-		      if(entityStorage[i][i2].curPath+1 != entityStorage[i][i2].pathSize)
-		      {
-		      vec2 v1 = { entityStorage[playerEntityT][0].mat.m[12], entityStorage[playerEntityT][0].mat.m[14] };
-		      vec2 v2 = { entityStorage[i][i2].path[entityStorage[i][i2].curPath+1].x, entityStorage[i][i2].path[entityStorage[i][i2].curPath+1].z };
-		    
-		      cur.x = v1.x * (1 - t) + v2.x * t;
-		      cur.z = v1.z * (1 - t) + v2.z * t;
-		      }*/
-
-
-		    if(entityStorage[i][i2].frame == 20){
-			float tempY = entityStorage[playerEntityT][0].mat.m[13];
-		    
-			{
-			    vec3 v1 = entityStorage[playerEntityT][0].dir;
-			    vec3 v2 = normalize3((vec3){
-				    entityStorage[i][i2].path[entityStorage[i][i2].curPath].x - entityStorage[playerEntityT][0].mat.m[12],
-				    .0f,
-				    entityStorage[i][i2].path[entityStorage[i][i2].curPath].z - entityStorage[playerEntityT][0].mat.m[14]
-				});
-
-			    float angle = angle2Vec((vec2) { v1.x, v1.z }, (vec2) { v2.x, v2.z });
-				
-			    float cosTheta = cosf(angle);
-			    float sinTheta = sinf(angle);
-
-			    entityStorage[playerEntityT][0].dir.x = v1.x * cosTheta - v1.z * sinTheta;
-			    entityStorage[playerEntityT][0].dir.z = v1.x * sinTheta + v1.z * cosTheta;
-			
-			    entityStorage[playerEntityT][0].mat.m[12]=0;
-			    entityStorage[playerEntityT][0].mat.m[13]=0;
-			    entityStorage[playerEntityT][0].mat.m[14]=0;
-	    
-			    rotate(&entityStorage[playerEntityT][0].mat, angle, .0f, 1.0f, .0f);
-			}
-			
-			entityStorage[i][i2].mat.m[12] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].x;
-			entityStorage[i][i2].mat.m[13] = tempY;
-			entityStorage[i][i2].mat.m[14] = entityStorage[i][i2].path[entityStorage[i][i2].curPath].z;
-			
-			entityStorage[i][i2].curPath++;
-			entityStorage[i][i2].frame = 0;
-		    }
-		    
-
-
-		    if(entityStorage[i][i2].curPath == entityStorage[i][i2].pathSize){
-			free(entityStorage[i][i2].path);
-			entityStorage[i][i2].path = NULL;
-			entityStorage[i][i2].pathSize = 0;
-		    }
-			
-		    
-		    /*if(entityStorage[i][i2].frame == 20){		    
-		      entityStorage[i][i2].curPath++;
-		      entityStorage[i][i2].frame = 0;
-		      }*/
-
-		    entityStorage[i][i2].frame++;
-		    
-		    /*if(entityStorage[i][i2].curPath == entityStorage[i][i2].pathSize){
-		      free(entityStorage[i][i2].path);
-		      entityStorage[i][i2].path = NULL;
-		      entityStorage[i][i2].pathSize = 0;
-		      }*/
-		}
-	    }
-	}
     
 	//  if (lightStorage)
 	{
@@ -1623,39 +1544,29 @@ int main(int argc, char* argv[]) {
 			int nextAnim = entityStorage[playerEntityT][0].model->nextAnim;
 			float blendFactor = entityStorage[playerEntityT]->model->blendFactor/10.0f;
 		    
-			for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize
-				[curAnim][curStage];i3++){
-			    int boneIndex = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;			
-			    int fromAct = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
-
-			    int correspoingActionInNext = -1;
-
-			    // find coresponding
-			    for(int i4=0;i4<entityStorage[playerEntityT]->model->data->animKeysSize
-				    [nextAnim][0];i4++){
-				if(fromAct == entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i4].act
-				   && boneIndex == entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i4].boneInNodes){
-				    correspoingActionInNext = i4;
-				    break;
-				}
-			    }
+			for(int i=0;i<entityStorage[playerEntityT]->model->data->animKeysSize
+				[nextAnim][0];i++){
+			    int boneIndex = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].boneInNodes;			
+			    int fromAct = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].act;
+				
+			    entityStorage[playerEntityT]->model->nodes[i];
 
 			    if(fromAct == cgltf_animation_path_type_rotation){
 				vec4 rotCur;
 				vec4 rotNext;
 				
-				memcpy(&rotNext, entityStorage[playerEntityT]->model->data->anim[nextAnim][0][correspoingActionInNext].data, sizeof(vec4));
-				memcpy(&rotCur, entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data, sizeof(vec4));
+				memcpy(&rotNext, entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].data, sizeof(vec4));
+				memcpy(&rotCur, entityStorage[playerEntityT]->model->nodes[boneIndex].t + padTable[fromAct], sizeof(vec4));
 
 				vec4 inter = slerp(rotCur, rotNext, blendFactor);
 
 				memcpy(entityStorage[playerEntityT]->model->nodes[boneIndex].t+padTable[fromAct],&inter, sizeof(vec4));
 			    }else{
-				for(int i4=0;i4<sizeTable[fromAct];i4++){
-				    float valCur = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data[i4];
-				    float valNext = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][correspoingActionInNext].data[i4];
+				for(int i2=0;i2<sizeTable[fromAct];i2++){
+				    float valCur = entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i2];
+				    float valNext = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].data[i2];
 			    
-				    entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i4] =
+				    entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i2] =
 					(1.0f - blendFactor) * valCur + valNext * blendFactor;
 				}
 			    }
@@ -2027,9 +1938,6 @@ int main(int argc, char* argv[]) {
 		}
 
 		glUseProgram(shadersId[animShader]);
-
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
 		
 		glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
 		
@@ -2039,7 +1947,6 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
 
 		glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
-		glDisable(GL_CULL_FACE);
 
 		// draw dir
 		{
@@ -2118,54 +2025,6 @@ int main(int argc, char* argv[]) {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 	    }
-	    
-            // entity box
-	    /*
-	      glUseProgram(shadersId[lightSourceShader]);
-    
-	      for(int i=0;i<entityTypesCounter;i++){
-	      if(entityStorageSize[i] == 0){
-	      continue;
-	      }
-
-	      Matrix mat = IDENTITY_MATRIX;
-		    
-	      uniformMat4(lightSourceShader, "model", mat.m);
-	      uniformVec3(lightSourceShader, "color", (vec3) { cyan });
-
-	      glBindBuffer(GL_ARRAY_BUFFER, entitiesBatch[i].VBO);
-	      glBindVertexArray(entitiesBatch[i].VAO);
-
-	      glDrawArrays(GL_TRIANGLES, 0, entitiesBatch[i].VBOsize);
-
-	      glBindTexture(GL_TEXTURE_2D, 0);
-
-	      glBindBuffer(GL_ARRAY_BUFFER, 0);
-	      glBindVertexArray(0);
-	      }*/
-
-	    /*
-	      {
-	      glBindBuffer(GL_ARRAY_BUFFER, 0);
-	      glBindVertexArray(0);
-
-	      Matrix out = IDENTITY_MATRIX;
-	      uniformMat4(lightSourceShader, "model", out.m);
-	  
-	      glBindBuffer(GL_ARRAY_BUFFER, navPointsConnMesh.VBO);
-	      glBindVertexArray(navPointsConnMesh.VAO);
-
-	      glDrawArrays(GL_LINES, 0, navPointsConnMesh.vertexNum);
-	      }
-
-	      glBindBuffer(GL_ARRAY_BUFFER, 0);
-	      glBindVertexArray(0);
-
-	      glUseProgram(shadersId[mainShader]);
-	      }*/
-
-
-	    //      glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, 0);
 	 
 	    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);  
 	    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO); 
@@ -2174,12 +2033,9 @@ int main(int argc, char* argv[]) {
 	    // render to fbo 
 	    glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
 
-
-
-
 	    // update mirrors tx's
 	    {
-		glEnable(GL_DEPTH_TEST);
+		//	glEnable(GL_DEPTH_TEST);
 		for(int i=0;i<mirrorsStorageSize;i++){
 		    
 		    vec3 dir = mirrorsStorage[i].dir;
@@ -2207,17 +2063,9 @@ int main(int argc, char* argv[]) {
 		    glBindFramebuffer(GL_FRAMEBUFFER, mirrorsStorage[i].writeFbo);
 		    
 		    vec3 fogColor = { 0.5f, 0.5f, 0.5f };
-		    glClearColor(argVec3(fogColor), 1.0f);
-		    glClear(GL_COLOR_BUFFER_BIT);// | GL_DEPTH_BUFFER_BIT);		   
+		    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		    
 		    {
-			// all 3d
-			glUseProgram(shadersId[mainShader]); 
-			uniformMat4(mainShader,"view", view.m);
-			uniformMat4(mainShader, "proj", mirrorProj.m);
-
-			((void (*)(void))instances[curInstance][render3DFunc])();
-
 			// snow
 			glEnable(GL_BLEND);
 			glBindBuffer(GL_ARRAY_BUFFER, snowMesh.VBO);
@@ -2236,9 +2084,6 @@ int main(int argc, char* argv[]) {
 			if(entityStorageSize[i] == 1){
 			    glUseProgram(shadersId[animShader]);
 			    
-			    glEnable(GL_CULL_FACE);
-			    glCullFace(GL_BACK);
-			    
 			    glBindTexture(GL_TEXTURE_2D, entityStorage[i][0].model->data->tx);
 		
 			    uniformMat4(animShader, "model", entityStorage[i][0].mat.m);
@@ -2248,27 +2093,26 @@ int main(int argc, char* argv[]) {
 			    glBindBuffer(GL_ARRAY_BUFFER, entityStorage[i][0].model->data->mesh.VBO);
 			    glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
 
+			    glEnable(GL_CULL_FACE);
+			    glCullFace(GL_BACK);
 			    glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
 			    glDisable(GL_CULL_FACE);
 			}
 			
+			// all 3d
+			glUseProgram(shadersId[mainShader]); 
+			uniformMat4(mainShader,"view", view.m);
+			uniformMat4(mainShader, "proj", mirrorProj.m);
+
+			((void (*)(void))instances[curInstance][render3DFunc])();
 			
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			glBindVertexArray(0);
 		    }
 
-		    glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
 		    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		    //	    glClearColor(argVec3(fogColor), 1.0f);
-		    //	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		}
-//		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	    }
-
-
-
 
 	    glDisable(GL_DEPTH_TEST);
 

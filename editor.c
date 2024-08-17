@@ -1628,6 +1628,15 @@ void editorEvents(SDL_Event event){
 		       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
 					      GL_TEXTURE_2D, mirrorsStorage[mirrorsStorageSize-1].tx, 0);
 
+		       // attach depth buffer
+		       {
+			   unsigned int rbo;
+			   glGenRenderbuffers(1, &rbo);
+			   glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+			   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, windowW, windowH);
+			   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+		       }
+
 		       
 		       if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 			   printf("intermediateFBO creation failed! With %d \n", glCheckFramebufferStatus(GL_FRAMEBUFFER));
@@ -2928,26 +2937,6 @@ void editor3dRender() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
     }
-
-    // markers
-    for(int i=0;i<markersCounter;i++){
-	uniformVec3(lightSourceShader, "color", (vec3) { darkPurple });
-	
-	Matrix mat = IDENTITY_MATRIX;
-
-	uniformMat4(lightSourceShader, "model", mat.m);
-
-	glBindBuffer(GL_ARRAY_BUFFER, markersBufs[i].VBO);
-	glBindVertexArray(markersBufs[i].VAO);
-
-	glDrawArrays(GL_TRIANGLES, 0, markersBufs[i].vertexNum);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-    }
-
     
     glUseProgram(shadersId[lightSourceShader]);
 
