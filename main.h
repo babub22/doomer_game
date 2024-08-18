@@ -1538,7 +1538,7 @@ typedef struct{
 
 typedef enum{
     idleAnim, walkAnim, pickAnim,
-    strafeAnim, sitAnim, animCounter
+    strafeAnim, turnAnim, sitAnim, toSitAnim, animCounter
 }AnimIndex;
 
 typedef struct{
@@ -1587,6 +1587,8 @@ typedef struct{
     
     uint8_t curAnim;
     uint8_t curStage;
+
+    float time;
     
     uint8_t blendFactor;
     

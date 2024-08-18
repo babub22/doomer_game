@@ -95,11 +95,14 @@ void gamePreFrame(float deltaTime){
 	if((!isMoveAnims && entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim) || entityStorage[playerEntityT][0].model->curAnim != preferedAnim){
 	    entityStorage[playerEntityT][0].model->nextAnim = preferedAnim;
 	    entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
+	    entityStorage[playerEntityT][0].model->time = 0;
+//		printf("Hit\n");
 	}
     }else{
 	if(isMoveAnims && entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim){
 	    entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
 	    entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
+	    entityStorage[playerEntityT][0].model->time = 0;
 	}
     }
 };
@@ -221,6 +224,16 @@ void gameEvents(SDL_Event event){
 		(vec2){entityStorage[playerEntityT][0].dir.x,
 		       entityStorage[playerEntityT][0].dir.z},
 		(vec2){dir.x, dir.z});
+
+	    /*entityStorage[playerEntityT][0].model->nextAnim = turnAnim;
+	    entityStorage[playerEntityT][0].model->action = playAnimOnceT;
+	    entityStorage[playerEntityT][0].model->blendFactor = 0;
+	    
+	    if(angle>0){
+		entityStorage[playerEntityT][0].model->mirrored = false;
+	    }else{
+		entityStorage[playerEntityT][0].model->mirrored = true;
+	    }*/
 	    
 	    float tempX = entityStorage[playerEntityT][0].mat.m[12];
 	    float tempY = entityStorage[playerEntityT][0].mat.m[13];
@@ -236,7 +249,9 @@ void gameEvents(SDL_Event event){
 	    entityStorage[playerEntityT][0].mat.m[13] = tempY;
 	    entityStorage[playerEntityT][0].mat.m[14] = tempZ;
 	    
-	    entityStorage[playerEntityT][0].dir = dir;	    
+	    entityStorage[playerEntityT][0].dir = dir;
+
+	    
 	}
 	    
 	if(false && entityStorageSize[playerEntityT] && mouse.selectedType == mouseTileT){
@@ -357,6 +372,7 @@ void gameEvents(SDL_Event event){
 	      entityStorage[playerEntityT][0].model->action = playAnimOnceT;
 	      entityStorage[playerEntityT][0].model->mirrored = false;
 	      entityStorage[playerEntityT][0].model->blendFactor = 0;
+	      entityStorage[playerEntityT][0].model->time = 0;
 	  }
       }else if(event.key.keysym.scancode == SDL_SCANCODE_C){
 	  if(entityStorage[playerEntityT][0].model->curAnim != sitAnim){
@@ -365,6 +381,7 @@ void gameEvents(SDL_Event event){
 	      
 	      entityStorage[playerEntityT][0].model->mirrored = false;
 	      entityStorage[playerEntityT][0].model->blendFactor = 0;
+	      entityStorage[playerEntityT][0].model->time = 0;
 	  }
       }
 

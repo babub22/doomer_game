@@ -54,7 +54,7 @@ const void(*stancilHighlight[mouseSelectionTypesCounter])() = {
     [mousePlaneT] = noHighlighting,
     [mouseTileT] = noHighlighting,
     [mouseLightT] = noHighlighting,
-	[mouseMirrorT]= noHighlighting,
+    [mouseMirrorT]= noHighlighting,
 };
 
 const int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;  
@@ -1529,137 +1529,146 @@ int main(int argc, char* argv[]) {
 
 	    // test anim
 	    if(entityStorageSize[playerEntityT] != 0){
-//		if(entityStorage[playerEntityT][0].frame== 3){
-		    bool changeStage = false;
+		bool changeStage = false;
 		
-		    int curAnim = entityStorage[playerEntityT][0].model->curAnim;
-		    int curStage = entityStorage[playerEntityT][0].model->curStage;
+		int curAnim = entityStorage[playerEntityT][0].model->curAnim;
+		int curStage = entityStorage[playerEntityT][0].model->curStage;
+		float curTime = entityStorage[playerEntityT][0].model->time;
 
-		    if(entityStorage[playerEntityT][0].model->mirrored){
-			curStage = entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
-		    }
-
-		    if(curAnim != entityStorage[playerEntityT][0].model->nextAnim){
-			// then blend it
-			int nextAnim = entityStorage[playerEntityT][0].model->nextAnim;
-			float blendFactor = entityStorage[playerEntityT]->model->blendFactor/10.0f;
+		if(entityStorage[playerEntityT][0].model->mirrored){
+		    int lastStage = entityStorage[playerEntityT]->model->data->stage[curAnim] - 1;
 		    
-			for(int i=0;i<entityStorage[playerEntityT]->model->data->animKeysSize
-				[nextAnim][0];i++){
-			    int boneIndex = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].boneInNodes;			
-			    int fromAct = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].act;
+		    curStage = lastStage - curStage;
+		    curTime = entityStorage[playerEntityT]->model->data->stageTime[curAnim][lastStage] - curTime;
+		}
+
+		if(curAnim != entityStorage[playerEntityT][0].model->nextAnim){
+		    // then blend it
+		    int nextAnim = entityStorage[playerEntityT][0].model->nextAnim;
+		    float blendFactor = entityStorage[playerEntityT]->model->blendFactor/10.0f;
+		    
+		    for(int i=0;i<entityStorage[playerEntityT]->model->data->animKeysSize
+			    [nextAnim][0];i++){
+			int boneIndex = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].boneInNodes;			
+			int fromAct = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].act;
+
+			if(fromAct == cgltf_animation_path_type_rotation){
+			    vec4 rotCur;
+			    vec4 rotNext;
 				
-			    entityStorage[playerEntityT]->model->nodes[i];
+			    memcpy(&rotNext, entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].data, sizeof(vec4));
+			    memcpy(&rotCur, entityStorage[playerEntityT]->model->nodes[boneIndex].t + padTable[fromAct], sizeof(vec4));
 
-			    if(fromAct == cgltf_animation_path_type_rotation){
-				vec4 rotCur;
-				vec4 rotNext;
-				
-				memcpy(&rotNext, entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].data, sizeof(vec4));
-				memcpy(&rotCur, entityStorage[playerEntityT]->model->nodes[boneIndex].t + padTable[fromAct], sizeof(vec4));
+			    vec4 inter = slerp(rotCur, rotNext, blendFactor);
 
-				vec4 inter = slerp(rotCur, rotNext, blendFactor);
-
-				memcpy(entityStorage[playerEntityT]->model->nodes[boneIndex].t+padTable[fromAct],&inter, sizeof(vec4));
-			    }else{
-				for(int i2=0;i2<sizeTable[fromAct];i2++){
-				    float valCur = entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i2];
-				    float valNext = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].data[i2];
-			    
-				    entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i2] =
-					(1.0f - blendFactor) * valCur + valNext * blendFactor;
-				}
-			    }
-			}
-
-			if(blendFactor == 1.0f){
-			    entityStorage[playerEntityT][0].model->blendFactor = 0;
-			    entityStorage[playerEntityT][0].model->curAnim = entityStorage[playerEntityT][0].model->nextAnim;
-			    entityStorage[playerEntityT][0].model->curStage = 0;
+			    memcpy(entityStorage[playerEntityT]->model->nodes[boneIndex].t+padTable[fromAct],&inter, sizeof(vec4));
 			}else{
-			    entityStorage[playerEntityT][0].model->blendFactor+=1;
-			}
-		    }else {
-			if(entityStorage[playerEntityT][0].model->action == playAnimOnceT ||
-			   entityStorage[playerEntityT][0].model->action == playAnimInLoopT ||
-			   entityStorage[playerEntityT][0].model->action == playAnimAndPauseT){		   
-			    for(int i3=0;i3<entityStorage[playerEntityT]->model->data->animKeysSize[curAnim][curStage];i3++){
-				int index = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;
-				int act =entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
-			   
-				memcpy(entityStorage[playerEntityT]->model->nodes[index].t+padTable[act], 
-				       entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data,
-				       sizeof(float)*sizeTable[act]);
+			    for(int i2=0;i2<sizeTable[fromAct];i2++){
+				float valCur = entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i2];
+				float valNext = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].data[i2];
+			    
+				entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i2] =
+				    (1.0f - blendFactor) * valCur + valNext * blendFactor;
 			    }
-
-			    entityStorage[playerEntityT][0].model->curStage++;
-			    curStage = entityStorage[playerEntityT][0].model->curStage;
-
-			    entityStorage[playerEntityT][0].frame = 0;
 			}
 		    }
-		    
-		    updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
-				&entityStorage[playerEntityT]->model->nodes);
 
-		    glUseProgram(shadersId[animShader]);
-		    
-		    char buf[64];
-		    
-		    for(int i=0;i< entityStorage[playerEntityT]->model->data->jointsIdxsSize;i++){
-			int index = entityStorage[playerEntityT]->model->data->jointsIdxs[i];
+		    if(blendFactor == 1.0f){
+			entityStorage[playerEntityT][0].model->blendFactor = 0;
+			entityStorage[playerEntityT][0].model->curAnim = entityStorage[playerEntityT][0].model->nextAnim;
+			entityStorage[playerEntityT][0].model->curStage = 0;
+		    }else{
+			entityStorage[playerEntityT][0].model->blendFactor+=1;
+		    }
+		}else {
+			if (entityStorage[playerEntityT][0].model->action == playAnimOnceT ||
+				entityStorage[playerEntityT][0].model->action == playAnimInLoopT ||
+				entityStorage[playerEntityT][0].model->action == playAnimAndPauseT) {
+				if (curTime >= entityStorage[playerEntityT]->model->data->stageTime[curAnim][curStage]) {
+				    printf("Timer value: %f Limit: %f \n", entityStorage[playerEntityT][0].model->time, entityStorage[playerEntityT]->model->data->stageTime[curAnim][curStage]);
+					for (int i3 = 0; i3 < entityStorage[playerEntityT]->model->data->animKeysSize[curAnim][curStage]; i3++) {
+						int index = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;
+						int act = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
 
-			if(false && index == entityStorage[playerEntityT][0].model->data->neckNode){
-			    vec3 dir2 = {entityStorage[playerEntityT][0].dir.x , 0.0f ,entityStorage[playerEntityT][0].dir.z};
-			    vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, dir2);
+						memcpy(entityStorage[playerEntityT]->model->nodes[index].t + padTable[act],
+							entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data,
+							sizeof(float) * sizeTable[act]);
+					}
 
-			    float tempX = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12];
-			    float tempY = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13];
-			    float tempZ = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14];
+					entityStorage[playerEntityT][0].model->curStage++;
+					curStage = entityStorage[playerEntityT][0].model->curStage;
 
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = 0;
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = 0;
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = 0;
-			    
-			    rotate(&entityStorage[playerEntityT]->model->nodes[index].globalMat, rad(60.0f), argVec3(right));
-			    
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = tempX;
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = tempY;
-			    entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = tempZ;
+					entityStorage[playerEntityT][0].frame = 0;
+				}
 			}
+
+			
+			entityStorage[playerEntityT][0].model->time += deltaTime;
+		}
+		    
+		updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
+			    &entityStorage[playerEntityT]->model->nodes);
+
+		glUseProgram(shadersId[animShader]);
+		    
+		char buf[64];
+		    
+		for(int i=0;i< entityStorage[playerEntityT]->model->data->jointsIdxsSize;i++){
+		    int index = entityStorage[playerEntityT]->model->data->jointsIdxs[i];
+
+		    if(false && index == entityStorage[playerEntityT][0].model->data->neckNode){
+			vec3 dir2 = {entityStorage[playerEntityT][0].dir.x , 0.0f ,entityStorage[playerEntityT][0].dir.z};
+			vec3 right = cross3((vec3) { .0f, 1.0f, .0f }, dir2);
+
+			float tempX = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12];
+			float tempY = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13];
+			float tempZ = entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14];
+
+			entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = 0;
+			entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = 0;
+			entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = 0;
+			    
+			rotate(&entityStorage[playerEntityT]->model->nodes[index].globalMat, rad(60.0f), argVec3(right));
+			    
+			entityStorage[playerEntityT]->model->nodes[index].globalMat.m[12] = tempX;
+			entityStorage[playerEntityT]->model->nodes[index].globalMat.m[13] = tempY;
+			entityStorage[playerEntityT]->model->nodes[index].globalMat.m[14] = tempZ;
+		    }
 	    
-			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[index].globalMat, entityStorage[playerEntityT]->model->data->invBindMats[i]);
-			entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[entityStorage[playerEntityT]->model->data->parentNode].invGlobalMat, entityStorage[playerEntityT]->model->jointsMats[i]);
+		    entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[index].globalMat, entityStorage[playerEntityT]->model->data->invBindMats[i]);
+		    entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[entityStorage[playerEntityT]->model->data->parentNode].invGlobalMat, entityStorage[playerEntityT]->model->jointsMats[i]);
 
 	    	    
-			sprintf(buf, "finalBonesMatrices[%d]", i);
-			uniformMat4(animShader, buf, entityStorage[playerEntityT]->model->jointsMats[i].m);
+		    sprintf(buf, "finalBonesMatrices[%d]", i);
+		    uniformMat4(animShader, buf, entityStorage[playerEntityT]->model->jointsMats[i].m);
+		}
+
+		// chage stage to next
+		if(entityStorage[playerEntityT][0].model->curAnim == entityStorage[playerEntityT][0].model->nextAnim){
+		    int finalStage;
+
+		    if(entityStorage[playerEntityT][0].model->mirrored){
+			curStage =entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
+			finalStage = -1;
+		    }else{
+			curStage = entityStorage[playerEntityT][0].model->curStage;
+			finalStage = entityStorage[playerEntityT]->model->data->stage[curAnim];
 		    }
 
-		    // chage stage to next
-		    if(entityStorage[playerEntityT][0].model->curAnim == entityStorage[playerEntityT][0].model->nextAnim){
-			int finalStage;
-
-			if(entityStorage[playerEntityT][0].model->mirrored){
-			    curStage =entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
-			    finalStage = -1;
-			}else{
-			    curStage = entityStorage[playerEntityT][0].model->curStage;
-			    finalStage = entityStorage[playerEntityT]->model->data->stage[curAnim];
+		    if(curStage == finalStage){
+			if(entityStorage[playerEntityT][0].model->action == playAnimAndPauseT){
+			    entityStorage[playerEntityT][0].model->curStage--;
+			}else if(entityStorage[playerEntityT][0].model->action == playAnimInLoopT){
+			    entityStorage[playerEntityT][0].model->curStage = 0;
+			}else if(entityStorage[playerEntityT][0].model->action == playAnimOnceT){
+			    entityStorage[playerEntityT][0].model->curStage--;
+			    entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
+			    entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
 			}
 
-			if(curStage == finalStage){
-			    if(entityStorage[playerEntityT][0].model->action == playAnimAndPauseT){
-				entityStorage[playerEntityT][0].model->curStage--;
-			    }else if(entityStorage[playerEntityT][0].model->action == playAnimInLoopT){
-				entityStorage[playerEntityT][0].model->curStage = 0;
-			    }else if(entityStorage[playerEntityT][0].model->action == playAnimOnceT){
-				entityStorage[playerEntityT][0].model->curStage--;
-				entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
-				entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
-			    }
-			}
+			entityStorage[playerEntityT][0].model->time = 0;
 		    }
+		}
 
 //		    entityStorage[playerEntityT][0].frame = 0;
 //		}
@@ -1897,6 +1906,7 @@ int main(int argc, char* argv[]) {
 		uniformMat4(mainShader, "model", mirrorsStorage[i].mat.m);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
+		
 		// draw dir
 		{
 		    glUseProgram(shadersId[lightSourceShader]);
@@ -1928,7 +1938,7 @@ int main(int argc, char* argv[]) {
 		    glEnableVertexAttribArray(0);
 		    
 		    glDrawArrays(GL_LINES, 0, 2);
-		}		
+		    }		
 	    }
 
     
@@ -1949,6 +1959,7 @@ int main(int argc, char* argv[]) {
 		glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
 
 		// draw dir
+		/*
 		{
 		    glUseProgram(shadersId[lightSourceShader]);
 	    
@@ -2013,7 +2024,7 @@ int main(int argc, char* argv[]) {
 		    glEnableVertexAttribArray(0);
 		    
 		    glDrawArrays(GL_LINES, 0, 2);
-		}
+		    }*/
 		    
 
 			
@@ -2137,8 +2148,8 @@ int main(int argc, char* argv[]) {
 
 	}
 
-	    // 2d ui drawing
-	    glDisable(GL_DEPTH_TEST);
+	// 2d ui drawing
+	glDisable(GL_DEPTH_TEST);
 	glUseProgram(shadersId[hudShader]);   
 
 	instances[curInstance][render2DFunc]();
@@ -6007,7 +6018,7 @@ void loadGLTFModel(char* name){
 	for(int i=0;i<data->animations_count;i++){
 	    int curAnimKeysCounter = 0;
 
-	    int animIndex;
+	    int animIndex = -1;
 
 	    if(strcmp(data->animations[i].name,"Idle")==0){
 		animIndex= idleAnim;
@@ -6017,8 +6028,12 @@ void loadGLTFModel(char* name){
 		animIndex= walkAnim;
 	    }else if(strcmp(data->animations[i].name,"Strafe")==0){
 		animIndex= strafeAnim;
-	    }else if(strcmp(data->animations[i].name,"Sit")==0){
+	    }else if(strcmp(data->animations[i].name,"SitIdle")==0){
 		animIndex= sitAnim;
+	    }else if(strcmp(data->animations[i].name,"Turn")==0){
+		animIndex= turnAnim;
+	    }else if (strcmp(data->animations[i].name, "ToSit") == 0) {
+		animIndex = toSitAnim;
 	    }
 		
 	    modelsData[modelsDataSize].animNames[animIndex] = malloc(sizeof(char)*(strlen(data->animations[i].name)+1));
