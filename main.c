@@ -44,6 +44,8 @@ int blocksStorageSize;
 Tile* tilesStorage;
 int tilesStorageSize;
 
+float elapsedMs = 0;
+
 MeshBuffer doorDoorPlane;
 
 const void(*stancilHighlight[mouseSelectionTypesCounter])() = {
@@ -1384,15 +1386,6 @@ int main(int argc, char* argv[]) {
 
     while (!quit) {
 	glErrorCheck();
-      
-	uint32_t starttime = GetTickCount();
-
-	clock_t currentFrame = clock();
-	deltaTime = (double)(currentFrame - lastFrame) / CLOCKS_PER_SEC;
-	lastFrame = currentFrame;
-
-	// cameraSpeed = 10.0f * deltaTime;
-
 
 	currentKeyStates = SDL_GetKeyboardState(NULL);
 
@@ -2240,13 +2233,7 @@ int main(int argc, char* argv[]) {
 
 	instances[curInstance][renderCursorFunc]();
 
-	uint32_t endtime = GetTickCount();
-	uint32_t deltatime = endtime - starttime;
-
-	if (!(deltatime > (1000 / FPS))) {
-	    Sleep((1000 / FPS) - deltatime);
-	}
-
+	/*
 	char buf[32];
 	static int lastFrameFps;
 
@@ -2261,20 +2248,24 @@ int main(int argc, char* argv[]) {
 
 	sprintf(buf, "Dof: %d%%", (int)(dofPercent * 100.0f));
 	renderText(buf, 1.0f - ((strlen(buf)+1) * letterW), 1.0f - letterH, 1.0f);
-
+	*/
+	
 	mouse.clickL = false;
 	mouse.clickR = false;
-	//    mouse.mouseDown = false;
 
-	//	glFlush();
-  
 	SDL_GL_SwapWindow(window);
-
-
     
-	if (deltatime != 0) {
+	/*if (deltatime != 0) {
 	    sprintf(windowTitle, game" BazoMetr: %d%% Save: %s.doomer", 1000 / deltatime, curSaveName); 
 	    SDL_SetWindowTitle(window, windowTitle);
+	}*/
+
+	float delta = SDL_GetTicks()-start_time;
+        elapsedMs = delta / 1000.0f;
+	printf("Frame ms: %f \n", elapsedMs);
+	
+	if((1000/FPS)>delta){
+            SDL_Delay((1000/FPS)-delta);
 	}
     }
 
