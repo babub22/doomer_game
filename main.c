@@ -1385,7 +1385,18 @@ int main(int argc, char* argv[]) {
 
 
     while (!quit) {
+	Uint32 start_time = SDL_GetTicks();
+
 	glErrorCheck();
+      
+	uint32_t starttime = SDL_GetPerformanceCounter();//GetTickCount();
+
+	clock_t currentFrame = clock();
+	deltaTime = (double)(currentFrame - lastFrame) / CLOCKS_PER_SEC;
+	lastFrame = currentFrame;
+
+	// cameraSpeed = 10.0f * deltaTime;
+
 
 	currentKeyStates = SDL_GetKeyboardState(NULL);
 
@@ -1596,7 +1607,7 @@ int main(int argc, char* argv[]) {
 			}
 
 			
-			entityStorage[playerEntityT][0].model->time += deltaTime;
+			entityStorage[playerEntityT][0].model->time += elapsedMs;
 		}
 		    
 		updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
@@ -2265,7 +2276,7 @@ int main(int argc, char* argv[]) {
 	printf("Frame ms: %f \n", elapsedMs);
 	
 	if((1000/FPS)>delta){
-            SDL_Delay((1000/FPS)-delta);
+            SDL_Delay((1000/FPS)-(SDL_GetTicks()-start_time));
 	}
     }
 
