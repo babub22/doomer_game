@@ -429,8 +429,8 @@ typedef struct{
 #define spreadMat4(mat) "%f %f %f %f\n %f %f %f %f\n %f %f %f %f\n %f %f %f %f\n ", mat[0], mat[1], mat[2], mat[3], mat[4], mat[5], mat[6], mat[7], mat[8], mat[9], mat[10], mat[11], mat[12], mat[13], mat[14], mat[15]
 
 struct Tile{
-  TileBlock* block;
   Wall* wall[2];
+  TileBlock* block;
 
   // 1 byte - empty/net/textured
   // 2 byte - under texture id
@@ -1542,35 +1542,47 @@ typedef enum{
 }AnimIndex;
 
 typedef struct{
+    float data[4];
+    float time;
+} AnimSample;
+
+typedef struct{
+    AnimSample* samples;
+    int16_t samplesSize;    
+    
+    int16_t interpolation;
+    int16_t path;
+    int16_t nodeId;
+} AnimChannel;
+
+typedef struct{
+    MeshBuffer mesh;
+    float size[3];
+    float center[3];
+    
+    Matrix* invBindMats;
+    
+    uint8_t* jointsIdxs; // in nodes
+    
+    AnimChannel** channels;
+    int* channelsSize;
+    
+    char** animNames;
+    
     char* name;
     
     GLTFNode* nodes;
+    
     int nodesSize;
-    
-    uint8_t* jointsIdxs; // in nodes
-    uint8_t jointsIdxsSize;
-    
-    Matrix* invBindMats;
-
     uint8_t rootNode;
     uint8_t parentNode;
     uint8_t headNode;
     uint8_t neckNode;
-
-    GLuint tx;
-    MeshBuffer mesh;
-
-    char** animNames;
     
-    float size[3];
-    float center[3];
-
-    float** stageTime; // [anim][stage]
-    uint16_t** animKeysSize; //[anim][stage]
-    uint8_t* stage; // [anim]
+    uint32_t tx;
     
+    uint8_t jointsIdxsSize;
     uint8_t animSize;
-    AnimStep*** anim; // [anim][keys][stage]
 } ModelData;
 
 typedef enum{
@@ -1580,21 +1592,20 @@ typedef enum{
 typedef struct{
     ModelData* data;
     GLTFNode* nodes;
+    GLTFNode* tempNodes;
 
     uint8_t action; // AnimAction
-    
     uint8_t nextAnim; // blend from cur to this anim
-    
     uint8_t curAnim;
-    uint8_t curStage;
-
+    bool mirrored;
     float time;
+    
+    Matrix* jointsMats;
+
     
     uint8_t blendFactor;
     
-    bool mirrored;
     
-    Matrix* jointsMats;
 } Model2;
 
 ModelData* modelsData;

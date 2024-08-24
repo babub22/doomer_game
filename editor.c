@@ -5414,6 +5414,8 @@ void setPlayerEntityBrush(){
     entity->model->data = &modelsData[0];
 
     entity->model->nodes = malloc(sizeof(GLTFNode)* entity->model->data->nodesSize);
+    entity->model->tempNodes = malloc(sizeof(GLTFNode)* entity->model->data->nodesSize);
+    
     memcpy(entity->model->nodes,
 	   entity->model->data->nodes,
 	   sizeof(GLTFNode)* entity->model->data->nodesSize);

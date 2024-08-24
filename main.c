@@ -1536,42 +1536,49 @@ int main(int argc, char* argv[]) {
 		bool changeStage = false;
 		
 		int curAnim = entityStorage[playerEntityT][0].model->curAnim;
-		int curStage = entityStorage[playerEntityT][0].model->curStage;
-		float curTime = entityStorage[playerEntityT][0].model->time;
+	//int curStage = entityStorage[playerEntityT][0].model->curStage;
 
+		/*
 		if(entityStorage[playerEntityT][0].model->mirrored){
 		    int lastStage = entityStorage[playerEntityT]->model->data->stage[curAnim] - 1;
 		    
 		    curStage = lastStage - curStage;
 		    curTime = entityStorage[playerEntityT]->model->data->stageTime[curAnim][lastStage] - curTime;
-		}
+		}*/
 
 		if(curAnim != entityStorage[playerEntityT][0].model->nextAnim){
+		    if(entityStorage[playerEntityT]->model->blendFactor == 0){
+			// or apply do data->nodes cur samplers and blend from them to safe memory
+			memcpy(entityStorage[playerEntityT][0].model->tempNodes,
+			       entityStorage[playerEntityT][0].model->nodes,
+			       sizeof(GLTFNode) * entityStorage[playerEntityT][0].model->data->nodesSize);
+		    }
+		    
 		    // then blend it
 		    int nextAnim = entityStorage[playerEntityT][0].model->nextAnim;
 		    float blendFactor = entityStorage[playerEntityT]->model->blendFactor/10.0f;
-		    
-		    for(int i=0;i<entityStorage[playerEntityT]->model->data->animKeysSize
-			    [nextAnim][0];i++){
-			int boneIndex = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].boneInNodes;			
-			int fromAct = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].act;
+		    int sampler = 0;
 
-			if(fromAct == cgltf_animation_path_type_rotation){
+		    for(int i=0;i<entityStorage[playerEntityT]->model->data->channelsSize[nextAnim];i++){
+			int16_t path = entityStorage[playerEntityT]->model->data->channels[nextAnim][i].path;
+			int16_t nodeId = entityStorage[playerEntityT]->model->data->channels[curAnim][i].nodeId;
+
+			if(path == cgltf_animation_path_type_rotation){
 			    vec4 rotCur;
 			    vec4 rotNext;
 				
-			    memcpy(&rotNext, entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].data, sizeof(vec4));
-			    memcpy(&rotCur, entityStorage[playerEntityT]->model->nodes[boneIndex].t + padTable[fromAct], sizeof(vec4));
+			    memcpy(&rotNext, entityStorage[playerEntityT]->model->data->channels[nextAnim][i].samples[sampler].data, sizeof(vec4));
+			    memcpy(&rotCur, entityStorage[playerEntityT]->model->tempNodes[nodeId].t + padTable[path], sizeof(vec4));
 
 			    vec4 inter = slerp(rotCur, rotNext, blendFactor);
 
-			    memcpy(entityStorage[playerEntityT]->model->nodes[boneIndex].t+padTable[fromAct],&inter, sizeof(vec4));
+			    memcpy(entityStorage[playerEntityT]->model->nodes[nodeId].t+padTable[path], &inter, sizeof(vec4));
 			}else{
-			    for(int i2=0;i2<sizeTable[fromAct];i2++){
-				float valCur = entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i2];
-				float valNext = entityStorage[playerEntityT]->model->data->anim[nextAnim][0][i].data[i2];
+			    for(int i2=0;i2<sizeTable[path];i2++){
+				float valCur = entityStorage[playerEntityT]->model->tempNodes[nodeId].t[padTable[path]+i2];
+				float valNext = entityStorage[playerEntityT]->model->data->channels[nextAnim][i].samples[sampler].data[i2];
 			    
-				entityStorage[playerEntityT]->model->nodes[boneIndex].t[padTable[fromAct]+i2] =
+				entityStorage[playerEntityT]->model->nodes[nodeId].t[padTable[path]+i2] =
 				    (1.0f - blendFactor) * valCur + valNext * blendFactor;
 			    }
 			}
@@ -1580,34 +1587,96 @@ int main(int argc, char* argv[]) {
 		    if(blendFactor == 1.0f){
 			entityStorage[playerEntityT][0].model->blendFactor = 0;
 			entityStorage[playerEntityT][0].model->curAnim = entityStorage[playerEntityT][0].model->nextAnim;
-			entityStorage[playerEntityT][0].model->curStage = 0;
+			//entityStorage[playerEntityT][0].model->curStage = 0;
 		    }else{
-			entityStorage[playerEntityT][0].model->blendFactor+=1;
+			entityStorage[playerEntityT][0].model->blendFactor++;
 		    }
+
+//		    entityStorage[playerEntityT][0].model->curAnim = entityStorage[playerEntityT][0].model->nextAnim;
 		}else {
-			if (entityStorage[playerEntityT][0].model->action == playAnimOnceT ||
-				entityStorage[playerEntityT][0].model->action == playAnimInLoopT ||
-				entityStorage[playerEntityT][0].model->action == playAnimAndPauseT) {
-				if (curTime >= entityStorage[playerEntityT]->model->data->stageTime[curAnim][curStage]) {
-				    printf("Timer value: %f Limit: %f \n", entityStorage[playerEntityT][0].model->time, entityStorage[playerEntityT]->model->data->stageTime[curAnim][curStage]);
-					for (int i3 = 0; i3 < entityStorage[playerEntityT]->model->data->animKeysSize[curAnim][curStage]; i3++) {
-						int index = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].boneInNodes;
-						int act = entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].act;
+		    float t = entityStorage[playerEntityT][0].model->time;
+		
+		    if(entityStorage[playerEntityT][0].model->mirrored){
+			float finalTime = entityStorage[playerEntityT]->model->data->channels[curAnim][0].samples
+			[entityStorage[playerEntityT]->model->data->channels[curAnim][0].samplesSize-1].time;
+			t = finalTime - t;
+		    }
+		    
+		    for(int i=0;i<entityStorage[playerEntityT]->model->data->channelsSize[curAnim];i++){
+			int sampler = -1;
+			float curT;
+			float nextT;
 
-						memcpy(entityStorage[playerEntityT]->model->nodes[index].t + padTable[act],
-							entityStorage[playerEntityT]->model->data->anim[curAnim][curStage][i3].data,
-							sizeof(float) * sizeTable[act]);
-					}
-
-					entityStorage[playerEntityT][0].model->curStage++;
-					curStage = entityStorage[playerEntityT][0].model->curStage;
-
-					entityStorage[playerEntityT][0].frame = 0;
+/*			if(entityStorage[playerEntityT][0].model->mirrored){
+			    for(int i2=1;i2<entityStorage[playerEntityT]->model->data->channels[curAnim][i].samplesSize; i2++) {
+				float sT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2].time;
+				float prevST = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2-1].time;
+			    
+				if(t >= prevST && t <= sT){
+				    sampler = i2;
+				    break;
 				}
-			}
-
+			    }2
+			    
+			    curT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler].time;
+			    nextT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler-1].time;
+			}else{*/
+			    for(int i2=0;i2<entityStorage[playerEntityT]->model->data->channels[curAnim][i].samplesSize - 1; i2++) {
+				float sT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2].time;
+				float nestST = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2+1].time;
+			    
+				if(t >= sT && t <= nestST){
+				    sampler = i2;
+				    break;
+				}
+			    }
+			    
+			    curT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler].time;
+			    nextT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler+1].time;
+//			}
 			
-			entityStorage[playerEntityT][0].model->time += elapsedMs;
+			int16_t interpolation = entityStorage[playerEntityT]->model->data->channels[curAnim][i].interpolation;
+			int16_t path = entityStorage[playerEntityT]->model->data->channels[curAnim][i].path;
+			int16_t nodeId = entityStorage[playerEntityT]->model->data->channels[curAnim][i].nodeId;
+				
+			float tFactor = (t-curT)/(nextT-curT);
+
+			if(interpolation == cgltf_interpolation_type_cubic_spline) {
+			    printf("Cubic usupported\n");
+			    exit(-1);
+			}
+			
+			if(interpolation == cgltf_interpolation_type_step){
+			    memcpy(entityStorage[playerEntityT]->model->nodes[nodeId].t + padTable[path],
+				   entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler].data,
+				   sizeof(float) * sizeTable[path]);
+			}else{
+			    if(path == cgltf_animation_path_type_rotation){
+				if(interpolation == cgltf_interpolation_type_linear){
+				    vec4 rotCur;
+				    vec4 rotNext;
+				
+				    memcpy(&rotNext, entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler+1].data, sizeof(vec4));
+				    memcpy(&rotCur, entityStorage[playerEntityT]->model->nodes[nodeId].t + padTable[path], sizeof(vec4));
+
+				    vec4 inter = slerp(rotCur, rotNext, tFactor);
+
+				    memcpy(entityStorage[playerEntityT]->model->nodes[nodeId].t+padTable[path],&inter, sizeof(vec4));
+				}
+			    }else if(interpolation == cgltf_interpolation_type_linear){
+				
+				    for(int i2=0;i2<sizeTable[path];i2++){
+					float valCur = entityStorage[playerEntityT]->model->nodes[nodeId].t[padTable[path]+i2];
+					float valNext = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler+1].data[i2];
+			    
+					entityStorage[playerEntityT]->model->nodes[nodeId].t[padTable[path]+i2] =
+					    (1.0f - tFactor) * valCur + valNext * tFactor;
+				    }
+			    }
+			}
+		    }
+
+		    entityStorage[playerEntityT][0].model->time += deltaTime;
 		}
 		    
 		updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
@@ -1641,38 +1710,58 @@ int main(int argc, char* argv[]) {
 	    
 		    entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[index].globalMat, entityStorage[playerEntityT]->model->data->invBindMats[i]);
 		    entityStorage[playerEntityT]->model->jointsMats[i] = multMat4(entityStorage[playerEntityT]->model->nodes[entityStorage[playerEntityT]->model->data->parentNode].invGlobalMat, entityStorage[playerEntityT]->model->jointsMats[i]);
-
 	    	    
 		    sprintf(buf, "finalBonesMatrices[%d]", i);
 		    uniformMat4(animShader, buf, entityStorage[playerEntityT]->model->jointsMats[i].m);
 		}
 
 		// chage stage to next
-		if(entityStorage[playerEntityT][0].model->curAnim == entityStorage[playerEntityT][0].model->nextAnim){
-		    int finalStage;
+//		if(entityStorage[playerEntityT][0].model->curAnim == entityStorage[playerEntityT][0].model->nextAnim){
+		/*int finalStage;
 
-		    if(entityStorage[playerEntityT][0].model->mirrored){
-			curStage =entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
-			finalStage = -1;
-		    }else{
-			curStage = entityStorage[playerEntityT][0].model->curStage;
-			finalStage = entityStorage[playerEntityT]->model->data->stage[curAnim];
-		    }
+		  if(entityStorage[playerEntityT][0].model->mirrored){
+		  curStage =entityStorage[playerEntityT]->model->data->stage[curAnim] - curStage - 1;
+		  finalStage = -1;
+		  }else{
+		  curStage = entityStorage[playerEntityT][0].model->curStage;
+		  finalStage = entityStorage[playerEntityT]->model->data->stage[curAnim];
+		  }*/
+		float t = entityStorage[playerEntityT][0].model->time;
+		float finalTime = entityStorage[playerEntityT]->model->data->channels[curAnim][0].samples
+		    [entityStorage[playerEntityT]->model->data->channels[curAnim][0].samplesSize-1].time;
 
-		    if(curStage == finalStage){
-			if(entityStorage[playerEntityT][0].model->action == playAnimAndPauseT){
-			    entityStorage[playerEntityT][0].model->curStage--;
-			}else if(entityStorage[playerEntityT][0].model->action == playAnimInLoopT){
-			    entityStorage[playerEntityT][0].model->curStage = 0;
-			}else if(entityStorage[playerEntityT][0].model->action == playAnimOnceT){
-			    entityStorage[playerEntityT][0].model->curStage--;
-			    entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
-			    entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
-			}
+		if(entityStorage[playerEntityT][0].model->mirrored){
+		    t = finalTime - t;
+		    finalTime = 0;
 
+		    if(t < finalTime){
 			entityStorage[playerEntityT][0].model->time = 0;
+			entityStorage[playerEntityT][0].model->mirrored = false;
+		    }
+		}else{
+		    if(t > finalTime){
+			entityStorage[playerEntityT][0].model->time = 0;
+			//	entityStorage[playerEntityT][0].model->mirrored = false;
 		    }
 		}
+
+		/*
+		if(t > finalTime){
+		    ///*if(entityStorage[playerEntityT][0].model->action == playAnimAndPauseT){
+		      entityStorage[playerEntityT][0].model->curStage--;
+		      }else if(entityStorage[playerEntityT][0].model->action == playAnimInLoopT){
+		      entityStorage[playerEntityT][0].model->curStage = 0;
+		      }else if(entityStorage[playerEntityT][0].model->action == playAnimOnceT){
+		      entityStorage[playerEntityT][0].model->curStage--;
+		      entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
+		      entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
+		      //}//*/
+
+		    //entityStorage[playerEntityT][0].model->time = 0;
+			//entityStorage[playerEntityT][0].model->mirrored = false;
+		//}
+		//*/
+//		}
 
 //		    entityStorage[playerEntityT][0].frame = 0;
 //		}
@@ -2273,7 +2362,7 @@ int main(int argc, char* argv[]) {
 
 	float delta = SDL_GetTicks()-start_time;
         elapsedMs = delta / 1000.0f;
-	printf("Frame ms: %f \n", elapsedMs);
+//	printf("Frame ms: %f \n", elapsedMs);
 	
 	if((1000/FPS)>delta){
             SDL_Delay((1000/FPS)-(SDL_GetTicks()-start_time));
@@ -5983,18 +6072,7 @@ void loadGLTFModel(char* name){
 		};
 	    }
 	}
-/*
-  for (int i = 0; i < data->skins->joints_count; i++) {
-  int index = modelsData[modelsDataSize].jointsIdxs[i];
-
-  Matrix jointMat;
-  jointMat = multMat4(modelsData[modelsDataSize].nodes[index].globalMat, modelsData[modelsDataSize].invBindMats[i]);
-  jointMat = multMat4(modelsData[modelsDataSize].nodes[modelsData[modelsDataSize].parentNode].invGlobalMat,
-  jointMat);
-
-//	    sprintf(buf, "finalBonesMatrices[%d]", i);
-//    uniformMat4(animShader, buf, jointMat.m);
-}*/
+	
     }
 
     // anims
@@ -6008,112 +6086,98 @@ void loadGLTFModel(char* name){
 					 [cgltf_animation_path_type_rotation] = "Rotation",
 					 [cgltf_animation_path_type_scale] = "Scale",
 					 [cgltf_animation_path_type_weights] = "Weithg",[cgltf_animation_path_type_weights+1] = "ERROR" };
+
+
+	{
+	    modelsData[modelsDataSize].animSize = data->animations_count;
+	    modelsData[modelsDataSize].channels = malloc(sizeof(AnimChannel*)
+							 *data->animations_count);
+	    modelsData[modelsDataSize].channelsSize = malloc(sizeof(int)
+							     *data->animations_count);
+		modelsData[modelsDataSize].animNames= malloc(sizeof(char*)
+			* data->animations_count);
+
 	
-	modelsData[modelsDataSize].animSize = data->animations_count;
-	modelsData[modelsDataSize].animKeysSize = malloc(sizeof(int*)*data->animations_count);
-	modelsData[modelsDataSize].animNames = malloc(sizeof(char*)*data->animations_count);
-	modelsData[modelsDataSize].stage = calloc(1,sizeof(int)*data->animations_count);
-	    
-	modelsData[modelsDataSize].stageTime = malloc(sizeof(float**)*data->animations_count);
-	modelsData[modelsDataSize].anim = malloc(sizeof(AnimStep**)*data->animations_count);
-	    
-	for(int i=0;i<data->animations_count;i++){
-	    int curAnimKeysCounter = 0;
+	    for(int i=0;i<data->animations_count;i++){
+		int animIndex = -1;
 
-	    int animIndex = -1;
-
-	    if(strcmp(data->animations[i].name,"Idle")==0){
-		animIndex= idleAnim;
-	    }else if(strcmp(data->animations[i].name,"Pick")==0){
-		animIndex= pickAnim;
-	    }else if(strcmp(data->animations[i].name,"Walk")==0){
-		animIndex= walkAnim;
-	    }else if(strcmp(data->animations[i].name,"Strafe")==0){
-		animIndex= strafeAnim;
-	    }else if(strcmp(data->animations[i].name,"SitIdle")==0){
-		animIndex= sitAnim;
-	    }else if(strcmp(data->animations[i].name,"Turn")==0){
-		animIndex= turnAnim;
-	    }else if (strcmp(data->animations[i].name, "ToSit") == 0) {
-		animIndex = toSitAnim;
-	    }
-		
-	    modelsData[modelsDataSize].animNames[animIndex] = malloc(sizeof(char)*(strlen(data->animations[i].name)+1));
-	    strcpy(modelsData[modelsDataSize].animNames[animIndex], data->animations[i].name);
-
-	    int elementSize = typeSize[data->animations[i].samplers->input->component_type];
-	    for(int i2=0;i2<data->animations[i].channels_count;i2++){
-		curAnimKeysCounter += data->animations[i].channels[i2].sampler->input->buffer_view->size / elementSize;
-	    }
-
-	    AnimStep* anim = malloc(sizeof(AnimStep)* curAnimKeysCounter);
-		
-	    int curIndex = 0;
-	    for(int i2=0;i2< data->animations[i].channels_count;i2++){
-		int index = -1;
-		for(int i3=0;i3<modelsData[modelsDataSize].jointsIdxsSize;i3++){
-		    index = modelsData[modelsDataSize].jointsIdxs[i3];
-			
-		    if(strcmp(modelsData[modelsDataSize].nodes[index].name,
-			      data->animations[i].channels[i2].target_node->name)==0){
-			break;
-		    };
+		if(strcmp(data->animations[i].name,"Idle")==0){
+		    animIndex= idleAnim;
+		}else if(strcmp(data->animations[i].name,"Pick")==0){
+		    animIndex= pickAnim;
+		}else if(strcmp(data->animations[i].name,"Walk")==0){
+		    animIndex= walkAnim;
+		}else if(strcmp(data->animations[i].name,"Strafe")==0){
+		    animIndex= strafeAnim;
+		}else if(strcmp(data->animations[i].name,"SitIdle")==0){
+		    animIndex= sitAnim;
+		}else if(strcmp(data->animations[i].name,"Turn")==0){
+		    animIndex= turnAnim;
+		}else if (strcmp(data->animations[i].name, "ToSit") == 0) {
+		    animIndex = toSitAnim;
 		}
-
-		int elementSize = typeSize[data->animations[i].samplers->input->component_type];
-		int curSamplers = data->animations[i].channels[i2].sampler->input->buffer_view->size / elementSize;
-		int vecLen = mapSize[data->animations[i].channels[i2].sampler->output->type];
-		    
-		for(int i3=0;i3<curSamplers;i3++){
-		    elementSize = typeSize[data->animations[i].channels[i2].sampler->output->component_type];
-			
-		    fseek(fo, data->animations[i].channels[i2].sampler->output->buffer_view->offset + i3 * (elementSize*vecLen), SEEK_SET);
-		    fread(anim[curIndex].data, (elementSize*vecLen), 1, fo);
-
-		    elementSize = typeSize[data->animations[i].channels[i2].sampler->input->component_type];
-		    fseek(fo, data->animations[i].channels[i2].sampler->input->buffer_view->offset + i3 * elementSize, SEEK_SET);
-		    fread(&anim[curIndex].time, elementSize, 1, fo);
-			
-		    anim[curIndex].act = data->animations[i].channels[i2].target_path;
-		    anim[curIndex].move = data->animations[i].channels[i2].sampler->interpolation;		
-//			anim[curIndex].bone = ;
-		    anim[curIndex].boneInNodes = index;			
-		    curIndex++;			
-		}
-	    }
 		
-	    qsort(anim, curAnimKeysCounter,
-		  sizeof(AnimStep), sortAnimStepsByTime);
+		modelsData[modelsDataSize].animNames[animIndex] = malloc(sizeof(char)*(strlen(data->animations[i].name)+1));
+		strcpy(modelsData[modelsDataSize].animNames[animIndex], data->animations[i].name);
+	    
+		modelsData[modelsDataSize].channelsSize[animIndex] = data->animations[i].channels_count;
+		modelsData[modelsDataSize].channels[animIndex] = malloc(sizeof(AnimChannel) * modelsData[modelsDataSize].channelsSize[animIndex]);
 
-	    float lastVal = anim[0].time;
-	    int prevIndex = 0;
-	    for(int i2=0;i2< curAnimKeysCounter;i2++){
-		if(anim[i2].time != lastVal){
-		    int curStage = modelsData[modelsDataSize].stage[animIndex];
+		AnimChannel* channels = modelsData[modelsDataSize].channels[animIndex];
+		
+		for(int i2=0;i2<modelsData[modelsDataSize].channelsSize[animIndex];i2++){
+		    int nodeId = -1;
+
+		    for(int i3=0;i3<modelsData[modelsDataSize].jointsIdxsSize;i3++){
+			nodeId = modelsData[modelsDataSize].jointsIdxs[i3];
 			
-		    if(curStage==0){
-			modelsData[modelsDataSize].anim[animIndex] = malloc(sizeof(AnimStep*)*(curStage+1));
-			modelsData[modelsDataSize].stageTime[animIndex] = malloc(sizeof(float)*(curStage+1));
-			modelsData[modelsDataSize].animKeysSize[animIndex] = malloc(sizeof(int)*(curStage+1));
-		    }else{
-			modelsData[modelsDataSize].anim[animIndex] = realloc(modelsData[modelsDataSize].anim[animIndex], sizeof(AnimStep*)*(curStage+1));
-			modelsData[modelsDataSize].stageTime[animIndex] = realloc(modelsData[modelsDataSize].stageTime[animIndex], sizeof(float)*(curStage+1));
-			modelsData[modelsDataSize].animKeysSize[animIndex] = realloc(modelsData[modelsDataSize].animKeysSize[animIndex], sizeof(int)*(curStage+1));
+			if(strcmp(modelsData[modelsDataSize].nodes[nodeId].name,
+				  data->animations[i].channels[i2].target_node->name)==0){
+			    break;
+			};
 		    }
-
-		    modelsData[modelsDataSize].animKeysSize[animIndex][curStage] = i2-prevIndex;
-		    modelsData[modelsDataSize].anim[animIndex][curStage] = malloc(sizeof(AnimStep)*(i2-prevIndex));
-		    memcpy(modelsData[modelsDataSize].anim[animIndex][curStage], &anim[prevIndex], sizeof(AnimStep)* (i2 - prevIndex));
-		    prevIndex = i2;
+		    
+		    channels[i2].interpolation = data->animations[i].channels[i2].sampler->interpolation;
+		    channels[i2].path = data->animations[i].channels[i2].target_path;
+		    channels[i2].nodeId = nodeId;
+		    
+		    channels[i2].samplesSize = data->animations[i].channels[i2].sampler->input->count;
+		    channels[i2].samples = malloc(sizeof(AnimSample) * (channels[i2].samplesSize));
+		    
+		    int vecLen = mapSize[data->animations[i].channels[i2].sampler->output->type];
+		    
+		    for (int i3 = 0; i3 < channels[i2].samplesSize; i3++) {
+			elementSize = typeSize[data->animations[i].channels[i2].sampler->output->component_type];
 			
-		    modelsData[modelsDataSize].stageTime[animIndex][curStage] = lastVal;
-		    modelsData[modelsDataSize].stage[animIndex]++;
-		    lastVal = anim[i2].time;
+			fseek(fo, data->animations[i].channels[i2].sampler->output->buffer_view->offset + i3 * (elementSize*vecLen), SEEK_SET);
+			fread(channels[i2].samples[i3].data, (elementSize*vecLen), 1, fo);
+
+			elementSize = typeSize[data->animations[i].channels[i2].sampler->input->component_type];
+			fseek(fo, data->animations[i].channels[i2].sampler->input->buffer_view->offset + i3 * elementSize, SEEK_SET);
+			fread(&channels[i2].samples[i3].time, elementSize, 1, fo);
+		    }
 		}
+
+		/*
+		for (int i2 = 0; i2<channelsSize; i2++) {
+		    printf("Node: %d Path: %s Inter: %s -> \n", channels[i2].nodeId,
+			   actionTypeStr[channels[i2].path], strType[channels[i2].interpolation]);
+
+		    for(int i3=0;i3<channels[i2].samplesSize;i3++){
+			printf("   Time: %f Data:", channels[i2].samples[i3].time);
+
+			for(int i4=0;i4<4;i4++){
+			    printf("%f ", channels[i2].samples[i3].data[i4]);
+			}
+
+			printf("\n");
+		    }
+		}
+		*/
+
+
 	    }
-		
-	    free(anim);
-	}	    
+	}
     }
 
     // texture
