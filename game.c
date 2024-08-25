@@ -108,7 +108,7 @@ void gamePreFrame(float deltaTime){
 };
 
 void gameMatsSetup(int curShader){
-    Matrix proj = perspective(rad(gameFov), (windowW) / (windowH), .1f, 1000.0f);
+    Matrix proj = perspective(rad(gameFov), (windowW) / (windowH), 1.0f, 1000.0f);
 
     Matrix view;// = IDENTITY_MATRIX;
 

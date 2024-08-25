@@ -1592,7 +1592,7 @@ typedef enum{
 typedef struct{
     ModelData* data;
     GLTFNode* nodes;
-    GLTFNode* tempNodes;
+    float* tempTransforms; // t[10] values of each node for blending
 
     uint8_t action; // AnimAction
     uint8_t nextAnim; // blend from cur to this anim

@@ -60,8 +60,9 @@ void main()
     skinMat * vec4(aPos, 1.0f);
     gl_Position = proj * view * modelPos;
 
-    //gl_Position.z = 0.0;
-  //  z = gl_Position.z / gl_Position.w;
-//    z = (gl_DepthRange.diff * z + gl_DepthRange.near + gl_DepthRange.far) * 0.5;
+float far = 1000.0f;
+float near = 0.01f;
 
+gl_Position.z = 2.0*log(gl_Position.w/near)/log(far/near) - 1; 
+gl_Position.z *= gl_Position.w;
 }

@@ -848,10 +848,13 @@ int main(int argc, char* argv[]) {
 	glEnable(GL_DEPTH_TEST);
 
 	glDepthFunc(GL_LEQUAL);
+//	glDepthFunc(GL_GREATER);
 
 	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_DEPTH_CLAMP);
-	glDepthRange(0.0f, 1.0f);
+//	glEnable(GL_CULL_FACE);
+//	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+//	glDepthRange(-1.0f, 1.0f);
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
@@ -1536,22 +1539,24 @@ int main(int argc, char* argv[]) {
 		bool changeStage = false;
 		
 		int curAnim = entityStorage[playerEntityT][0].model->curAnim;
-	//int curStage = entityStorage[playerEntityT][0].model->curStage;
+		//int curStage = entityStorage[playerEntityT][0].model->curStage;
 
 		/*
-		if(entityStorage[playerEntityT][0].model->mirrored){
-		    int lastStage = entityStorage[playerEntityT]->model->data->stage[curAnim] - 1;
+		  if(entityStorage[playerEntityT][0].model->mirrored){
+		  int lastStage = entityStorage[playerEntityT]->model->data->stage[curAnim] - 1;
 		    
-		    curStage = lastStage - curStage;
-		    curTime = entityStorage[playerEntityT]->model->data->stageTime[curAnim][lastStage] - curTime;
-		}*/
+		  curStage = lastStage - curStage;
+		  curTime = entityStorage[playerEntityT]->model->data->stageTime[curAnim][lastStage] - curTime;
+		  }*/
 
 		if(curAnim != entityStorage[playerEntityT][0].model->nextAnim){
 		    if(entityStorage[playerEntityT]->model->blendFactor == 0){
 			// or apply do data->nodes cur samplers and blend from them to safe memory
-			memcpy(entityStorage[playerEntityT][0].model->tempNodes,
-			       entityStorage[playerEntityT][0].model->nodes,
-			       sizeof(GLTFNode) * entityStorage[playerEntityT][0].model->data->nodesSize);
+			for(int i=0;i<entityStorage[playerEntityT][0].model->data->nodesSize;i++){
+			    memcpy(entityStorage[playerEntityT][0].model->tempTransforms + (i * 10),
+				   entityStorage[playerEntityT][0].model->nodes[i].t,
+				   sizeof(float) * 10);
+			}
 		    }
 		    
 		    // then blend it
@@ -1568,14 +1573,14 @@ int main(int argc, char* argv[]) {
 			    vec4 rotNext;
 				
 			    memcpy(&rotNext, entityStorage[playerEntityT]->model->data->channels[nextAnim][i].samples[sampler].data, sizeof(vec4));
-			    memcpy(&rotCur, entityStorage[playerEntityT]->model->tempNodes[nodeId].t + padTable[path], sizeof(vec4));
+			    memcpy(&rotCur, &entityStorage[playerEntityT]->model->tempTransforms[(nodeId * 10) + padTable[path]], sizeof(vec4));
 
 			    vec4 inter = slerp(rotCur, rotNext, blendFactor);
 
 			    memcpy(entityStorage[playerEntityT]->model->nodes[nodeId].t+padTable[path], &inter, sizeof(vec4));
 			}else{
 			    for(int i2=0;i2<sizeTable[path];i2++){
-				float valCur = entityStorage[playerEntityT]->model->tempNodes[nodeId].t[padTable[path]+i2];
+				float valCur = entityStorage[playerEntityT]->model->tempTransforms[(nodeId * 10) + padTable[path]+i2];
 				float valNext = entityStorage[playerEntityT]->model->data->channels[nextAnim][i].samples[sampler].data[i2];
 			    
 				entityStorage[playerEntityT]->model->nodes[nodeId].t[padTable[path]+i2] =
@@ -1598,7 +1603,7 @@ int main(int argc, char* argv[]) {
 		
 		    if(entityStorage[playerEntityT][0].model->mirrored){
 			float finalTime = entityStorage[playerEntityT]->model->data->channels[curAnim][0].samples
-			[entityStorage[playerEntityT]->model->data->channels[curAnim][0].samplesSize-1].time;
+			    [entityStorage[playerEntityT]->model->data->channels[curAnim][0].samplesSize-1].time;
 			t = finalTime - t;
 		    }
 		    
@@ -1608,31 +1613,31 @@ int main(int argc, char* argv[]) {
 			float nextT;
 
 /*			if(entityStorage[playerEntityT][0].model->mirrored){
-			    for(int i2=1;i2<entityStorage[playerEntityT]->model->data->channels[curAnim][i].samplesSize; i2++) {
-				float sT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2].time;
-				float prevST = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2-1].time;
+			for(int i2=1;i2<entityStorage[playerEntityT]->model->data->channels[curAnim][i].samplesSize; i2++) {
+			float sT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2].time;
+			float prevST = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2-1].time;
 			    
-				if(t >= prevST && t <= sT){
-				    sampler = i2;
-				    break;
-				}
-			    }2
+			if(t >= prevST && t <= sT){
+			sampler = i2;
+			break;
+			}
+			}2
 			    
-			    curT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler].time;
-			    nextT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler-1].time;
+			curT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler].time;
+			nextT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler-1].time;
 			}else{*/
-			    for(int i2=0;i2<entityStorage[playerEntityT]->model->data->channels[curAnim][i].samplesSize - 1; i2++) {
-				float sT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2].time;
-				float nestST = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2+1].time;
+			for(int i2=0;i2<entityStorage[playerEntityT]->model->data->channels[curAnim][i].samplesSize - 1; i2++) {
+			    float sT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2].time;
+			    float nestST = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[i2+1].time;
 			    
-				if(t >= sT && t <= nestST){
-				    sampler = i2;
-				    break;
-				}
+			    if(t >= sT && t <= nestST){
+				sampler = i2;
+				break;
 			    }
+			}
 			    
-			    curT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler].time;
-			    nextT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler+1].time;
+			curT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler].time;
+			nextT = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler+1].time;
 //			}
 			
 			int16_t interpolation = entityStorage[playerEntityT]->model->data->channels[curAnim][i].interpolation;
@@ -1665,13 +1670,13 @@ int main(int argc, char* argv[]) {
 				}
 			    }else if(interpolation == cgltf_interpolation_type_linear){
 				
-				    for(int i2=0;i2<sizeTable[path];i2++){
-					float valCur = entityStorage[playerEntityT]->model->nodes[nodeId].t[padTable[path]+i2];
-					float valNext = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler+1].data[i2];
+				for(int i2=0;i2<sizeTable[path];i2++){
+				    float valCur = entityStorage[playerEntityT]->model->nodes[nodeId].t[padTable[path]+i2];
+				    float valNext = entityStorage[playerEntityT]->model->data->channels[curAnim][i].samples[sampler+1].data[i2];
 			    
-					entityStorage[playerEntityT]->model->nodes[nodeId].t[padTable[path]+i2] =
-					    (1.0f - tFactor) * valCur + valNext * tFactor;
-				    }
+				    entityStorage[playerEntityT]->model->nodes[nodeId].t[padTable[path]+i2] =
+					(1.0f - tFactor) * valCur + valNext * tFactor;
+				}
 			    }
 			}
 		    }
@@ -1746,19 +1751,19 @@ int main(int argc, char* argv[]) {
 		}
 
 		/*
-		if(t > finalTime){
-		    ///*if(entityStorage[playerEntityT][0].model->action == playAnimAndPauseT){
-		      entityStorage[playerEntityT][0].model->curStage--;
-		      }else if(entityStorage[playerEntityT][0].model->action == playAnimInLoopT){
-		      entityStorage[playerEntityT][0].model->curStage = 0;
-		      }else if(entityStorage[playerEntityT][0].model->action == playAnimOnceT){
-		      entityStorage[playerEntityT][0].model->curStage--;
-		      entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
-		      entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
-		      //}//*/
+		  if(t > finalTime){
+		  ///*if(entityStorage[playerEntityT][0].model->action == playAnimAndPauseT){
+		  entityStorage[playerEntityT][0].model->curStage--;
+		  }else if(entityStorage[playerEntityT][0].model->action == playAnimInLoopT){
+		  entityStorage[playerEntityT][0].model->curStage = 0;
+		  }else if(entityStorage[playerEntityT][0].model->action == playAnimOnceT){
+		  entityStorage[playerEntityT][0].model->curStage--;
+		  entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
+		  entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
+		  //}//*/
 
-		    //entityStorage[playerEntityT][0].model->time = 0;
-			//entityStorage[playerEntityT][0].model->mirrored = false;
+		//entityStorage[playerEntityT][0].model->time = 0;
+		//entityStorage[playerEntityT][0].model->mirrored = false;
 		//}
 		//*/
 //		}
@@ -2031,7 +2036,7 @@ int main(int argc, char* argv[]) {
 		    glEnableVertexAttribArray(0);
 		    
 		    glDrawArrays(GL_LINES, 0, 2);
-		    }		
+		}		
 	    }
 
     
@@ -2053,71 +2058,71 @@ int main(int argc, char* argv[]) {
 
 		// draw dir
 		/*
-		{
-		    glUseProgram(shadersId[lightSourceShader]);
+		  {
+		  glUseProgram(shadersId[lightSourceShader]);
 	    
-		    glBindBuffer(GL_ARRAY_BUFFER, dirPointerLine.VBO);
-		    glBindVertexArray(dirPointerLine.VAO);
+		  glBindBuffer(GL_ARRAY_BUFFER, dirPointerLine.VBO);
+		  glBindVertexArray(dirPointerLine.VAO);
 
-		    Matrix out = IDENTITY_MATRIX;
-		    out.m[12] = entityStorage[i][0].mat.m[12];
-		    out.m[13] = entityStorage[i][0].mat.m[13];
-		    out.m[14] = entityStorage[i][0].mat.m[14];
+		  Matrix out = IDENTITY_MATRIX;
+		  out.m[12] = entityStorage[i][0].mat.m[12];
+		  out.m[13] = entityStorage[i][0].mat.m[13];
+		  out.m[14] = entityStorage[i][0].mat.m[14];
 		    
-		    uniformMat4(lightSourceShader, "model", out.m);
-		    uniformVec3(lightSourceShader, "color", (vec3) { redColor });
+		  uniformMat4(lightSourceShader, "model", out.m);
+		  uniformVec3(lightSourceShader, "color", (vec3) { redColor });
 		    
 		    
-		    float line[] = {			
-			.0f, 1.2f, .0f,
+		  float line[] = {			
+		  .0f, 1.2f, .0f,
 			
-		        entityStorage[i][0].dir.x,
-			entityStorage[i][0].dir.y + 1.2f,
-			entityStorage[i][0].dir.z
-		    };
+		  entityStorage[i][0].dir.x,
+		  entityStorage[i][0].dir.y + 1.2f,
+		  entityStorage[i][0].dir.z
+		  };
 	
-		    glBufferData(GL_ARRAY_BUFFER, sizeof(line), line, GL_STATIC_DRAW);
+		  glBufferData(GL_ARRAY_BUFFER, sizeof(line), line, GL_STATIC_DRAW);
 
-		    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-		    glEnableVertexAttribArray(0);
+		  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+		  glEnableVertexAttribArray(0);
 		    
-		    glDrawArrays(GL_LINES, 0, 2);
-		}
+		  glDrawArrays(GL_LINES, 0, 2);
+		  }
 
-		{
-		    glUseProgram(shadersId[lightSourceShader]);
+		  {
+		  glUseProgram(shadersId[lightSourceShader]);
 	    
-		    glBindBuffer(GL_ARRAY_BUFFER, dirPointerLine.VBO);
-		    glBindVertexArray(dirPointerLine.VAO);
+		  glBindBuffer(GL_ARRAY_BUFFER, dirPointerLine.VBO);
+		  glBindVertexArray(dirPointerLine.VAO);
 
-		    Matrix out = IDENTITY_MATRIX;
+		  Matrix out = IDENTITY_MATRIX;
 		    
-		    out.m[12] = entityStorage[i][0].mat.m[12];
-		    out.m[13] = entityStorage[i][0].mat.m[13];
-		    out.m[14] = entityStorage[i][0].mat.m[14];
+		  out.m[12] = entityStorage[i][0].mat.m[12];
+		  out.m[13] = entityStorage[i][0].mat.m[13];
+		  out.m[14] = entityStorage[i][0].mat.m[14];
 		    
-		    uniformMat4(lightSourceShader, "model", out.m);
-		    uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
+		  uniformMat4(lightSourceShader, "model", out.m);
+		  uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
 
-		    float dist = 0.1f;
+		  float dist = 0.1f;
 		    
-		    float line[] = {			
-			(dist)*entityStorage[i][0].dir.x,
-			entityStorage[playerEntityT][0].model->data->size[1]*0.95f,
-			(dist)*entityStorage[i][0].dir.z,
+		  float line[] = {			
+		  (dist)*entityStorage[i][0].dir.x,
+		  entityStorage[playerEntityT][0].model->data->size[1]*0.95f,
+		  (dist)*entityStorage[i][0].dir.z,
 			
-		        entityStorage[i][0].dir.x,
-		        entityStorage[playerEntityT][0].model->data->size[1]*0.95f,
-			entityStorage[i][0].dir.z
-		    };
+		  entityStorage[i][0].dir.x,
+		  entityStorage[playerEntityT][0].model->data->size[1]*0.95f,
+		  entityStorage[i][0].dir.z
+		  };
 	
-		    glBufferData(GL_ARRAY_BUFFER, sizeof(line), line, GL_STATIC_DRAW);
+		  glBufferData(GL_ARRAY_BUFFER, sizeof(line), line, GL_STATIC_DRAW);
 
-		    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-		    glEnableVertexAttribArray(0);
+		  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+		  glEnableVertexAttribArray(0);
 		    
-		    glDrawArrays(GL_LINES, 0, 2);
-		    }*/
+		  glDrawArrays(GL_LINES, 0, 2);
+		  }*/
 		    
 
 			
@@ -2197,10 +2202,10 @@ int main(int argc, char* argv[]) {
 			    glBindBuffer(GL_ARRAY_BUFFER, entityStorage[i][0].model->data->mesh.VBO);
 			    glBindVertexArray(entityStorage[i][0].model->data->mesh.VAO);
 
-			    glEnable(GL_CULL_FACE);
-			    glCullFace(GL_BACK);
+//			    glEnable(GL_CULL_FACE);
+//			    glCullFace(GL_BACK);
 			    glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
-			    glDisable(GL_CULL_FACE);
+//			    glDisable(GL_CULL_FACE);
 			}
 			
 			// all 3d
@@ -2334,20 +2339,20 @@ int main(int argc, char* argv[]) {
 	instances[curInstance][renderCursorFunc]();
 
 	/*
-	char buf[32];
-	static int lastFrameFps;
+	  char buf[32];
+	  static int lastFrameFps;
 
-	if(deltatime != 0){
-	    sprintf(buf, "Baza: %d%%", 1000 / deltatime);
-	    lastFrameFps = 1000 / deltatime;
-	}else{
-	    sprintf(buf, "Baza: %d%%", lastFrameFps);
-	}
+	  if(deltatime != 0){
+	  sprintf(buf, "Baza: %d%%", 1000 / deltatime);
+	  lastFrameFps = 1000 / deltatime;
+	  }else{
+	  sprintf(buf, "Baza: %d%%", lastFrameFps);
+	  }
 	  
-	renderText(buf, 1.0f - ((strlen(buf)+1) * letterW), 1.0f, 1.0f);
+	  renderText(buf, 1.0f - ((strlen(buf)+1) * letterW), 1.0f, 1.0f);
 
-	sprintf(buf, "Dof: %d%%", (int)(dofPercent * 100.0f));
-	renderText(buf, 1.0f - ((strlen(buf)+1) * letterW), 1.0f - letterH, 1.0f);
+	  sprintf(buf, "Dof: %d%%", (int)(dofPercent * 100.0f));
+	  renderText(buf, 1.0f - ((strlen(buf)+1) * letterW), 1.0f - letterH, 1.0f);
 	*/
 	
 	mouse.clickL = false;
@@ -2356,9 +2361,9 @@ int main(int argc, char* argv[]) {
 	SDL_GL_SwapWindow(window);
     
 	/*if (deltatime != 0) {
-	    sprintf(windowTitle, game" BazoMetr: %d%% Save: %s.doomer", 1000 / deltatime, curSaveName); 
-	    SDL_SetWindowTitle(window, windowTitle);
-	}*/
+	  sprintf(windowTitle, game" BazoMetr: %d%% Save: %s.doomer", 1000 / deltatime, curSaveName); 
+	  SDL_SetWindowTitle(window, windowTitle);
+	  }*/
 
 	float delta = SDL_GetTicks()-start_time;
         elapsedMs = delta / 1000.0f;
@@ -6094,8 +6099,8 @@ void loadGLTFModel(char* name){
 							 *data->animations_count);
 	    modelsData[modelsDataSize].channelsSize = malloc(sizeof(int)
 							     *data->animations_count);
-		modelsData[modelsDataSize].animNames= malloc(sizeof(char*)
-			* data->animations_count);
+	    modelsData[modelsDataSize].animNames= malloc(sizeof(char*)
+							 * data->animations_count);
 
 	
 	    for(int i=0;i<data->animations_count;i++){
@@ -6159,20 +6164,20 @@ void loadGLTFModel(char* name){
 		}
 
 		/*
-		for (int i2 = 0; i2<channelsSize; i2++) {
-		    printf("Node: %d Path: %s Inter: %s -> \n", channels[i2].nodeId,
-			   actionTypeStr[channels[i2].path], strType[channels[i2].interpolation]);
+		  for (int i2 = 0; i2<channelsSize; i2++) {
+		  printf("Node: %d Path: %s Inter: %s -> \n", channels[i2].nodeId,
+		  actionTypeStr[channels[i2].path], strType[channels[i2].interpolation]);
 
-		    for(int i3=0;i3<channels[i2].samplesSize;i3++){
-			printf("   Time: %f Data:", channels[i2].samples[i3].time);
+		  for(int i3=0;i3<channels[i2].samplesSize;i3++){
+		  printf("   Time: %f Data:", channels[i2].samples[i3].time);
 
-			for(int i4=0;i4<4;i4++){
-			    printf("%f ", channels[i2].samples[i3].data[i4]);
-			}
+		  for(int i4=0;i4<4;i4++){
+		  printf("%f ", channels[i2].samples[i3].data[i4]);
+		  }
 
-			printf("\n");
-		    }
-		}
+		  printf("\n");
+		  }
+		  }
 		*/
 
 

@@ -5414,7 +5414,11 @@ void setPlayerEntityBrush(){
     entity->model->data = &modelsData[0];
 
     entity->model->nodes = malloc(sizeof(GLTFNode)* entity->model->data->nodesSize);
-    entity->model->tempNodes = malloc(sizeof(GLTFNode)* entity->model->data->nodesSize);
+    entity->model->tempTransforms = malloc(sizeof(float)* 10 * entity->model->data->nodesSize);
+    
+    printf("transf: %d nodes: %d \n",
+	   sizeof(float)* 10 * entity->model->data->nodesSize ,
+	   sizeof(GLTFNode)* entity->model->data->nodesSize);
     
     memcpy(entity->model->nodes,
 	   entity->model->data->nodes,
