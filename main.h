@@ -384,19 +384,7 @@ typedef enum{
   dialogViewerButtonsCounter
 } DialogViewerButtons;
 
-typedef struct{
-  int id;
 
-  vec3 pos;
-  
-  ObjectType type;
-  void* objInfo;
-
-  vec3 min;
-  vec3 max;
-
-  AnimTimer anim;
-} Object;
 
 typedef struct Tile Tile;
 
@@ -721,13 +709,9 @@ void renderCube(vec3 pos, int lightId);
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist);
 
-void addObjToStore(Object* obj);
-
 bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSid);
 
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
-
-Object* doorConstructor(vec3 pos, bool opened);
 
 vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tileW);
 
@@ -1588,6 +1572,8 @@ typedef struct{
 typedef enum{
     playAnimInLoopT, playAnimAndPauseT, playAnimOnceT//, blendAnimsT
 } AnimAction;
+
+void loadGLTFScene(char* name);
 
 typedef struct{
     ModelData* data;
