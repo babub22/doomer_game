@@ -1797,6 +1797,30 @@ int main(int argc, char* argv[]) {
 	    glUniform3f(cameraPos, argVec3(curCamera->pos));
 
 	    ((void (*)(void))instances[curInstance][render3DFunc])();
+
+	    // blender scene
+	    {
+		glUseProgram(shadersId[mainShader]);
+		
+		for(int i=0;i<objectsSize;++i){
+		    uniformMat4(mainShader, "model", objects[i].mat.m);
+
+		    for(int i2=0;i2< objectsInfo[objects[i].infoId].meshesSize;++i2){
+			glBindTexture(GL_TEXTURE_2D, objectsInfo[objects[i].infoId].meshes[i2].tx);
+//			glBindTexture(GL_TEXTURE_2D, loadedTextures1D[0].tx);
+			
+			glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[objects[i].infoId].meshes[i2].VBO);
+			glBindVertexArray(objectsInfo[objects[i].infoId].meshes[i2].VAO);
+		    
+			glDrawArrays(GL_TRIANGLES, 0, objectsInfo[objects[i].infoId].meshes[i2].VBOSize);
+
+			glBindTexture(GL_TEXTURE_2D, 0);
+
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindVertexArray(0);
+		    }
+		}
+	    }
 	    
 	    // windows 
 	    if(windowWindowsMesh.VBOsize){
@@ -2051,8 +2075,7 @@ int main(int argc, char* argv[]) {
 		    
 		    glDrawArrays(GL_LINES, 0, 2);
 		}		
-	    }
-
+	    }	   
     
 	    for(int i=0;i<entityTypesCounter;i++){
 		if(entityStorageSize[i] == 0){
@@ -6206,26 +6229,6 @@ void loadGLTFModel(char* name){
     cgltf_free(data);
 }
 
-typedef struct{
-    uint32_t VBO;
-    uint32_t VAO;
-    
-    uint32_t tx;    
-    uint32_t VBOSize;
-} Mesh;
-
-typedef struct{
-    char* name;
-    Mesh* meshes;
-
-    int meshesSize;
-} ObjectInfo;
-
-typedef struct{
-    ObjectInfo* info;
-    Matrix mat;
-} Object;
-
 ObjectInfo* objectsInfo;
 int objectsInfoSize;
 
@@ -6242,10 +6245,10 @@ void loadGLTFScene(char* name){
     }
 
     FILE* fo = NULL;
+    char buf[128];    
 
     // get path of .bin file
     {
-	char buf[128];    
 	strcpy(buf, name);
 
 	for (int i = 1; i < strlen(buf); i++) {
@@ -6266,10 +6269,10 @@ void loadGLTFScene(char* name){
 	    size_t curPrimitiveSize = 0;
 	    
 	    for(int i3=0;i3<data->meshes[i].primitives[i2].attributes_count;++i3){
-		int compSize = GLTFtypeSize[data->meshes[i].primitives[i2].attributes[i3].data->component_type];
+//		int compSize = GLTFtypeSize[data->meshes[i].primitives[i2].attributes[i3].data->component_type];
 		int vecLen = GLTFmapSize[data->meshes[i].primitives[i2].attributes[i3].data->type];
 		
-		curPrimitiveSize += (vecLen*compSize);
+		curPrimitiveSize += (vecLen);
 	    }
 	    
 	    curPrimitiveSize *= data->meshes[i].primitives[i2].indices->count;
@@ -6304,27 +6307,62 @@ void loadGLTFScene(char* name){
 	    objectsInfo[objectsInfoSize].name = malloc(sizeof(char) * (strlen(token)+1));
 	    strcpy(objectsInfo[objectsInfoSize].name, token);
 
+	    if(true)
 	    {
 		objectsInfo[objectsInfoSize].meshesSize = data->nodes[i].mesh->primitives_count;
 		objectsInfo[objectsInfoSize].meshes = malloc(sizeof(Mesh) * objectsInfo[objectsInfoSize].meshesSize);
 
 		for(int i2=0;i2<objectsInfo[objectsInfoSize].meshesSize;++i2){
-		    //   float* mesh = malloc(sizeof(float)*data->nodes[i].mesh->primitives[i2].indices->count*16);
-		    size_t curPrimitiveSize = 0;
+		    size_t attrPad = 0;
+
+		    for(int i4=0;i4<data->nodes[i].mesh->primitives[i2].attributes_count;++i4){			   
+			int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes[i4].data->type];
+			attrPad += vecLen;
+		    }
+
+		    printf("Attr size: %d \n", attrPad);
+
+		    int maxUsedSize = 0;
+
+		    int indexSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].indices->component_type];
+		    for (int i3 = 0; i3 < data->nodes[i].mesh->primitives[i2].indices->count;++i3) {
+			uint16_t index;
+			fseek(fo, data->nodes[i].mesh->primitives[i2].indices->buffer_view->offset + i3 * indexSize, SEEK_SET);
+			fread(&index, indexSize, 1, fo);
 
 			for(int i4=0;i4<data->nodes[i].mesh->primitives[i2].attributes_count;++i4){
 			    int compSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].attributes[i4].data->component_type];
 			    int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes[i4].data->type];
-			    curPrimitiveSize += (vecLen*compSize);
+
+			    for(int i5=0;i5<vecLen;++i5){
+				fseek(fo, data->nodes[i].mesh->primitives[i2].attributes[i4].data->buffer_view->offset
+				      + compSize*(vecLen * index + i5), SEEK_SET);
+
+				int index = (i3*attrPad)+i5+GLTFattrPad[data->nodes[i].mesh->primitives[i2].attributes[i4].type];
+		
+				if(data->nodes[i].mesh->primitives[i2].attributes[i4].data->component_type
+				   !=cgltf_component_type_r_32f){
+				    uint8_t temp;
+				    fread(&temp, compSize, 1, fo);
+		    
+				    mesh[index] = (float)temp;
+				}else{
+				    fread(&mesh[index], compSize, 1, fo);
+				}
+			    }
+			}
+		    }
+
+		    
+		    for (int i3 = 0; i3 < data->nodes[i].mesh->primitives[i2].indices->count;++i3) {
+			for (int i4 = 0; i4 < attrPad;++i4) {
+			    //	    printf("%f ", mesh[(i3*attrPad) + i4]);
 			}
 
-		    int elementSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].indices->component_type];
-		    for (int i3 = 0; i3 < data->nodes[i].mesh->primitives[i2].indices->count;++i3) {
-			uint16_t index;
-			fseek(fo, data->nodes[i].mesh->primitives[i2].indices->buffer_view->offset + i * elementSize, SEEK_SET);
-			fread(&index, elementSize, 1, fo);
-
-			
+//			printf("\n");
+		    }
+		    
+		    /* 	
 			for(int i4=0;i4<data->nodes[i].mesh->primitives[i2].attributes_count;++i4){
 			    int compSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].attributes[i4].data->component_type];
 			    int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes[i4].data->type];
@@ -6338,39 +6376,50 @@ void loadGLTFScene(char* name){
 				    uint8_t temp;
 				    fread(&temp, compSize, 1, fo);
 		    
-				    mesh[(i3*curPrimitiveSize)+i5+GLTFattrPad[data->nodes[i].mesh->primitives[i2].attributes[i4].type]] = (float)temp;
+				    mesh[(i3*attrPad)+i5+GLTFattrPad[data->nodes[i].mesh->primitives[i2].attributes[i4].type]] = (float)temp;
+				    
+				    maxUsedSize = max(maxUsedSize,
+						      (i3*attrPad)+i5+GLTFattrPad[data->nodes[i].mesh->primitives[i2].attributes[i4].type]);
 				}else{
-				    fread(&mesh[(i3*curPrimitiveSize)+i5+GLTFattrPad[data->nodes[i].mesh->primitives[i2].attributes[i4].type]]
+				    fread(&mesh[(i3*attrPad)+i5+GLTFattrPad[data->nodes[i].mesh->primitives[i2].attributes[i4].type]]
 					  ,compSize, 1, fo);
+
+				    maxUsedSize = max(maxUsedSize,
+						      (i3*attrPad)+i5+GLTFattrPad[data->nodes[i].mesh->primitives[i2].attributes[i4].type]);
 				}
 			    }	    
 			}
-		    }
+			*/
 
-		    
+		    //   printf("max-%d cur-%d\n", maxUsedSize, attrPad * data->meshes[i].primitives[i2].indices->count * sizeof(float));
+
 		    glGenVertexArrays(1, &objectsInfo[objectsInfoSize].meshes[i2].VAO);
 		    glGenBuffers(1, &objectsInfo[objectsInfoSize].meshes[i2].VBO);
 
 		    glBindVertexArray(objectsInfo[objectsInfoSize].meshes[i2].VAO);
 		    glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[objectsInfoSize].meshes[i2].VBO);
     
-		    uint8_t attrSize = curPrimitiveSize * sizeof(float);
 		    objectsInfo[objectsInfoSize].meshes[i2].VBOSize = data->meshes[i].primitives[i2].indices->count;
-		    curPrimitiveSize *= data->meshes[i].primitives[i2].indices->count * sizeof(float);
-		    
-		    glBufferData(GL_ARRAY_BUFFER, curPrimitiveSize, mesh, GL_STATIC_DRAW);
+		    glBufferData(GL_ARRAY_BUFFER, attrPad * data->meshes[i].primitives[i2].indices->count * sizeof(float)
+				 , mesh, GL_STATIC_DRAW);
+
+			int itemPad[] = { 3, 2, 3, 4, 4};
 
 		    int pad = 0;
 		    for(int i3=0;i3<data->nodes[i].mesh->primitives[i2].attributes_count;++i3){
-			int compSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].attributes[i3].data->component_type];
-			int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes[i3].data->type];
+	//		int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes[i3].data->type];
 			
-			glVertexAttribPointer(i2, vecLen, GL_FLOAT, GL_FALSE, attrSize, pad * sizeof(float));			
-			glEnableVertexAttribArray(i2);
+			glVertexAttribPointer(i3, itemPad[i3], GL_FLOAT, GL_FALSE, attrPad * sizeof(float), pad * sizeof(float));
+			glEnableVertexAttribArray(i3);
 
-			pad+=vecLen;
+			pad+= itemPad[i3];
 		    }
 
+
+		    glBindBuffer(GL_ARRAY_BUFFER, 0);
+		    glBindVertexArray(0);
+
+		    
 /*		    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(3 * sizeof(float)));
 		    glEnableVertexAttribArray(1);
 
@@ -6382,13 +6431,29 @@ void loadGLTFScene(char* name){
 
 		    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(12 * sizeof(float)));
 		    glEnableVertexAttribArray(4);*/
-
-		    glBindBuffer(GL_ARRAY_BUFFER, 0);
-		    glBindVertexArray(0);
-
-
 		    
 
+//		    printf("tx %s \n", data->nodes[i].mesh->primitives[i2].material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
+//		    data->nodes[i].mesh->primitives[i2].material->pbr_metallic_roughness.base_color_texture.texture->image->uri;
+
+		    // texture
+		    objectsInfo[objectsInfoSize].meshes[i2].VBOSize = data->meshes[i].primitives[i2].indices->count;
+				    
+//		    if(false)
+		    {
+			sprintf(buf, "%s%s", assetsFolder,
+				data->nodes[i].mesh->primitives[i2].material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
+			SDL_Surface* texture = IMG_Load(buf);
+    
+			if (!texture) {
+			    printf("Loading of texture \"%s\" failed", buf);
+			    exit(0);
+			}
+
+			createTexture(&objectsInfo[objectsInfoSize].meshes[i2].tx, texture->w,texture->h, texture->pixels);
+  
+			SDL_FreeSurface(texture);
+		    }
 		}
 	    }
 	    
@@ -6401,8 +6466,8 @@ void loadGLTFScene(char* name){
 	}else{
 	    objects = realloc(objects, sizeof(Object) * (objectsSize+1));
 	}
-
-	objects[objectsSize].info = &objectsInfo[idInInfo];
+	
+	objects[objectsSize].infoId = idInInfo;
 	
 	float t[10] = {0};
 
@@ -6426,12 +6491,12 @@ void loadGLTFScene(char* name){
 	objectsSize++;
     }
 
-    for(int i=0;i< objectsInfoSize;i++){
-	printf("%s \n", objectsInfo[i].name);
+    for(int i=0;i< objectsSize;i++){
+	printf("%s \n", objectsInfo[objects[i].infoId].name);
     }
 
     
-
+    fclose(fo);
     cgltf_free(data);
 }
 

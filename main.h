@@ -816,6 +816,7 @@ void assembleDoorBlockVBO();
 
 #define game "Doomer engine"
 #define texturesFolder "./assets/textures/"
+#define assetsFolder "./assets/"
 #define animFolder "./assets/anim/"
 #define objsFolder "./assets/objs/"
 
@@ -1651,3 +1652,32 @@ Mirror* mirrorsStorage;
 uint8_t mirrorsStorageSize;
 
 Matrix mirrorProj;
+
+
+typedef struct{
+    uint32_t VBO;
+    uint32_t VAO;
+    
+    GLuint tx;    
+    uint32_t VBOSize;
+} Mesh;
+
+typedef struct{
+    char* name;
+    Mesh* meshes;
+
+    int meshesSize;
+} ObjectInfo;
+
+typedef struct{
+//    ObjectInfo* info;
+    int infoId;
+    Matrix mat;
+} Object;
+
+
+ObjectInfo* objectsInfo;
+int objectsInfoSize;
+
+Object* objects;
+int objectsSize;

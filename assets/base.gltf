@@ -261,14 +261,14 @@
 			"uri":"path.png"
 		},
 		{
-			"mimeType":"image/jpeg",
+			"mimeType":"image/png",
 			"name":"atlsserii",
-			"uri":"atlsserii.jpg"
+			"uri":"atlsserii.png"
 		},
 		{
 			"mimeType":"image/png",
-			"name":"output-onlinepngtools-Tree_tex_baseColor",
-			"uri":"output-onlinepngtools-Tree_tex_baseColor.png"
+			"name":"SnowTree-Tree_tex_baseColor",
+			"uri":"SnowTree-Tree_tex_baseColor.png"
 		}
 	],
 	"accessors":[
