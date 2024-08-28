@@ -180,73 +180,6 @@ typedef struct{
   int VBOsize;
 } MeshBuffer;
 
-
-typedef enum{
-  whTopPlane, whFrontPlane, whBackPlane,
-  // whFrontHiddenPlane, whBackHiddenPlane,
-  
-  whPlaneCounter
-} HiddenWallPlanes;
-
-typedef enum{
-  wTopPlane, wFrontPlane, wBackPlane, wClosePlane,
-  // wLeftPlane, wRightPlane,
-  //  wLeftExPlane, wRightExPlane,
-  wPlaneCounter,
-} WallPlanes;
-
-const char* wallPlanesStr[];/* = {
-  [wTopPlane]= "Top plane",
-  [wFrontPlane]= "Front plane",
-  [wBackPlane]= "Back plane",
-  };*/
-
-typedef enum{
-  winFrontCapPlane, winFrontBotPlane,
-  winBackCapPlane,
-  winBackBotPlane,
-//  winCenterFrontPlane, winCenterBackPlane,
-
-  winCenterPlane,
-//  winWindowPlane,
-  
-  winInnerTopPlane,
-  winInnerBotPlane,
-  winInnerLeftPlane,
-  winInnerRightPlane,
-
-  winTopPlane, winFrontPodokonik,
-  
-  winPlaneCounter
-} WindowPlanes;
-
-const char* windowPlanesStr[];/* = {
-  [winTopPlane]= "Top plane",
-  [winFrontCapPlane]= "Front-cap plane",
-  [winFrontBotPlane]= "Front-bot plane",
-  [winBackCapPlane]= "Back-cap plane",
-  [winBackBotPlane]= "Back-bot plane",
-  [winCenterBackPlane]= "Center-back plane" ,
-  [winCenterFrontPlane] = "Center-front plane" ,
-  [winInnerBotPlane]= "Inner-bot plane",
-  [winInnerTopPlane]= "Inner-top plane",
-  
-  [winFrontPodokonik]= "Front-padokonik",
-  [winBackPodokonik]= "Back-padokonik",
-  };*/
-
-typedef enum{
-  doorCenterPlane,
-  
-  doorTopPlane,
-  doorFrontPlane, doorBackPlane,
-  doorInnerTopPlane,
-  doorPlaneCounter
-} DoorPlanes;
-
-const int planesInfo[wallTypeCounter];
-const char* doorPlanesStr[];
-
 typedef struct{
   Plane* planes;
   
@@ -846,9 +779,6 @@ float* wallBySide(int* bufSize, Side side, float thick);
 typedef enum{
   editorInstance,
   gameInstance,
-
-  editorMapInstance,
-  gameMapInstance,
   
   instancesCounter,
 } EngineInstance;
@@ -872,13 +802,20 @@ int markersStorageSize;
 int markersCounterByType[markersCounter];
 
 typedef enum{
-    lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITxShader, UITransfTx, UITransfColor, animShader, snowShader, windowShader, shadersCounter
+    lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITransfTx, animShader, snowShader, windowShader, shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
 const char* instancesStr[];
 
+void loadShaders();
+void reloadShaders();
+
 GLuint shadersId[shadersCounter];
+
+char* vertFileName;
+char* fragFileName;
+char* geomFileName;
 
 
 
@@ -1187,8 +1124,6 @@ typedef struct{
 
 GeomFin* finalGeom;
 
-void batchAllGeometry();
-void batchAllGeometryNoHidden();
 VPair planePairs;
 
 bool showHiddenWalls;

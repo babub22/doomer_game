@@ -114,7 +114,7 @@ void editorOnSetInstance(){
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
     renderCapYLayer = gridY;
-    batchAllGeometry();
+    
 }
 
 
@@ -1689,7 +1689,7 @@ void editorEvents(SDL_Event event){
 			      &picturesStorage[picturesStorageSize-1].lb, &picturesStorage[picturesStorageSize-1].rt);
 
 		
-		batchAllGeometry();
+		
 	     
 		break;
 	    }case(SDL_SCANCODE_T):{
@@ -1755,9 +1755,9 @@ void editorEvents(SDL_Event event){
 		    }
 
 		    if(showHiddenWalls){
-			batchAllGeometry();
+			
 		    }else{
-			batchAllGeometryNoHidden();
+			
 		    }
 		}
 
@@ -1863,7 +1863,7 @@ void editorEvents(SDL_Event event){
 		    tilesStorage[data->tileId].wall[data->side] = NULL;
 		    free(data->wall);
 	  
-		    batchAllGeometry();
+		    
 		    rerenderShadowsForAllLights();
 		}
 		else if (mouse.selectedType == mouseTileT) {
@@ -1892,7 +1892,7 @@ void editorEvents(SDL_Event event){
 			}
 
 			
-			batchAllGeometry();
+			
 			rerenderShadowsForAllLights();
 		    }
 		}
@@ -2383,7 +2383,7 @@ void editorPreFrame(float deltaTime) {
 
 		    if(picture){
 			calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
-			batchAllGeometry();
+			
 		    }else{
 			calculateAABB(mirror->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &mirror->lb, &mirror->rt);
 		    }
@@ -2554,7 +2554,7 @@ void editorPreFrame(float deltaTime) {
 
 	if (picture) {
 	    calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
-	    batchAllGeometry();
+	    
 	}
 
 	if (mirror) {
@@ -2563,7 +2563,7 @@ void editorPreFrame(float deltaTime) {
 
 	if (model) {
 	    //		  if (navPointsDraw) {
-	    //		    batchAllGeometry();
+	    //		    
 	    //		  }
 
 	    batchModels();
@@ -2900,23 +2900,6 @@ void editor3dRender() {
 	renderScene(mainShader);
     }
 
-    for (int i = 0;false &&  i < picturesStorageSize; i++) {
-	uniformMat4(mainShader, "model", picturesStorage[i].mat.m);
-
-	glBindBuffer(GL_ARRAY_BUFFER, planePairs.VBO);
-	glBindVertexArray(planePairs.VAO);
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, loadedTextures1D[picturesStorage[i].txIndex].tx); 
-
-	glDrawArrays(GL_TRIANGLES, 0, planePairs.vertexNum); 
-		 
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-    }
-
     glUseProgram(shadersId[lightSourceShader]);
 
     // markers
@@ -2963,11 +2946,7 @@ void editor3dRender() {
     if (mouse.focusedThing && cursorMode) {
 	Matrix* mat = NULL;
 
-	if (mouse.focusedType == mouseModelT) {
-	    Model* model = (Model*)mouse.focusedThing;
-	    mat = &model->mat;
-	}
-	else if (mouse.focusedType == mouseMirrorT) {
+	if (mouse.focusedType == mouseMirrorT) {
 	    Mirror* mirror = (Mirror*)mouse.focusedThing;
 	    mat = &mirror->mat;
 	}
@@ -3301,7 +3280,7 @@ void editor3dRender() {
 
 		wallsStorage[wallsStorageSize - 1] = tilesStorage[tileId].wall[selectedSide];
 
-		batchAllGeometry();
+		
 		//grid[curFloor][(int)curTile.z][(int)curTile.x]->wall[selectedSide] = malloc(sizeof(Wall));
 	    }
 	}
@@ -3405,122 +3384,9 @@ void editor2dRender() {
 	renderText(buf, -1.0f, 1.0f, 1.0f);
 
 	switch (mouse.brushType) {
-	case(mouseTextureBrushT): {
-	    if (mouse.clickL) {
-		Texture* texture = (Texture*)mouse.brushThing;
 
-		if (mouse.selectedType == mouseWallT) {
-		    WallMouseData* wallData = (WallMouseData*)mouse.selectedThing;
 
-		    int prevTx;
-
-		    if (wallData->wall) {
-			if (wallData->wall->type == windowT && wallData->plane <= winInnerTopPlane) {
-			    static const int winPlanePairs[12] = {
-				[winFrontCapPlane] = winFrontBotPlane,
-				[winFrontBotPlane] = winFrontCapPlane,
-
-				[winBackBotPlane] = winBackCapPlane,
-				[winBackCapPlane] = winBackBotPlane,
-
-				[winInnerTopPlane] = winInnerBotPlane,
-				[winInnerBotPlane] = winInnerTopPlane,
-			    };
-
-			    geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
-
-			    prevTx = wallData->wall->planes[winPlanePairs[wallData->plane]].txIndex;
-
-			    geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
-	      
-			    wallData->wall->planes[winPlanePairs[wallData->plane]].txIndex = texture->index1D;
-			}
-
-			/*
-			  if (wallData->wall->type == doorT && wallData->plane <= doorCenterBackPlane) {
-
-			  static const int doorPlanePairs[2] = {
-			   [doorCenterFrontPlane] = doorCenterBackPlane,
-			   [doorCenterBackPlane] = doorCenterFrontPlane,
-			  };
-
-			  geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
-
-			  prevTx = wallData->wall->planes[doorPlanePairs[wallData->plane]].txIndex;
-
-			  geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
-	      
-			  wallData->wall->planes[doorPlanePairs[wallData->plane]].txIndex = texture->index1D;
-			  }*/
-
-			geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
-
-			prevTx = wallData->wall->planes[wallData->plane].txIndex;
-
-			geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[wallData->plane].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[wallData->plane].attrSize;
-	    
-			wallData->wall->planes[wallData->plane].txIndex = texture->index1D;
-			printf("Texturize: %d \n", wallData->plane);
-		    }
-
-		    //	  for (int i = 0; i < wallsVPairs[wallData->wall->type].planesNum; i++) {
-		    //	    geomentyByTxCounter[prevTx] -= wallsVPairs[wallData->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[i].attrSize;
-	    
-		    //geomentyByTxCounter[texture->index1D] += wallsVPairs[wallData->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wallData->wall->type].pairs[i].attrSize;
-		    // }
-	  
-		    batchAllGeometry();
-		}
-		else if (mouse.selectedType == mouseTileT) {
-		    TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
-
-		    int tileId = tileData->tileId;
-
-		    if (tileData->tileId == -1) {
-			tilesStorage = realloc(tilesStorage, sizeof(Tile) * (tilesStorageSize + 1));
-
-			// tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
-			tilesStorage[tilesStorageSize].pos = tileData->pos;
-			tilesStorage[tilesStorageSize].id = tilesStorageSize;
-
-			tilesStorage[tilesStorageSize].block = NULL;
-			tilesStorage[tilesStorageSize].wall[0] = NULL;
-			tilesStorage[tilesStorageSize].wall[1] = NULL;
-
-			grid[(int)tileData->pos.y][(int)tileData->pos.z][(int)tileData->pos.x] = &tilesStorage[tilesStorageSize];
-	    
-			tileId = tilesStorageSize;
-	    
-			tilesStorageSize++;
-		    }else{
-			geomentyByTxCounter[tilesStorage[tileId].tx] -= sizeof(float) * 8 * 6;
-		    }
-
-		    tilesStorage[tileId].tx = texture->index1D;
-		    geomentyByTxCounter[texture->index1D] += sizeof(float) * 8 * 6;
-	  
-		    batchAllGeometry();
-		}
-		else if (mouse.selectedType == mouseBlockT) {
-		    TileBlock* block = (TileBlock*)mouse.selectedThing;
-
-		    block->txIndex = texture->index1D;
-		    batchGeometry();
-		}
-		else if (mouse.selectedType == mousePlaneT) {
-		    Picture* plane = (Picture*)mouse.selectedThing;
-
-		    geomentyByTxCounter[plane->txIndex] -= 6 * 8 * sizeof(float);
-		    plane->txIndex = texture->index1D;
-		    geomentyByTxCounter[plane->txIndex] += 6 * 8 * sizeof(float);
-
-	  
-		    batchAllGeometry();
-		}
-	    }
-
-	    break;
-	}case(mouseBlockBrushT): {
+	case(mouseBlockBrushT): {
 	     if (mouse.clickR && mouse.selectedType == mouseTileT) {
 		 TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
 		 TileBlock* block = (TileBlock*)mouse.brushThing;
@@ -3636,48 +3502,7 @@ void editor2dRender() {
 	    sprintf(buf, "Selected model: %s", loadedModels1D[data->name].name); 
 
 	    break;
-	}case(mouseWallT): {
-	     WallMouseData* data = (WallMouseData*)mouse.selectedThing;
-
-	     char* plane = "NULL";
-
-	     if (data->wall) {
-		 if (data->wall->type == doorT) {
-		     plane = doorPlanesStr[data->plane];
-		 }
-		 else if (data->wall->type == normWallT) {
-		     plane = wallPlanesStr[data->plane];
-		 }
-		 else if (data->wall->type == windowT) { 
-		     plane = windowPlanesStr[data->plane];
-		 }
-	     }
-
-	     int id;
-	     int type;
-
-	     if (data->wall) {
-		 id = data->wall->id;
-		 type = data->wall->type;
-
-	     }
-
-
-	     sprintf(buf, "Selected wall[%d]: [%s] type: [%s] plane: [%s] with tx: [%s]",  
-		     id, 
-		     sidesToStr[data->side],
-		     wallTypeStr[type],
-		     plane,
-		     loadedTexturesNames[data->txIndex]);
-
-	     break;
-	 }case(mouseBlockT): {
-	      TileBlock* data = (TileBlock*)mouse.selectedThing;
-
-	      sprintf(buf, "Selected block: [%s]", tileBlocksStr[data->type]);
-
-	      break;
-	  }case(mouseMirrorT): {
+	}case(mouseMirrorT): {
 	       Mirror* data = (Mirror*)mouse.selectedThing;
 
 	       sprintf(buf, "Selected mirror: [ID: %d]", data->id);
@@ -4819,7 +4644,7 @@ void createLight(vec3 pos, int type){
 
 void uniformLights(){
     GLint curShader = 0;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+//    glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
 
     int shaderTable[] = { mainShader, snowShader, animShader };
 	int shaderTableSize = sizeof(shaderTable) / sizeof(shaderTable[0]);

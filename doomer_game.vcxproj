@@ -162,24 +162,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="editor.c" />
-    <ClCompile Include="editorMap.c" />
     <ClCompile Include="game.c" />
-    <ClCompile Include="gameMap.c" />
     <ClCompile Include="linearAlg.c" />
     <ClCompile Include="main.c" />
-    <ClCompile Include="ufbx.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cgltf.h" />
     <ClInclude Include="deps.h" />
     <ClInclude Include="editor.h" />
-    <ClInclude Include="editorMap.h" />
     <ClInclude Include="game.h" />
-    <ClInclude Include="gameMap.h" />
     <ClInclude Include="linearAlg.h" />
     <ClInclude Include="linmath.h" />
     <ClInclude Include="main.h" />
-    <ClInclude Include="ufbx.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="fog.frag" />
