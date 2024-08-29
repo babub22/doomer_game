@@ -7,6 +7,8 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
 
+float radius = 1.0f;
+
 bool showHiddenWalls = true;
 
 TextInput* selectedTextInput;
@@ -1411,6 +1413,16 @@ int main(int argc, char* argv[]) {
 		if(event.key.keysym.scancode == SDL_SCANCODE_F1){
 		    loadGLTFScene("./assets/base.gltf");
 		    printf("Map reloaded\n");
+		}
+
+		if(event.key.keysym.scancode == SDL_SCANCODE_P){
+		    glUseProgram(shadersId[mainShader]);
+		    radius+=0.1f;
+		    uniformFloat(mainShader, "radius", radius);
+		}else if(event.key.keysym.scancode == SDL_SCANCODE_O){
+		    glUseProgram(shadersId[mainShader]);
+		    radius-=0.1f;
+		    uniformFloat(mainShader, "radius", radius);
 		}
 
 		if(event.key.keysym.scancode == SDL_SCANCODE_F2){
