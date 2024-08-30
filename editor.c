@@ -1622,7 +1622,6 @@ void editorEvents(SDL_Event event){
 		       glGenTextures(1, &mirrorsStorage[mirrorsStorageSize-1].tx);
 		       glBindTexture(GL_TEXTURE_2D, mirrorsStorage[mirrorsStorageSize-1].tx);
 		       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windowW, windowH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-//		       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 720, 720, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 		       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -2176,6 +2175,9 @@ void editorMatsSetup(int curShader) {
 					
 	    // editorView = fpsView(curCamera->pos, curCamera->pitch, curCamera->yaw);/*lookAt(curCamera->pos,
 	    editorProj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
+	    
+	    glUseProgram(shadersId[mainShader]); 
+	    uniformVec3(mainShader, "cameraPos", curCamera->pos);
 	
 	    editorView = lookAt(negPos,
 				(vec3) {
@@ -3760,7 +3762,7 @@ void editor2dRender() {
 
 	if (mouse.cursor.x <= objectsMenuWidth && selectedIndex <= lightsTypeCounter) {
 	    if (mouse.clickL) {
-		createLight(curCamera->pos, selectedIndex - 1);
+		//createLight(curCamera->pos, selectedIndex - 1);
 
 		curMenu->open = false;
 		curMenu = NULL;
@@ -4581,87 +4583,44 @@ void editor2dRender() {
     }
 }
 
-
-void createLight(vec3 pos, int type){
-    static int lastUsedCubemap = 0;
-    
-    lightStorageSize[type]++;
-    lightStorageSizeByType[type]++;
-
-    if(!lightStorage[type]){
-	lightStorage[type] = malloc(sizeof(Light));
-    }else{
-	lightStorage[type] = realloc(lightStorage[type], sizeof(Light) * lightStorageSizeByType[type]);
-    }
-
-    int indexOfNew = lightStorageSizeByType[type]-1;
-	    
-    memcpy(&lightStorage[type][indexOfNew], &lightDef[type], sizeof(Light));
-  
-    //  lightStorage[type][indexOfNew].pos = pos;
-    lightStorage[type][indexOfNew].id = lightStorageSizeByType[type] - 1;
-    lightStorage[type][indexOfNew].type = type;
-
-    //if(type == shadowLightT){
-    //  lightStorage[type][indexOfNew].cubemapIndex = lastUsedCubemap;
-    //  lastUsedCubemap++; 
-    //}
-
-    lightStorage[type][indexOfNew].mat = IDENTITY_MATRIX;
-
-    //  lightStorage[type][indexOfNew].mat.m[0] = .0f;
-    //  lightStorage[type][indexOfNew].mat.m[10] = -1.0f;
-
-    //  rotateZ(&lightStorage[type][indexOfNew].mat, rad(-90.0f));
-
-    lightStorage[type][indexOfNew].mat.m[0] = .0f;
-    lightStorage[type][indexOfNew].mat.m[1] = -1.0f;
-
-    lightStorage[type][indexOfNew].mat.m[4] = 1.0f;
-    lightStorage[type][indexOfNew].mat.m[5] = .0f;
-  
-    lightStorage[type][indexOfNew].mat.m[12] = pos.x;
-    lightStorage[type][indexOfNew].mat.m[13] = pos.y;
-    lightStorage[type][indexOfNew].mat.m[14] = pos.z;
-
-    calculateAABB(lightStorage[type][indexOfNew].mat, cube.vBuf, cube.vertexNum, cube.attrSize,
-		  &lightStorage[type][indexOfNew].lb, &lightStorage[type][indexOfNew].rt);
-
-    //  mouse.focusedType = mouseLightT; 
-    //  mouse.focusedThing = &lightStorage[type][indexOfNew];
-
-    // update light info in main shader
-    uniformLights();
-
-    if(type == dirLightShadowT){
-	rerenderShadowsForAllLights();
-    }
-
-    //  if (type == shadowLightT) {
-    //rerenderShadowForLight(lightStorage[type][indexOfNew].id);
-    //  }
-}
-
 void uniformLights(){
     GLint curShader = 0;
-//    glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
 
     int shaderTable[] = { mainShader, snowShader, animShader };
-	int shaderTableSize = sizeof(shaderTable) / sizeof(shaderTable[0]);
+    int shaderTableSize = sizeof(shaderTable) / sizeof(shaderTable[0]);
+    int lightsCounter[5] = { 0 };
 
     for(int s=0;s<shaderTableSize;s++){
 	glUseProgram(shadersId[shaderTable[s]]);
 
 	char buf[64];
 
-	static const char* shaderVarSufixStr[] = {
-	    [pointLightT] = "point",
-	    [dirLightT] = "dir",
-	    [dirLightShadowT] = "dirShadow"
-	};
+	for(int i=0;i<lightsStorageSize;i++){
+	    sprintf(buf, "%sLights[%i].pos",
+		    shaderVarSufixStr[lightsStorage[i].type], i);
+	    uniformVec3(shaderTable[s], buf, (vec3) { lightsStorage[i].mat.m[12], lightsStorage[i].mat.m[13], lightsStorage[i].mat.m[14], });
 
-	uniformFloat(shaderTable[s], "radius", max(gridX / 2.0f, gridZ / 2.0f)); 
+	    sprintf(buf, "%sLights[%i].color",
+		    shaderVarSufixStr[lightsStorage[i].type], i);
+	    uniformVec3(shaderTable[s], buf, lightsStorage[i].color);
 
+	    sprintf(buf, "%sLights[%i].power",
+	    shaderVarSufixStr[lightsStorage[i].type], i);
+	    uniformFloat(shaderTable[s], buf, lightsStorage[i].power);
+
+	    lightsCounter[lightsStorage[i].type]++;
+	}
+
+	for(int i=0;i<5;i++){
+	    if(lightsCounter[i] != 0 ){
+		sprintf(buf, "%sLightsSize",
+			shaderVarSufixStr[i]);
+		uniformInt(shaderTable[s], buf, lightsCounter[i]);
+	    }
+	}
+	
+
+/*
 	int localLightsCounter[lightsTypeCounter] = { 0 };
 	int* onLightsIndexes;
 
@@ -4731,7 +4690,7 @@ void uniformLights(){
 	    uniformInt(shaderTable[s], buf, onCounter);
 
 	    free(onLightsIndexes);
-	}
+	    }*/
     }
 
     glUseProgram(curShader);

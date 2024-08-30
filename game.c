@@ -109,6 +109,7 @@ void gamePreFrame(float deltaTime){
 
 void gameMatsSetup(int curShader){
     Matrix proj = perspective(rad(gameFov), (windowW) / (windowH), 1.0f, 1000.0f);
+//    Matrix proj = perspective(rad(gameFov), fakeWinW / fakeWinH, 1.0f, 1000.0f);
 
     Matrix view;// = IDENTITY_MATRIX;
 
@@ -132,6 +133,9 @@ void gameMatsSetup(int curShader){
 	pos = mulmatvec4(skinMat, pos);
 	pos = mulmatvec4(entityStorage[playerEntityT][0].mat, pos);
 	
+	glUseProgram(shadersId[mainShader]); 
+	uniformVec3(mainShader, "cameraPos", (vec3){argVec3(pos)});
+	
 	pos.y *= -1.0f;
 	pos.z *= -1.0f;
 	
@@ -141,6 +145,7 @@ void gameMatsSetup(int curShader){
 	};
 	
 	view = lookAt((vec3){argVec3(pos)}, target, (vec3) { .0f, 1.0f, .0f });
+	
     }
     
 /*    vec3 negPos = { -curCamera->pos.x, -curCamera->pos.y, -curCamera->pos.z };

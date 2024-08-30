@@ -13,9 +13,14 @@ in vec3 Normal;
 in vec3 FragPos;
 in vec4 FragPosLightSpace[8];
 
+in vec2 texCoords;
+in float affline;
+
 struct PointLight{
 vec3  pos;
 vec3 color;
+
+float power;
 
 float constant;
 float linear;
@@ -85,12 +90,15 @@ float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
 
 // attenuation
 float distance    = length(light.pos - FragPos);
-float attenuation = 1.0 / (light.constant + light.linear * distance + 
-light.quadratic * (distance * distance));    
+float attenuation = 1.0 / (distance * distance);
 
 // combine results
-vec3 ambient  = .05f * light.color;
-vec3 diffuse  = diff * light.color;
+//vec3 ambient  = .05f * light.color;
+//vec3 diffuse  = diff * light.color;
+
+vec3 ambient = 0.1 * light.color;
+vec3 diffuse = diff * light.color * attenuation * (light.power / 50.0f);
+
 vec3 specular = specularC * spec * light.color;
 
 ambient  *= attenuation;
@@ -168,6 +176,7 @@ return 	(ambient + (1.0f - 0.0f) * (diffuse + specular));
 
 
 void main(void){
+//vec2 afflineTexCoords = texCoords/affline;
 vec4 tex = texture(colorMap, TexCoord);
 vec3 color = tex.rgb;	
 
@@ -195,23 +204,10 @@ res+= dirLightCalc(dirLights[i], norm, viewDir);
 for(int i=0;i<pointLightsSize;i++){
 res+= pointLightCalc(pointLights[i], norm, viewDir);
 }
+//res=vec3(1.0f,1.0f,1.0f);
 
 float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
-//gl_FragColor = vec4(res * color,tex.a);
-
 gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
 }
-
-/*
-
-
-if(diffuseTexel.a == 0.0){
-		  discard;
-}
-
-diffuseTerm.a = diffuseTexel.a; 
-
-gl_FragColor = diffuseTerm;
-*/

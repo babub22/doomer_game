@@ -614,7 +614,7 @@ typedef struct{
   uint8_t b;
   
   //  vec3 dir;
-  LightType type;
+  int type;
 
   Matrix mat;
 
@@ -632,7 +632,24 @@ typedef struct{
   //  int depthTxIndex;
 } Light;
 
+typedef struct{
+  int id;
+
+  vec3 color;
+  float power;
+
+  int type;
+
+  Matrix mat;
+} Light2;
+
+Light2* lightsStorage;
+int lightsStorageSize;
+
 bool navPointsDraw;
+
+float fakeWinW;
+float fakeWinH;
 
 void rerenderShadowForLight(int lightId);
 void batchModels();
@@ -1616,3 +1633,6 @@ int objectsInfoSize;
 
 Object* objects;
 int objectsSize;
+
+void createLight(vec3 color, int type, float power, float* mat);
+const char* shaderVarSufixStr[];

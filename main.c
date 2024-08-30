@@ -7,9 +7,22 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
 
-float radius = 1.0f;
+
+uint32_t lowResFBO;
+uint32_t lowResTx;
+
+int fakeWinW = 640;
+int fakeWinH = 480;
+
+float radius = 20.0f;
 
 bool showHiddenWalls = true;
+
+const char* shaderVarSufixStr[] = {
+		[cgltf_light_type_point] = "point",
+		[cgltf_light_type_directional] = "dir",
+		//	    [dirLightShadowT] = "dirShadow"
+};
 
 TextInput* selectedTextInput;
 TextInput2* selectedTextInput2;
@@ -67,6 +80,8 @@ void glErrorCheck(){
 
 float near_plane;
 float far_plane;
+
+AABB curSceneAABB;
 
 const void(*instances[instancesCounter][funcsCounter])() = {
     [editorInstance] = {
@@ -713,57 +728,62 @@ int main(int argc, char* argv[]) {
     }
 
     loadShaders();
+
+    glUseProgram(shadersId[mainShader]);
+    uniformFloat(mainShader, "screenW", fakeWinW);
+    uniformFloat(mainShader, "screenH", fakeWinH);
+    
     /* for (int i = 0; i < shadersCounter; i++) {
-	int nameLen = strlen(shadersFileNames[i]) + 1;
+       int nameLen = strlen(shadersFileNames[i]) + 1;
 
-	char* vertFileName = malloc(sizeof(char) * (nameLen + strlen(".vert") + 1));
-	char* fragFileName = malloc(sizeof(char) * (nameLen + strlen(".frag") + 1));
-	char* geomFileName = malloc(sizeof(char) * (nameLen + strlen(".geom") + 1));
+       char* vertFileName = malloc(sizeof(char) * (nameLen + strlen(".vert") + 1));
+       char* fragFileName = malloc(sizeof(char) * (nameLen + strlen(".frag") + 1));
+       char* geomFileName = malloc(sizeof(char) * (nameLen + strlen(".geom") + 1));
 
-	strcpy(vertFileName, shadersFileNames[i]);
-	strcat(vertFileName, ".vert");
+       strcpy(vertFileName, shadersFileNames[i]);
+       strcat(vertFileName, ".vert");
 
-	GLuint vertexShader = loadShader(GL_VERTEX_SHADER, vertFileName);
+       GLuint vertexShader = loadShader(GL_VERTEX_SHADER, vertFileName);
 
-	strcpy(fragFileName, shadersFileNames[i]);
-	strcat(fragFileName, ".frag");
+       strcpy(fragFileName, shadersFileNames[i]);
+       strcat(fragFileName, ".frag");
 
-	GLuint fragmentShader = loadShader(GL_FRAGMENT_SHADER, fragFileName);
+       GLuint fragmentShader = loadShader(GL_FRAGMENT_SHADER, fragFileName);
 
-	strcpy(geomFileName, shadersFileNames[i]); 
-	strcat(geomFileName, ".geom");
+       strcpy(geomFileName, shadersFileNames[i]); 
+       strcat(geomFileName, ".geom");
 
-	GLuint geometryShader = loadShader(GL_GEOMETRY_SHADER, geomFileName);
+       GLuint geometryShader = loadShader(GL_GEOMETRY_SHADER, geomFileName);
 	
-	free(vertFileName);
-	free(fragFileName);
-	free(geomFileName);
+       free(vertFileName);
+       free(fragFileName);
+       free(geomFileName);
 
-	shadersId[i] = glCreateProgram();
-	glAttachShader(shadersId[i], fragmentShader);
-	glAttachShader(shadersId[i], vertexShader);
+       shadersId[i] = glCreateProgram();
+       glAttachShader(shadersId[i], fragmentShader);
+       glAttachShader(shadersId[i], vertexShader);
 
-	if(geometryShader != 0){
-	    glAttachShader(shadersId[i], geometryShader);   
-	}
+       if(geometryShader != 0){
+       glAttachShader(shadersId[i], geometryShader);   
+       }
 
-	// Link the shader shadersId[i]ram
-	glLinkProgram(shadersId[i]); 
+       // Link the shader shadersId[i]ram
+       glLinkProgram(shadersId[i]); 
 
-	// Check for linking errors
-	GLint linkStatus;
-	glGetProgramiv(shadersId[i], GL_LINK_STATUS, &linkStatus);
+       // Check for linking errors
+       GLint linkStatus;
+       glGetProgramiv(shadersId[i], GL_LINK_STATUS, &linkStatus);
 
-	if (linkStatus != GL_TRUE) {
-	    GLint logLength;
-	    glGetProgramiv(shadersId[i], GL_INFO_LOG_LENGTH, &logLength);
-	    char* log = (char*)malloc(logLength);
-	    glGetProgramInfoLog(shadersId[i], logLength, NULL, log);
-	    fprintf(stderr, "Failed to link \"%s\": %s\n", shadersFileNames[i], log);
-	    free(log);
-	    return 1;
-	}
-	}*/
+       if (linkStatus != GL_TRUE) {
+       GLint logLength;
+       glGetProgramiv(shadersId[i], GL_INFO_LOG_LENGTH, &logLength);
+       char* log = (char*)malloc(logLength);
+       glGetProgramInfoLog(shadersId[i], logLength, NULL, log);
+       fprintf(stderr, "Failed to link \"%s\": %s\n", shadersFileNames[i], log);
+       free(log);
+       return 1;
+       }
+       }*/
 
     //    glUseProgram(shadersId[mainShader]);
     //    glUniform2f(viewportLoc, windowW, windowH);
@@ -793,19 +813,20 @@ int main(int argc, char* argv[]) {
     {
 	// main fbo
 	{
+	    
 	    glGenFramebuffers(1, &fbo);
 	    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	    glGenTextures(1, &textureColorBufferMultiSampled);
 	    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
-	    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, windowW, windowH, GL_TRUE);
+	    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, fakeWinW, fakeWinH, GL_TRUE);
 	    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 	    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
 
 	    unsigned int rbo;
 	    glGenRenderbuffers(1, &rbo);
 	    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-	    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, windowW, windowH);
+	    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, fakeWinW, fakeWinH);
 	    glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
@@ -832,7 +853,7 @@ int main(int argc, char* argv[]) {
 
 	    glGenTextures(1, &screenTexture);
 	    glBindTexture(GL_TEXTURE_2D, screenTexture);
-	    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windowW, windowH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, fakeWinW, fakeWinH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenTexture, 0);
@@ -1427,6 +1448,11 @@ int main(int argc, char* argv[]) {
 
 		if(event.key.keysym.scancode == SDL_SCANCODE_F2){
 		    reloadShaders();
+
+		    glUseProgram(shadersId[mainShader]);
+		    uniformFloat(mainShader, "screenW", fakeWinW);
+		    uniformFloat(mainShader, "screenH", fakeWinH);
+		    
 		    printf("Shaders reloaded\n");
 		}
 
@@ -1454,11 +1480,11 @@ int main(int argc, char* argv[]) {
 		if (event.key.keysym.scancode == SDL_SCANCODE_SPACE && !selectedTextInput2) {
 		    
 	  
-			if (curInstance >= gameInstance) {
-			    curInstance = 0;
-			}
-			else {
-			    curInstance++;
+		    if (curInstance >= gameInstance) {
+			curInstance = 0;
+		    }
+		    else {
+			curInstance++;
 		    }
                      
 		    ((void (*)(void))instances[curInstance][onSetFunc])();
@@ -1476,7 +1502,7 @@ int main(int argc, char* argv[]) {
     
 	//  if (lightStorage)
 	{
-	    glViewport(0, 0, windowW, windowH);
+//	    glViewport(0, 0, 640, 360);
 	    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1738,11 +1764,11 @@ int main(int argc, char* argv[]) {
 	
 	    ((void (*)(int))instances[curInstance][matsSetup])(mainShader);
 
-	    glUseProgram(shadersId[snowShader]); 
-	    uniformVec3(snowShader, "cameraPos", curCamera->pos);
+//	    glUseProgram(shadersId[snowShader]); 
+//	    uniformVec3(snowShader, "cameraPos", curCamera->pos);
 	    
-	    glUseProgram(shadersId[mainShader]); 
-	    glUniform3f(cameraPos, argVec3(curCamera->pos));
+//	    glUseProgram(shadersId[mainShader]); 
+//	    glUniform3f(cameraPos, argVec3(curCamera->pos));
 
 	    ((void (*)(void))instances[curInstance][render3DFunc])();
 
@@ -2121,8 +2147,18 @@ int main(int argc, char* argv[]) {
 	    }
 	 
 	    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);  
-	    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO); 
-	    glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);  
+	    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
+
+//	    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);  
+//	    glBindFramebuffer(GL_FRAMEBUFFER, lowResFBO);
+	    
+	    glBlitFramebuffer(0, 0, fakeWinW, fakeWinH, 0, 0, fakeWinW, fakeWinH, 
+			      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	    
+//	    glBlitFramebuffer(0, 0, windowW, windowH, 0, 0, 640, 360, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+//	    glBlitFramebuffer(0, 0, 640, 360, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+//	    glBlitFramebuffer(0, 0, 640, 360, 0, 0, windowW, windowH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
 
 	    // render to fbo 
 	    glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
@@ -2217,18 +2253,14 @@ int main(int argc, char* argv[]) {
 	    float seed = (float)(rand() % 1000 + 1) / 1000.0f;
 	    uniformFloat(screenShader, "time", seed);
 
-
+	    glViewport(0,0, windowW, windowH);
 	    glBindVertexArray(quad.VAO);
 	    glBindTexture(GL_TEXTURE_2D, screenTexture);
 	    glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	    glBindTexture(GL_TEXTURE_2D, 0);
 	    glBindFramebuffer(GL_FRAMEBUFFER, 0); 
-	    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); 
-
-	
-
-
+	    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	}
 
 	// 2d ui drawing
@@ -2322,6 +2354,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	instances[curInstance][renderCursorFunc]();
+	glViewport(0,0, fakeWinW, fakeWinH);
 
 	/*
 	  char buf[32];
@@ -4858,6 +4891,12 @@ Object* objects;
 int objectsSize;
 
 void loadGLTFScene(char* name){
+    glUseProgram(shadersId[mainShader]);
+    radius+=0.1f;
+    uniformFloat(mainShader, "radius", radius);
+		    
+    size_t sceneWeight = 0;
+    
     // free beofre run
     if(objectsInfoSize != 0){
 	for(int i=0;i<objectsInfoSize;i++){
@@ -4878,6 +4917,10 @@ void loadGLTFScene(char* name){
 	objectsSize = 0;
 	objectsInfo = NULL;
 	objects = NULL;
+
+	lightsStorageSize = 0;
+	free(lightsStorage);
+	lightsStorage = NULL;
     }
 
     
@@ -4942,11 +4985,37 @@ void loadGLTFScene(char* name){
 	}
 
 	if(!exist){
+	    if(data->nodes[i].light){
+		float t[10] = {0};
+
+		{
+		    t[0] = data->nodes[i].translation[0];
+		    t[1] = data->nodes[i].translation[1];
+		    t[2] = data->nodes[i].translation[2];
+
+		    t[3] = data->nodes[i].scale[0];
+		    t[4] = data->nodes[i].scale[1];
+		    t[5] = data->nodes[i].scale[2];
+
+		    t[6] = data->nodes[i].rotation[0];
+		    t[7] = data->nodes[i].rotation[1];
+		    t[8] = data->nodes[i].rotation[2];
+		    t[9] = data->nodes[i].rotation[3];
+		}
+		
+		vec3 color = { data->nodes[i].light->color[0], data->nodes[i].light->color[1], data->nodes[i].light->color[2] };
+		createLight(color,
+			data->nodes[i].light->type,
+			data->nodes[i].light->intensity, gltfTRS(t).m);
+		    continue;
+	    }
+
+	    
 	    if(!objectsInfo){
 		objectsInfo = malloc(sizeof(ObjectInfo));
 	    }else{
 		objectsInfo = realloc(objectsInfo,
-			     sizeof(ObjectInfo) * (objectsInfoSize +1));
+				      sizeof(ObjectInfo) * (objectsInfoSize +1));
 	    }
 
 	    objectsInfo[objectsInfoSize].name = malloc(sizeof(char) * (strlen(token)+1));
@@ -4964,6 +5033,25 @@ void loadGLTFScene(char* name){
 			int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes[i4].data->type];
 			attrPad += vecLen;
 		    }
+
+		    /*
+		      for(int i2=0;i2<objectsInfo[objectsInfoSize].meshesSize;++i2){
+		      int indexSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].indices->component_type];
+			
+		      for (int i3 = 0; i3 < data->nodes[i].mesh->primitives[i2].indices->count/3;++i3) {
+		      uint16_t index[3];
+		      fseek(fo, data->nodes[i].mesh->primitives[i2].indices->buffer_view->offset + (i3*3) * indexSize, SEEK_SET);
+		      fread(&index, indexSize*3, 1, fo);
+
+		      for(int i4=0;i4<3;i4++){
+		      printf("%d %d %d\n", index[i4]);
+		      }
+
+		      printf("\n");
+		      }
+		      }*/
+
+		    sceneWeight += attrPad * data->nodes[i].mesh->primitives[i2].indices->count;
 
 		    printf("Attr size: %d \n", attrPad);
 
@@ -5004,15 +5092,15 @@ void loadGLTFScene(char* name){
 		    glBindVertexArray(objectsInfo[objectsInfoSize].meshes[i2].VAO);
 		    glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[objectsInfoSize].meshes[i2].VBO);
     
-		    objectsInfo[objectsInfoSize].meshes[i2].VBOSize = data->meshes[i].primitives[i2].indices->count;
-		    glBufferData(GL_ARRAY_BUFFER, attrPad * data->meshes[i].primitives[i2].indices->count * sizeof(float)
+		    objectsInfo[objectsInfoSize].meshes[i2].VBOSize = data->nodes[i].mesh->primitives[i2].indices->count;
+		    glBufferData(GL_ARRAY_BUFFER, attrPad * data->nodes[i].mesh->primitives[i2].indices->count * sizeof(float)
 				 , mesh, GL_STATIC_DRAW);
 
-			int itemPad[] = { 3, 2, 3, 4, 4};
+		    int itemPad[] = { 3, 2, 3, 4, 4};
 
 		    int pad = 0;
 		    for(int i3=0;i3<data->nodes[i].mesh->primitives[i2].attributes_count;++i3){
-	//		int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes[i3].data->type];
+			//		int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes[i3].data->type];
 			
 			glVertexAttribPointer(i3, itemPad[i3], GL_FLOAT, GL_FALSE, attrPad * sizeof(float), pad * sizeof(float));
 			glEnableVertexAttribArray(i3);
@@ -5025,17 +5113,20 @@ void loadGLTFScene(char* name){
 		    glBindVertexArray(0);
 
 		    // texture
-		    objectsInfo[objectsInfoSize].meshes[i2].VBOSize = data->meshes[i].primitives[i2].indices->count;
+		    objectsInfo[objectsInfoSize].meshes[i2].VBOSize = data->nodes[i].mesh->primitives[i2].indices->count;
 				    
 		    {
 			sprintf(buf, "%s%s", assetsFolder,
 				data->nodes[i].mesh->primitives[i2].material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
 			SDL_Surface* texture = IMG_Load(buf);
+
     
 			if (!texture) {
 			    printf("Loading of texture \"%s\" failed", buf);
 			    exit(0);
 			}
+
+			sceneWeight += texture->w * texture->h * texture->format->BytesPerPixel;
 
 			createTexture(&objectsInfo[objectsInfoSize].meshes[i2].tx, texture->w,texture->h, texture->pixels);
   
@@ -5081,6 +5172,10 @@ void loadGLTFScene(char* name){
     free(mesh);
     fclose(fo);
     cgltf_free(data);
+
+    uniformLights();
+
+    printf("Scene size: %f KB\n", ((float)(sceneWeight)/1000.0f));
 }
 
 void updateBones(Bone* cur, int i){
@@ -5116,7 +5211,7 @@ void updateBones(Bone* cur, int i){
 
 // make render for shadow and for normal
 void renderScene(GLuint curShader){
-	return;
+    return;
     Matrix out2 = IDENTITY_MATRIX;
    
     uniformMat4(curShader, "model", out2.m);
@@ -5967,10 +6062,10 @@ void loadShaders(bool firstInit){
 	GLuint fragmentShader = loadShader(GL_FRAGMENT_SHADER, fragFileName);
 
 	/*
-	strcpy(geomFileName, shadersFileNames[i]); 
-	strcat(geomFileName, ".geom");
+	  strcpy(geomFileName, shadersFileNames[i]); 
+	  strcat(geomFileName, ".geom");
 
-	GLuint geometryShader = loadShader(GL_GEOMETRY_SHADER, geomFileName);
+	  GLuint geometryShader = loadShader(GL_GEOMETRY_SHADER, geomFileName);
 	*/
 
 	tempShadersId[i] = glCreateProgram();
@@ -5978,9 +6073,9 @@ void loadShaders(bool firstInit){
 	glAttachShader(tempShadersId[i], vertexShader);
 
 	/*
-	if(geometryShader != 0){
-	    glAttachShader(tempShadersId[i], geometryShader);   
-	}
+	  if(geometryShader != 0){
+	  glAttachShader(tempShadersId[i], geometryShader);   
+	  }
 	*/
 
 	glLinkProgram(tempShadersId[i]);
@@ -5989,9 +6084,9 @@ void loadShaders(bool firstInit){
 	glDeleteShader(fragmentShader);
 
 	/*
-	if(geometryShader != 0){
-	    glDeleteShader(geometryShader);   
-	}
+	  if(geometryShader != 0){
+	  glDeleteShader(geometryShader);   
+	  }
 	*/
 
 
@@ -6066,3 +6161,31 @@ void reloadShaders(){
 	uniformLights();
     }
 }
+
+void createLight(vec3 color, int type, float power, float* mat){
+    int newIndex = lightsStorageSize;
+    lightsStorageSize++;
+
+    if(!lightsStorage){
+	lightsStorage = malloc(sizeof(Light2));
+    }else{
+	lightsStorage = realloc(lightsStorage, sizeof(Light2) * lightsStorageSize);
+    }
+
+
+    lightsStorage[newIndex].color = color;
+    lightsStorage[newIndex].type = type;
+    lightsStorage[newIndex].power = power;
+	memcpy(lightsStorage[newIndex].mat.m, mat, sizeof(Matrix));
+
+    uniformLights();
+
+    //  if(type == dirLightShadowT){
+//	rerenderShadowsForAllLights();
+//    }
+
+    //  if (type == shadowLightT) {
+    //rerenderShadowForLight(lightStorage[type][indexOfNew].id);
+    //  }
+}
+
