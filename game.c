@@ -41,7 +41,7 @@ int frameCounter;
 vec3 targetPos;
 
 void gamePreFrame(float deltaTime){
-    float step = 0.02f;
+    float step = 0.04f;
     
     vec2 nextPos = {0};
     bool move = false;

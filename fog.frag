@@ -31,7 +31,7 @@ float rad;
 float cutOff;	
 };
 
-#define MAX_LIGHTS 10
+#define MAX_LIGHTS 20
 
 uniform int pointLightsSize;  
 uniform PointLight pointLights[MAX_LIGHTS];
@@ -44,7 +44,7 @@ uniform PointLight dirLights[MAX_LIGHTS];
 
 in vec3 vertexToPlayer;
 
-float ambientC = .25f;
+float ambientC = .15f;
 float specularC = .2f;
 
 //uniform float far_plane;
@@ -96,12 +96,12 @@ float attenuation = 1.0 / (distance * distance);
 //vec3 ambient  = .05f * light.color;
 //vec3 diffuse  = diff * light.color;
 
-vec3 ambient = 0.1 * light.color;
-vec3 diffuse = diff * light.color * attenuation * (light.power / 50.0f);
+vec3 ambient = ambientC * light.color;
+vec3 diffuse = diff * light.color * attenuation * (light.power);
 
 vec3 specular = specularC * spec * light.color;
 
-ambient  *= attenuation;
+//ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
@@ -180,16 +180,16 @@ void main(void){
 vec4 tex = texture(colorMap, TexCoord);
 vec3 color = tex.rgb;	
 
-if(tex.a == 0.0){
+if(tex.a < 0.8f){
 discard;
 }
 
-//if(tex.a != 1.0f){
+//if(tex.a > 1.0f){
 //discard;
 //}
 
 vec3 viewDir = normalize(cameraPos - FragPos);
-vec3 norm = normalize(Normal);
+vec3 norm = Normal;
 
 vec3 res;
 
@@ -204,10 +204,13 @@ res+= dirLightCalc(dirLights[i], norm, viewDir);
 for(int i=0;i<pointLightsSize;i++){
 res+= pointLightCalc(pointLights[i], norm, viewDir);
 }
+
+//res *= ambientC;
 //res=vec3(1.0f,1.0f,1.0f);
 
 float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
+//fogAttenuation = 1.0f;
 
-gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
+gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)), tex.a);
 }

@@ -11,8 +11,8 @@
 uint32_t lowResFBO;
 uint32_t lowResTx;
 
-int fakeWinW = 640;
-int fakeWinH = 480;
+int fakeWinW = 854;//1920;//854;
+int fakeWinH = 480;//1080;// 480;
 
 float radius = 20.0f;
 
@@ -798,6 +798,7 @@ int main(int argc, char* argv[]) {
 	glEnable(GL_DEPTH_TEST);
 
 	glDepthFunc(GL_LEQUAL);
+//	glDepthFunc(GL_EQUAL);
 //	glDepthFunc(GL_GREATER);
 
 	glEnable(GL_MULTISAMPLE);
@@ -1774,6 +1775,7 @@ int main(int argc, char* argv[]) {
 
 	    // blender scene
 	    {
+		glEnable(GL_BLEND);
 		glUseProgram(shadersId[mainShader]);
 		
 		for(int i=0;i<objectsSize;++i){
@@ -1794,6 +1796,8 @@ int main(int argc, char* argv[]) {
 			glBindVertexArray(0);
 		    }
 		}
+
+		glDisable(GL_BLEND);
 	    }
 	    
 	    // windows 
@@ -2163,6 +2167,7 @@ int main(int argc, char* argv[]) {
 	    // render to fbo 
 	    glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
 
+	    glViewport(0,0, windowW, windowH);
 	    // update mirrors tx's
 	    {
 		//	glEnable(GL_DEPTH_TEST);
@@ -2196,20 +2201,6 @@ int main(int argc, char* argv[]) {
 		    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		    
 		    {
-			// snow
-			glEnable(GL_BLEND);
-			glBindBuffer(GL_ARRAY_BUFFER, snowMesh.VBO);
-			glBindVertexArray(snowMesh.VAO);
-
-			Matrix out = IDENTITY_MATRIX;
-			glUseProgram(shadersId[snowShader]);
-			uniformMat4(snowShader,"view", view.m);
-			uniformMat4(snowShader, "proj", mirrorProj.m);
-			uniformMat4(snowShader, "model", out.m);
-		    
-			glDrawArrays(GL_LINES, 0, snowMesh.VBOsize);
-			glDisable(GL_BLEND);
-
 			// player
 			if(entityStorageSize[i] == 1){
 			    glUseProgram(shadersId[animShader]);
@@ -2228,16 +2219,6 @@ int main(int argc, char* argv[]) {
 			    glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
 //			    glDisable(GL_CULL_FACE);
 			}
-			
-			// all 3d
-			glUseProgram(shadersId[mainShader]); 
-			uniformMat4(mainShader,"view", view.m);
-			uniformMat4(mainShader, "proj", mirrorProj.m);
-
-			((void (*)(void))instances[curInstance][render3DFunc])();
-			
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glBindVertexArray(0);
 		    }
 
 		    glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -2253,7 +2234,6 @@ int main(int argc, char* argv[]) {
 	    float seed = (float)(rand() % 1000 + 1) / 1000.0f;
 	    uniformFloat(screenShader, "time", seed);
 
-	    glViewport(0,0, windowW, windowH);
 	    glBindVertexArray(quad.VAO);
 	    glBindTexture(GL_TEXTURE_2D, screenTexture);
 	    glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -4317,7 +4297,7 @@ void createTexture(int* tx,int w,int h, void*px){
   
     glGenerateMipmap(GL_TEXTURE_2D);
   
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
  
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -6175,7 +6155,7 @@ void createLight(vec3 color, int type, float power, float* mat){
 
     lightsStorage[newIndex].color = color;
     lightsStorage[newIndex].type = type;
-    lightsStorage[newIndex].power = power;
+    lightsStorage[newIndex].power = power  / 100.0f;
 	memcpy(lightsStorage[newIndex].mat.m, mat, sizeof(Matrix));
 
     uniformLights();
