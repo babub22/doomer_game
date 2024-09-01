@@ -133,8 +133,12 @@ void gameMatsSetup(int curShader){
 	pos = mulmatvec4(skinMat, pos);
 	pos = mulmatvec4(entityStorage[playerEntityT][0].mat, pos);
 	
-	glUseProgram(shadersId[mainShader]); 
+	glUseProgram(shadersId[mainShader]);
+	
 	uniformVec3(mainShader, "cameraPos", (vec3){argVec3(pos)});
+	uniformVec3(waterShader, "cameraPos", (vec3){argVec3(pos)});
+	uniformVec3(animShader, "cameraPos", (vec3){argVec3(pos)});
+
 	
 	pos.y *= -1.0f;
 	pos.z *= -1.0f;

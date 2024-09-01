@@ -819,7 +819,7 @@ int markersStorageSize;
 int markersCounterByType[markersCounter];
 
 typedef enum{
-    lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITransfTx, animShader, snowShader, windowShader, shadersCounter
+    lightSourceShader, hudShader, mainShader, borderShader, screenShader, dirShadowShader, UIShader, UITransfShader, UITransfTx, animShader, snowShader, windowShader, waterShader, skyboxShader, shadersCounter
 } Shaders;
 
 const char* shadersFileNames[];// = {"lightSource", "hud", "fog", "borderShader","screenShader"};
@@ -1625,6 +1625,8 @@ typedef struct{
 //    ObjectInfo* info;
     int infoId;
     Matrix mat;
+
+    AABB col;
 } Object;
 
 
@@ -1634,5 +1636,12 @@ int objectsInfoSize;
 Object* objects;
 int objectsSize;
 
+Object* waterSurfaces;
+int waterSurfacesSize;
+
 void createLight(vec3 color, int type, float power, float* mat);
 const char* shaderVarSufixStr[];
+
+void bindObjectsAABBBoxes();
+
+void loadCubemap();

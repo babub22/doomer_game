@@ -44,7 +44,7 @@ uniform PointLight dirLights[MAX_LIGHTS];
 
 in vec3 vertexToPlayer;
 
-float ambientC = .15f;
+float ambientC = .12f;
 float specularC = .2f;
 
 //uniform float far_plane;
@@ -180,7 +180,7 @@ void main(void){
 vec4 tex = texture(colorMap, TexCoord);
 vec3 color = tex.rgb;	
 
-if(tex.a < 0.8f){
+if(tex.a < 0.75f){
 discard;
 }
 

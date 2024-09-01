@@ -2176,8 +2176,11 @@ void editorMatsSetup(int curShader) {
 	    // editorView = fpsView(curCamera->pos, curCamera->pitch, curCamera->yaw);/*lookAt(curCamera->pos,
 	    editorProj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
 	    
-	    glUseProgram(shadersId[mainShader]); 
+	    glUseProgram(shadersId[mainShader]);
+	    
 	    uniformVec3(mainShader, "cameraPos", curCamera->pos);
+	    uniformVec3(waterShader, "cameraPos", curCamera->pos);
+	    uniformVec3(animShader, "cameraPos", curCamera->pos);
 	
 	    editorView = lookAt(negPos,
 				(vec3) {
@@ -4584,15 +4587,11 @@ void editor2dRender() {
 }
 
 void uniformLights(){
-    GLint curShader = 0;
-
-    int shaderTable[] = { mainShader, snowShader, animShader };
+    int shaderTable[] = { mainShader, snowShader, animShader, waterShader };
     int shaderTableSize = sizeof(shaderTable) / sizeof(shaderTable[0]);
     int lightsCounter[5] = { 0 };
 
     for(int s=0;s<shaderTableSize;s++){
-	glUseProgram(shadersId[shaderTable[s]]);
-
 	char buf[64];
 
 	for(int i=0;i<lightsStorageSize;i++){
@@ -4692,8 +4691,6 @@ void uniformLights(){
 	    free(onLightsIndexes);
 	    }*/
     }
-
-    glUseProgram(curShader);
 }
 
 void editorMouseVS(){

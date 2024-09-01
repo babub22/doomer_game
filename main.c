@@ -7,6 +7,11 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
 
+uint32_t skyboxVAO, skyboxVBO, cubemapTexture;
+
+
+
+MeshBuffer AABBBoxes;
 
 uint32_t lowResFBO;
 uint32_t lowResTx;
@@ -153,7 +158,7 @@ ModelsTypesInfo modelsTypesInfo[] = {
     [playerModelT] = {"Player", 0}
 };
 
-const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth", [UIShader] = "UI", [UITransfShader] = "UITransf", [UITransfTx] = "UITransfTx", [animShader] = "animModels", [snowShader] = "snowShader", [windowShader] = "windowShader" };
+const char* shadersFileNames[] = { "lightSource", "hud", "fog", "borderShader", "screenShader", [dirShadowShader] = "dirShadowDepth", [UIShader] = "UI", [UITransfShader] = "UITransf", [UITransfTx] = "UITransfTx", [animShader] = "animModels", [snowShader] = "snowShader", [skyboxShader] = "skybox",[waterShader] = "waterShader", [windowShader] = "windowShader" };
 
 const char sdlScancodesToACII[] = {
     [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',[55] = '.'
@@ -729,7 +734,6 @@ int main(int argc, char* argv[]) {
 
     loadShaders();
 
-    glUseProgram(shadersId[mainShader]);
     uniformFloat(mainShader, "screenW", fakeWinW);
     uniformFloat(mainShader, "screenH", fakeWinH);
     
@@ -855,8 +859,12 @@ int main(int argc, char* argv[]) {
 	    glGenTextures(1, &screenTexture);
 	    glBindTexture(GL_TEXTURE_2D, screenTexture);
 	    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, fakeWinW, fakeWinH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	    
+	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	    
 	    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenTexture, 0);
 	}
 
@@ -1064,7 +1072,13 @@ int main(int argc, char* argv[]) {
 
 //    loadFBXModel("./assets/Doomer.gltf");
     loadGLTFModel("./assets/objs/Doomer.gltf");
+    
+    glGenBuffers(1, &AABBBoxes.VBO);
+    glGenVertexArrays(1, &AABBBoxes.VAO);
+    
     loadGLTFScene("./assets/base.gltf");
+    bindObjectsAABBBoxes();
+    loadCubemap();
 
 
     // place player
@@ -1296,10 +1310,10 @@ int main(int argc, char* argv[]) {
     // load or init grid
     //  if (!loadSave(".")) {
   
-    allocateGrid(120, 8, 120);
-    allocateCollisionGrid(120, 8, 120);
+//    allocateGrid(120, 8, 120);
+//    allocateCollisionGrid(120, 8, 120);
     
-    defaultGrid(gridX, gridY, gridZ);
+//    defaultGrid(gridX, gridY, gridZ);
     //  }
 
     //    lightPos = (vec3){gridX /2.0f,2.0f,gridZ/2.0f};
@@ -1307,10 +1321,10 @@ int main(int argc, char* argv[]) {
     //  renderCapYLayer = gridY;
     //  batchGeometry();
     
-    batchModels();
+    //   batchModels();
 
     // set up camera
-    GLint cameraPos = glGetUniformLocation(shadersId[mainShader], "cameraPos");
+//    GLint cameraPos = glGetUniformLocation(shadersId[mainShader], "cameraPos");
     {
 	camera1.yaw = 0.0f;
 	camera1.pitch = 0.0f;
@@ -1356,26 +1370,27 @@ int main(int argc, char* argv[]) {
     near_plane = 0.01f;
     far_plane  = 120.0f;
   
-    glUseProgram(shadersId[dirShadowShader]);
     uniformFloat(dirShadowShader, "far_plane", far_plane);
 
-    glUseProgram(shadersId[windowShader]);
     uniformInt(snowShader, "colorMap", 0); 
     
-    glUseProgram(shadersId[snowShader]);
     uniformInt(snowShader, "colorMap", 0); 
     uniformInt(snowShader, "shadowMap", 1);
     uniformFloat(snowShader, "far_plane", far_plane);
   
-    glUseProgram(shadersId[mainShader]);
     uniformInt(mainShader, "colorMap", 0); 
     uniformInt(mainShader, "shadowMap", 1);
     uniformFloat(mainShader, "far_plane", far_plane);
 
-    glUseProgram(shadersId[animShader]);
     uniformInt(animShader, "colorMap", 0); 
     uniformInt(animShader, "shadowMap", 1);
     uniformFloat(animShader, "far_plane", far_plane);
+
+    uniformInt(waterShader, "colorMap", 0); 
+    uniformInt(waterShader, "shadowMap", 1);
+    uniformFloat(waterShader, "far_plane", far_plane);
+
+    uniformInt(skyboxShader, "skybox", 0); 
 
 
     while (!quit) {
@@ -1434,25 +1449,28 @@ int main(int argc, char* argv[]) {
 
 		if(event.key.keysym.scancode == SDL_SCANCODE_F1){
 		    loadGLTFScene("./assets/base.gltf");
+		    bindObjectsAABBBoxes();
 		    printf("Map reloaded\n");
 		}
 
 		if(event.key.keysym.scancode == SDL_SCANCODE_P){
-		    glUseProgram(shadersId[mainShader]);
 		    radius+=0.1f;
 		    uniformFloat(mainShader, "radius", radius);
+		    uniformFloat(waterShader, "radius", radius);
 		}else if(event.key.keysym.scancode == SDL_SCANCODE_O){
-		    glUseProgram(shadersId[mainShader]);
 		    radius-=0.1f;
 		    uniformFloat(mainShader, "radius", radius);
+		    uniformFloat(waterShader, "radius", radius);
 		}
 
 		if(event.key.keysym.scancode == SDL_SCANCODE_F2){
 		    reloadShaders();
 
-		    glUseProgram(shadersId[mainShader]);
 		    uniformFloat(mainShader, "screenW", fakeWinW);
 		    uniformFloat(mainShader, "screenH", fakeWinH);
+
+		    uniformFloat(waterShader, "screenW", fakeWinW);
+		    uniformFloat(waterShader, "screenH", fakeWinH);
 		    
 		    printf("Shaders reloaded\n");
 		}
@@ -1676,7 +1694,7 @@ int main(int argc, char* argv[]) {
 		updateNodes(entityStorage[playerEntityT]->model->data->rootNode, -1,
 			    &entityStorage[playerEntityT]->model->nodes);
 
-		glUseProgram(shadersId[animShader]);
+//		glUseProgram(shadersId[animShader]);
 		    
 		char buf[64];
 		    
@@ -1773,6 +1791,18 @@ int main(int argc, char* argv[]) {
 
 	    ((void (*)(void))instances[curInstance][render3DFunc])();
 
+	    if(false)
+	    {
+		glDepthMask(GL_FALSE);
+		glUseProgram(shadersId[skyboxShader]);
+		glActiveTexture(GL_TEXTURE0);
+		glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+		glBindVertexArray(skyboxVAO);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glDepthMask(GL_TRUE);
+	    }
+
 	    // blender scene
 	    {
 		glEnable(GL_BLEND);
@@ -1783,22 +1813,54 @@ int main(int argc, char* argv[]) {
 
 		    for(int i2=0;i2< objectsInfo[objects[i].infoId].meshesSize;++i2){
 			glBindTexture(GL_TEXTURE_2D, objectsInfo[objects[i].infoId].meshes[i2].tx);
-//			glBindTexture(GL_TEXTURE_2D, loadedTextures1D[0].tx);
 			
 			glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[objects[i].infoId].meshes[i2].VBO);
 			glBindVertexArray(objectsInfo[objects[i].infoId].meshes[i2].VAO);
 		    
 			glDrawArrays(GL_TRIANGLES, 0, objectsInfo[objects[i].infoId].meshes[i2].VBOSize);
+		    }
+		}
 
-			glBindTexture(GL_TEXTURE_2D, 0);
+		glUseProgram(shadersId[waterShader]);
+		static float timeAcc;
+		timeAcc += elapsedMs;
 
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glBindVertexArray(0);
+		if(timeAcc>1.0f){
+//		    timeAcc = 0.0f;
+		}
+		
+		uniformFloat(waterShader, "dTime", timeAcc);
+		
+		for(int i=0;i<waterSurfacesSize;++i){
+		    uniformMat4(waterShader, "model", waterSurfaces[i].mat.m);
+
+		    for(int i2=0;i2< objectsInfo[waterSurfaces[i].infoId].meshesSize;++i2){
+			glBindTexture(GL_TEXTURE_2D, objectsInfo[waterSurfaces[i].infoId].meshes[i2].tx);
+			
+			glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[waterSurfaces[i].infoId].meshes[i2].VBO);
+			glBindVertexArray(objectsInfo[waterSurfaces[i].infoId].meshes[i2].VAO);
+		    
+			glDrawArrays(GL_TRIANGLES, 0, objectsInfo[waterSurfaces[i].infoId].meshes[i2].VBOSize);
 		    }
 		}
 
 		glDisable(GL_BLEND);
 	    }
+
+	    // object boxes
+	    /*
+	    glUseProgram(shadersId[lightSourceShader]);
+	    
+	    {
+		glBindVertexArray(AABBBoxes.VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, AABBBoxes.VBO);
+
+		Matrix out = IDENTITY_MATRIX;
+		uniformMat4(lightSourceShader, "model", out.m);
+		uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
+		    
+		glDrawArrays(GL_LINES, 0, AABBBoxes.VBOsize);
+	    }*/
 	    
 	    // windows 
 	    if(windowWindowsMesh.VBOsize){
@@ -4304,34 +4366,70 @@ void createTexture(int* tx,int w,int h, void*px){
 }; 
 
 // TODO: Func->macro
-void uniformVec4(int shader, char* var, vec4 value){ 
+void uniformVec4(int shader, char* var, vec4 value){
+    GLint curShader = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+    glUseProgram(shadersId[shader]);
+    
     int uni = glGetUniformLocation(shadersId[shader], var);
     glUniform4f(uni, argVec4(value));
+    
+    glUseProgram(curShader);
 };
 
-void uniformVec3(int shader, char* var, vec3 value){ 
+void uniformVec3(int shader, char* var, vec3 value){
+    GLint curShader = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+    glUseProgram(shadersId[shader]);
+    
     int uni = glGetUniformLocation(shadersId[shader], var);
     glUniform3f(uni, argVec3(value));
+
+    glUseProgram(curShader);
 };
 
 void uniformVec2(int shader, char* var, vec2 value){
+    GLint curShader = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+    glUseProgram(shadersId[shader]);
+    
     int uni = glGetUniformLocation(shadersId[shader], var);
     glUniform2f(uni, argVec2(value));
+
+    glUseProgram(curShader);
 };
 
 void uniformMat4(int shader, char* var, float* mat){
+    GLint curShader = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+    glUseProgram(shadersId[shader]);
+    
     int uni = glGetUniformLocation(shadersId[shader], var);
     glUniformMatrix4fv(uni, 1, GL_FALSE, mat);
+
+    glUseProgram(curShader);
 };
 
 void uniformFloat(int shader, char* var, float value) {
+    GLint curShader = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+    glUseProgram(shadersId[shader]);
+    
     int uni = glGetUniformLocation(shadersId[shader], var);
     glUniform1f(uni, value);
+
+    glUseProgram(curShader);
 };
 
 void uniformInt(int shader, char* var, int value) {
+    GLint curShader = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &curShader);
+    glUseProgram(shadersId[shader]);
+    
     int uni = glGetUniformLocation(shadersId[shader], var);
     glUniform1i(uni,value);
+
+    glUseProgram(curShader);
 };
 
 void assembleBlocks(){
@@ -4593,6 +4691,7 @@ void loadGLTFModel(char* name){
 	for(int i2=0;i2<data->meshes->primitives->attributes_count;i2++){
 	    int compSize = GLTFtypeSize[data->meshes->primitives->attributes[i2].data->component_type];
 	    int vecLen = GLTFmapSize[data->meshes->primitives->attributes[i2].data->type];
+//	    float pos[3];
 	    
 	    for(int i3=0;i3<vecLen;i3++){
 		fseek(fo, data->meshes->primitives->attributes[i2].data->buffer_view->offset
@@ -4607,9 +4706,12 @@ void loadGLTFModel(char* name){
 		}else{
 		    fread(&mesh[(i*16)+i3+GLTFattrPad[data->meshes->primitives->attributes[i2].type]]
 			  ,compSize, 1, fo);
+
 		}
 	    }	    
 	}
+
+//	mulmatvec4();
     }
 
     float maxZ = data->meshes->primitives->attributes->data->max[2] / 2.0f;
@@ -4952,7 +5054,56 @@ void loadGLTFScene(char* name){
     float* mesh = malloc(maxBufSize * sizeof(float));    
 
     for(int i=0;i<data->nodes_count;++i){
+	float t[10] = {0};
+
+	{
+	    t[0] = data->nodes[i].translation[0];
+	    t[1] = data->nodes[i].translation[1];
+	    t[2] = data->nodes[i].translation[2];
+
+	    t[3] = data->nodes[i].scale[0];
+	    t[4] = data->nodes[i].scale[1];
+	    t[5] = data->nodes[i].scale[2];
+
+	    t[6] = data->nodes[i].rotation[0];
+	    t[7] = data->nodes[i].rotation[1];
+	    t[8] = data->nodes[i].rotation[2];
+	    t[9] = data->nodes[i].rotation[3];
+	}
+
+	Matrix transformMat = gltfTRS(t);
+	
+	if(data->nodes[i].light){
+		
+	    vec3 color = { data->nodes[i].light->color[0], data->nodes[i].light->color[1], data->nodes[i].light->color[2] };
+	    createLight(color,
+			data->nodes[i].light->type,
+			data->nodes[i].light->intensity, transformMat.m);
+	    continue;
+	}
+	
 	char* token = strtok(data->nodes[i].name, ".");
+
+	Object** targetBuffer = NULL;
+	int* targetBufferSize = NULL;
+	
+	if(strcmp(token, "water") == 0){
+	    targetBuffer = &waterSurfaces;
+	    targetBufferSize = &waterSurfacesSize;
+	}else{
+	    targetBuffer = &objects;
+	    targetBufferSize = &objectsSize;
+	}
+	
+	if(!(*targetBuffer)){
+	    *targetBuffer = malloc(sizeof(Object));
+	}else{
+	    *targetBuffer = realloc(*targetBuffer, sizeof(Object) * (*targetBufferSize+1));
+	}
+
+	(*targetBuffer)[*targetBufferSize].mat = transformMat;
+	(*targetBuffer)[*targetBufferSize].col.rt = (vec3){ -FLT_MAX, -FLT_MAX, -FLT_MAX};
+	(*targetBuffer)[*targetBufferSize].col.lb = (vec3){ FLT_MAX, FLT_MAX, FLT_MAX};
 
 	bool exist = false;
 	int idInInfo = -1;
@@ -4965,30 +5116,6 @@ void loadGLTFScene(char* name){
 	}
 
 	if(!exist){
-	    if(data->nodes[i].light){
-		float t[10] = {0};
-
-		{
-		    t[0] = data->nodes[i].translation[0];
-		    t[1] = data->nodes[i].translation[1];
-		    t[2] = data->nodes[i].translation[2];
-
-		    t[3] = data->nodes[i].scale[0];
-		    t[4] = data->nodes[i].scale[1];
-		    t[5] = data->nodes[i].scale[2];
-
-		    t[6] = data->nodes[i].rotation[0];
-		    t[7] = data->nodes[i].rotation[1];
-		    t[8] = data->nodes[i].rotation[2];
-		    t[9] = data->nodes[i].rotation[3];
-		}
-		
-		vec3 color = { data->nodes[i].light->color[0], data->nodes[i].light->color[1], data->nodes[i].light->color[2] };
-		createLight(color,
-			data->nodes[i].light->type,
-			data->nodes[i].light->intensity, gltfTRS(t).m);
-		    continue;
-	    }
 
 	    
 	    if(!objectsInfo){
@@ -5039,6 +5166,8 @@ void loadGLTFScene(char* name){
 
 		    int indexSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].indices->component_type];
 		    for (int i3 = 0; i3 < data->nodes[i].mesh->primitives[i2].indices->count;++i3) {
+			float pos[3];
+			
 			uint16_t index;
 			fseek(fo, data->nodes[i].mesh->primitives[i2].indices->buffer_view->offset + i3 * indexSize, SEEK_SET);
 			fread(&index, indexSize, 1, fo);
@@ -5061,9 +5190,25 @@ void loadGLTFScene(char* name){
 				    mesh[index] = (float)temp;
 				}else{
 				    fread(&mesh[index], compSize, 1, fo);
+
+				    if(data->meshes->primitives->attributes[i2].type == cgltf_attribute_type_position){
+					pos[i5] = mesh[index];
+				    }
 				}
 			    }
+
+			    
 			}
+
+			vec4 transfPos = mulmatvec4((*targetBuffer)[*targetBufferSize].mat, (vec4){pos[0],pos[1],pos[2],1.0f});
+
+			(*targetBuffer)[*targetBufferSize].col.lb.x = min((*targetBuffer)[*targetBufferSize].col.lb.x, transfPos.x);
+			(*targetBuffer)[*targetBufferSize].col.lb.y = min((*targetBuffer)[*targetBufferSize].col.lb.y, transfPos.y);
+			(*targetBuffer)[*targetBufferSize].col.lb.z = min((*targetBuffer)[*targetBufferSize].col.lb.z, transfPos.z);
+
+			(*targetBuffer)[*targetBufferSize].col.rt.x = max((*targetBuffer)[*targetBufferSize].col.rt.x, transfPos.x);
+			(*targetBuffer)[*targetBufferSize].col.rt.y = max((*targetBuffer)[*targetBufferSize].col.rt.y, transfPos.y);
+			(*targetBuffer)[*targetBufferSize].col.rt.z = max((*targetBuffer)[*targetBufferSize].col.rt.z, transfPos.z);
 		    }
 
 		    glGenVertexArrays(1, &objectsInfo[objectsInfoSize].meshes[i2].VAO);
@@ -5119,34 +5264,9 @@ void loadGLTFScene(char* name){
 	    objectsInfoSize++;
 	}
 
-	if(!objects){
-	    objects = malloc(sizeof(Object));
-	}else{
-	    objects = realloc(objects, sizeof(Object) * (objectsSize+1));
-	}
-	
-	objects[objectsSize].infoId = idInInfo;
-	
-	float t[10] = {0};
+	(*targetBuffer)[*targetBufferSize].infoId = idInInfo;	
 
-	{
-	    t[0] = data->nodes[i].translation[0];
-	    t[1] = data->nodes[i].translation[1];
-	    t[2] = data->nodes[i].translation[2];
-
-	    t[3] = data->nodes[i].scale[0];
-	    t[4] = data->nodes[i].scale[1];
-	    t[5] = data->nodes[i].scale[2];
-
-	    t[6] = data->nodes[i].rotation[0];
-	    t[7] = data->nodes[i].rotation[1];
-	    t[8] = data->nodes[i].rotation[2];
-	    t[9] = data->nodes[i].rotation[3];
-	}
-	
-	objects[objectsSize].mat = gltfTRS(t);
-	
-	objectsSize++;
+	(*targetBufferSize)++;
     }
     
     free(mesh);
@@ -6092,7 +6212,7 @@ void loadShaders(bool firstInit){
 void reloadShaders(){    
     bool noErrors = true;
 
-    GLuint tempShadersId[shadersCounter];
+    uint32_t tempShadersId[shadersCounter];
 
     for (int i = 0; i < shadersCounter; i++) {
 	int nameLen = strlen(shadersFileNames[i]) + 1;
@@ -6133,11 +6253,13 @@ void reloadShaders(){
     }
 
     if(noErrors){
+	glUseProgram(0);
+
 	for (int i = 0; i < shadersCounter; i++) {
 	    glDeleteProgram(shadersId[i]);
 	}
 	
-	memcpy(shadersId, tempShadersId, shadersCounter * sizeof(uint32_t));
+	memcpy(shadersId, tempShadersId, sizeof(tempShadersId));
 	uniformLights();
     }
 }
@@ -6169,3 +6291,140 @@ void createLight(vec3 color, int type, float power, float* mat){
     //  }
 }
 
+void bindObjectsAABBBoxes(){
+//    objects[objectsSize].col;
+
+    int pad = 3 * 4;
+    float* mesh = malloc(sizeof(float) * pad * objectsSize);
+    
+    for(int i=0;i<objectsSize;++i){
+	int index = pad * i;
+	
+	mesh[index+0] = objects[i].col.lb.x;
+	mesh[index+1] = objects[i].col.lb.y;
+	mesh[index+2] = objects[i].col.lb.z;
+
+	mesh[index+3] = objects[i].col.lb.x;
+	mesh[index+4] = objects[i].col.rt.y;
+	mesh[index+5] = objects[i].col.lb.z;
+
+	mesh[index+6] = objects[i].col.rt.x;
+	mesh[index+7] = objects[i].col.lb.y;
+	mesh[index+8]= objects[i].col.rt.z;
+
+	mesh[index+9] = objects[i].col.rt.x;
+	mesh[index+10] = objects[i].col.rt.y;
+	mesh[index+11] = objects[i].col.rt.z;
+    }
+
+    glBindVertexArray(AABBBoxes.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, AABBBoxes.VBO);
+
+    AABBBoxes.VBOsize = pad * objectsSize;
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * pad * objectsSize, mesh, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+
+    free(mesh);
+}
+
+#define cubemapFolder "./assets/cubemap/"
+
+void loadCubemap(){
+    float step = 1000.0f;
+      float skyboxVertices[] = {
+        // positions          
+        -step,  step, -step,
+        -step, -step, -step,
+         step, -step, -step,
+         step, -step, -step,
+         step,  step, -step,
+        -step,  step, -step,
+
+        -step, -step,  step,
+        -step, -step, -step,
+        -step,  step, -step,
+        -step,  step, -step,
+        -step,  step,  step,
+        -step, -step,  step,
+
+         step, -step, -step,
+         step, -step,  step,
+         step,  step,  step,
+         step,  step,  step,
+         step,  step, -step,
+         step, -step, -step,
+
+        -step, -step,  step,
+        -step,  step,  step,
+         step,  step,  step,
+         step,  step,  step,
+         step, -step,  step,
+	 -step, -step,  step,
+
+	 -step,  step, -step,
+	 step,  step, -step,
+	 step,  step,  step,
+	 step,  step,  step,
+	 -step,  step,  step,
+	 -step,  step, -step,
+
+	 -step, -step, -step,
+	 -step, -step,  step,
+	 step, -step, -step,
+	 step, -step, -step,
+	 -step, -step,  step,
+	 step, -step,  step
+      };
+      
+      glGenVertexArrays(1, &skyboxVAO);
+      glGenBuffers(1, &skyboxVBO);
+      glBindVertexArray(skyboxVAO);
+      glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+      glEnableVertexAttribArray(0);
+
+            glBindVertexArray(0);
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+    
+      glGenTextures(1, &cubemapTexture);
+      glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+
+      char* names[] = {
+	  "right.png",
+	  "left.png",
+	  "top.png",
+	  "bot.png",
+	  "front.png",
+	  "back.png",
+    };
+
+    int width, height, nrChannels;
+    char buf[128];
+
+    
+    for (int i = 0; i < 6; ++i)
+    {
+	sprintf(buf, "%s%s", cubemapFolder, names[i]);
+	SDL_Surface* texture = IMG_Load(buf);
+
+	if (!texture) {
+	    printf("Loading of texture \"%s\" failed", buf);
+	    exit(0);
+	}
+	
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+		     0, GL_RGBA8, texture->w, texture->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture->pixels);
+
+	SDL_FreeSurface(texture);
+    }
+    
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+}  
