@@ -10,7 +10,7 @@ int gameCameraFloor = 1;
 
 void gameOnSetInstance(){
   printf("Now game\n");
-  curCamera->pos.y = cameraFloor;
+//  curCamera->pos.y = cameraFloor;
 
   glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 }

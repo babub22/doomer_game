@@ -1645,3 +1645,13 @@ const char* shaderVarSufixStr[];
 void bindObjectsAABBBoxes();
 
 void loadCubemap();
+
+typedef struct{
+    AABB col;
+//    int objectsIndex;
+} AABBEntity;
+
+AABBEntity* aabbEntities;
+int aabbEntitiesSize;
+
+//void loadGLTFScene2(char* name);

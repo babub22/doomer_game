@@ -9,17 +9,17 @@
 
 uint32_t skyboxVAO, skyboxVBO, cubemapTexture;
 
-
+bool collisionToDraw = false;
 
 MeshBuffer AABBBoxes;
 
 uint32_t lowResFBO;
 uint32_t lowResTx;
 
-int fakeWinW = 854;//1920;//854;
-int fakeWinH = 480;//1080;// 480;
+int fakeWinW = 1920;//854;
+int fakeWinH = 1080;// 480;
 
-float radius = 20.0f;
+float radius = 40.0f;
 
 bool showHiddenWalls = true;
 
@@ -1453,6 +1453,10 @@ int main(int argc, char* argv[]) {
 		    printf("Map reloaded\n");
 		}
 
+		if(event.key.keysym.scancode == SDL_SCANCODE_F4){
+		    collisionToDraw = !collisionToDraw;
+		}
+
 		if(event.key.keysym.scancode == SDL_SCANCODE_P){
 		    radius+=0.1f;
 		    uniformFloat(mainShader, "radius", radius);
@@ -1471,6 +1475,9 @@ int main(int argc, char* argv[]) {
 
 		    uniformFloat(waterShader, "screenW", fakeWinW);
 		    uniformFloat(waterShader, "screenH", fakeWinH);
+
+		    uniformFloat(mainShader, "radius", radius);
+		    uniformFloat(waterShader, "radius", radius);
 		    
 		    printf("Shaders reloaded\n");
 		}
@@ -1484,17 +1491,6 @@ int main(int argc, char* argv[]) {
 			navPointsDraw = true;
 		    }
 		}
-
-		if (event.key.keysym.scancode == SDL_SCANCODE_F4) {
-		    if(snowAreas){
-			snowAreas = !snowAreas;
-		    }else{
-			generateShowAreas();
-		
-			snowAreas = true;
-		    }
-		}
-
 
 		if (event.key.keysym.scancode == SDL_SCANCODE_SPACE && !selectedTextInput2) {
 		    
@@ -1822,12 +1818,9 @@ int main(int argc, char* argv[]) {
 		}
 
 		glUseProgram(shadersId[waterShader]);
-		static float timeAcc;
+		
+		static float timeAcc = 0.0f;
 		timeAcc += elapsedMs;
-
-		if(timeAcc>1.0f){
-//		    timeAcc = 0.0f;
-		}
 		
 		uniformFloat(waterShader, "dTime", timeAcc);
 		
@@ -1848,9 +1841,9 @@ int main(int argc, char* argv[]) {
 	    }
 
 	    // object boxes
-	    /*
-	    glUseProgram(shadersId[lightSourceShader]);
-	    
+//	    /*
+
+	    if(collisionToDraw)
 	    {
 		glBindVertexArray(AABBBoxes.VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, AABBBoxes.VBO);
@@ -1859,31 +1852,9 @@ int main(int argc, char* argv[]) {
 		uniformMat4(lightSourceShader, "model", out.m);
 		uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
 		    
+	    glUseProgram(shadersId[lightSourceShader]);
 		glDrawArrays(GL_LINES, 0, AABBBoxes.VBOsize);
-	    }*/
-	    
-	    // windows 
-	    if(windowWindowsMesh.VBOsize){
-		glEnable(GL_BLEND);
-		
-		glBindTexture(GL_TEXTURE_2D, windowGlassId);
-		
-		glUseProgram(shadersId[windowShader]);
-		
-		glBindBuffer(GL_ARRAY_BUFFER, windowWindowsMesh.VBO);
-		glBindVertexArray(windowWindowsMesh.VAO);
-
-		Matrix out = IDENTITY_MATRIX;
-		uniformMat4(windowShader, "model", out.m);
-		    
-		glDrawArrays(GL_TRIANGLES, 0, windowWindowsMesh.VBOsize);
-
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		
-		glBindVertexArray(0);
-
-		glDisable(GL_BLEND);
-	    }
+	    }//*/
 
 	    // draw snow
 	    {
@@ -2427,7 +2398,7 @@ int main(int argc, char* argv[]) {
 
 	float delta = SDL_GetTicks()-start_time;
         elapsedMs = delta / 1000.0f;
-//	printf("Frame ms: %f \n", elapsedMs);
+		//printf("Frame ms: %f \n", elapsedMs);
 	
 	if((1000/FPS)>delta){
             SDL_Delay((1000/FPS)-(SDL_GetTicks()-start_time));
@@ -4972,10 +4943,13 @@ int objectsInfoSize;
 Object* objects;
 int objectsSize;
 
+
+
 void loadGLTFScene(char* name){
-    glUseProgram(shadersId[mainShader]);
-    radius+=0.1f;
+    //  glUseProgram(shadersId[mainShader]);
+//    radius+=0.1f;
     uniformFloat(mainShader, "radius", radius);
+    uniformFloat(waterShader, "radius", radius);
 		    
     size_t sceneWeight = 0;
     
@@ -4994,14 +4968,20 @@ void loadGLTFScene(char* name){
 
 	free(objectsInfo);
 	free(objects);
+	free(waterSurfaces);
+	free(lightsStorage);
+	free(aabbEntities);
 
 	objectsInfoSize = 0;
+	waterSurfacesSize = 0;
 	objectsSize = 0;
+	lightsStorageSize = 0;
+	aabbEntitiesSize = 0;
+
+	waterSurfaces = NULL;
+	aabbEntities = NULL;
 	objectsInfo = NULL;
 	objects = NULL;
-
-	lightsStorageSize = 0;
-	free(lightsStorage);
 	lightsStorage = NULL;
     }
 
@@ -5035,11 +5015,12 @@ void loadGLTFScene(char* name){
     size_t maxBufSize = 0;
 
     for(int i=0;i<data->meshes_count;++i){
+	aabbEntitiesSize += data->meshes[i].primitives_count;
 	for(int i2=0;i2<data->meshes[i].primitives_count;++i2){
+	    
 	    size_t curPrimitiveSize = 0;
 	    
 	    for(int i3=0;i3<data->meshes[i].primitives[i2].attributes_count;++i3){
-//		int compSize = GLTFtypeSize[data->meshes[i].primitives[i2].attributes[i3].data->component_type];
 		int vecLen = GLTFmapSize[data->meshes[i].primitives[i2].attributes[i3].data->type];
 		
 		curPrimitiveSize += (vecLen);
@@ -5050,13 +5031,17 @@ void loadGLTFScene(char* name){
 	}
     }
 
-    printf("maxBufSize: %d \n", maxBufSize);
+    aabbEntities = malloc(sizeof(AABBEntity) * aabbEntitiesSize);
+    aabbEntitiesSize = 0;
+    
     float* mesh = malloc(maxBufSize * sizeof(float));    
 
     for(int i=0;i<data->nodes_count;++i){
-	float t[10] = {0};
-
+	Matrix transformMat;
+	
 	{
+	    float t[10] = {0};
+
 	    t[0] = data->nodes[i].translation[0];
 	    t[1] = data->nodes[i].translation[1];
 	    t[2] = data->nodes[i].translation[2];
@@ -5069,9 +5054,14 @@ void loadGLTFScene(char* name){
 	    t[7] = data->nodes[i].rotation[1];
 	    t[8] = data->nodes[i].rotation[2];
 	    t[9] = data->nodes[i].rotation[3];
+
+		if (data->nodes[i].has_matrix) {
+			printf("has mat\n");
+		}
+	    
+	    transformMat = gltfTRS(t);
 	}
 
-	Matrix transformMat = gltfTRS(t);
 	
 	if(data->nodes[i].light){
 		
@@ -5094,16 +5084,16 @@ void loadGLTFScene(char* name){
 	    targetBuffer = &objects;
 	    targetBufferSize = &objectsSize;
 	}
+
+	int targetSize = *targetBufferSize;
 	
 	if(!(*targetBuffer)){
 	    *targetBuffer = malloc(sizeof(Object));
 	}else{
-	    *targetBuffer = realloc(*targetBuffer, sizeof(Object) * (*targetBufferSize+1));
+	    *targetBuffer = realloc(*targetBuffer, sizeof(Object) * ((targetSize)+1));
 	}
 
-	(*targetBuffer)[*targetBufferSize].mat = transformMat;
-	(*targetBuffer)[*targetBufferSize].col.rt = (vec3){ -FLT_MAX, -FLT_MAX, -FLT_MAX};
-	(*targetBuffer)[*targetBufferSize].col.lb = (vec3){ FLT_MAX, FLT_MAX, FLT_MAX};
+	(*targetBuffer)[targetSize].mat = transformMat;
 
 	bool exist = false;
 	int idInInfo = -1;
@@ -5116,8 +5106,6 @@ void loadGLTFScene(char* name){
 	}
 
 	if(!exist){
-
-	    
 	    if(!objectsInfo){
 		objectsInfo = malloc(sizeof(ObjectInfo));
 	    }else{
@@ -5128,7 +5116,6 @@ void loadGLTFScene(char* name){
 	    objectsInfo[objectsInfoSize].name = malloc(sizeof(char) * (strlen(token)+1));
 	    strcpy(objectsInfo[objectsInfoSize].name, token);
 
-	    if(true)
 	    {
 		objectsInfo[objectsInfoSize].meshesSize = data->nodes[i].mesh->primitives_count;
 		objectsInfo[objectsInfoSize].meshes = malloc(sizeof(Mesh) * objectsInfo[objectsInfoSize].meshesSize);
@@ -5141,23 +5128,6 @@ void loadGLTFScene(char* name){
 			attrPad += vecLen;
 		    }
 
-		    /*
-		      for(int i2=0;i2<objectsInfo[objectsInfoSize].meshesSize;++i2){
-		      int indexSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].indices->component_type];
-			
-		      for (int i3 = 0; i3 < data->nodes[i].mesh->primitives[i2].indices->count/3;++i3) {
-		      uint16_t index[3];
-		      fseek(fo, data->nodes[i].mesh->primitives[i2].indices->buffer_view->offset + (i3*3) * indexSize, SEEK_SET);
-		      fread(&index, indexSize*3, 1, fo);
-
-		      for(int i4=0;i4<3;i4++){
-		      printf("%d %d %d\n", index[i4]);
-		      }
-
-		      printf("\n");
-		      }
-		      }*/
-
 		    sceneWeight += attrPad * data->nodes[i].mesh->primitives[i2].indices->count;
 
 		    printf("Attr size: %d \n", attrPad);
@@ -5166,8 +5136,6 @@ void loadGLTFScene(char* name){
 
 		    int indexSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].indices->component_type];
 		    for (int i3 = 0; i3 < data->nodes[i].mesh->primitives[i2].indices->count;++i3) {
-			float pos[3];
-			
 			uint16_t index;
 			fseek(fo, data->nodes[i].mesh->primitives[i2].indices->buffer_view->offset + i3 * indexSize, SEEK_SET);
 			fread(&index, indexSize, 1, fo);
@@ -5190,27 +5158,11 @@ void loadGLTFScene(char* name){
 				    mesh[index] = (float)temp;
 				}else{
 				    fread(&mesh[index], compSize, 1, fo);
-
-				    if(data->meshes->primitives->attributes[i2].type == cgltf_attribute_type_position){
-					pos[i5] = mesh[index];
-				    }
 				}
 			    }
-
-			    
 			}
-
-			vec4 transfPos = mulmatvec4((*targetBuffer)[*targetBufferSize].mat, (vec4){pos[0],pos[1],pos[2],1.0f});
-
-			(*targetBuffer)[*targetBufferSize].col.lb.x = min((*targetBuffer)[*targetBufferSize].col.lb.x, transfPos.x);
-			(*targetBuffer)[*targetBufferSize].col.lb.y = min((*targetBuffer)[*targetBufferSize].col.lb.y, transfPos.y);
-			(*targetBuffer)[*targetBufferSize].col.lb.z = min((*targetBuffer)[*targetBufferSize].col.lb.z, transfPos.z);
-
-			(*targetBuffer)[*targetBufferSize].col.rt.x = max((*targetBuffer)[*targetBufferSize].col.rt.x, transfPos.x);
-			(*targetBuffer)[*targetBufferSize].col.rt.y = max((*targetBuffer)[*targetBufferSize].col.rt.y, transfPos.y);
-			(*targetBuffer)[*targetBufferSize].col.rt.z = max((*targetBuffer)[*targetBufferSize].col.rt.z, transfPos.z);
 		    }
-
+		    
 		    glGenVertexArrays(1, &objectsInfo[objectsInfoSize].meshes[i2].VAO);
 		    glGenBuffers(1, &objectsInfo[objectsInfoSize].meshes[i2].VBO);
 
@@ -5225,14 +5177,11 @@ void loadGLTFScene(char* name){
 
 		    int pad = 0;
 		    for(int i3=0;i3<data->nodes[i].mesh->primitives[i2].attributes_count;++i3){
-			//		int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes[i3].data->type];
-			
 			glVertexAttribPointer(i3, itemPad[i3], GL_FLOAT, GL_FALSE, attrPad * sizeof(float), pad * sizeof(float));
 			glEnableVertexAttribArray(i3);
 
 			pad+= itemPad[i3];
 		    }
-
 
 		    glBindBuffer(GL_ARRAY_BUFFER, 0);
 		    glBindVertexArray(0);
@@ -5264,8 +5213,45 @@ void loadGLTFScene(char* name){
 	    objectsInfoSize++;
 	}
 
-	(*targetBuffer)[*targetBufferSize].infoId = idInInfo;	
+	(*targetBuffer)[targetSize].infoId = idInInfo;
 
+	// aabb
+	{
+	    aabbEntities[aabbEntitiesSize].col.rt = (vec3){ -FLT_MAX, -FLT_MAX, -FLT_MAX };
+	    aabbEntities[aabbEntitiesSize].col.lb = (vec3){ FLT_MAX, FLT_MAX, FLT_MAX };
+
+	    for(int i2=0;i2<data->nodes[i].mesh->primitives_count;++i2){
+		if (data->nodes[i].mesh->primitives[i2].attributes_count == 0) continue;
+
+		assert(data->nodes[i].mesh->primitives[i2].attributes->type == cgltf_attribute_type_position);
+		    
+		int compSize = GLTFtypeSize[data->nodes[i].mesh->primitives[i2].attributes->data->component_type];
+		int vecLen = GLTFmapSize[data->nodes[i].mesh->primitives[i2].attributes->data->type];
+
+		int posLen =  data->nodes[i].mesh->primitives[i2].attributes->data->buffer_view->size / vecLen / compSize;
+
+		float pos[3];
+		int vecSize = vecLen * compSize;
+
+		for (int i3 = 0; i3 < posLen; ++i3) {	
+		    fseek(fo, data->nodes[i].mesh->primitives[i2].indices->buffer_view->offset + i3 * vecSize, SEEK_SET);
+		    fread(pos, vecSize, 1, fo);
+
+		    vec4 transfPos = mulmatvec4((*targetBuffer)[*targetBufferSize].mat, (vec4) { pos[0], pos[1], pos[2], 1.0f });
+
+		    aabbEntities[aabbEntitiesSize].col.lb.x = min(aabbEntities[aabbEntitiesSize].col.lb.x, transfPos.x);
+		    aabbEntities[aabbEntitiesSize].col.lb.y = min(aabbEntities[aabbEntitiesSize].col.lb.y, transfPos.y);
+		    aabbEntities[aabbEntitiesSize].col.lb.z = min(aabbEntities[aabbEntitiesSize].col.lb.z, transfPos.z);
+
+		    aabbEntities[aabbEntitiesSize].col.rt.x = max(aabbEntities[aabbEntitiesSize].col.rt.x, transfPos.x);
+		    aabbEntities[aabbEntitiesSize].col.rt.y = max(aabbEntities[aabbEntitiesSize].col.rt.y, transfPos.y);
+		    aabbEntities[aabbEntitiesSize].col.rt.z = max(aabbEntities[aabbEntitiesSize].col.rt.z, transfPos.z);
+		}
+
+		aabbEntitiesSize++;
+	    }
+	}
+	
 	(*targetBufferSize)++;
     }
     
@@ -5277,6 +5263,7 @@ void loadGLTFScene(char* name){
 
     printf("Scene size: %f KB\n", ((float)(sceneWeight)/1000.0f));
 }
+
 
 void updateBones(Bone* cur, int i){
     if(cur->parent != -1){
@@ -6295,34 +6282,34 @@ void bindObjectsAABBBoxes(){
 //    objects[objectsSize].col;
 
     int pad = 3 * 4;
-    float* mesh = malloc(sizeof(float) * pad * objectsSize);
+    float* mesh = malloc(sizeof(float) * pad * aabbEntitiesSize);
     
-    for(int i=0;i<objectsSize;++i){
+    for(int i=0;i<aabbEntitiesSize;++i){
 	int index = pad * i;
 	
-	mesh[index+0] = objects[i].col.lb.x;
-	mesh[index+1] = objects[i].col.lb.y;
-	mesh[index+2] = objects[i].col.lb.z;
+	mesh[index+0] = aabbEntities[i].col.lb.x;
+	mesh[index+1] = aabbEntities[i].col.lb.y;
+	mesh[index+2] = aabbEntities[i].col.lb.z;
 
-	mesh[index+3] = objects[i].col.lb.x;
-	mesh[index+4] = objects[i].col.rt.y;
-	mesh[index+5] = objects[i].col.lb.z;
+	mesh[index+3] = aabbEntities[i].col.lb.x;
+	mesh[index+4] = aabbEntities[i].col.rt.y;
+	mesh[index+5] = aabbEntities[i].col.lb.z;
 
-	mesh[index+6] = objects[i].col.rt.x;
-	mesh[index+7] = objects[i].col.lb.y;
-	mesh[index+8]= objects[i].col.rt.z;
+	mesh[index+6] = aabbEntities[i].col.rt.x;
+	mesh[index+7] = aabbEntities[i].col.lb.y;
+	mesh[index+8]= aabbEntities[i].col.rt.z;
 
-	mesh[index+9] = objects[i].col.rt.x;
-	mesh[index+10] = objects[i].col.rt.y;
-	mesh[index+11] = objects[i].col.rt.z;
+	mesh[index+9] = aabbEntities[i].col.rt.x;
+	mesh[index+10] = aabbEntities[i].col.rt.y;
+	mesh[index+11] = aabbEntities[i].col.rt.z;
     }
 
     glBindVertexArray(AABBBoxes.VAO);
     glBindBuffer(GL_ARRAY_BUFFER, AABBBoxes.VBO);
 
-    AABBBoxes.VBOsize = pad * objectsSize;
+    AABBBoxes.VBOsize = pad * aabbEntitiesSize;
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * pad * objectsSize, mesh, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * pad * aabbEntitiesSize, mesh, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
