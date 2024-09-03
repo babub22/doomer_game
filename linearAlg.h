@@ -139,4 +139,12 @@ Matrix lootAt2(vec3 eye, vec3 center, vec3 up);
 Matrix addMats(Matrix a, Matrix b);
 Matrix mulMatNum(Matrix a, float n);
 
+vec3 addvec3(vec3 v1, vec3 v2);
+
 vec4 normalize4(vec4 v);
+
+Matrix quatToMat(vec4 quat);
+vec4 subQuats(vec4 a, vec4 b);
+
+vec3 rotateVectorByQuaternion(vec3 v, vec4 q);
+vec3 mulVec3Num(vec3 a, float n);

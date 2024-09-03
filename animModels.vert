@@ -29,7 +29,6 @@ out vec4 modelPos;
 
 uniform vec3 cameraPos;
 uniform sampler2D colorMap; 
-uniform float radius; // This is also not used in the vertex shader
 
 out float z;
 

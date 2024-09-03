@@ -7,8 +7,6 @@ uniform sampler2DArray shadowMap;
 
 uniform float radius;
 
-uniform vec3 discardVert;	
-
 in vec2 TexCoord;
 in vec3 Normal;
 in vec3 FragPos;
@@ -17,6 +15,8 @@ in vec4 FragPosLightSpace[8];
 struct PointLight{
 vec3  pos;
 vec3 color;
+
+float power;
 
 float constant;
 float linear;
@@ -87,15 +87,18 @@ float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
 
 // attenuation
 float distance    = length(light.pos - FragPos);
-float attenuation = 1.0 / (light.constant + light.linear * distance + 
-light.quadratic * (distance * distance));    
+float attenuation = 1.0 / (distance * distance);
 
 // combine results
-vec3 ambient  = .05f * light.color;
-vec3 diffuse  = diff * light.color;
+//vec3 ambient  = .05f * light.color;
+//vec3 diffuse  = diff * light.color;
+
+vec3 ambient = ambientC * light.color;
+vec3 diffuse = diff * light.color * attenuation * (light.power);
+
 vec3 specular = specularC * spec * light.color;
 
-ambient  *= attenuation;
+//ambient  *= attenuation;
 diffuse  *= attenuation;
 specular *= attenuation;
 
@@ -196,7 +199,11 @@ float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
 
 //gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
-gl_FragColor = vec4(res * color,1.0f);// * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
+
+gl_FragColor = vec4(res * color,1.0f);
+
+
+// * fogAttenuation + (.5 * (1.0-fogAttenuation)),tex.a);
 //gl_FragDepth = clamp(z, 0.0, 1.0);
 
 //gl_Position.z = 2.0*log(gl_Position.w/near)/log(far/near) - 1; 

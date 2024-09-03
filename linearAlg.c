@@ -474,6 +474,60 @@ Matrix gltfTRS(float* t){
     return out;
 }
 
+vec3 rotateVectorByQuaternion(vec3 v, vec4 q) {
+    vec3 u = (vec3){ argVec3(q)};
+    float s = q.w;
+
+    vec3 v1 = mulVec3Num(u, 2.0 * dotf3(u, v));
+    vec3 v2 = mulVec3Num(v, (s * s - dotf3(u, u)));
+    vec3 v3 = mulVec3Num(cross3(u, v), 2.0 * s);
+
+    return addvec3(addvec3(v1, v2), v3);
+}
+
+Matrix quatToMat(vec4 quat){
+    float x = quat.x;
+    float y = quat.y;
+    float z = quat.z;
+    float w = quat.w;
+    
+    float x2 = x + x;
+    float y2 = y + y;
+    float z2 = z + z;
+    float xx = x * x2;
+    float xy = x * y2;
+    float xz = x * z2;
+    float yy = y * y2;
+    float yz = y * z2;
+    float zz = z * z2;
+    float wx = w * x2;
+    float wy = w * y2;
+    float wz = w * z2;
+    float sx = 1.0f;
+    float sy = 1.0f;
+    float sz = 1.0f;
+
+    Matrix out;
+    
+    out.m[0] = (1 - (yy + zz)) * sx;
+    out.m[1] = (xy + wz) * sx;
+    out.m[2] = (xz - wy) * sx;
+    out.m[3] = 0;
+    out.m[4] = (xy - wz) * sy;
+    out.m[5] = (1 - (xx + zz)) * sy;
+    out.m[6] = (yz + wx) * sy;
+    out.m[7] = 0;
+    out.m[8] = (xz + wy) * sz;
+    out.m[9] = (yz - wx) * sz;
+    out.m[10] = (1 - (xx + yy)) * sz;
+    out.m[11] = 0;
+    out.m[12] = 0.0f;
+    out.m[13] = 0.0f;
+    out.m[14] = 0.0f;
+    out.m[15] = 1;
+    
+    return out;
+}
 
 Matrix fromRotationTranslationScale(vec4 q, vec3 v, vec3 s) {
     Matrix out;
@@ -701,6 +755,15 @@ Matrix mulMatNum(Matrix a, float n){
     return out;
 }
 
+vec3 mulVec3Num(vec3 a, float n){
+    vec3 res = {
+	a.x*n, a.y*n, a.z*n
+    };
+    
+    return res;
+}
+
+
 float magnitude4(vec4 v){
     float dot = dotf4(v, v);
     return sqrtf(dot);
@@ -708,6 +771,10 @@ float magnitude4(vec4 v){
 
 vec4 addvec4(vec4 v1, vec4 v2){
     return (vec4){v1.x+v2.x,v1.y+v2.y,v1.z+v2.z,v1.w+v2.w};
+}
+
+vec3 addvec3(vec3 v1, vec3 v2){
+    return (vec3){v1.x+v2.x,v1.y+v2.y,v1.z+v2.z };
 }
 
 vec4 multvec4(vec4 v, float n){

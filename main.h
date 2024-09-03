@@ -1625,8 +1625,6 @@ typedef struct{
 //    ObjectInfo* info;
     int infoId;
     Matrix mat;
-
-    AABB col;
 } Object;
 
 
@@ -1648,7 +1646,12 @@ void loadCubemap();
 
 typedef struct{
     AABB col;
-//    int objectsIndex;
+
+    vec3 center;
+    vec3 extents;
+    vec4 rot;
+
+    int objectId;
 } AABBEntity;
 
 AABBEntity* aabbEntities;

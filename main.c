@@ -16,17 +16,17 @@ MeshBuffer AABBBoxes;
 uint32_t lowResFBO;
 uint32_t lowResTx;
 
-int fakeWinW = 1920;//854;
-int fakeWinH = 1080;// 480;
+int fakeWinW = 1920;//854;//1920;//854;
+int fakeWinH = 1080;//480;//1080;// 480;
 
 float radius = 40.0f;
 
 bool showHiddenWalls = true;
 
 const char* shaderVarSufixStr[] = {
-		[cgltf_light_type_point] = "point",
-		[cgltf_light_type_directional] = "dir",
-		//	    [dirLightShadowT] = "dirShadow"
+    [cgltf_light_type_point] = "point",
+    [cgltf_light_type_directional] = "dir",
+    //	    [dirLightShadowT] = "dirShadow"
 };
 
 TextInput* selectedTextInput;
@@ -674,8 +674,13 @@ int main(int argc, char* argv[]) {
 	    hW, hH, -hD,
 
 	    -hW, -hH, -hD,
-	    hW, hH, -hD,
+	    hW, hH, -hD,
+
+
+
+
 	    -hW, hH, -hD,
+
 
 	    // back
 	    -hW, -hH, hD,
@@ -1845,6 +1850,8 @@ int main(int argc, char* argv[]) {
 
 	    if(collisionToDraw)
 	    {
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		
 		glBindVertexArray(AABBBoxes.VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, AABBBoxes.VBO);
 
@@ -1852,8 +1859,10 @@ int main(int argc, char* argv[]) {
 		uniformMat4(lightSourceShader, "model", out.m);
 		uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
 		    
-	    glUseProgram(shadersId[lightSourceShader]);
-		glDrawArrays(GL_LINES, 0, AABBBoxes.VBOsize);
+		glUseProgram(shadersId[lightSourceShader]);
+		glDrawArrays(GL_TRIANGLES, 0, AABBBoxes.VBOsize);
+	    
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	    }//*/
 
 	    // draw snow
@@ -2252,6 +2261,54 @@ int main(int argc, char* argv[]) {
 			    glDrawArrays(GL_TRIANGLES, 0, entityStorage[i][0].model->data->mesh.VBOsize);
 //			    glDisable(GL_CULL_FACE);
 			}
+
+			// blender scene
+			{
+			    glEnable(GL_BLEND);
+			    glUseProgram(shadersId[mainShader]);
+			    
+			    uniformMat4(mainShader, "view", view.m);
+			    uniformMat4(mainShader, "proj", mirrorProj.m);
+		
+			    for(int i=0;i<objectsSize;++i){
+				uniformMat4(mainShader, "model", objects[i].mat.m);
+
+				for(int i2=0;i2< objectsInfo[objects[i].infoId].meshesSize;++i2){
+				    glBindTexture(GL_TEXTURE_2D, objectsInfo[objects[i].infoId].meshes[i2].tx);
+			
+				    glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[objects[i].infoId].meshes[i2].VBO);
+				    glBindVertexArray(objectsInfo[objects[i].infoId].meshes[i2].VAO);
+		    
+				    glDrawArrays(GL_TRIANGLES, 0, objectsInfo[objects[i].infoId].meshes[i2].VBOSize);
+				}
+			    }
+
+			    glUseProgram(shadersId[waterShader]);
+		
+			    static float timeAcc = 0.0f;
+			    timeAcc += elapsedMs;
+		
+			    uniformFloat(waterShader, "dTime", timeAcc);
+
+			    uniformMat4(waterShader, "view", view.m);
+			    uniformMat4(waterShader, "proj", mirrorProj.m);
+		
+			    for(int i=0;i<waterSurfacesSize;++i){
+				uniformMat4(waterShader, "model", waterSurfaces[i].mat.m);
+
+				for(int i2=0;i2< objectsInfo[waterSurfaces[i].infoId].meshesSize;++i2){
+				    glBindTexture(GL_TEXTURE_2D, objectsInfo[waterSurfaces[i].infoId].meshes[i2].tx);
+			
+				    glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[waterSurfaces[i].infoId].meshes[i2].VBO);
+				    glBindVertexArray(objectsInfo[waterSurfaces[i].infoId].meshes[i2].VAO);
+		    
+				    glDrawArrays(GL_TRIANGLES, 0, objectsInfo[waterSurfaces[i].infoId].meshes[i2].VBOSize);
+				}
+			    }
+
+			    glDisable(GL_BLEND);
+			}
+
 		    }
 
 		    glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -2398,7 +2455,7 @@ int main(int argc, char* argv[]) {
 
 	float delta = SDL_GetTicks()-start_time;
         elapsedMs = delta / 1000.0f;
-		//printf("Frame ms: %f \n", elapsedMs);
+	//printf("Frame ms: %f \n", elapsedMs);
 	
 	if((1000/FPS)>delta){
             SDL_Delay((1000/FPS)-(SDL_GetTicks()-start_time));
@@ -4962,7 +5019,7 @@ void loadGLTFScene(char* name){
 		glDeleteTextures(1, &objectsInfo[i].meshes[i2].tx);
 	    }
 
-	    free(objectsInfo[i].name);
+	    //free(objectsInfo[i].name);
 	    free(objectsInfo[i].meshes);
 	}
 
@@ -5015,7 +5072,9 @@ void loadGLTFScene(char* name){
     size_t maxBufSize = 0;
 
     for(int i=0;i<data->meshes_count;++i){
-	aabbEntitiesSize += data->meshes[i].primitives_count;
+	//aabbEntitiesSize += data->meshes[i].primitives_count;
+//	assert(data->meshes[i].primitives_count == 1);
+	
 	for(int i2=0;i2<data->meshes[i].primitives_count;++i2){
 	    
 	    size_t curPrimitiveSize = 0;
@@ -5031,11 +5090,308 @@ void loadGLTFScene(char* name){
 	}
     }
 
-    aabbEntities = malloc(sizeof(AABBEntity) * aabbEntitiesSize);
-    aabbEntitiesSize = 0;
+   
     
-    float* mesh = malloc(maxBufSize * sizeof(float));    
+    float* mesh = malloc(maxBufSize * sizeof(float));
+    
+    int* uniqueMeshesVertexCountMap = malloc(data->nodes_count * sizeof(int));
+//    int uniqueMeshesVertexCountMapSize = 0;
 
+    int* meshesIndx = malloc(data->nodes_count * sizeof(int));
+    int* corespondingObjectInfo = malloc(data->nodes_count * sizeof(int));
+    int* objectsInfoNodeIds = malloc(data->nodes_count * sizeof(int));
+
+    int objectsPreSize = 0;
+//    int meshesSize = 0;
+
+    lightsStorage = malloc(sizeof(Light2) * data->lights_count);
+
+//    int objsInfo = 0;
+    
+    for(int i=0;i<data->nodes_count;++i){
+	if (data->nodes[i].light) {
+	    float t[10] = {0};
+
+	    t[0] = data->nodes[i].translation[0];
+	    t[1] = data->nodes[i].translation[1];
+	    t[2] = data->nodes[i].translation[2];
+
+	    t[3] = data->nodes[i].scale[0];
+	    t[4] = data->nodes[i].scale[1];
+	    t[5] = data->nodes[i].scale[2];
+
+	    t[6] = data->nodes[i].rotation[0];
+	    t[7] = data->nodes[i].rotation[1];
+	    t[8] = data->nodes[i].rotation[2];
+	    t[9] = data->nodes[i].rotation[3];
+	    
+	    Matrix transformMat = gltfTRS(t);
+		
+	    vec3 color = { data->nodes[i].light->color[0], data->nodes[i].light->color[1], data->nodes[i].light->color[2] };
+	    createLight(color,
+			data->nodes[i].light->type,
+			data->nodes[i].light->intensity, transformMat.m);
+
+	    continue;
+	}
+	
+	bool exist = false;
+	int idxLen = data->nodes[i].mesh->primitives->indices->count;
+	int corespondingId = -1;
+
+	for (int i2 = 0; i2 < data->nodes[i].mesh->primitives_count; ++i2) {
+	if(data->nodes[i].mesh->primitives[i2].attributes_count != 0){
+	    aabbEntitiesSize++;
+	}
+	}
+
+	for(int i2=0;i2<objectsInfoSize;++i2){
+	    if(uniqueMeshesVertexCountMap[i2] == idxLen) {
+		exist = true;
+		corespondingId = i2;
+		break;
+	    }
+	}
+	
+	if(!exist){
+	    uniqueMeshesVertexCountMap[objectsInfoSize] = idxLen;
+	    objectsInfoNodeIds[objectsInfoSize] = i;
+	    
+	    corespondingId=objectsInfoSize;
+	    
+	    objectsInfoSize++;
+	}
+
+	corespondingObjectInfo[objectsPreSize] = corespondingId;
+	meshesIndx[objectsPreSize] = i;
+	objectsPreSize++;
+    }
+
+	aabbEntities = malloc(sizeof(AABBEntity) * aabbEntitiesSize);
+	aabbEntitiesSize = 0;
+
+
+	objectsInfo = malloc(sizeof(Object) * objectsInfoSize);
+
+    for(int i=0;i<objectsInfoSize;++i){
+	int nodeIndex = objectsInfoNodeIds[i];
+
+	{
+	    objectsInfo[i].meshesSize = data->nodes[nodeIndex].mesh->primitives_count;
+	    objectsInfo[i].meshes = malloc(sizeof(Mesh) * objectsInfo[i].meshesSize);
+
+	    for(int i2=0;i2<objectsInfo[i].meshesSize;++i2){
+		size_t attrPad = 0;
+
+		for(int i4=0;i4<data->nodes[nodeIndex].mesh->primitives[i2].attributes_count;++i4){			   
+		    int vecLen = GLTFmapSize[data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].data->type];
+		    attrPad += vecLen;
+		}
+
+		sceneWeight += attrPad * data->nodes[nodeIndex].mesh->primitives[i2].indices->count;
+
+		printf("Attr size: %d \n", attrPad);
+
+		int maxUsedSize = 0;
+
+		int indexSize = GLTFtypeSize[data->nodes[nodeIndex].mesh->primitives[i2].indices->component_type];
+		for (int i3 = 0; i3 < data->nodes[nodeIndex].mesh->primitives[i2].indices->count;++i3) {
+		    uint16_t index;
+		    fseek(fo, data->nodes[nodeIndex].mesh->primitives[i2].indices->buffer_view->offset + i3 * indexSize, SEEK_SET);
+		    fread(&index, indexSize, 1, fo);
+
+		    for(int i4=0;i4<data->nodes[nodeIndex].mesh->primitives[i2].attributes_count;++i4){
+			int compSize = GLTFtypeSize[data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].data->component_type];
+			int vecLen = GLTFmapSize[data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].data->type];
+
+			/*
+			int index = (i3*attrPad)+GLTFattrPad[data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].type];
+			fseek(fo, data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].data->buffer_view->offset
+			      + compSize*(vecLen * index), SEEK_SET);
+			fread(&mesh[index], compSize*vecLen, 1, fo);*/
+
+
+			for (int i5 = 0; i5 < vecLen; ++i5) {
+				fseek(fo, data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].data->buffer_view->offset
+					+ compSize * (vecLen * index + i5), SEEK_SET);
+
+				int index = (i3 * attrPad) + i5 + GLTFattrPad[data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].type];
+
+				if (data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].data->component_type
+					!= cgltf_component_type_r_32f) {
+					uint8_t temp;
+					fread(&temp, compSize, 1, fo);
+
+					mesh[index] = (float)temp;
+				}
+				else {
+					fread(&mesh[index], compSize, 1, fo);
+				}
+			}
+		    }
+		}
+		    
+		glGenVertexArrays(1, &objectsInfo[i].meshes[i2].VAO);
+		glGenBuffers(1, &objectsInfo[i].meshes[i2].VBO);
+
+		glBindVertexArray(objectsInfo[i].meshes[i2].VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[i].meshes[i2].VBO);
+    
+		objectsInfo[i].meshes[i2].VBOSize = data->nodes[nodeIndex].mesh->primitives[i2].indices->count;
+		glBufferData(GL_ARRAY_BUFFER, attrPad * data->nodes[nodeIndex].mesh->primitives[i2].indices->count * sizeof(float)
+			     , mesh, GL_STATIC_DRAW);
+
+		int itemPad[] = { 3, 2, 3, 4, 4};
+
+		int pad = 0;
+		for(int i3=0;i3<data->nodes[nodeIndex].mesh->primitives[i2].attributes_count;++i3){
+		    glVertexAttribPointer(i3, itemPad[i3], GL_FLOAT, GL_FALSE, attrPad * sizeof(float), pad * sizeof(float));
+		    glEnableVertexAttribArray(i3);
+
+		    pad+= itemPad[i3];
+		}
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+
+		// texture
+		objectsInfo[i].meshes[i2].VBOSize = data->nodes[nodeIndex].mesh->primitives[i2].indices->count;
+				    
+		{
+		    sprintf(buf, "%s%s", assetsFolder,
+			    data->nodes[nodeIndex].mesh->primitives[i2].material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
+		    SDL_Surface* texture = IMG_Load(buf);
+
+    
+		    if (!texture) {
+			printf("Loading of texture \"%s\" failed", buf);
+			exit(0);
+		    }
+
+		    sceneWeight += texture->w * texture->h * texture->format->BytesPerPixel;
+
+		    createTexture(&objectsInfo[i].meshes[i2].tx, texture->w,texture->h, texture->pixels);
+  
+		    SDL_FreeSurface(texture);
+		}
+	    }
+	}
+    }
+
+    
+
+    for(int i=0;i<objectsPreSize;++i){
+	int index = meshesIndx[i];
+
+	float t[10] = {0};
+
+	t[0] = data->nodes[index].translation[0];
+	t[1] = data->nodes[index].translation[1];
+	t[2] = data->nodes[index].translation[2];
+
+	t[3] = data->nodes[index].scale[0];
+	t[4] = data->nodes[index].scale[1];
+	t[5] = data->nodes[index].scale[2];
+
+	t[6] = data->nodes[index].rotation[0];
+	t[7] = data->nodes[index].rotation[1];
+	t[8] = data->nodes[index].rotation[2];
+	t[9] = data->nodes[index].rotation[3];
+
+	Object** targetBuffer = NULL;
+	int* targetBufferSize = NULL;
+
+	bool isWater = false;
+	if (data->nodes[index].name[0] == 'w') {
+		char* token = strtok(data->nodes[index].name, ".");
+		if (strcmp(token, "water") == 0) {
+			isWater = true;
+		}
+	}
+
+	if(isWater){
+	    targetBuffer = &waterSurfaces;
+	    targetBufferSize = &waterSurfacesSize;
+	}
+	else{
+	    targetBuffer = &objects;
+	    targetBufferSize = &objectsSize;
+	}
+
+	int targetBufSize = *targetBufferSize;
+
+	if(!(*targetBuffer)){
+	    *targetBuffer = malloc(sizeof(Object));
+	}else{
+	    *targetBuffer = realloc(*targetBuffer, sizeof(Object) * (targetBufSize+1));
+	}
+	    
+	(*targetBuffer)[targetBufSize].mat = gltfTRS(t);
+	
+	// aabb here
+
+	for(int i2=0;i2<data->nodes[index].mesh->primitives_count;++i2){
+	    if (data->nodes[index].mesh->primitives[i2].attributes_count == 0) continue;
+	    assert(data->nodes[index].mesh->primitives[i2].attributes->type == cgltf_attribute_type_position);
+	
+	    aabbEntities[aabbEntitiesSize].col.rt = (vec3){-FLT_MAX, -FLT_MAX, -FLT_MAX};
+	    aabbEntities[aabbEntitiesSize].col.lb = (vec3){ FLT_MAX, FLT_MAX, FLT_MAX };
+		    
+	    int compSize = GLTFtypeSize[data->nodes[index].mesh->primitives[i2].attributes->data->component_type];
+	    int vecLen = GLTFmapSize[data->nodes[index].mesh->primitives[i2].attributes->data->type];
+
+	    int posLen =  data->nodes[index].mesh->primitives[i2].attributes->data->buffer_view->size / vecLen / compSize;
+
+	    float pos[3];
+	    int vecSize = vecLen * compSize;
+
+	    for (int i3 = 0; i3 < posLen; ++i3) {	
+		fseek(fo, data->nodes[index].mesh->primitives[i2].indices->buffer_view->offset + i3 * vecSize, SEEK_SET);
+		fread(pos, vecSize, 1, fo);
+
+		vec4 transfPos = mulmatvec4((*targetBuffer)[targetBufSize].mat, (vec4) { pos[0], pos[1], pos[2], 1.0f });
+//		vec4 transfPos = (vec4) { pos[0], pos[1], pos[2], 1.0f };
+
+		aabbEntities[aabbEntitiesSize].col.lb.x = min(aabbEntities[aabbEntitiesSize].col.lb.x, transfPos.x);
+		aabbEntities[aabbEntitiesSize].col.lb.y = min(aabbEntities[aabbEntitiesSize].col.lb.y, transfPos.y);
+		aabbEntities[aabbEntitiesSize].col.lb.z = min(aabbEntities[aabbEntitiesSize].col.lb.z, transfPos.z);
+
+		aabbEntities[aabbEntitiesSize].col.rt.x = max(aabbEntities[aabbEntitiesSize].col.rt.x, transfPos.x);
+		aabbEntities[aabbEntitiesSize].col.rt.y = max(aabbEntities[aabbEntitiesSize].col.rt.y, transfPos.y);
+		aabbEntities[aabbEntitiesSize].col.rt.z = max(aabbEntities[aabbEntitiesSize].col.rt.z, transfPos.z);
+	    }
+
+	    aabbEntities[aabbEntitiesSize].rot = (vec4){  data->nodes[index].rotation[0],
+							  data->nodes[index].rotation[1],
+							  data->nodes[index].rotation[2],
+							  data->nodes[index].rotation[3]
+	    };
+	    
+	    aabbEntities[aabbEntitiesSize].center = (vec3){
+		(aabbEntities[aabbEntitiesSize].col.lb.x + aabbEntities[aabbEntitiesSize].col.rt.x) * 0.5f,
+		(aabbEntities[aabbEntitiesSize].col.lb.y + aabbEntities[aabbEntitiesSize].col.rt.y) * 0.5f,
+		(aabbEntities[aabbEntitiesSize].col.lb.z + aabbEntities[aabbEntitiesSize].col.rt.z) * 0.5f
+	    };
+
+	    aabbEntities[aabbEntitiesSize].extents = (vec3){
+		(aabbEntities[aabbEntitiesSize].col.rt.x - aabbEntities[aabbEntitiesSize].col.lb.x) * 0.5f,
+		(aabbEntities[aabbEntitiesSize].col.rt.y - aabbEntities[aabbEntitiesSize].col.lb.y) * 0.5f,
+		(aabbEntities[aabbEntitiesSize].col.rt.z - aabbEntities[aabbEntitiesSize].col.lb.z) * 0.5f
+	    };
+
+	    aabbEntitiesSize++;
+	}
+
+	aabbEntities[aabbEntitiesSize].objectId = targetBufSize;
+
+	(*targetBuffer)[targetBufSize].infoId = corespondingObjectInfo[i];
+	(*targetBufferSize)++;
+    }
+
+    printf("Pre pass objInfo %d objsSize %d\n", objectsInfoSize, objectsSize);
+
+/*
+    loadedMeshesIndxSize = 0;
     for(int i=0;i<data->nodes_count;++i){
 	Matrix transformMat;
 	
@@ -5055,12 +5411,14 @@ void loadGLTFScene(char* name){
 	    t[8] = data->nodes[i].rotation[2];
 	    t[9] = data->nodes[i].rotation[3];
 
-		if (data->nodes[i].has_matrix) {
-			printf("has mat\n");
-		}
+	    if (data->nodes[i].has_matrix) {
+		printf("has mat\n");
+	    }
 	    
 	    transformMat = gltfTRS(t);
 	}
+
+	//data->nodes[i]
 
 	
 	if(data->nodes[i].light){
@@ -5095,10 +5453,15 @@ void loadGLTFScene(char* name){
 
 	(*targetBuffer)[targetSize].mat = transformMat;
 
+	//for(int i=0;i<)
+
+//	int attrLen = data->nodes[i].att;
+	int idxLen = data->nodes[i].mesh->primitives->indices->count;
+
 	bool exist = false;
 	int idInInfo = -1;
-	for(int i2=0;i2< objectsInfoSize;++i2){
-	    if(strcmp(objectsInfo[i2].name,token) == 0){
+	for(int i2=0;i2< loadedMeshesIndxSize;++i2){
+	    if(loadedMeshesIndx[i2] == idxLen) {
 		idInInfo = i2;
 		exist = true;
 		break;
@@ -5106,6 +5469,9 @@ void loadGLTFScene(char* name){
 	}
 
 	if(!exist){
+	    loadedMeshesIndx[loadedMeshesIndxSize] = idxLen;
+	    loadedMeshesIndxSize++;
+
 	    if(!objectsInfo){
 		objectsInfo = malloc(sizeof(ObjectInfo));
 	    }else{
@@ -5254,7 +5620,7 @@ void loadGLTFScene(char* name){
 	
 	(*targetBufferSize)++;
     }
-    
+*/
     free(mesh);
     fclose(fo);
     cgltf_free(data);
@@ -5262,6 +5628,7 @@ void loadGLTFScene(char* name){
     uniformLights();
 
     printf("Scene size: %f KB\n", ((float)(sceneWeight)/1000.0f));
+    printf("ObjInfo %d Objs %d \n", objectsInfoSize, objectsSize);
 }
 
 
@@ -5294,6 +5661,7 @@ void updateBones(Bone* cur, int i){
     for(int i=0;i<cur->childSize;i++){
 	updateBones(&bones[cur->child[i]], i);
     }
+
 }
 
 // make render for shadow and for normal
@@ -6255,17 +6623,18 @@ void createLight(vec3 color, int type, float power, float* mat){
     int newIndex = lightsStorageSize;
     lightsStorageSize++;
 
+    /*
     if(!lightsStorage){
 	lightsStorage = malloc(sizeof(Light2));
     }else{
 	lightsStorage = realloc(lightsStorage, sizeof(Light2) * lightsStorageSize);
-    }
+    }*/
 
 
     lightsStorage[newIndex].color = color;
     lightsStorage[newIndex].type = type;
     lightsStorage[newIndex].power = power  / 100.0f;
-	memcpy(lightsStorage[newIndex].mat.m, mat, sizeof(Matrix));
+    memcpy(lightsStorage[newIndex].mat.m, mat, sizeof(Matrix));
 
     uniformLights();
 
@@ -6279,29 +6648,102 @@ void createLight(vec3 color, int type, float power, float* mat){
 }
 
 void bindObjectsAABBBoxes(){
-//    objects[objectsSize].col;
-
-    int pad = 3 * 4;
-    float* mesh = malloc(sizeof(float) * pad * aabbEntitiesSize);
+    // 36 * 3 * float
+    int cubeSize = 432;
+    int pad = cubeSize / sizeof(float);
+//    float* mesh = malloc(sizeof(float) * pad * aabbEntitiesSize);
+    float* mesh = malloc(cubeSize * aabbEntitiesSize);
     
     for(int i=0;i<aabbEntitiesSize;++i){
 	int index = pad * i;
+
+	float lowX = aabbEntities[i].col.lb.x;
+	float lowY = aabbEntities[i].col.lb.y;
+	float lowZ = aabbEntities[i].col.lb.z;
+
+	float highX = aabbEntities[i].col.rt.x;
+	float highY = aabbEntities[i].col.rt.y;
+	float highZ = aabbEntities[i].col.rt.z;
 	
-	mesh[index+0] = aabbEntities[i].col.lb.x;
-	mesh[index+1] = aabbEntities[i].col.lb.y;
-	mesh[index+2] = aabbEntities[i].col.lb.z;
 
-	mesh[index+3] = aabbEntities[i].col.lb.x;
-	mesh[index+4] = aabbEntities[i].col.rt.y;
-	mesh[index+5] = aabbEntities[i].col.lb.z;
+	/*
+	float x,y,z;
 
-	mesh[index+6] = aabbEntities[i].col.rt.x;
-	mesh[index+7] = aabbEntities[i].col.lb.y;
-	mesh[index+8]= aabbEntities[i].col.rt.z;
+	vec4 q1 = aabbEntities[i].rot;
+	
+	if (q1.w > 1) {
+	    q1 = normalize4(q1);
+	}
+	
+	float angle = 2 * acosf(q1.w);
+	float s = sqrtf(1-q1.w*q1.w);
+	
+	if (s < 0.001) {
+	    x = q1.x;
+	    y = q1.y;
+	    z = q1.z;
+	} else {
+	    x = q1.x / s; 
+	    y = q1.y / s;
+	    z = q1.z / s;
+	}
 
-	mesh[index+9] = aabbEntities[i].col.rt.x;
-	mesh[index+10] = aabbEntities[i].col.rt.y;
-	mesh[index+11] = aabbEntities[i].col.rt.z;
+	vec3 orient = rotateVectorByQuaternion(aabbEntities[i].extents, aabbEntities[i].rot);
+	
+	float lowX = aabbEntities[i].center.x - aabbEntities[i].extents.x * aabbEntities[i].rot.x;
+	float lowY = aabbEntities[i].center.y - aabbEntities[i].extents.y * aabbEntities[i].rot.y;
+	float lowZ = aabbEntities[i].center.z - aabbEntities[i].extents.z * aabbEntities[i].rot.z;
+
+	float highX = aabbEntities[i].center.x + aabbEntities[i].extents.x * aabbEntities[i].rot.x;
+	float highY = aabbEntities[i].center.y + aabbEntities[i].extents.y * aabbEntities[i].rot.y;
+	float highZ = aabbEntities[i].center.z + aabbEntities[i].extents.z * aabbEntities[i].rot.z;
+*/
+	float skyboxVertices[] = {
+	    // positions          
+	    lowX,  highY, lowZ,
+	    lowX, lowY, lowZ,
+	    highX, lowY, lowZ,
+	    highX, lowY, lowZ,
+	    highX,  highY, lowZ,
+	    lowX,  highY, lowZ,
+
+	    lowX, lowY,  highZ,
+	    lowX, lowY, lowZ,
+	    lowX,  highY, lowZ,
+	    lowX,  highY, lowZ,
+	    lowX,  highY,  highZ,
+	    lowX, lowY,  highZ,
+
+	    highX, lowY, lowZ,
+	    highX, lowY,  highZ,
+	    highX,  highY,  highZ,
+	    highX,  highY,  highZ,
+	    highX,  highY, lowZ,
+	    highX, lowY, lowZ,
+
+	    lowX, lowY,  highZ,
+	    lowX,  highY,  highZ,
+	    highX,  highY,  highZ,
+	    highX,  highY,  highZ,
+	    highX, lowY,  highZ,
+	    lowX, lowY,  highZ,
+
+	    lowX,  highY, lowZ,
+	    highX,  highY, lowZ,
+	    highX,  highY,  highZ,
+	    highX,  highY,  highZ,
+	    lowX,  highY,  highZ,
+	    lowX,  highY, lowZ,
+
+	    lowX, lowY, lowZ,
+	    lowX, lowY,  highZ,
+	    highX, lowY, lowZ,
+	    highX, lowY, lowZ,
+	    lowX, lowY,  highZ,
+	    highX, lowY,  highZ
+	};
+	
+	memcpy(&mesh[index], skyboxVertices, sizeof(skyboxVertices));
     }
 
     glBindVertexArray(AABBBoxes.VAO);
@@ -6309,7 +6751,7 @@ void bindObjectsAABBBoxes(){
 
     AABBBoxes.VBOsize = pad * aabbEntitiesSize;
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * pad * aabbEntitiesSize, mesh, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, cubeSize* aabbEntitiesSize, mesh, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
@@ -6321,13 +6763,13 @@ void bindObjectsAABBBoxes(){
 
 void loadCubemap(){
     float step = 1000.0f;
-      float skyboxVertices[] = {
+    float skyboxVertices[] = {
         // positions          
         -step,  step, -step,
         -step, -step, -step,
-         step, -step, -step,
-         step, -step, -step,
-         step,  step, -step,
+	step, -step, -step,
+	step, -step, -step,
+	step,  step, -step,
         -step,  step, -step,
 
         -step, -step,  step,
@@ -6337,56 +6779,56 @@ void loadCubemap(){
         -step,  step,  step,
         -step, -step,  step,
 
-         step, -step, -step,
-         step, -step,  step,
-         step,  step,  step,
-         step,  step,  step,
-         step,  step, -step,
-         step, -step, -step,
+	step, -step, -step,
+	step, -step,  step,
+	step,  step,  step,
+	step,  step,  step,
+	step,  step, -step,
+	step, -step, -step,
 
         -step, -step,  step,
         -step,  step,  step,
-         step,  step,  step,
-         step,  step,  step,
-         step, -step,  step,
-	 -step, -step,  step,
+	step,  step,  step,
+	step,  step,  step,
+	step, -step,  step,
+	-step, -step,  step,
 
-	 -step,  step, -step,
-	 step,  step, -step,
-	 step,  step,  step,
-	 step,  step,  step,
-	 -step,  step,  step,
-	 -step,  step, -step,
+	-step,  step, -step,
+	step,  step, -step,
+	step,  step,  step,
+	step,  step,  step,
+	-step,  step,  step,
+	-step,  step, -step,
 
-	 -step, -step, -step,
-	 -step, -step,  step,
-	 step, -step, -step,
-	 step, -step, -step,
-	 -step, -step,  step,
-	 step, -step,  step
-      };
+	-step, -step, -step,
+	-step, -step,  step,
+	step, -step, -step,
+	step, -step, -step,
+	-step, -step,  step,
+	step, -step,  step
+    };
       
-      glGenVertexArrays(1, &skyboxVAO);
-      glGenBuffers(1, &skyboxVBO);
-      glBindVertexArray(skyboxVAO);
-      glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-      glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
-      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-      glEnableVertexAttribArray(0);
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
-            glBindVertexArray(0);
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     
-      glGenTextures(1, &cubemapTexture);
-      glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+    glGenTextures(1, &cubemapTexture);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
 
-      char* names[] = {
-	  "right.png",
-	  "left.png",
-	  "top.png",
-	  "bot.png",
-	  "front.png",
-	  "back.png",
+    char* names[] = {
+	"right.png",
+	"left.png",
+	"top.png",
+	"bot.png",
+	"front.png",
+	"back.png",
     };
 
     int width, height, nrChannels;
