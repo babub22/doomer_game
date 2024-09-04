@@ -1544,7 +1544,6 @@ typedef struct{
     
     uint8_t blendFactor;
     
-    
 } Model2;
 
 ModelData* modelsData;
@@ -1558,6 +1557,7 @@ typedef struct {
     EntityType type;
 
     Model2* model;
+    AABB col;
 
     vec3 dir;
 
@@ -1609,9 +1609,12 @@ Matrix mirrorProj;
 typedef struct{
     uint32_t VBO;
     uint32_t VAO;
+
+    float* posBuf;
     
-    GLuint tx;    
-    uint32_t VBOSize;
+    uint32_t tx;    
+    uint16_t VBOSize;
+    uint16_t posBufSize;
 } Mesh;
 
 typedef struct{
@@ -1646,12 +1649,9 @@ void loadCubemap();
 
 typedef struct{
     AABB col;
-
-    vec3 center;
-    vec3 extents;
-    vec4 rot;
-
-    int objectId;
+    
+    Object** buf;
+    int bufId;
 } AABBEntity;
 
 AABBEntity* aabbEntities;

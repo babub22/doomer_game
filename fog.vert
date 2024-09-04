@@ -22,12 +22,8 @@ uniform mat4 proj;
 uniform mat4 lightSpaceMatrix[8];
 uniform int dirShadowLightsSize;
 
-out vec2 texCoords;
-out float affline;
-
 uniform float screenW;
 uniform float screenH;
-
 
 void main(void)
 {

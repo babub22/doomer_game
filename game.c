@@ -138,6 +138,7 @@ void gameMatsSetup(int curShader){
 	uniformVec3(mainShader, "cameraPos", (vec3){argVec3(pos)});
 	uniformVec3(waterShader, "cameraPos", (vec3){argVec3(pos)});
 	uniformVec3(animShader, "cameraPos", (vec3){argVec3(pos)});
+	uniformVec3(skyboxShader, "cameraPos", (vec3){argVec3(pos)});
 
 	
 	pos.y *= -1.0f;

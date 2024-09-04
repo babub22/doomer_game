@@ -279,6 +279,10 @@ Matrix fpsView(vec3 eye, float pitch, float yaw){
   return mat;
 }
 
+float sign(vec2 p1, vec2 p2, vec2 p3){
+    return (p1.x - p3.x) * (p2.z - p3.z) - (p2.x - p3.x) * (p1.z - p3.z);
+}
+
 void inverse(float M[], float T[]) {
     float s[6];
     float c[6];

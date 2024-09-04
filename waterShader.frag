@@ -44,7 +44,7 @@ uniform PointLight dirLights[MAX_LIGHTS];
 
 in vec3 vertexToPlayer;
 
-float ambientC = .12f;
+float ambientC = .07f; // .1f
 float specularC = .2f;
 
 //uniform float far_plane;
@@ -210,7 +210,7 @@ res+= pointLightCalc(pointLights[i], norm, viewDir);
 
 float dist = length(vertexToPlayer);
 float fogAttenuation = clamp((radius - dist) / radius, 0.0, 1.0);
-//fogAttenuation = 1.0f;
+fogAttenuation = 1.0f;
 
 gl_FragColor = vec4(res * color * fogAttenuation + (.5 * (1.0-fogAttenuation)), 0.7f);
 }

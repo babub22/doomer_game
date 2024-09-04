@@ -1098,9 +1098,9 @@ int main(int argc, char* argv[]) {
 	entity->model->nodes = malloc(sizeof(GLTFNode)* entity->model->data->nodesSize);
 	entity->model->tempTransforms = malloc(sizeof(float)* 10 * entity->model->data->nodesSize);
     
-	printf("transf: %d nodes: %d \n",
-	       sizeof(float)* 10 * entity->model->data->nodesSize ,
-	       sizeof(GLTFNode)* entity->model->data->nodesSize);
+//	printf("transf: %d nodes: %d \n",
+//	       sizeof(float)* 10 * entity->model->data->nodesSize ,
+//	       sizeof(GLTFNode)* entity->model->data->nodesSize);
     
 	memcpy(entity->model->nodes,
 	       entity->model->data->nodes,
@@ -1109,9 +1109,101 @@ int main(int argc, char* argv[]) {
 	entity->model->jointsMats = malloc(sizeof(Matrix)*entity->model->data->jointsIdxsSize);
     
 	entity->mat = IDENTITY_MATRIX;
+	
 	entity->mat.m[12] = .0f;
-	entity->mat.m[13] = .0f;
+	entity->mat.m[13] = 5.0f;
 	entity->mat.m[14] = .0f;
+
+	int* tempAABB = malloc(sizeof(int) * aabbEntitiesSize);
+	int tempAABBSize = 0;
+
+	vec4 playerPoint = { entity->mat.m[12], entity->mat.m[13], entity->mat.m[14], 1.0f};
+
+	{
+	    for(int i=0;i<aabbEntitiesSize;++i){
+		if(playerPoint.x > aabbEntities[i].col.lb.x && playerPoint.x < aabbEntities[i].col.rt.x &&
+		   playerPoint.y > aabbEntities[i].col.lb.y && playerPoint.y < aabbEntities[i].col.rt.y &&
+		   playerPoint.z > aabbEntities[i].col.lb.z && playerPoint.z < aabbEntities[i].col.rt.z)
+		{
+		    tempAABB[tempAABBSize] = i;
+		    tempAABBSize++;
+		}
+	    }
+
+	    if(tempAABBSize != 0){
+		for(int i=0;i<tempAABBSize;++i){
+		    Object obj = (*(aabbEntities[tempAABB[i]].buf))[aabbEntities[tempAABB[i]].bufId];
+		    int infoId = obj.infoId;
+		    
+		    Matrix inversed;
+
+		    inverse(obj.mat.m, inversed.m);
+		    vec4 invPlayerPoint = mulmatvec4(inversed, playerPoint);
+		    vec2 player2DPos = {invPlayerPoint.x, invPlayerPoint.z};// no height
+
+		    for(int i2=0;i2<objectsInfo[infoId].meshesSize;++i2){
+			for(int i3=0;i3<objectsInfo[infoId].meshes[i2].posBufSize/9; i3++) {
+			    int index = i3*3*3; // 9
+
+			    vec2 a = {objectsInfo[infoId].meshes[i2].posBuf[index+0],objectsInfo[infoId].meshes[i2].posBuf[index+2]};
+			    vec2 b = {objectsInfo[infoId].meshes[i2].posBuf[index+3],objectsInfo[infoId].meshes[i2].posBuf[index+5]};
+			    vec2 c = {objectsInfo[infoId].meshes[i2].posBuf[index+6],objectsInfo[infoId].meshes[i2].posBuf[index+8]};
+
+			    int as_x = player2DPos.x - a.x;
+			    int as_y = player2DPos.z - a.z;
+
+			    bool s_ab = (b.x - a.x) * as_y - (b.z - a.z) * as_x > 0;
+			    bool inside = true;
+
+			    if ((c.x - a.x) * as_y - (c.z - a.z) * as_x > 0 == s_ab) 
+				inside = false;
+			    if ((c.x - b.x) * (player2DPos.z - b.z) - (c.z - b.z)*(player2DPos.x - b.x) > 0 != s_ab) 
+				inside = false;
+
+			    printf("Tri %d -  v1(%f %f %f) v2(%f %f %f) v3(%f %f %f)\n", i3,
+				   objectsInfo[infoId].meshes[i2].posBuf[index+0], objectsInfo[infoId].meshes[i2].posBuf[index+1],
+				   objectsInfo[infoId].meshes[i2].posBuf[index+2], 
+				
+					objectsInfo[infoId].meshes[i2].posBuf[index+3],
+				   objectsInfo[infoId].meshes[i2].posBuf[index+4], objectsInfo[infoId].meshes[i2].posBuf[index+5],
+
+				   objectsInfo[infoId].meshes[i2].posBuf[index+6], objectsInfo[infoId].meshes[i2].posBuf[index+7],
+				   objectsInfo[infoId].meshes[i2].posBuf[index+8]);
+
+			    if(inside){
+				printf("\nIntersected with: v1(%f %f %f) v2(%f %f %f) v3(%f %f %f)\n",
+					objectsInfo[infoId].meshes[i2].posBuf[index + 0], objectsInfo[infoId].meshes[i2].posBuf[index + 1],
+					objectsInfo[infoId].meshes[i2].posBuf[index + 2],
+
+					objectsInfo[infoId].meshes[i2].posBuf[index + 3],
+					objectsInfo[infoId].meshes[i2].posBuf[index + 4], objectsInfo[infoId].meshes[i2].posBuf[index + 5],
+
+					objectsInfo[infoId].meshes[i2].posBuf[index + 6], objectsInfo[infoId].meshes[i2].posBuf[index + 7],
+					objectsInfo[infoId].meshes[i2].posBuf[index + 8]);
+				
+				printf("Player pos: v1(%f %f) \n", player2DPos.x, player2DPos.z);
+
+//				float avgH = (objectsInfo[infoId].meshes[i2].posBuf[index+1] + objectsInfo[infoId].meshes[i2].posBuf[index+4] + objectsInfo[infoId].meshes[i2].posBuf[index+7]) / 3.0f;
+
+				float avgH = min(min(objectsInfo[infoId].meshes[i2].posBuf[index+1], objectsInfo[infoId].meshes[i2].posBuf[index+4]), objectsInfo[infoId].meshes[i2].posBuf[index+7]);
+
+				playerPoint = (vec4){player2DPos.x, avgH, player2DPos.z, 1.0f};
+				playerPoint = mulmatvec4(obj.mat, playerPoint);
+				
+				break;
+			    }
+			    
+			    objectsInfo[infoId].meshes[i2].posBuf;
+
+			}
+		    }
+		}
+	    }
+	}
+
+	entity->mat.m[12] = playerPoint.x;
+	entity->mat.m[13] = playerPoint.y;
+	entity->mat.m[14] = playerPoint.z;
     
 	entity->dir = (vec3){ .0f, .0f, 1.0f};
 
@@ -1466,10 +1558,12 @@ int main(int argc, char* argv[]) {
 		    radius+=0.1f;
 		    uniformFloat(mainShader, "radius", radius);
 		    uniformFloat(waterShader, "radius", radius);
+		    uniformFloat(skyboxShader, "radius", radius);
 		}else if(event.key.keysym.scancode == SDL_SCANCODE_O){
 		    radius-=0.1f;
 		    uniformFloat(mainShader, "radius", radius);
 		    uniformFloat(waterShader, "radius", radius);
+		    uniformFloat(skyboxShader, "radius", radius);
 		}
 
 		if(event.key.keysym.scancode == SDL_SCANCODE_F2){
@@ -1483,6 +1577,7 @@ int main(int argc, char* argv[]) {
 
 		    uniformFloat(mainShader, "radius", radius);
 		    uniformFloat(waterShader, "radius", radius);
+		    uniformFloat(skyboxShader, "radius", radius);
 		    
 		    printf("Shaders reloaded\n");
 		}
@@ -1792,7 +1887,7 @@ int main(int argc, char* argv[]) {
 
 	    ((void (*)(void))instances[curInstance][render3DFunc])();
 
-	    if(false)
+	    if(true)
 	    {
 		glDepthMask(GL_FALSE);
 		glUseProgram(shadersId[skyboxShader]);
@@ -5007,6 +5102,7 @@ void loadGLTFScene(char* name){
 //    radius+=0.1f;
     uniformFloat(mainShader, "radius", radius);
     uniformFloat(waterShader, "radius", radius);
+    uniformFloat(skyboxShader, "radius", radius);
 		    
     size_t sceneWeight = 0;
     
@@ -5173,6 +5269,8 @@ void loadGLTFScene(char* name){
 
 	objectsInfo = malloc(sizeof(Object) * objectsInfoSize);
 
+	int bufSize = 0;
+
     for(int i=0;i<objectsInfoSize;++i){
 	int nodeIndex = objectsInfoNodeIds[i];
 
@@ -5195,6 +5293,7 @@ void loadGLTFScene(char* name){
 		int maxUsedSize = 0;
 
 		int indexSize = GLTFtypeSize[data->nodes[nodeIndex].mesh->primitives[i2].indices->component_type];
+			bufSize += data->nodes[nodeIndex].mesh->primitives[i2].attributes->data->buffer_view->size;
 		for (int i3 = 0; i3 < data->nodes[nodeIndex].mesh->primitives[i2].indices->count;++i3) {
 		    uint16_t index;
 		    fseek(fo, data->nodes[nodeIndex].mesh->primitives[i2].indices->buffer_view->offset + i3 * indexSize, SEEK_SET);
@@ -5254,7 +5353,14 @@ void loadGLTFScene(char* name){
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 
-		// texture
+		assert(data->nodes[nodeIndex].mesh->primitives[i2].attributes->type == cgltf_attribute_type_position);
+		objectsInfo[i].meshes[i2].posBuf = malloc(data->nodes[nodeIndex].mesh->primitives[i2].attributes->data->buffer_view->size);
+		objectsInfo[i].meshes[i2].posBufSize = data->nodes[nodeIndex].mesh->primitives[i2].attributes->data->buffer_view->size / sizeof(float);
+
+		fseek(fo, data->nodes[nodeIndex].mesh->primitives[i2].attributes->data->buffer_view->offset, SEEK_SET);
+		fread(objectsInfo[i].meshes[i2].posBuf, data->nodes[nodeIndex].mesh->primitives[i2].attributes->data->buffer_view->size, 1, fo);
+
+			// texture
 		objectsInfo[i].meshes[i2].VBOSize = data->nodes[nodeIndex].mesh->primitives[i2].indices->count;
 				    
 		{
@@ -5277,6 +5383,8 @@ void loadGLTFScene(char* name){
 	    }
 	}
     }
+
+    printf("bufSize: %d \n", bufSize);
 
     
 
@@ -5334,9 +5442,6 @@ void loadGLTFScene(char* name){
 	    if (data->nodes[index].mesh->primitives[i2].attributes_count == 0) continue;
 	    assert(data->nodes[index].mesh->primitives[i2].attributes->type == cgltf_attribute_type_position);
 	
-	    aabbEntities[aabbEntitiesSize].col.rt = (vec3){-FLT_MAX, -FLT_MAX, -FLT_MAX};
-	    aabbEntities[aabbEntitiesSize].col.lb = (vec3){ FLT_MAX, FLT_MAX, FLT_MAX };
-		    
 	    int compSize = GLTFtypeSize[data->nodes[index].mesh->primitives[i2].attributes->data->component_type];
 	    int vecLen = GLTFmapSize[data->nodes[index].mesh->primitives[i2].attributes->data->type];
 
@@ -5345,13 +5450,25 @@ void loadGLTFScene(char* name){
 	    float pos[3];
 	    int vecSize = vecLen * compSize;
 
+	    aabbEntities[aabbEntitiesSize].col.rt = (vec3){-FLT_MAX, -FLT_MAX, -FLT_MAX};
+	    aabbEntities[aabbEntitiesSize].col.lb = (vec3){FLT_MAX, FLT_MAX, FLT_MAX};
+
+//		aabbEntities[aabbEntitiesSize].col[1].rt = (vec3){ -FLT_MAX, -FLT_MAX, -FLT_MAX };
+//		aabbEntities[aabbEntitiesSize].col[1].lb = (vec3){ FLT_MAX, FLT_MAX, FLT_MAX };
+
+//		float height = (data->nodes[index].mesh->primitives[i2].attributes->data->min[1] + data->nodes[index].mesh->primitives[i2].attributes->data->max[1]) / 2.0f;
+	    
 	    for (int i3 = 0; i3 < posLen; ++i3) {	
-		fseek(fo, data->nodes[index].mesh->primitives[i2].indices->buffer_view->offset + i3 * vecSize, SEEK_SET);
+		fseek(fo, data->nodes[index].mesh->primitives[i2].attributes->data->buffer_view->offset + i3 * vecSize, SEEK_SET);
 		fread(pos, vecSize, 1, fo);
 
 		vec4 transfPos = mulmatvec4((*targetBuffer)[targetBufSize].mat, (vec4) { pos[0], pos[1], pos[2], 1.0f });
-//		vec4 transfPos = (vec4) { pos[0], pos[1], pos[2], 1.0f };
-
+		int ix = 0;
+		
+//		if(pos[1] >= height){
+//			ix = 1;
+//		}
+		
 		aabbEntities[aabbEntitiesSize].col.lb.x = min(aabbEntities[aabbEntitiesSize].col.lb.x, transfPos.x);
 		aabbEntities[aabbEntitiesSize].col.lb.y = min(aabbEntities[aabbEntitiesSize].col.lb.y, transfPos.y);
 		aabbEntities[aabbEntitiesSize].col.lb.z = min(aabbEntities[aabbEntitiesSize].col.lb.z, transfPos.z);
@@ -5361,6 +5478,7 @@ void loadGLTFScene(char* name){
 		aabbEntities[aabbEntitiesSize].col.rt.z = max(aabbEntities[aabbEntitiesSize].col.rt.z, transfPos.z);
 	    }
 
+	    /*
 	    aabbEntities[aabbEntitiesSize].rot = (vec4){  data->nodes[index].rotation[0],
 							  data->nodes[index].rotation[1],
 							  data->nodes[index].rotation[2],
@@ -5377,12 +5495,15 @@ void loadGLTFScene(char* name){
 		(aabbEntities[aabbEntitiesSize].col.rt.x - aabbEntities[aabbEntitiesSize].col.lb.x) * 0.5f,
 		(aabbEntities[aabbEntitiesSize].col.rt.y - aabbEntities[aabbEntitiesSize].col.lb.y) * 0.5f,
 		(aabbEntities[aabbEntitiesSize].col.rt.z - aabbEntities[aabbEntitiesSize].col.lb.z) * 0.5f
-	    };
+	    };*/
 
+	    aabbEntities[aabbEntitiesSize].buf = targetBuffer;
+	    aabbEntities[aabbEntitiesSize].bufId = targetBufSize;
 	    aabbEntitiesSize++;
 	}
 
-	aabbEntities[aabbEntitiesSize].objectId = targetBufSize;
+	//aabbEntities[aabbEntitiesSize].objectId = targetBufSize;
+//	aabbEntities[aabbEntitiesSize]. = targetBufSize;
 
 	(*targetBuffer)[targetBufSize].infoId = corespondingObjectInfo[i];
 	(*targetBufferSize)++;
@@ -5724,163 +5845,8 @@ void renderScene(GLuint curShader){
 }
 
 void checkMouseVSEntities(){  
-    if (mouse.selectedType == mouseWallT || mouse.selectedType == mouseTileT) {
-	free(mouse.selectedThing);
-    }
-
     mouse.selectedThing = NULL;
     mouse.selectedType = 0;
-    
-    float minDistToCamera = 1000.0f;
-
-    WallMouseData* intersWallData = malloc(sizeof(WallMouseData));
-    TileMouseData* intersTileData = malloc(sizeof(TileMouseData));
-	
-    for(int i=0;i<batchedGeometryIndexesSize;i++){
-	vec3i ind = batchedGeometryIndexes[i].indx;
-	vec3 tile = vec3_indexesToCoords(ind);
-	Tile* bBlock = grid[ind.y][ind.z][ind.x];
-
-	// block
-	if (bBlock->block != NULL){
-	    float intersectionDistance;
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->block->lb, bBlock->block->rt, &mouse.gizmoPosOfInter, &intersectionDistance);
-
-	    if (isIntersect && minDistToCamera > intersectionDistance) {
-		mouse.selectedThing = bBlock->block;
-		mouse.selectedType = mouseBlockT;
-
-		mouse.interDist = intersectionDistance;
-		minDistToCamera = intersectionDistance;
-	    }
-	}
-
-	// tiles
-	if(ind.y == curFloor){
-	    const vec3 rt = { tile.x + bBlockW, tile.y, tile.z + bBlockD };
-	    const vec3 lb = { tile.x, tile.y, tile.z };
-
-	    float intersectionDistance;
-	    vec3 intersection;
-
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
-
-	    if (isIntersect && minDistToCamera > intersectionDistance) {
-		//intersTileData->tile = bBlock;
-
-		//intersTileData->grid = (vec2i){ ind.x,ind.z };
-		intersTileData->intersection = intersection;
-
-		mouse.selectedType = mouseTileT;
-		mouse.selectedThing = intersTileData;
-
-		minDistToCamera = intersectionDistance;
-	    }
-	}
-
-	if (ind.y >= curFloor) {
-	    // walls
-	    {
-		for(int i2=0;i2<batchedGeometryIndexes[i].wallsSize;i2++){
-		    int wallIndex = batchedGeometryIndexes[i].wallsIndexes[i2];
-	  
-		    WallType type = bBlock->wall[wallIndex]->type;
-	  
-		    float intersectionDistance;
-
-		    for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-			bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, bBlock->wall[wallIndex]->planes[i3].lb, bBlock->wall[wallIndex]->planes[i3].rt, NULL, &intersectionDistance);
-
-			if (isIntersect && minDistToCamera > intersectionDistance) {
-			    intersWallData->side = wallIndex;
-
-			    int tx = bBlock->wall[wallIndex]->planes[i3].txIndex;
-
-			    intersWallData->txIndex = tx;
-			    //  intersWallData->tile = bBlock;
-
-			    //   intersWallData->type = type;
-			    intersWallData->plane = i3;
-
-			    mouse.selectedType = mouseWallT;
-			    mouse.selectedThing = intersWallData;
-	      
-			    minDistToCamera = intersectionDistance;
-			}
-		    }
-		}
-	    }
-	}
-    }
-
-    // lights
-    for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
-	for (int i = 0; i < lightStorageSizeByType[i2]; i++) {
-	    float intersectionDistance;
-
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lightStorage[i2][i].lb, lightStorage[i2][i].rt, NULL, &intersectionDistance);
-
-	    if (isIntersect && minDistToCamera > intersectionDistance) {
-		mouse.selectedThing = &lightStorage[i2][i];
-		mouse.selectedType = mouseLightT;
-	
-		minDistToCamera = intersectionDistance;
-	    }
-	}
-    }
-
-    // models
-    for (int i = 0; i < curModelsSize; i++) {
-	float intersectionDistance = 0.0f;
-
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, curModels[i].lb, curModels[i].rt, NULL, &intersectionDistance);
-
-	int name = curModels[i].name;
-
-	if (isIntersect && minDistToCamera > intersectionDistance) {
-	    mouse.selectedThing = &curModels[i];
-	    mouse.selectedType = mouseModelT;
-
-	    minDistToCamera = intersectionDistance;
-	}
-    }
-
-    // net tile
-//  if(curInstance == editorInstance){
-    if(curFloor != 0 && curInstance == editorInstance){
-	for(int i=0;i<netTileSize;i+=2){
-	    const vec3 rt = { netTileAABB[i+1].x, curFloor, netTileAABB[i+1].z };
-	    const vec3 lb = { netTileAABB[i].x, curFloor, netTileAABB[i].z };
-
-	    float intersectionDistance;
-	    vec3 intersection;
-
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
-
-	    if (isIntersect && minDistToCamera > intersectionDistance) {
-		vec3i gridInd = xyz_coordsToIndexes(netTileAABB[i].x, curFloor, netTileAABB[i].z);
-		//intersTileData->tile = grid[curFloor][gridInd.z][gridInd.x];
-
-		//intersTileData->grid = (vec2i){ gridInd.x, gridInd.z };
-		intersTileData->intersection = intersection;
-
-		mouse.selectedType = mouseTileT;
-		mouse.selectedThing = intersTileData;
-
-		minDistToCamera = intersectionDistance;
-	    }
-	}
-    }
-  
-    if(mouse.selectedType != mouseTileT){
-	free(intersTileData);
-    }
-
-    if(mouse.selectedType != mouseWallT){
-	free(intersWallData);
-    }
-
-//    cgltf_free(data);
 }
 
 float texturedTileVerts[] = {
@@ -6651,12 +6617,14 @@ void bindObjectsAABBBoxes(){
     // 36 * 3 * float
     int cubeSize = 432;
     int pad = cubeSize / sizeof(float);
-//    float* mesh = malloc(sizeof(float) * pad * aabbEntitiesSize);
-    float* mesh = malloc(cubeSize * aabbEntitiesSize);
+
+    int meshSize = cubeSize * aabbEntitiesSize; // + cubeSize for player AABB
+   
+    float* mesh = malloc(meshSize);
     
     for(int i=0;i<aabbEntitiesSize;++i){
 	int index = pad * i;
-
+	    
 	float lowX = aabbEntities[i].col.lb.x;
 	float lowY = aabbEntities[i].col.lb.y;
 	float lowZ = aabbEntities[i].col.lb.z;
@@ -6664,41 +6632,8 @@ void bindObjectsAABBBoxes(){
 	float highX = aabbEntities[i].col.rt.x;
 	float highY = aabbEntities[i].col.rt.y;
 	float highZ = aabbEntities[i].col.rt.z;
-	
-
-	/*
-	float x,y,z;
-
-	vec4 q1 = aabbEntities[i].rot;
-	
-	if (q1.w > 1) {
-	    q1 = normalize4(q1);
-	}
-	
-	float angle = 2 * acosf(q1.w);
-	float s = sqrtf(1-q1.w*q1.w);
-	
-	if (s < 0.001) {
-	    x = q1.x;
-	    y = q1.y;
-	    z = q1.z;
-	} else {
-	    x = q1.x / s; 
-	    y = q1.y / s;
-	    z = q1.z / s;
-	}
-
-	vec3 orient = rotateVectorByQuaternion(aabbEntities[i].extents, aabbEntities[i].rot);
-	
-	float lowX = aabbEntities[i].center.x - aabbEntities[i].extents.x * aabbEntities[i].rot.x;
-	float lowY = aabbEntities[i].center.y - aabbEntities[i].extents.y * aabbEntities[i].rot.y;
-	float lowZ = aabbEntities[i].center.z - aabbEntities[i].extents.z * aabbEntities[i].rot.z;
-
-	float highX = aabbEntities[i].center.x + aabbEntities[i].extents.x * aabbEntities[i].rot.x;
-	float highY = aabbEntities[i].center.y + aabbEntities[i].extents.y * aabbEntities[i].rot.y;
-	float highZ = aabbEntities[i].center.z + aabbEntities[i].extents.z * aabbEntities[i].rot.z;
-*/
-	float skyboxVertices[] = {
+	    
+	float box[] = {
 	    // positions          
 	    lowX,  highY, lowZ,
 	    lowX, lowY, lowZ,
@@ -6743,15 +6678,47 @@ void bindObjectsAABBBoxes(){
 	    highX, lowY,  highZ
 	};
 	
-	memcpy(&mesh[index], skyboxVertices, sizeof(skyboxVertices));
+	memcpy(&mesh[index], box, sizeof(box));
+	/*
+	  float x,y,z;
+
+	  vec4 q1 = aabbEntities[i].rot;
+	
+	  if (q1.w > 1) {
+	  q1 = normalize4(q1);
+	  }
+	
+	  float angle = 2 * acosf(q1.w);
+	  float s = sqrtf(1-q1.w*q1.w);
+	
+	  if (s < 0.001) {
+	  x = q1.x;
+	  y = q1.y;
+	  z = q1.z;
+	  } else {
+	  x = q1.x / s; 
+	  y = q1.y / s;
+	  z = q1.z / s;
+	  }
+
+	  vec3 orient = rotateVectorByQuaternion(aabbEntities[i].extents, aabbEntities[i].rot);
+	  w	
+	  float lowX = aabbEntities[i].center.x - aabbEntities[i].extents.x * aabbEntities[i].rot.x;
+	  float lowY = aabbEntities[i].center.y - aabbEntities[i].extents.y * aabbEntities[i].rot.y;
+	  float lowZ = aabbEntities[i].center.z - aabbEntities[i].extents.z * aabbEntities[i].rot.z;
+
+	  float highX = aabbEntities[i].center.x + aabbEntities[i].extents.x * aabbEntities[i].rot.x;
+	  float highY = aabbEntities[i].center.y + aabbEntities[i].extents.y * aabbEntities[i].rot.y;
+	  float highZ = aabbEntities[i].center.z + aabbEntities[i].extents.z * aabbEntities[i].rot.z;
+	*/
     }
 
     glBindVertexArray(AABBBoxes.VAO);
     glBindBuffer(GL_ARRAY_BUFFER, AABBBoxes.VBO);
 
-    AABBBoxes.VBOsize = pad * aabbEntitiesSize;
+    AABBBoxes.VBOsize = pad * (aabbEntitiesSize);
 
-    glBufferData(GL_ARRAY_BUFFER, cubeSize* aabbEntitiesSize, mesh, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, meshSize, mesh, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);

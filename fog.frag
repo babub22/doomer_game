@@ -44,7 +44,7 @@ uniform PointLight dirLights[MAX_LIGHTS];
 
 in vec3 vertexToPlayer;
 
-float ambientC = .12f;
+float ambientC = .2f;//.055f; // .1f
 float specularC = .2f;
 
 //uniform float far_plane;
