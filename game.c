@@ -24,16 +24,6 @@ void game2dRender(){
 };
 
 void game3dRender(){
-  {
-    stancilHighlight[mouse.selectedType](); 
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
-
-    glActiveTexture(GL_TEXTURE0);
-    renderScene(mainShader);
-  }
-
   
 };
 
@@ -89,22 +79,28 @@ void gamePreFrame(float deltaTime){
 	|| entityStorage[playerEntityT][0].model->curAnim == strafeAnim;
     
     if(move){
-	entityStorage[playerEntityT][0].mat.m[12] = nextPos.x;
-	entityStorage[playerEntityT][0].mat.m[14] = nextPos.z;
+	vec3 pos;
+	bool validPos = entityVsMeshes((vec3){ nextPos.x, entityStorage[playerEntityT][0].mat.m[13], nextPos.z }, &pos);
 
-	if((!isMoveAnims && entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim) || entityStorage[playerEntityT][0].model->curAnim != preferedAnim){
-	    entityStorage[playerEntityT][0].model->nextAnim = preferedAnim;
-	    entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
-	    entityStorage[playerEntityT][0].model->time = 0;
+	if(validPos){
+	    entityStorage[playerEntityT][0].mat.m[12] = pos.x;
+	    entityStorage[playerEntityT][0].mat.m[13] = pos.y;
+	    entityStorage[playerEntityT][0].mat.m[14] = pos.z;
+	}
+
+	    if((!isMoveAnims && entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim) || entityStorage[playerEntityT][0].model->curAnim != preferedAnim){
+		entityStorage[playerEntityT][0].model->nextAnim = preferedAnim;
+		entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
+		entityStorage[playerEntityT][0].model->time = 0;
 //		printf("Hit\n");
+	    }
+	}else{
+	    if(isMoveAnims && entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim){
+		entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
+		entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
+		entityStorage[playerEntityT][0].model->time = 0;
+	    }
 	}
-    }else{
-	if(isMoveAnims && entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim){
-	    entityStorage[playerEntityT][0].model->nextAnim = idleAnim;
-	    entityStorage[playerEntityT][0].model->action = playAnimInLoopT;
-	    entityStorage[playerEntityT][0].model->time = 0;
-	}
-    }
 };
 
 void gameMatsSetup(int curShader){
@@ -414,174 +410,11 @@ void gameEvents(SDL_Event event){
       frameCounter=0;
     }*/
   }
-  
-  if(mouse.clickR
-     && selectedCollisionTileIndex != -1 
-     && entityStorage[playerEntityT] != NULL){
-      float div = 1.0f / 3.0f;
-
-      int h = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y - 0.1f;
-
-      vec2i dist = { acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x / div,
-		     acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z / div };
-
-      vec2i start = { (entityStorage[playerEntityT]->mat.m[12] - div / 2.0f) / div,
-		      (entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };
-
-      int pathSize;
-      findPath(start, dist, h, &pathSize);
-  }
 };
 
 void gameMouseVS(){
-    if (mouse.selectedType == mouseWallT || mouse.selectedType == mouseTileT){
-	free(mouse.selectedThing);
-    }
-
     mouse.selectedThing = NULL;
     mouse.selectedType = 0;
-    
-    float minDistToCamera = 1000.0f;
-
-    // check geom inter
-    WallMouseData* intersWallData = malloc(sizeof(WallMouseData));
-    TileMouseData* intersTileData = malloc(sizeof(TileMouseData));
-
-     // walls
-    {
-	for(int i=0;i<wallsStorageSize;i++){
-	    WallType type = wallsStorage[i]->type;
-
-	    if(type >= hiddenDoorT){
-		continue;
-	    }
-      
-	    float intersectionDistance;
-
-	    if(tilesStorage[wallsStorage[i]->tileId].pos.y < curFloor){
-		continue;
-	    }
-
-	    for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-		bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, wallsStorage[i]->planes[i3].lb, wallsStorage[i]->planes[i3].rt, NULL, &intersectionDistance); 
-
-		if (isIntersect && minDistToCamera > intersectionDistance) {
-		    int tx = wallsStorage[i]->planes[i3].txIndex;
-
-		    intersWallData->wall = wallsStorage[i];
-	  
-		    intersWallData->txIndex = tx;
-		    intersWallData->tileId = wallsStorage[i]->tileId;
-		    //	  printf("tileId %d \n", wallsStorage[i]->tileId);
-
-		    //	  intersWallData->pos = ;
-
-		    intersWallData->side = wallsStorage[i]->side;
-  
-		    intersWallData->plane = i3;
-
-		    mouse.selectedType = mouseWallT;
-		    mouse.selectedThing = intersWallData;
-	      
-		    minDistToCamera = intersectionDistance;
-		}
-	    }
-	}
-    }
-  
-    for(int i=0;i<tilesStorageSize;i++){
-	Tile tl = tilesStorage[i];
-
-	//    vec3i ind = coords
-
-	// printf("%d %d\n",tl->pos.y == curFloor,(int)tl->pos.y, curFloor);
-    
-	//    if(tl->pos.y == curFloor){
-	if(true){
-	    const vec3 rt = { tl.pos.x + bBlockW, tl.pos.y, tl.pos.z + bBlockD };
-	    const vec3 lb = { tl.pos.x, tl.pos.y, tl.pos.z };
-
-	    //  printf("Rt: [%f %f %f] Lb [%f %f %f]\n", argVec3(rt), argVec3(lb));
-
-	    float intersectionDistance;
-	    vec3 intersection;
-
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
-
-	    if (isIntersect && minDistToCamera > intersectionDistance) {
-		//	intersTileData->tile = tl;
-		intersTileData->tileId = i;
-
-		intersTileData->pos = tl.pos;
-
-		//intersTileData->grid = (vec2i){ tl->pos.x, tl->pos.z };
-		intersTileData->intersection = intersection;
-
-		mouse.selectedType = mouseTileT;
-		mouse.selectedThing = intersTileData;
-
-		minDistToCamera = intersectionDistance;
-	    }
-	}
-    }
-  
-
-  selectedCollisionTileIndex = -1;
-  if(mouse.selectedType == mouseTileT){
-
-      for(int i=0;i<collisionLayersSize[acceptedLayerT];i++){
-	//  printf("%f ", acceptedCollisionTilesAABB[i].lb.y - 0.1f);
-	  
-	  if((acceptedCollisionTilesAABB[i].lb.y - 0.1f) == intersTileData->pos.y){
-	      if(intersTileData->intersection.x >= acceptedCollisionTilesAABB[i].lb.x &&
-		 intersTileData->intersection.x <= acceptedCollisionTilesAABB[i].rt.x &&
-		 intersTileData->intersection.z >= acceptedCollisionTilesAABB[i].lb.z &&
-		 intersTileData->intersection.z <= acceptedCollisionTilesAABB[i].rt.z){
-
-		  selectedCollisionTileIndex = i;
-		  break;
-	      }
-	  }
-      }
-	
-      if(selectedCollisionTileIndex != -1){
-	  int index = selectedCollisionTileIndex;
-	  float h = acceptedCollisionTilesAABB[index].lb.y + 0.02f;
-		
-	  float square[] = {
-	      acceptedCollisionTilesAABB[index].rt.x,  h, acceptedCollisionTilesAABB[index].lb.z,   
-	      acceptedCollisionTilesAABB[index].lb.x,  h, acceptedCollisionTilesAABB[index].rt.z,  
-	      acceptedCollisionTilesAABB[index].lb.x,  h, acceptedCollisionTilesAABB[index].lb.z,
-
-	      acceptedCollisionTilesAABB[index].rt.x,  h,  acceptedCollisionTilesAABB[index].lb.z,   
-	      acceptedCollisionTilesAABB[index].rt.x,  h,  acceptedCollisionTilesAABB[index].rt.z,      
-	      acceptedCollisionTilesAABB[index].lb.x,  h,  acceptedCollisionTilesAABB[index].rt.z,
-	  };
-
-	  glBindVertexArray(selectedCollisionTileBuf.VAO); 
-	  glBindBuffer(GL_ARRAY_BUFFER, selectedCollisionTileBuf.VBO);
-
-	  selectedCollisionTileBuf.VBOsize = 6;
-
-	  glBufferData(GL_ARRAY_BUFFER,
-		       sizeof(square), square, GL_STATIC_DRAW);
-
-	  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-	  glEnableVertexAttribArray(0);
-
-	  glBindBuffer(GL_ARRAY_BUFFER, 0);
-	  glBindVertexArray(0);
-      }
-	
-  }
-  
-  if(mouse.selectedType != mouseTileT){
-    free(intersTileData);
-  }
-
-  if(mouse.selectedType != mouseWallT){
-    free(intersWallData);
-  }
 }
 
 void gameRenderCursor(){

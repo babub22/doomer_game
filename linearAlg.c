@@ -283,6 +283,33 @@ float sign(vec2 p1, vec2 p2, vec2 p3){
     return (p1.x - p3.x) * (p2.z - p3.z) - (p2.x - p3.x) * (p1.z - p3.z);
 }
 
+vec3 interpolate2dTo3d(vec3 a, vec3 b, vec3 c, vec2 p){
+    float x1 = a.x;
+    float x2 = b.x;
+    float x3 = c.x;
+
+    float z1 = a.z;
+    float z2 = b.z;
+    float z3 = c.z;
+
+    float w1=((z2-z3)*(p.x-x3)+(x3-x2)*(p.z-z3))
+	/((z2-z3)*(x1-x3)+(x3-x2)*(z1-z3));
+
+    float w2=((z3-z1)*(p.x-x3)+(x1-x3)*(p.z-z3))
+	/((z2-z3)*(x1-x3)+(x3-x2)*(z1-z3));
+
+    float w3=1-w1-w2;
+
+    float yP = w1 * a.y + w2 * b.y + w3 * c.y;
+
+    return (vec3){p.x,yP,p.z};
+}
+
+float triArea2D(vec2 a, vec2 b, vec2 c){
+    return fabs((a.x*(b.z-c.z)
+		 + b.x*(c.z-a.z) + c.x*(a.z-b.z)));// * .5f);
+};
+
 void inverse(float M[], float T[]) {
     float s[6];
     float c[6];

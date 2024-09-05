@@ -112,9 +112,6 @@ void editorOnSetInstance(){
     printf("Now editor");
 
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
-    renderCapYLayer = gridY;
-    
 }
 
 
@@ -809,70 +806,6 @@ strcpy(loadWindow[3].text, "cancel");
   
     editorProj = perspective(rad(fov), windowW / windowH, 0.01f, 1000.0f);
 
-  
-    // net tile
-    {
-	float netTileVerts[] = {
-	    0.0f, 0.0f, 0.0f ,
-	    bBlockW, 0.0f, 0.0f ,
-      
-	    0.0f, 0.0f, 0.0f ,
-	    0.0f, 0.0f, bBlockD ,
-      
-	    0.0f, 0.0f, bBlockD ,
-	    bBlockW, 0.0f, bBlockD ,
-      
-	    bBlockW, 0.0f, 0.0f ,
-	    bBlockW, 0.0f, bBlockD 
-	};
-
-	float* buf = malloc(sizeof(float) * gridX * gridZ * 8 * 3);
-	netTileAABB = malloc(sizeof(vec2) * gridX * gridZ * 2);
-	//    netTileSize = 0;
-    
-	for (int z = 0; z < gridZ; z++) {
-	    for (int x = 0; x < gridX; x++) {
-		int index = (z * gridX + x) * 8 * 3;
-		vec3 tile = xyz_indexesToCoords(x,0.0f,z);
-
-		for(int i=0;i<8*3;i+=3){
-		    if(i==0){
-			// lb
-			netTileAABB[netTileSize] = (vec2){ netTileVerts[i + 0] + tile.x, netTileVerts[i + 2] + tile.z };
-			netTileSize++;
-		    }
-		    else if (i == 21) {
-			// rt
-			netTileAABB[netTileSize] = (vec2){ netTileVerts[i + 0] + tile.x, netTileVerts[i + 2] + tile.z };
-			netTileSize++;
-		    }
-
-		    //	  printf("i = %d \n", i);
-	    
-		    buf[index + i] = netTileVerts[i + 0] + tile.x;
-		    buf[index + i + 1] = netTileVerts[i + 1] + tile.y;
-		    buf[index + i + 2] = netTileVerts[i + 2] + tile.z;
-		}
-	    }
-	}
-    
-	glGenVertexArrays(1, &netTile.VAO);
-	glBindVertexArray(netTile.VAO);
-
-	glGenBuffers(1, &netTile.VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, netTile.VBO);
-
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * gridX * gridZ * 8 * 3, buf, GL_STATIC_DRAW);
-  
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-	glEnableVertexAttribArray(0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	free(buf);
-    }
-  
     // obj menu    
     {
 	glGenVertexArrays(1, &objectsMenu.VAO);
@@ -1184,54 +1117,6 @@ void editorEvents(SDL_Event event){
 			light = (Light*)mouse.selectedThing;
 			mat = &light->mat; 
 		    }
-
-		    // TODO: Make rotation reset
-		    if(false && cursorMode == rotationMode){
-			mat->m[0] = 0;
-			mat->m[1] = 0;
-			mat->m[2] = 0;
-
-			mat->m[4] = 0;
-			mat->m[5] = 0;
-			mat->m[6] = 0;
-	    
-			mat->m[8] = 0;
-			mat->m[9] = 0;
-			mat->m[10] = 0;
-	    
-			if(model){
-			    calculateModelAABB(model);
-			}
-
-			if(light){
-			    uniformLights();
-			    rerenderShadowsForAllLights();
-			    //	      rerenderShadowForLight(light->id);
-			    calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-			}
-		    }
-
-		    // TODO: Make more clever way to alling object with net
-		    if(false){
-			if(light){
-			    mat->m[13] = curFloor;
-			    calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-
-			    uniformLights();
-	    
-			    //	      if(light->type == shadowLightT){
-			    rerenderShadowsForAllLights();
-			    //		rerenderShadowForLight(light->id);
-			    //	      }
-			}
-
-			if(model){
-			    printf("%s %f \n", loadedModels1D[model->name].name ,loadedModels1D[model->name].modelSizes.y);
-	    
-			    mat->m[13] = curFloor + loadedModels1D[model->name].modelSizes.y;
-			    calculateModelAABB(model);
-			}
-		    }
 		}else{
 		    if(mouse.brushThing || mouse.brushType){
 			if (mouse.brushType == mouseBlockBrushT) {
@@ -1362,7 +1247,7 @@ void editorEvents(SDL_Event event){
 			  block->mat.m[12] += rotationBlock[index][0];
 			  block->mat.m[14] += rotationBlock[index][1];
 		
-			  calculateAABB(block->mat, blocksVPairs[block->type].pairs[0].vBuf, blocksVPairs[block->type].pairs[0].vertexNum, blocksVPairs[block->type].pairs[0].attrSize, &block->lb, &block->rt);
+//			  calculateAABB(block->mat, blocksVPairs[block->type].pairs[0].vBuf, blocksVPairs[block->type].pairs[0].vertexNum, blocksVPairs[block->type].pairs[0].attrSize, &block->lb, &block->rt);
 		      }
 
 		  }
@@ -1552,13 +1437,7 @@ void editorEvents(SDL_Event event){
 		 const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 		 if(currentKeyStates[SDL_SCANCODE_LCTRL] && dofPercent < 1.0f){
 		     dofPercent += 0.01f;
-		 }else{
-		     if (curFloor < gridY - 1) {
-			 curFloor++;
-		     }
 		 }
-
-		 printf("%d \n", curFloor);
 		 
 
 		 break; 
@@ -1643,8 +1522,6 @@ void editorEvents(SDL_Event event){
 		       }
 
 		       glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		       
-		       geomentyByTxCounter[0] += 6 * 8 * sizeof(float);
 		
 		       mirrorsStorage[mirrorsStorageSize-1].id = mirrorsStorageSize-1;
 
@@ -1654,44 +1531,9 @@ void editorEvents(SDL_Event event){
 		       mirrorsStorage[mirrorsStorageSize-1].mat.m[14] = curCamera->pos.z;
 		       mirrorsStorage[mirrorsStorageSize - 1].dir = (vec3){ .0f,.0f,1.0f };
 
-
-		       calculateAABB(mirrorsStorage[mirrorsStorageSize-1].mat,
-				     planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize,
-				     &mirrorsStorage[mirrorsStorageSize-1].lb, &mirrorsStorage[mirrorsStorageSize-1].rt);
-				  
 		       break;
 		   }
-	    case(SDL_SCANCODE_P): {
-		const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
-
-		picturesStorageSize++;
-		
-		if(picturesStorage){
-		    picturesStorage = realloc(picturesStorage, sizeof(Picture) * picturesStorageSize);
-		}else{
-		    picturesStorage = malloc(sizeof(Picture));
-		}
-
-		picturesStorage[picturesStorageSize-1].txIndex = 0;
-
-		geomentyByTxCounter[0] += 6 * 8 * sizeof(float);
-		
-		picturesStorage[picturesStorageSize-1].id = picturesStorageSize-1;
-
-		picturesStorage[picturesStorageSize-1].mat = IDENTITY_MATRIX;
-		picturesStorage[picturesStorageSize-1].mat.m[12] = curCamera->pos.x;
-		picturesStorage[picturesStorageSize-1].mat.m[13] = curCamera->pos.y;
-		picturesStorage[picturesStorageSize-1].mat.m[14] = curCamera->pos.z;
-
-		calculateAABB(picturesStorage[picturesStorageSize-1].mat,
-			      planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize,
-			      &picturesStorage[picturesStorageSize-1].lb, &picturesStorage[picturesStorageSize-1].rt);
-
-		
-		
-	     
-		break;
-	    }case(SDL_SCANCODE_T):{
+	    case(SDL_SCANCODE_T):{
 		 const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 		 
 		 if((!curMenu || curMenu->type == texturesMenuT) && !currentKeyStates[SDL_SCANCODE_LCTRL]){
@@ -1752,12 +1594,6 @@ void editorEvents(SDL_Event event){
 			    data->wall->type = data->wall->prevType;
 			}
 		    }
-
-		    if(showHiddenWalls){
-			
-		    }else{
-			
-		    }
 		}
 
 		break;
@@ -1791,11 +1627,6 @@ void editorEvents(SDL_Event event){
 		    mouse.focusedThing = NULL;
 		    mouse.selectedThing = 0;
 
-		    batchModels();
-	    
-		    if(navPointsDraw){
-			batchGeometry();
-		    }
 	    
 		    rerenderShadowsForAllLights();
 		}else if (mouse.selectedType == mouseLightT) {
@@ -1844,66 +1675,23 @@ void editorEvents(SDL_Event event){
 	    
 		    mouse.focusedThing = NULL;
 		    mouse.focusedType = 0;
-
-		    batchGeometry();
 		}
 		else if (mouse.selectedType == mouseWallT) {
 		    WallMouseData* data = (WallMouseData*)mouse.selectedThing;
 
 		    for (int i = 0; i < wallsVPairs[data->wall->type].planesNum; i++) {
-			geomentyByTxCounter[data->wall->planes[i].txIndex] -= wallsVPairs[data->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[data->wall->type].pairs[i].attrSize;
+			//geomentyByTxCounter[data->wall->planes[i].txIndex] -= wallsVPairs[data->wall->type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[data->wall->type].pairs[i].attrSize;
 		    }
 
 			placedWallCounter[data->wall->type]--;
 
-		    deleteWallInStorage(data->wall->id);
-
 		    free(data->wall->planes);
-		    tilesStorage[data->tileId].wall[data->side] = NULL;
+		    //tilesStorage[data->tileId].wall[data->side] = NULL;
 		    free(data->wall);
 	  
 		    
 		    rerenderShadowsForAllLights();
 		}
-		else if (mouse.selectedType == mouseTileT) {
-		    TileMouseData* data = (TileMouseData*)mouse.selectedThing;
-
-		    if (data->tx != -1) {
-			int tx = tilesStorage[data->tileId].tx;
-
-			printf("tx: %d \n", tx);
-	    
-			geomentyByTxCounter[tx] -= sizeof(float) * 8 * 6;
-	    
-			tilesStorage[data->tileId].tx = -1;
-
-			if(!tilesStorage[data->tileId].block && !tilesStorage[data->tileId].wall[0] && !tilesStorage[data->tileId].wall[1]){
-			    int tileId = data->tileId;
-			    // free(tilesStorage[data->tileId]);
-	      
-			    deleteTileInStorage(tileId);
-
-			    grid[(int)data->pos.y][(int)data->pos.z][(int)data->pos.x] = NULL;
-
-			    mouse.selectedType = 0;
-			    free(mouse.selectedThing);
-			    mouse.selectedThing = NULL;
-			}
-
-			
-			
-			rerenderShadowsForAllLights();
-		    }
-		}
-		else if (mouse.selectedType == mouseBlockT) {
-		    TileBlock* data = (TileBlock*)mouse.selectedThing;
-
-		    tilesStorage[data->tileId].block = NULL;
-		    free(data);
-
-		    batchGeometry();
-		}
-		//	}
 
 		break;
 	    }
@@ -1970,8 +1758,8 @@ void editorEvents(SDL_Event event){
 		out.m[13] = mat->m[13] + gizmosPaddings[cursorMode - 1][selectedGizmoAxis - 1].y;
 		out.m[14] = mat->m[14] + gizmosPaddings[cursorMode - 1][selectedGizmoAxis - 1].z;
 
-		calculateAABB(out, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].vBuf, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].vertexNum, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].attrSize,
-			      &gizmosAABB[cursorMode - 1][0][selectedGizmoAxis - 1], &gizmosAABB[cursorMode - 1][1][selectedGizmoAxis - 1]);
+//		calculateAABB(out, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].vBuf, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].vertexNum, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].attrSize,
+//			      &gizmosAABB[cursorMode - 1][0][selectedGizmoAxis - 1], &gizmosAABB[cursorMode - 1][1][selectedGizmoAxis - 1]);
 	    }
 	}
     }
@@ -2074,13 +1862,6 @@ void editorEvents(SDL_Event event){
 		mat->m[13] = yTemp;
 		mat->m[14] = zTemp;
 
-		calculateModelAABB(model);
-
-		if (navPointsDraw) {
-		    batchGeometry();
-		}
-
-		batchModels();
 		rerenderShadowsForAllLights();
 	    }
 	}
@@ -2386,12 +2167,13 @@ void editorPreFrame(float deltaTime) {
 		    mat->m[13] = yTemp;
 		    mat->m[14] = zTemp;
 
+			/*
 		    if(picture){
 			calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
 			
 		    }else{
 			calculateAABB(mirror->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &mirror->lb, &mirror->rt);
-		    }
+		    }*/
 		}else{
 		    if (selectedGizmoAxis == XCircle) {
 			mat->m[12] += diffDrag.x;
@@ -2523,9 +2305,8 @@ void editorPreFrame(float deltaTime) {
 			out2.m[12] = mat->m[12] + gizmosPaddings[i][i2].x;
 			out2.m[13] = mat->m[13] + gizmosPaddings[i][i2].y;
 			out2.m[14] = mat->m[14] + gizmosPaddings[i][i2].z;
-
-			calculateAABB(out2, gizmosGeom[i][i2].vBuf, gizmosGeom[i][i2].vertexNum, gizmosGeom[i][i2].attrSize,
-				      &gizmosAABB[i][0][i2], &gizmosAABB[i][1][i2]);
+//			calculateAABB(out2, gizmosGeom[i][i2].vBuf, gizmosGeom[i][i2].vertexNum, gizmosGeom[i][i2].attrSize,
+//				      &gizmosAABB[i][0][i2], &gizmosAABB[i][1][i2]);
 		    }
 		}
 
@@ -2537,8 +2318,8 @@ void editorPreFrame(float deltaTime) {
 		    out2.m[13] = mat->m[13] + gizmosPaddings[cursorMode - 1][selectedGizmoAxis - 1].y;
 		    out2.m[14] = mat->m[14] + gizmosPaddings[cursorMode - 1][selectedGizmoAxis - 1].z;
 
-		    calculateAABB(out2, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].vBuf, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].vertexNum, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].attrSize,
-				  &gizmosAABB[cursorMode - 1][0][selectedGizmoAxis - 1], &gizmosAABB[cursorMode - 1][1][selectedGizmoAxis - 1]);
+//		    calculateAABB(out2, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].vBuf, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].vertexNum, gizmosGeom[cursorMode - 1][selectedGizmoAxis - 1].attrSize,
+//				  &gizmosAABB[cursorMode - 1][0][selectedGizmoAxis - 1], &gizmosAABB[cursorMode - 1][1][selectedGizmoAxis - 1]);
 		}
 	    }
 
@@ -2546,41 +2327,19 @@ void editorPreFrame(float deltaTime) {
 
 	}
 
-	if (light) {
-	    //      printf("%f %f %f %f \n%f %f %f %f \n%f %f %f %f\n %f %f %f %f\n", spreadMat4(light->mat.m));
-	    calculateAABB(light->mat, cube.vBuf, cube.vertexNum, cube.attrSize, &light->lb, &light->rt);
-	    uniformLights();
-
-	    //      if (light->type == shadowLightT) {
-	    rerenderShadowsForAllLights();
-	    //	rerenderShadowForLight(light->id);
-	    //      }
-	}
-
-	if (picture) {
-	    calculateAABB(picture->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &picture->lb, &picture->rt);
-	    
-	}
-
 	if (mirror) {
-	    calculateAABB(mirror->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &mirror->lb, &mirror->rt);
-	}
-
-	if (model) {
-	    //		  if (navPointsDraw) {
-	    //		    
-	    //		  }
-
-	    batchModels();
-	    calculateModelAABB(model);
-	    rerenderShadowsForAllLights();
+	  //  calculateAABB(mirror->mat, planePairs.vBuf, planePairs.vertexNum, planePairs.attrSize, &mirror->lb, &mirror->rt);
 	}
     }
 
     if (!console.open && !curMenu && curUIBuf.rectsSize == 0) {
-	float cameraSpeed = 10.0f * deltaTime;
+	float cameraSpeed = 500.0f * deltaTime;
 	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
+	if(currentKeyStates[SDL_SCANCODE_LSHIFT]){
+	    cameraSpeed = 1000.0f * deltaTime;
+	}
+	
 	isFreeGizmoRotation = currentKeyStates[SDL_SCANCODE_LALT];
 
 	// cursorMode will be started but we have focusedType
@@ -2600,25 +2359,6 @@ void editorPreFrame(float deltaTime) {
 	    mouse.focusedThing = NULL;
 	    mouse.focusedType = 0;
 	}
-
-	
-	    if(currentKeyStates[SDL_SCANCODE_LSHIFT] && mouse.clickL
-	       && selectedCollisionTileIndex != -1 
-	       && entityStorage[playerEntityT] != NULL
-		){
-		float div = 1.0f / 3.0f;
-
-		int h = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y - 0.1f;
-
-		vec2i dist = { acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x / div,
-			       acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z / div };
-
-		vec2i start = { (entityStorage[playerEntityT]->mat.m[12] - div / 2.0f) / div,
-				(entityStorage[playerEntityT]->mat.m[14] - div / 2.0f) / div };
-
-		int pathSize;
-		findPath(start, dist, h, &pathSize);
-	    }
 		/*
 	if(false && currentKeyStates[SDL_SCANCODE_LSHIFT]){
 			if (mouse.clickL) {
@@ -2895,15 +2635,6 @@ void editorPreFrame(float deltaTime) {
 
 // 3d specific for editor mode 
 void editor3dRender() {
-    {
-	stancilHighlight[mouse.selectedType]();
-
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, depthMaps);
-
-	glActiveTexture(GL_TEXTURE0);
-	renderScene(mainShader);
-    }
 
     glUseProgram(shadersId[lightSourceShader]);
 
@@ -2927,25 +2658,6 @@ void editor3dRender() {
     }
     
     glUseProgram(shadersId[lightSourceShader]);
-
-    // net tile draw
-    if (curFloor != 0) {
-//    if (true) {
-	uniformVec3(lightSourceShader, "color", (vec3) { darkPurple });
-	Matrix out2 = IDENTITY_MATRIX;
-	out2.m[13] = curFloor;
-	uniformMat4(lightSourceShader, "model", out2.m);
-
-	glBindBuffer(GL_ARRAY_BUFFER, netTile.VBO);
-	glBindVertexArray(netTile.VAO);
-
-	glDrawArrays(GL_LINES, 0, 8 * gridX * gridZ);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-    }
 
     // gizmos draw
     if (mouse.focusedThing && cursorMode) {
@@ -3016,366 +2728,10 @@ void editor3dRender() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
     }
-
-    glUseProgram(shadersId[mainShader]);
-
-    // render mouse.brush
-    if (mouse.selectedType == mouseTileT) {
-	TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
-
-	const vec3 tile = tileData->pos;//xyz_indexesToCoords(tileData->grid.x,curFloor, tileData->grid.z);
-
-	if (tileData->intersection.x < tile.x + borderArea && tileData->intersection.x >= tile.x) {
-	    mouse.tileSide = left;
-	}else if(tileData->intersection.x < tile.x + 1.0f && tileData->intersection.x >= tile.x + 1.0f - borderArea) {
-	    mouse.tileSide = right;
-	}
-	else {
-	    if (tileData->intersection.z < tile.z + borderArea && tileData->intersection.z >= tile.z) {
-		mouse.tileSide = top;
-	    }else if(tileData->intersection.z < tile.z + 1.0f && tileData->intersection.z >= tile.z + 1.0f - borderArea) {
-		mouse.tileSide = bot;
-	    }else if (tileData->intersection.z > (tile.z + bBlockD / 2) - borderArea && tileData->intersection.z < (tile.z + bBlockD / 2) + borderArea && tileData->intersection.x >(tile.x + bBlockW / 2) - borderArea && tileData->intersection.x < (tile.x + bBlockW / 2) + borderArea) {
-		mouse.tileSide = center;
-	    }
-	    else {
-		mouse.tileSide = -1;
-	    }
-	}
-
-	/*   if(mouse.tileSide != -1 && mouse.tileSide != center){
-	     printf("%s \n", sidesToStr[mouse.tileSide]);
-	     }*/
-
-	const float selectionW = borderArea * 3;
-
-	/*if (mouse.tileSide != -1) {
-	  glBindVertexArray(selectionRectVAO);
-	  glBindBuffer(GL_ARRAY_BUFFER, selectionRectVBO);
-
-	  Matrix out = IDENTITY_MATRIX;
-
-	  out.m[12] = tile.x;
-	  out.m[13] = tile.y;
-	  out.m[14] = tile.z;
-
-	  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, out.m);
-	  }*/
-
-	//	printf("%d \n", mouse.tileSide);
-
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	static vec3 prevTile = { -1,-1,-1 };
-
-	if (mouse.brushType == mouseBlockBrushT) {
-	    TileBlock* block = (TileBlock*)mouse.brushThing;
-
-	    if ((prevTile.x != -1 && prevTile.y != -1 && prevTile.z != -1)
-		&& (prevTile.x != tile.x || prevTile.y != tile.y || prevTile.z != tile.z)) {
-		block->mat = IDENTITY_MATRIX;
-
-		rotateY(block->mat.m, rad(block->rotateAngle));
-
-		block->mat.m[12] = tile.x;
-		block->mat.m[13] = tile.y;
-		block->mat.m[14] = tile.z;
-
-		//block->tile = tileData->tile;
-
-		int index = (block->rotateAngle) / 90;
-
-		//	    block->mat.m[12] += rotationBlock[index][0];
-		//	    block->mat.m[14] += rotationBlock[index][1];
-
-		//	    
-		if (block->rotateAngle == 90) {
-		    block->mat.m[14] += bBlockW;
-		}
-		else if (block->rotateAngle == 180) {
-		    block->mat.m[12] += bBlockW;
-		    block->mat.m[14] += bBlockW;
-		}
-		else if (block->rotateAngle == 270) {
-		    block->mat.m[12] += bBlockD;
-		}
-	    }
-
-	    prevTile.x = tile.x;
-	    prevTile.y = tile.y;
-	    prevTile.z = tile.z;
-
-	    glBindVertexArray(blocksVPairs[block->type].pairs[0].VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, blocksVPairs[block->type].pairs[0].VBO);
-
-	    glBindTexture(GL_TEXTURE_2D, loadedTextures1D[block->txIndex].tx);
-	    uniformMat4(mainShader, "model", block->mat.m);
-
-	    glDrawArrays(GL_TRIANGLES, 0, blocksVPairs[block->type].pairs[0].vertexNum);
-
-	    glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    glBindVertexArray(0);
-	}else if(mouse.brushType == mouseEntityBrushT
-		 && selectedCollisionTileIndex != -1){
-	    Entity* entity = (Entity*) mouse.brushThing;
-	    
-	    glUseProgram(shadersId[lightSourceShader]);
-		
-	    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
-	    glBindVertexArray(cube.VAO);
-
-//	    Matrix mat;
-//	    memcpy(mat.m, entitiesMats[entity->type].m, sizeof(float) * 16);
-
-	    float div = 1.0f / 3.0f / 2.0f;
-	    entity->mat.m[12] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.x+div;
-	    entity->mat.m[13] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.y;
-	    entity->mat.m[14] = acceptedCollisionTilesAABB[selectedCollisionTileIndex].lb.z+div;
-
-	    uniformMat4(lightSourceShader, "model", entity->mat.m);
-	    uniformVec3(lightSourceShader, "color", (vec3){ cyan } );
-	    
-	    glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
-	    
-	    glUseProgram(shadersId[mainShader]);
-	    
-	    glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    glBindVertexArray(0);
-	}else if(mouse.brushType == mouseMarkerBrushT){
-	    glUseProgram(shadersId[lightSourceShader]);
-		
-	    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
-	    glBindVertexArray(cube.VAO);
-
-	    Matrix mat;
-	    memcpy(mat.m, markersMats[(int)mouse.brushThing].m, sizeof(float) * 16);
-
-	    mat.m[12] = tile.x + bBlockD / 2;
-	    mat.m[13] = tile.y;
-	    mat.m[14] = tile.z + bBlockD / 2;
-
-	    uniformMat4(lightSourceShader, "model", mat.m);
-
-	    if(mouse.brushThing == locationExitMarkerT){
-		uniformVec3(lightSourceShader, "color", (vec3){ blackColor } );
-	    }
-	    
-	    glDrawArrays(GL_TRIANGLES, 0, cube.vertexNum);
-	    
-	    glUseProgram(shadersId[mainShader]);
-	    
-	    glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    glBindVertexArray(0);
-	}else if (mouse.brushType == mouseWallBrushT && mouse.tileSide != -1 && mouse.tileSide != center) {
-	    // vec2i curTile = tileData->grid;
-	    Side selectedSide = mouse.tileSide;
-
-	    WallType* type = mouse.brushThing;
-
-	    Wall wal = { 0 };
-	    Matrix wallMat;
-
-	    // setup wall 
-	    {
-		memset(&wal, 0, sizeof(Wall));
-
-		wal.type = *type;
-		wal.prevType = *type;
-		//wal.mat = IDENTITY_MATRIX;
-	    }
-
-	    // brush phantom
-	    {		  
-		memcpy(wallMat.m, hardWallMatrices[selectedSide].m, sizeof(float) * 16);
-
-		wallMat.m[12] += tile.x;
-		wallMat.m[13] = curFloor;
-		wallMat.m[14] += tile.z;
-
-		uniformMat4(mainShader, "model", wallMat.m);
-
-		glBindTexture(GL_TEXTURE_2D, loadedTextures1D[0].tx);
-
-		for (int i = 0; i < wallsVPairs[wal.type].planesNum; i++) {
-		    glBindVertexArray(wallsVPairs[wal.type].pairs[i].VAO);
-		    glBindBuffer(GL_ARRAY_BUFFER, wallsVPairs[wal.type].pairs[i].VBO);
-
-		    glDrawArrays(GL_TRIANGLES, 0, wallsVPairs[wal.type].pairs[i].vertexNum);
-
-		    glBindVertexArray(0);
-		    glBindBuffer(GL_ARRAY_BUFFER, 0);
-		}
-
-		glBindTexture(GL_TEXTURE_2D, 0);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    }
-
-	    vec3i gTile = { tileData->pos.x, curFloor, tileData->pos.z };// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
-
-	    if (mouse.clickR) {
-		wal.sideForMat = selectedSide;
-		wal.planes = calloc(wallsVPairs[wal.type].planesNum, sizeof(Plane));
-		memcpy(wal.mat.m, wallMat.m ,sizeof(float) * 16);
-
-	
-		//	  printf("Calllllllll\n");
-		//grid[curFloor][tileData->grid.z][tileData->grid.x] = calloc(1,sizeof(Tile));
-		// tileData->tile = grid[curFloor][tileData->grid.z][tileData->grid.x];
-
-		int tileId = tileData->tileId;
-
-		//printf("%s: ", sidesToStr[selectedSide]);
-		//printf(spreadMat4(wal.mat.m));
-
-		//printf("isTile exist under wall: %d \n", grid[curFloor][(int)tile.z][(int)tile.x]);
-
-		if (tileData->tileId == -1) {
-		    //	if(grid[curFloor][(int)tile.z][(int)tile.x] == 0){
-		    tilesStorage = realloc(tilesStorage, sizeof(Tile) * (tilesStorageSize + 1)); 
-
-		    //tilesStorage[tilesStorageSize] = calloc(1, sizeof(Tile));
-		    tilesStorage[tilesStorageSize].pos = tileData->pos;
-		    tilesStorage[tilesStorageSize].id = tilesStorageSize;
-		    tilesStorage[tilesStorageSize].tx = -1;
-
-		    tilesStorage[tilesStorageSize].block = NULL;
-		    tilesStorage[tilesStorageSize].wall[0] = NULL;
-		    tilesStorage[tilesStorageSize].wall[1] = NULL;
-
-		    tileId = tilesStorageSize;
-	  
-		    grid[curFloor][(int)tileData->pos.z][(int)tileData->pos.x] = &tilesStorage[tilesStorageSize]; 
-		    tilesStorageSize++;
-		}
-
-		for (int i = 0; i < wallsVPairs[wal.type].planesNum; i++) {
-		    calculateAABB(wallMat, wallsVPairs[wal.type].pairs[i].vBuf, wallsVPairs[wal.type].pairs[i].vertexNum, wallsVPairs[wal.type].pairs[i].attrSize, &wal.planes[i].lb, &wal.planes[i].rt);
-	  
-		    geomentyByTxCounter[wal.planes[i].txIndex] += wallsVPairs[wal.type].pairs[i].vertexNum * sizeof(float) * wallsVPairs[wal.type].pairs[i].attrSize;
-		}
-		
-		placedWallCounter[wal.type]++;
-
-		vec3 tile = tilesStorage[tileId].pos;
-	
-		if(selectedSide == right){
-		    selectedSide = left;
-		}else if(selectedSide == bot){
-		    selectedSide = top;
-	 	}
-
-		tilesStorage[tileId].wall[selectedSide] = malloc(sizeof(Wall));
-		memcpy(tilesStorage[tileId].wall[selectedSide], &wal, sizeof(Wall));
-
-		tilesStorage[tileId].wall[selectedSide]->tileId = tileId;
-		tilesStorage[tileId].wall[selectedSide]->id = wallsStorageSize;
-	
-		wallsStorageSize++;
-		if (!wallsStorage) {
-		    wallsStorage = malloc(sizeof(Wall*));
-		}else {
-		    wallsStorage = realloc(wallsStorage, sizeof(Wall*) * wallsStorageSize);
-		}
-
-		printf("%s \n", wallTypeStr[tilesStorage[tileId].wall[selectedSide]->type]);
-
-		wallsStorage[wallsStorageSize - 1] = tilesStorage[tileId].wall[selectedSide];
-
-		
-		//grid[curFloor][(int)curTile.z][(int)curTile.x]->wall[selectedSide] = malloc(sizeof(Wall));
-	    }
-	}
-    }
 }
 //}
 
 void editor2dRender() {
-  
-    if(mouse.tileSide != -1 && mouse.tileSide != center){
-	char buf[64];
-	sprintf(buf, "%s", sidesToStr[mouse.tileSide]);
-	renderText(buf, .0f, .0f, 1.0f);
-    }
-  
-    // setup context text
-    {
-	if (mouse.focusedThing) {
-	    switch (mouse.focusedType) {
-	    case(mouseModelT): {
-		sprintf(contextBelowText, modelContextText);
-		contextBelowTextH = 2;
-
-		break;
-	    } case(mousePlaneT): {
-		  sprintf(contextBelowText, planeContextText);
-		  contextBelowTextH = 2;
-
-		  break;
-	      }
-	    default: break;
-	    }
-	}
-	else if (mouse.selectedThing) {
-	    switch (mouse.selectedType) {
-	    case(mouseTileT): {
-		sprintf(contextBelowText, tileContextText);
-		contextBelowTextH = 1;
-
-		break;
-	    }case(mouseBlockT): {
-		 sprintf(contextBelowText, blockContextText);
-		 contextBelowTextH = 1;
-
-		 break;
-	     }
-	    default: break;
-	    }
-	}
-	else {
-	    sprintf(contextBelowText, generalContextText);
-	    contextBelowTextH = 1;
-	}
-    }
-
-    // aim render
-    if (!curMenu && hints && curUIBuf.rectsSize == 0) {
-	glBindVertexArray(hudRect.VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, solidColorTx);
-	setSolidColorTx(blackColor, 1.0f);
-
-	float aimW = 0.003f;
-	float aimH = 0.006f;
-
-	float aim[] = {
-	    -aimW, aimH, 1.0f, 0.0f,
-	    aimW, aimH, 1.0f, 1.0f,
-	    -aimW, -aimH, 0.0f, 0.0f,
-
-	    aimW, aimH, 1.0f, 1.0f,
-	    -aimW, -aimH, 0.0f, 0.0f,
-	    aimW, -aimH, 0.0f, 1.0f };
-
-	glBufferData(GL_ARRAY_BUFFER, sizeof(aim), aim, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-    }
-
     float baseYPad = 0.0f;
 
     // brush handle usage
@@ -3389,45 +2745,7 @@ void editor2dRender() {
 	renderText(buf, -1.0f, 1.0f, 1.0f);
 
 	switch (mouse.brushType) {
-
-
-	case(mouseBlockBrushT): {
-	     if (mouse.clickR && mouse.selectedType == mouseTileT) {
-		 TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
-		 TileBlock* block = (TileBlock*)mouse.brushThing;
-
-		 if (tileData->tileId == -1) {
-		     tilesStorageSize++;
-		     tilesStorage = realloc(tilesStorage, tilesStorageSize * sizeof(Tile));
-		     tilesStorage[tilesStorageSize-1].pos = tileData->pos;
-		 }
-
-		 tilesStorage[tilesStorageSize-1].block = malloc(sizeof(TileBlock));
-		 memcpy(tilesStorage[tilesStorageSize-1].block, block, sizeof(TileBlock));
-
-		 TileBlock* newBlock = tilesStorage[tilesStorageSize-1].block;
-
-		 vec3 tile = tileData->pos;// xyz_indexesToCoords(tileData->grid.x, curFloor, tileData->grid.z);
-		 tile.y = curFloor;
-
-		 int index = (block->rotateAngle) / 90;
-
-		 newBlock->mat = IDENTITY_MATRIX;
-		 memcpy(newBlock->mat.m, block->mat.m, sizeof(float) * 16);
-
-		 printf("new tile %f %f %f \n", tile.x, tile.y, tile.z);
-
-		 calculateAABB(newBlock->mat, blocksVPairs[newBlock->type].pairs[0].vBuf, blocksVPairs[newBlock->type].pairs[0].vertexNum, blocksVPairs[newBlock->type].pairs[0].attrSize, &newBlock->lb, &newBlock->rt);
-
-		 printf("new lb %f %f %f \n", argVec3(newBlock->lb));
-		 printf("new rt %f %f %f \n\n", argVec3(newBlock->rt));
-
-		 //mouse.brushThing = constructNewBlock(block->type, block->rotateAngle);
-		 batchGeometry();
-	     }
-
-	     break;
-	 }case(mouseEntityBrushT): {
+	case(mouseEntityBrushT): {
 	     if (mouse.clickR && mouse.selectedType == mouseTileT) {
 		 Entity* entity = (Entity*) mouse.brushThing;
 
@@ -3448,39 +2766,6 @@ void editor2dRender() {
 		 mouse.brushType = 0;
 
 		 //batchEntitiesBoxes();
-	     }
-
-	     break;
-	 }
-	case(mouseMarkerBrushT): {
-	     if (mouse.clickR && mouse.selectedType == mouseTileT) {
-		 TileMouseData* tileData = (TileMouseData*)mouse.selectedThing;
-		 int marker = mouse.brushThing;
-
-		 int tileId = tileData->tileId;
-
-		 if (tileData->tileId == -1) {
-		     tilesStorageSize++;
-		     tilesStorage = realloc(tilesStorage, tilesStorageSize * sizeof(Tile));
-		     tilesStorage[tilesStorageSize-1].pos = tileData->pos;
-
-		     tileId = tilesStorageSize-1;
-		 }
-		 
-		 tilesStorage[tileId].marker = marker;
-
-		 markersCounterByType[marker]++;
-		 markersStorageSize++;
-
-		 if(!markersStorage){
-		     markersStorage = malloc(sizeof(Tile*));
-		 }else{
-		     markersStorage = realloc(markersStorage, sizeof(Tile*) * markersStorageSize);
-		 }
-
-		 markersStorage[markersStorageSize - 1] = &tilesStorage[tileId];
-
-		 batchMarkers();
 	     }
 
 	     break;
@@ -3516,25 +2801,10 @@ void editor2dRender() {
 	   }case(mousePlaneT): {
 	       Picture* data = (Picture*)mouse.selectedThing;
 
-	       sprintf(buf, "Selected plane: [ID: %d] tx: [%s]", data->id, loadedTexturesNames[data->txIndex]);
+	       sprintf(buf, "Selected plane: [ID: %d] tx: [%s]", data->id);
 
 	       break;
 	   }case(mouseTileT): {
-		TileMouseData* data = (TileMouseData*)mouse.selectedThing;
-
-		if (data->tileId != -1) {
-		    int tileTx = tilesStorage[data->tileId].tx;
-
-		    if (tileTx != -1) {
-			sprintf(buf, "Selected tile[%d] tx: [%s] grid:[%f %f %f]", data->tileId, loadedTexturesNames[tileTx], argVec3(data->intersection));
-		    }
-		    else {
-			sprintf(buf, "Selected tile[%d] tx: [No tile tx] grid:[%f %f %f]", data->tileId, argVec3(data->intersection));
-		    }
-		}
-		else {
-		    sprintf(buf, "Selected empty tile");
-		}
 
 		break;
 	    }
@@ -3569,12 +2839,6 @@ void editor2dRender() {
 		mouse.focusedType = 0;
 
 		createModel(selectedIndex - 1, objectsMenuSelectedType);
-
-		batchModels();
-
-		if (navPointsDraw) {
-		    batchGeometry();
-		}
 
 		rerenderShadowsForAllLights();
 
@@ -3706,8 +2970,8 @@ void editor2dRender() {
 		//	  free(mouse.brushThing);
 		//	}
 
-		mouse.brushThing = constructNewBlock(selectedIndex - 1, 0);
-		mouse.brushType = mouseBlockBrushT;
+//		mouse.brushThing = constructNewBlock(selectedIndex - 1, 0);
+//		mouse.brushType = mouseBlockBrushT;
 
 		curMenu->open = false;
 		curMenu = NULL;
@@ -3741,9 +3005,9 @@ void editor2dRender() {
 	    glBindVertexArray(0);
 	}
 
-	for (int i = 0; i < tileBlocksCounter; i++) {
-	    renderText(tileBlocksStr[i], -1.0f, 1.0f - (i * letterH), 1);
-	}
+//	for (int i = 0; i < tileBlocksCounter; i++) {
+//	    renderText(tileBlocksStr[i], -1.0f, 1.0f - (i * letterH), 1);
+//	}
     }
     else if (curMenu && curMenu->type == lightMenuT) {
 	glActiveTexture(GL_TEXTURE0);
@@ -3803,149 +3067,7 @@ void editor2dRender() {
 	    renderText(lightTypesStr[i], -1.0f, 1.0f - (i * letterH), 1);
 	}
     }
-    else if (curMenu && curMenu->type == texturesMenuT) {
-	glActiveTexture(GL_TEXTURE0);;
-	glBindTexture(GL_TEXTURE_2D, solidColorTx);
-	setSolidColorTx(blackColor, 1.0f);
-
-	glBindVertexArray(hudRect.VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-
-	float textureSideW = (longestTextureNameLen * letterW) + letterW;
-
-	float categorySideW = (longestTextureNameLen * letterW) + letterW;
-	float categorySideH = loadedTexturesCategoryCounter * letterH;
-
-	char buf[150];
-
-	// texture selection
-	{
-	    float textureSide[] = {
-		-1.0f, 1.0f, 1.0f, 0.0f,
-		-1.0f + textureSideW, 1.0f, 1.0f, 1.0f,
-		-1.0f, -1.0f, 0.0f, 0.0f,
-
-		-1.0f + textureSideW, 1.0f, 1.0f, 1.0f,
-		-1.0f, -1.0f, 0.0f, 0.0f,
-		-1.0f + textureSideW, -1.0f, 0.0f, 1.0f
-	    };
-
-	    glBufferData(GL_ARRAY_BUFFER, sizeof(textureSide), textureSide, GL_STATIC_DRAW);
-
-	    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-	    glEnableVertexAttribArray(0);
-
-	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-	    glEnableVertexAttribArray(1);
-
-	    glDrawArrays(GL_TRIANGLES, 0, 6);
-	}
-
-	// category selection
-	{
-	    float categorySide[] = {
-		-1.0f + textureSideW, 1.0f, 1.0f, 0.0f,
-		-1.0f + textureSideW + categorySideW, 1.0f, 1.0f, 1.0f,
-		-1.0f + textureSideW, 1.0f - categorySideH, 0.0f, 0.0f,
-
-		-1.0f + textureSideW + categorySideW, 1.0f, 1.0f, 1.0f,
-		-1.0f + textureSideW, 1.0f - categorySideH, 0.0f, 0.0f,
-		-1.0f + textureSideW + categorySideW, 1.0f - categorySideH, 0.0f, 1.0f
-	    };
-
-	    glBufferData(GL_ARRAY_BUFFER, sizeof(categorySide), categorySide, GL_STATIC_DRAW);
-
-	    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-	    glEnableVertexAttribArray(0);
-
-	    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-	    glEnableVertexAttribArray(1);
-
-	    glDrawArrays(GL_TRIANGLES, 0, 6);
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	float mouseY = mouse.cursor.z;
-	int selectedIndex = (1.0f - ((mouseY + 1.0f) / 2.0f)) / (letterH / 2);
-
-	// 1 - textureSide
-	// 2 - textureCategorySide
-	int selectedPart = 0;
-
-	float xStart = -1.0f;
-	float xEnd = -1.0f + textureSideW;
-
-	if (mouse.cursor.x <= -1.0f + textureSideW) {
-	    selectedPart = 1;
-	}
-	else if (mouse.cursor.x > -1.0f + textureSideW && mouse.cursor.x <= -1.0f + textureSideW + categorySideW) {
-	    xStart = -1.0f + textureSideW;
-	    xEnd = -1.0f + textureSideW + categorySideW;
-
-	    selectedPart = 2;
-	}
-
-	int curCategoryTexturesSize = loadedTexturesCategories[texturesMenuCurCategoryIndex].txWithThisCategorySize;
-
-	if ((selectedPart == 1 && selectedIndex < curCategoryTexturesSize) || (selectedPart == 2 && selectedIndex < loadedTexturesCategoryCounter)) {
-
-	    // selection draw
-	    {
-		setSolidColorTx(redColor, 1.0f);
-
-		glBindVertexArray(hudRect.VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, hudRect.VBO);
-
-		float  selectionRect[] = {
-		    xStart, 1.0f - selectedIndex * letterH, 1.0f, 0.0f,
-		    xEnd, 1.0f - selectedIndex * letterH, 1.0f, 1.0f,
-		    xStart, 1.0f - (selectedIndex + 1) * letterH, 0.0f, 0.0f,
-
-		    xEnd, 1.0f - selectedIndex * letterH, 1.0f, 1.0f,
-		    xStart,  1.0f - (selectedIndex + 1) * letterH, 0.0f, 0.0f,
-		    xEnd,  1.0f - (selectedIndex + 1) * letterH, 0.0f, 1.0f };
-
-		glBufferData(GL_ARRAY_BUFFER, sizeof(selectionRect), selectionRect, GL_STATIC_DRAW);
-
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
-		glEnableVertexAttribArray(0);
-
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 2 * sizeof(float));
-		glEnableVertexAttribArray(1);
-
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-	    }
-
-	    if (mouse.clickL) {
-		if (selectedPart == 2) {
-		    texturesMenuCurCategoryIndex = selectedIndex;
-		}
-		else if (selectedPart == 1) {
-
-		    if (mouse.brushType == mouseBlockBrushT) {
-			free(mouse.brushThing);
-		    }
-		    mouse.brushType = mouseTextureBrushT;
-		    mouse.brushThing = &loadedTextures2D[texturesMenuCurCategoryIndex][selectedIndex];
-
-		    curMenu->open = false;
-		    curMenu = NULL;
-		}
-	    }
-	}
-
-	for (int i = 0; i < loadedTexturesCategories[texturesMenuCurCategoryIndex].txWithThisCategorySize; i++) {
-	    int index = loadedTextures2D[texturesMenuCurCategoryIndex][i].index1D;
-	    renderText(loadedTexturesNames[index], -1.0f, 1.0f - (i * letterH), 1.0f);
-	}
-
-	for (int i = 0; i < loadedTexturesCategoryCounter; i++) {
-	    renderText(loadedTexturesCategories[i].name, -1.0f + textureSideW, 1.0f - (i * letterH), 1.0f);
-	}
-
-    }else if(curMenu && curMenu->type == dialogViewerT){
+	else if (curMenu && curMenu->type == dialogViewerT) {
 	int characterId = -1;
 
 	if (mouse.focusedType == mouseModelT) {
@@ -4743,21 +3865,6 @@ void editorMouseVS(){
     WallMouseData* intersWallData = malloc(sizeof(WallMouseData));
     TileMouseData* intersTileData = malloc(sizeof(TileMouseData));
 
-    for(int i=0;i<blocksStorageSize;i++){
-	TileBlock* block = blocksStorage[i];
-    
-	float intersectionDistance;
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, block->lb, block->rt, &mouse.gizmoPosOfInter, &intersectionDistance);
-
-	if (isIntersect && minDistToCamera > intersectionDistance) {
-	    mouse.selectedThing = block;
-	    mouse.selectedType = mouseBlockT;
-
-	    mouse.interDist = intersectionDistance; 
-	    minDistToCamera = intersectionDistance;
-	}
-    }
-
     // mirrors
     for(int i=0;i<mirrorsStorageSize;i++){
 	float intersectionDistance;
@@ -4771,94 +3878,7 @@ void editorMouseVS(){
 	    minDistToCamera = intersectionDistance; 
 	}
     }
-
-    // pictures
-    for(int i=0;i<picturesStorageSize;i++){
-	float intersectionDistance;
-	bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, picturesStorage[i].lb, picturesStorage[i].rt, NULL, &intersectionDistance);   
-
-	if (isIntersect && minDistToCamera > intersectionDistance) {
-	    mouse.selectedThing = &picturesStorage[i];
-	    mouse.selectedType = mousePlaneT;
-
-	    mouse.interDist = intersectionDistance; 
-	    minDistToCamera = intersectionDistance; 
-	}
-    }
   
-    // walls
-    {
-	for(int i=0;i<wallsStorageSize;i++){
-	    WallType type = wallsStorage[i]->type;
-      
-	    float intersectionDistance;
-
-	    if(tilesStorage[wallsStorage[i]->tileId].pos.y < curFloor){
-		continue;
-	    }
-
-	    for (int i3 = 0; i3 < wallsVPairs[type].planesNum; i3++) {
-		bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, wallsStorage[i]->planes[i3].lb, wallsStorage[i]->planes[i3].rt, NULL, &intersectionDistance); 
-
-		if (isIntersect && minDistToCamera > intersectionDistance) {
-		    int tx = wallsStorage[i]->planes[i3].txIndex;
-
-		    intersWallData->wall = wallsStorage[i];
-	  
-		    intersWallData->txIndex = tx;
-		    intersWallData->tileId = wallsStorage[i]->tileId;
-		    //	  printf("tileId %d \n", wallsStorage[i]->tileId);
-
-		    //	  intersWallData->pos = ;
-
-		    intersWallData->side = wallsStorage[i]->side;
-  
-		    intersWallData->plane = i3;
-
-		    mouse.selectedType = mouseWallT;
-		    mouse.selectedThing = intersWallData;
-	      
-		    minDistToCamera = intersectionDistance;
-		}
-	    }
-	}
-    }
-  
-    for(int i=0;i<tilesStorageSize;i++){
-	Tile tl = tilesStorage[i];
-
-	//    vec3i ind = coords
-
-	// printf("%d %d\n",tl->pos.y == curFloor,(int)tl->pos.y, curFloor);
-    
-	//    if(tl->pos.y == curFloor){
-	if(true){
-	    const vec3 rt = { tl.pos.x + bBlockW, tl.pos.y, tl.pos.z + bBlockD };
-	    const vec3 lb = { tl.pos.x, tl.pos.y, tl.pos.z };
-
-	    //  printf("Rt: [%f %f %f] Lb [%f %f %f]\n", argVec3(rt), argVec3(lb));
-
-	    float intersectionDistance;
-	    vec3 intersection;
-
-	    bool isIntersect = rayIntersectsTriangle(curCamera->pos, mouse.rayDir, lb, rt, &intersection, &intersectionDistance);
-
-	    if (isIntersect && minDistToCamera > intersectionDistance) {
-		//	intersTileData->tile = tl;
-		intersTileData->tileId = i;
-
-		intersTileData->pos = tl.pos;
-
-		//intersTileData->grid = (vec2i){ tl->pos.x, tl->pos.z };
-		intersTileData->intersection = intersection;
-
-		mouse.selectedType = mouseTileT;
-		mouse.selectedThing = intersTileData;
-
-		minDistToCamera = intersectionDistance;
-	    }
-	}
-    }
   
     // lights
     for (int i2 = 0; i2 < lightsTypeCounter; i2++) {
@@ -5004,8 +4024,8 @@ void initGizmosAABBFromSelected(){
 		out2.m[13] = mat->m[13] + gizmosPaddings[i][i2].y;
 		out2.m[14] = mat->m[14] + gizmosPaddings[i][i2].z;
 
-		calculateAABB(out2, gizmosGeom[i][i2].vBuf, gizmosGeom[i][i2].vertexNum,gizmosGeom[i][i2].attrSize,
-			      &gizmosAABB[i][0][i2], &gizmosAABB[i][1][i2]);
+//		calculateAABB(out2, gizmosGeom[i][i2].vBuf, gizmosGeom[i][i2].vertexNum,gizmosGeom[i][i2].attrSize,
+//			      &gizmosAABB[i][0][i2], &gizmosAABB[i][1][i2]);
 	    }
 	}
 
@@ -5017,8 +4037,8 @@ void initGizmosAABBFromSelected(){
 	    out2.m[13] = mat->m[13] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].y;
 	    out2.m[14] = mat->m[14] + gizmosPaddings[cursorMode-1][selectedGizmoAxis-1].z;
 
-	    calculateAABB(out2, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vBuf, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vertexNum,gizmosGeom[cursorMode-1][selectedGizmoAxis-1].attrSize,
-			  &gizmosAABB[cursorMode-1][0][selectedGizmoAxis-1], &gizmosAABB[cursorMode-1][1][selectedGizmoAxis-1]);
+//	    calculateAABB(out2, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vBuf, gizmosGeom[cursorMode-1][selectedGizmoAxis-1].vertexNum,gizmosGeom[cursorMode-1][selectedGizmoAxis-1].attrSize,
+//			  &gizmosAABB[cursorMode-1][0][selectedGizmoAxis-1], &gizmosAABB[cursorMode-1][1][selectedGizmoAxis-1])//;
 	}
 	      
 	mouse.focusedThing = mouse.selectedThing;
@@ -5060,53 +4080,12 @@ void createModel(int index, ModelType type){
 	curModels[curModelsSize-1].mat.m[14] = curCamera->pos.z;
     }
 	
-    calculateModelAABB(&curModels[curModelsSize-1]);
+//    calculateModelAABB(&curModels[curModelsSize-1]);
 
-}
-
-void deleteTileInStorage(int id){
-    int index = 0;
-    for(int i=0;i<tilesStorageSize;i++){
-	if(tilesStorage[i].id == id){
-	    continue;
-	}
-    
-	tilesStorage[index] = tilesStorage[i];
-	tilesStorage[index].id = index;
-    
-	index++;
-    }
-    tilesStorageSize--;
-    tilesStorage = realloc(tilesStorage, tilesStorageSize * sizeof(Tile));
-}
-
-void deleteWallInStorage(int id){
-    int index = 0;
-    for(int i=0;i<wallsStorageSize;i++){
-	if(wallsStorage[i]->id == id){
-	    continue;
-	}
-    
-	wallsStorage[index] = wallsStorage[i];
-	wallsStorage[index]->id = index;
-	index++;
-    }
-    wallsStorageSize--;
-}
-
-void addNewWallStorage(Wall* newWall){
-    wallsStorageSize++;
-  
-    if(!wallsStorage){
-	wallsStorage = malloc(sizeof(Wall*));
-    }else{
-	wallsStorage = realloc(wallsStorage, sizeof(Wall*) * wallsStorageSize);
-    }
-
-    wallsStorage[wallsStorageSize-1] = newWall;
 }
 
 void saveMapUI() {
+    /*
     if(UIStructBufs[saveWindowT]->rects[1].input->buf && strlen(UIStructBufs[saveWindowT]->rects[1].input->buf)){
 	saveMap(UIStructBufs[saveWindowT]->rects[1].input->buf);
 	clearCurrentUI();
@@ -5119,9 +4098,11 @@ void saveMapUI() {
 	UIStructBufs[saveWindowT]->rects[2].onclickResText = malloc(sizeof(char) * (strlen("Provide save name!") + 1));
 	strcpy(UIStructBufs[saveWindowT]->rects[2].onclickResText, "Provide save name!");
     }
+    */
 }
 
 void loadMapUI() {
+    /*
     if(UIStructBufs[loadWindowT]->rects[1].input->buf) {
 	bool loaded = loadSave(UIStructBufs[loadWindowT]->rects[1].input->buf);
 
@@ -5147,6 +4128,7 @@ void loadMapUI() {
 	strcpy(UIStructBufs[loadWindowT]->rects[2].onclickResText, "Provide save name!");
 	// name wasnt provided
     }
+    */
 }
 
 void editorRenderCursor(){

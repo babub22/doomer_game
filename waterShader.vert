@@ -30,14 +30,18 @@ uniform float screenH;
 
 const float PI = 3.1415926535897932384626433832795;
 /*
-const float waveLength = .2f;
+const float waveLength = .3f;
 const float waveAmplitude = .35f;
-const float waveSpeed  = 10.0f;
-*/
+const float waveSpeed  = 1.0f;
 
 const float waveLength = .2f;
 const float waveAmplitude = .15f;
 const float waveSpeed  = 10.0f;
+*/
+
+const float waveLength = .2f;
+const float waveAmplitude = .01f;
+const float waveSpeed  = 1.0f;
 
 uniform float dTime;
 

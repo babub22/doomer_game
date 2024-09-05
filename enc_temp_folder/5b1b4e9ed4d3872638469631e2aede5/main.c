@@ -3352,6 +3352,12 @@ void loadGLTFScene(char* name){
 				    }
 				}
 			}
+
+			if(data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].type == cgltf_attribute_type_position){
+			    objectsInfo[i].meshes[i2].posBuf[copyPosIndex] = mesh[index];
+			    copyPosIndex++;
+			}
+			
 		    }
 		}
 		    

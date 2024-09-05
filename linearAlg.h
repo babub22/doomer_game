@@ -148,3 +148,9 @@ vec4 subQuats(vec4 a, vec4 b);
 
 vec3 rotateVectorByQuaternion(vec3 v, vec4 q);
 vec3 mulVec3Num(vec3 a, float n);
+
+float triArea2D(vec2 a, vec2 b, vec2 c);
+
+vec3 interpolate2dTo3d(vec3 a, vec3 b, vec3 c, vec2 p);
+
+#define fcmp(a,b) fabs(a-b)<FLT_EPSILON

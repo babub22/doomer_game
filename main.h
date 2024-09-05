@@ -1,85 +1,5 @@
 #pragma once
 
-typedef enum{
-  farRightCorT, nearRightCorT, farLeftCorT, nearLeftCorT, doorFrameT
-} CornerType;
-
-typedef struct{
-  CornerType type;
-  vec3 pos;
-  bool used;
-} NavCornerPoint;
-
-typedef struct{
-    int id;
-    char* name;
-
-    int parentId;
-
-    int* childIds;
-    int childSize;
-    
-    vec3 trans;
-    vec4 rot;
-    vec3 scale;
-    
-    Matrix inversedMat;
-    Matrix defMat;
-    
-    Matrix matrix;
-} BoneInfo;
-
-//int bonesSize;
-//BoneInfo* bones;
-
-typedef struct{
-  GLuint tx;
-  
-  int categoryIndex;
-
-  int h;
-  int w;
-
-  int index1D;
-  int index2D; // where [frombones context][index2D]
-} Texture;
-
-typedef struct{
-  int index;
-  char* name;
-
-  int txWithThisCategorySize;
-} Category;
-
-#define generalContextText "[O] objects [B] blocks [T] textures [P] planes [1] wall"
-
-#define modelContextText "[F] focus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [Z] Y move; [G] scale]"
-
-#define blockContextText "[LCtrl + R] rotate [Up/Down] + [Ctrl] change block geometry"
-
-#define planeContextText "[F] focus [B] dialogs [Del] delete [Scroll Up/Down] step +/-\n[LCtrl] + [[R + X/Y/Z] rotate; [T] XZ move; [Z] Y move; [G + Up/Down/Left/Right] width/height]"
-
-#define tileContextText "[Up] move tile up [Down] move tile down"
-
-#define selectedWallContextText "[Right/Left]+[Ctrl] - +/- wall width [Up] move wall from [Down/Up] move wall from/to camera %s"
-
-//, itHasBlock ? "[LCtrl + H] aling to block" : ""
-
-
-typedef enum{
-  left,
-  top,
-  bot,
-  right,
-  basicSideCounter,
-  center,
-  topLeft,
-  botLeft,
-  botRight,
-  rightTop,
-  sideCounter
-} Side;
-
 typedef struct{
   vec3 lb;
   vec3 rt;
@@ -117,7 +37,7 @@ typedef enum{
 
 int placedWallCounter[wallTypeCounter];
 
-const char* wallTypeStr[];
+//const char* wallTypeStr[];
 
 typedef enum{
   roofBlockT,
@@ -187,7 +107,6 @@ typedef struct{
   WallType prevType;
 
   uint8_t sideForMat;
-  Side side;
   
   Matrix mat;
 
@@ -483,8 +402,6 @@ typedef struct{
   vec3 modelSizes; // def width, height, depth without scale
 } ModelInfo;
 
-void batchModels();
-
 typedef enum {
   mouseModelT = 1,
   mouseWallT,
@@ -526,8 +443,6 @@ typedef struct{
 
   bool leftDown;
   bool rightDown;
-
-  Side tileSide;
   
   int wheel;
 
@@ -560,11 +475,6 @@ typedef struct{
 #define cursorW 0.01f
 
 VPair cursor;
-
-typedef struct{
-  float w, h, d;
-} Sizes;
-
 float* snowMeshVertixes;
 
 typedef struct{
@@ -652,18 +562,15 @@ float fakeWinW;
 float fakeWinH;
 
 void rerenderShadowForLight(int lightId);
-void batchModels();
 void rerenderShadowsForAllLights();
 
 void renderCube(vec3 pos, int lightId);
 
 bool rayIntersectsTriangle(vec3 origin, vec3 dir, vec3 lb, vec3 rt, vec3* posOfIntersection, float* dist);
 
-bool oppositeTileTo(vec2i XZ, Side side, vec2i* opTile, Side* opSid);
 
 vec3 matrixMultPoint(const float matrix[16], vec3 point);
 
-vec3* wallPosBySide(Side side, float wallH, float wallD, float tileD, float tileW);
 
 void wallsLoadVAOandVBO();
 
@@ -788,10 +695,6 @@ void assembleDoorBlockVBO();
 
 #define selTileBorderH 0.001f
 
-float* wallBySide(int* bufSize, Side side, float thick);
-
-#define dialogEditorCharNameTitle "Char name: "
-
 
 typedef enum{
   editorInstance,
@@ -834,131 +737,9 @@ char* vertFileName;
 char* fragFileName;
 char* geomFileName;
 
-
-
-
-
-
-
-
-
-
-
-const char sdlScancodesToACII[];/* = {
-  [4] = 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', [55]='.'
-};*/
-
-const char* manipulationModeStr[];/* = { "None","Rotate_X", "Rotate_Y", "Rotate_Z", "Transform_XY", "Transform_Z", "Scale" };*/
-
-
-// from '!' to 'z' in ASCII
-const vec2i englLettersMap[];/* = {
-  { 14, 13}, // '!'
-  { 13, 13}, // '"'
-  { 12, 13}, // '#'
-  { 11, 13}, // '$'
-  { 10, 13}, // '%'
-  { 9, 13}, // '&'
-  { 8, 13}, // '''
-  { 7, 13}, // '('
-  { 6, 13}, // ')'
-  { 5, 13}, // '*'
-  { 4, 13}, // '+'
-  { 3, 13}, // ','
-  { 2, 13}, // '-'
-  { 1, 13}, // '.'
-  { 0, 13}, // '/'
-
-  { 15, 12}, // '0'
-  { 14, 12}, // '1'
-  { 13, 12}, // '2'
-  { 12, 12}, // '3'
-  { 11, 12}, // '4'
-  { 10, 12}, // '5'
-  { 9, 12}, // '6'
-  { 8, 12}, // '7'
-  { 7, 12}, // '8'
-  { 6, 12}, // '9'
-  { 5, 12}, // ':'
-  { 4, 12}, // ';'
-  { 3, 12}, // '<'
-  { 2, 12}, // '='
-  { 1, 12}, // '>'
-  { 0, 12}, // '?'
-
-  { 15, 11}, // '@'
-  { 14, 11}, // 'A'
-  { 13, 11}, // 'B'
-  { 12, 11}, // 'C'
-  { 11, 11}, // 'D'
-  { 10, 11}, // 'E'
-  { 9, 11}, // 'F'
-  { 8, 11}, // 'G'
-  { 7, 11}, // 'H'
-  { 6, 11}, // 'I'
-  { 5, 11}, // 'J'
-  { 4, 11}, // 'K'
-  { 3, 11}, // 'L'
-  { 2, 11}, // 'M'
-  { 1, 11}, // 'N'
-  { 0, 11}, // 'O'
-
-  { 15, 10}, // 'P'
-  { 14, 10}, // 'Q'
-  { 13, 10}, // 'R'
-  { 12, 10}, // 'S'
-  { 11, 10}, // 'T'
-  { 10, 10}, // 'U'
-  { 9, 10}, // 'V'
-  { 8, 10}, // 'W'
-  { 7, 10}, // 'X'
-  { 6, 10}, // 'Y'
-  { 5, 10}, // 'Z'
-  { 4, 10}, // '['
-  { 3, 10}, // '\'
-  { 2, 10}, // ']'
-  { 1, 10}, // '^'
-  { 0, 10}, // '_'
-
-  { 15, 9}, // '`'
-  { 14, 9}, // 'a'
-  { 13, 9}, // 'b'
-  { 12, 9}, // 'c'
-  { 11, 9}, // 'd'
-  { 10, 9}, // 'e'
-  { 9, 9}, // 'f'
-  { 8, 9}, // 'g'
-  { 7, 9}, // 'h'
-  { 6, 9}, // 'i'
-  { 5, 9}, // 'j'
-  { 4, 9}, // 'k'
-  { 3, 9}, // 'l'
-  { 2, 9}, // 'm'
-  { 1, 9}, // 'n'
-  { 0, 9}, // 'o'
-
-  { 15, 8}, // 'p'
-  { 14, 8}, // 'q'
-  { 13, 8}, // 'r'
-  { 12, 8}, // 's'
-  { 11, 8}, // 't'
-  { 10, 8}, // 'u'
-  { 9, 8}, // 'v'
-  { 8, 8}, // 'w'
-  { 7, 8}, // 'x'
-  { 6, 8}, // 'y'
-  { 5, 8}, // 'z'
-  { 4, 8}, // '{'
-  { 3, 8}, // '|'
-  { 2, 8}, // '}'
-  { 1, 8}, // '~'
-
-};*/
-
-const char* sidesToStr[];// = { [top]= "Top", [bot]="Bot", [right]="Right", [left]"Left"};
-
-void batchGeometry();
-void defaultGrid(int gX, int gY, int gZ);
+const char sdlScancodesToACII[];
+const char* manipulationModeStr[];
+const vec2i englLettersMap[];
 
 vec3 calculateNormal(vec3 a, vec3 b, vec3 c);
 
@@ -1038,28 +819,8 @@ Menu console;
 
 float dofPercent;
 
-Tile**** grid;
-int gridX;// = 120;
-int gridY;// = 15;
-int gridZ;// = 120;
-
 Picture* planeOnCreation;
 Uint8* currentKeyStates;// = SDL_GetKeyboardState(NULL);
-
-Texture* loadedTextures1D;
-Texture** loadedTextures2D;
-char** loadedTexturesNames; // iter same as tex1D
-int loadedTexturesCategoryCounter;
-Category* loadedTexturesCategories; 
-int loadedTexturesCounter;
-int longestTextureNameLen;
-int longestTextureCategoryLen;
-
-// avaible/loaded models
-ModelInfo* loadedModels1D;
-ModelInfo** loadedModels2D;
-Geometry* modelsBatch; // by tx
-ModelInfo** loadedModels2D;
 
 size_t loadedModelsSize;
 
@@ -1088,69 +849,6 @@ void uniformVec2(int shader, char* var, vec2 value);
 int renderCapYLayer;
 
 EngineInstance curInstance;
-
-typedef struct {
-    vec3i indx;
-
-    uint8_t wallsSize;
-    uint8_t* wallsIndexes;
-
-    uint8_t jointsSize;
-    uint8_t* jointsIndexes;
-} BatchedTile;
-
-BatchedTile* batchedGeometryIndexes;
-int batchedGeometryIndexesSize;
-
-//Model* playerModel;
-
-void assembleHideWallBlockVBO();
-
-Wall** wallsStorage;
-int wallsStorageSize;
-
-//int jointsStorageSize;
-
-TileBlock** blocksStorage;
-int blocksStorageSize;
-
-Tile* tilesStorage;
-int tilesStorageSize;
-
-Picture* picturesStorage;
-int picturesStorageSize;
-
-size_t* geomentyByTxCounter;
-
-void allocateGrid(int gX, int gY, int gZ);
-
-
-typedef struct{
-  float* buf;
-  size_t size;
-} Geom;
-
-typedef struct{
-    float* buf;
-    size_t size;
-    
-    int VAO;
-    int VBO;
-    int tris;
-} GeomFin;
-
-GeomFin* finalGeom;
-
-VPair planePairs;
-
-bool showHiddenWalls;
-
-void assembleNavigation();
-void assembleHalfWallBlockVBO();
-
-float* createNormalBuffer(float* buf, int size, int* finalSize);
-
-Matrix hardWallMatrices[4];
 
 typedef struct TextInput2 TextInput2;
 
@@ -1537,7 +1235,9 @@ typedef struct{
     uint8_t nextAnim; // blend from cur to this anim
     uint8_t curAnim;
     bool mirrored;
+    
     float time;
+    uint32_t lastUpdate;
     
     Matrix* jointsMats;
 
@@ -1656,5 +1356,7 @@ typedef struct{
 
 AABBEntity* aabbEntities;
 int aabbEntitiesSize;
+
+bool entityVsMeshes(vec3 entityPos, vec3* resPos);
 
 //void loadGLTFScene2(char* name);
