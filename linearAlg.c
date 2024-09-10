@@ -310,6 +310,11 @@ float triArea2D(vec2 a, vec2 b, vec2 c){
 		 + b.x*(c.z-a.z) + c.x*(a.z-b.z)));// * .5f);
 };
 
+float triArea2Di(vec2 a, vec2 b, vec2 c){
+    return fabs((a.x*(b.z-c.z)
+		 + b.x*(c.z-a.z) + c.x*(a.z-b.z)));// * .5f);
+};
+
 void inverse(float M[], float T[]) {
     float s[6];
     float c[6];
