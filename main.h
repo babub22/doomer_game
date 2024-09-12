@@ -1357,6 +1357,7 @@ typedef struct{
 AABBEntity* aabbEntities;
 int aabbEntitiesSize;
 
-bool entityVsMeshes(vec3 entityPos, vec3* resPos);
+bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, vec3* resPos);
+void bindCylindersAroundEntities();
 
 //void loadGLTFScene2(char* name);

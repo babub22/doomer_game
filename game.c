@@ -79,13 +79,17 @@ void gamePreFrame(float deltaTime){
 	|| entityStorage[playerEntityT][0].model->curAnim == strafeAnim;
     
     if(move){
-	vec3 pos;
-	bool validPos = entityVsMeshes((vec3){ nextPos.x, entityStorage[playerEntityT][0].mat.m[13], nextPos.z }, &pos);
+      vec3 pos;
+      float entityR = max(entityStorage[0][0].model->data->size[0], entityStorage[0][0].model->data->size[2])/2.0f;
+      float entityH = entityStorage[0][0].model->data->size[1];
+    
+      bool validPos = entityVsMeshes((vec3){ nextPos.x, entityStorage[playerEntityT][0].mat.m[13], nextPos.z }, entityStorage[playerEntityT][0].model->data->size[1]*0.25f, entityR,entityH, &pos);
 
 	if(validPos){
 	    entityStorage[playerEntityT][0].mat.m[12] = pos.x;
 	    entityStorage[playerEntityT][0].mat.m[13] = pos.y;
 	    entityStorage[playerEntityT][0].mat.m[14] = pos.z;
+	    bindCylindersAroundEntities();
 	}
 
 	    if((!isMoveAnims && entityStorage[playerEntityT][0].model->nextAnim == entityStorage[playerEntityT][0].model->curAnim) || entityStorage[playerEntityT][0].model->curAnim != preferedAnim){

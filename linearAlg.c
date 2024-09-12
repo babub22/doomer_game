@@ -805,6 +805,11 @@ float magnitude4(vec4 v){
     return sqrtf(dot);
 }
 
+float magnitude3(vec3 v){
+  float dot = dotf3(v, v);
+  return sqrtf(dot);
+}
+
 vec4 addvec4(vec4 v1, vec4 v2){
     return (vec4){v1.x+v2.x,v1.y+v2.y,v1.z+v2.z,v1.w+v2.w};
 }
@@ -885,4 +890,51 @@ vec4 slerp(vec4 p0, vec4 p1, float t) {
     vec4 term2 = multvec4(p1, factor_1);
 
     return addvec4(term1, term2);
+}
+
+int inCircle(float x, float y, float circleX, float circleY, float r ){  
+  float dx = fabs(x-circleX);
+  float dy = fabs(y-circleY);
+  return ( dx*dx + dy*dy <= r*r );
+}
+
+vec3 subVec3(vec3 v1, vec3 v2){
+  return (vec3){v1.x-v2.x, v1.y-v2.y, v1.z-v2.z};
+}
+
+float distBetween3dLines(vec3 a1, vec3 a2, vec3 b1, vec3 b2){
+  vec3 d = subVec3(a2, a1);
+  vec3 n = cross3(b1, b2);
+  float n_mag = magnitude3(n);
+  float d_dot_n = fabs(dotf3(d, n));
+  return d_dot_n / n_mag;
+}
+
+float isInsideCylinder(vec3 vertex, vec3 P1, vec3 P2) {
+  vec3 axis = subtract(P2, P1);
+  vec3 toVertex = subtract(vertex, P1);
+  vec3 projection = { dotf3(toVertex, axis) / dotf3(axis, axis) * axis.x,
+    dotf3(toVertex, axis) / dotf3(axis, axis) * axis.y,
+    dotf3(toVertex, axis) / dotf3(axis, axis) * axis.z };
+  vec3 closestPoint = addvec3(P1, projection);
+  vec3 d = subtract(vertex, closestPoint);
+  return sqrtf(dotf3(d, d));
+}
+
+float intersectCylinderLineSegment(vec3 P1, vec3 P2, vec3 A, vec3 B) {
+  vec3 AB = subtract(B, A);
+  vec3 P1P2 = subtract(P2, P1);
+  float dotP1P2_AB = dotf3(P1P2, AB);
+  float dotP1P2_P1P2 = dotf3(P1P2, P1P2);
+    
+  if (dotP1P2_P1P2 == 0) {
+    return 0; // The cylinder axis is a point
+  }
+
+  float t = dotP1P2_AB / dotP1P2_P1P2;
+  vec3 C1 = {P1.x + t * P1P2.x, P1.y + t * P1P2.y, P1.z + t * P1P2.z};
+  vec3 C2 = {A.x + t * AB.x, A.y + t * AB.y, A.z + t * AB.z};
+    
+  vec3 d = subtract(C2, C1);
+  return sqrtf(dotf3(d, d));
 }

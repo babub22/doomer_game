@@ -95,6 +95,8 @@ vec4 mulmatvec4(Matrix m, vec4 v);
 vec4 cross4(vec4 v1, vec4 v2);
 vec3 normalize3(const vec3 vec);
 
+float magnitude3(vec3 v);
+
 float magnitude4(vec4 v);
 vec4 addvec4(vec4 v1, vec4 v2);
 vec4 multvec4(vec4 v, float n);
@@ -146,6 +148,8 @@ vec4 normalize4(vec4 v);
 Matrix quatToMat(vec4 quat);
 vec4 subQuats(vec4 a, vec4 b);
 
+vec3 subVec3(vec3 v1, vec3 v2);
+
 vec3 rotateVectorByQuaternion(vec3 v, vec4 q);
 vec3 mulVec3Num(vec3 a, float n);
 
@@ -154,3 +158,8 @@ float triArea2D(vec2 a, vec2 b, vec2 c);
 vec3 interpolate2dTo3d(vec3 a, vec3 b, vec3 c, vec2 p);
 
 #define fcmp(a,b) fabs(a-b)<FLT_EPSILON
+
+int inCircle(float x, float y, float circleX, float circleY, float r );
+
+float intersectCylinderLineSegment(vec3 P1, vec3 P2, vec3 A, vec3 B);
+float isInsideCylinder(vec3 vertex, vec3 P1, vec3 P2);
