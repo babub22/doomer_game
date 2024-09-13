@@ -17,15 +17,15 @@ Matrix multiplymat4(Matrix m1, Matrix m2) {
     }
   }
 
-	/*	for (row = 0, row_offset = row * 4; row < 4; ++row, row_offset = row * 4)
-		for (column = 0; column < 4; ++column)
-			out.m[row_offset + column] =
-				(m1.m[row_offset + 0] * m2.m[column + 0]) +
-				(m1.m[row_offset + 1] * m2.m[column + 4]) +
-				(m1.m[row_offset + 2] * m2.m[column + 8]) +
-				(m1.m[row_offset + 3] * m2.m[column + 12]);*/
+  /*	for (row = 0, row_offset = row * 4; row < 4; ++row, row_offset = row * 4)
+	for (column = 0; column < 4; ++column)
+	out.m[row_offset + column] =
+	(m1.m[row_offset + 0] * m2.m[column + 0]) +
+	(m1.m[row_offset + 1] * m2.m[column + 4]) +
+	(m1.m[row_offset + 2] * m2.m[column + 8]) +
+	(m1.m[row_offset + 3] * m2.m[column + 12]);*/
 
-	return out;
+  return out;
 }
 
 vec4 mulmatvec4(Matrix m, vec4 v) {
@@ -66,69 +66,69 @@ vec4 mulmatvec4(Matrix m, vec4 v) {
 
   return out;
   /*	
-  for(int i = 0; i < 4; ++i) {
-    out.m[i] =
-      (v.x * m.m[i + 0]) +
-			(v.y * m.m[i + 4]) +
-			(v.z * m.m[i + 8]) +
-			(v.w * m.m[i + 12]);
+	for(int i = 0; i < 4; ++i) {
+	out.m[i] =
+	(v.x * m.m[i + 0]) +
+	(v.y * m.m[i + 4]) +
+	(v.z * m.m[i + 8]) +
+	(v.w * m.m[i + 12]);
 	}
   */
 }
 
 void rotateX(const Matrix* m, float angle) {
-	Matrix rotation = IDENTITY_MATRIX;
-	float sine = (float)sin(angle);
-	float cosine = (float)cos(angle);
+  Matrix rotation = IDENTITY_MATRIX;
+  float sine = (float)sin(angle);
+  float cosine = (float)cos(angle);
 
-	rotation.m[5] = cosine;
-	rotation.m[6] = -sine;
-	rotation.m[9] = sine;
-	rotation.m[10] = cosine;
+  rotation.m[5] = cosine;
+  rotation.m[6] = -sine;
+  rotation.m[9] = sine;
+  rotation.m[10] = cosine;
      
-	memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
+  memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
 }
 void rotateY(const Matrix* m, float angle) {
-	Matrix rotation = IDENTITY_MATRIX;
-	float sine = sinf(angle);
-	float cosine = cosf(angle);
+  Matrix rotation = IDENTITY_MATRIX;
+  float sine = sinf(angle);
+  float cosine = cosf(angle);
 
-	rotation.m[0] = cosine;
-	rotation.m[8] = sine;
-	rotation.m[2] = -sine;
-	rotation.m[10] = cosine;
+  rotation.m[0] = cosine;
+  rotation.m[8] = sine;
+  rotation.m[2] = -sine;
+  rotation.m[10] = cosine;
 
-	memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
+  memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
 }
 void rotateZ(const Matrix* m, float angle) {
-	Matrix rotation = IDENTITY_MATRIX;
-	float sine = sinf(angle);
-	float cosine = cosf(angle);
+  Matrix rotation = IDENTITY_MATRIX;
+  float sine = sinf(angle);
+  float cosine = cosf(angle);
 
-	rotation.m[0] = cosine;
-	rotation.m[1] = -sine;
-	rotation.m[4] = sine;
-	rotation.m[5] = cosine;
+  rotation.m[0] = cosine;
+  rotation.m[1] = -sine;
+  rotation.m[4] = sine;
+  rotation.m[5] = cosine;
 
-	memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
+  memcpy(m->m, multiplymat4(*m, rotation).m, sizeof(m->m));
 }
 void scale(const Matrix* m, float x, float y, float z) {
-	Matrix scale = IDENTITY_MATRIX;
+  Matrix scale = IDENTITY_MATRIX;
 
-	scale.m[0] = x;
-	scale.m[5] = y;
-	scale.m[10] = z;
+  scale.m[0] = x;
+  scale.m[5] = y;
+  scale.m[10] = z;
 
-	memcpy(m->m, multiplymat4(*m, scale).m, sizeof(m->m));
+  memcpy(m->m, multiplymat4(*m, scale).m, sizeof(m->m));
 }
 void translate(const Matrix* m, float x, float y, float z) {
-	Matrix translation = IDENTITY_MATRIX;
+  Matrix translation = IDENTITY_MATRIX;
 
-	translation.m[12] = x;
-	translation.m[13] = y;
-	translation.m[14] = z;
+  translation.m[12] = x;
+  translation.m[13] = y;
+  translation.m[14] = z;
 
-	memcpy(m->m, multiplymat4(*m, translation).m, sizeof(m->m));
+  memcpy(m->m, multiplymat4(*m, translation).m, sizeof(m->m));
 }
 
 Matrix perspective(float fovy, float aspect_ratio, float n, float f) {
@@ -165,15 +165,15 @@ Matrix orthogonal(float l, float r, float b, float t, float n, float f)
 {
   Matrix M = IDENTITY_MATRIX;
 
-    M.m[0] = 2.0f / (r - l);
-    M.m[5] = 2.0f / (t - b);
-    M.m[10] = -2.0f / (f - n);
-    M.m[15] = 1.0f;
+  M.m[0] = 2.0f / (r - l);
+  M.m[5] = 2.0f / (t - b);
+  M.m[10] = -2.0f / (f - n);
+  M.m[15] = 1.0f;
 
-    M.m[12] = -(r + l) / (r - l);
-    M.m[13] = -(t + b) / (t - b);
-    M.m[14] = -(f + n) / (f - n);
-    return M;
+  M.m[12] = -(r + l) / (r - l);
+  M.m[13] = -(t + b) / (t - b);
+  M.m[14] = -(f + n) / (f - n);
+  return M;
 }
 
 vec3 cross3(const vec3 v1, const vec3 v2) {
@@ -187,24 +187,24 @@ vec3 cross3(const vec3 v1, const vec3 v2) {
 }
 
 vec3 normalize3(const vec3 vec) {
-	float vecLen = sqrtf(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
-	vec3 norm = { 0 };
+  float vecLen = sqrtf(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
+  vec3 norm = { 0 };
 
-	if (vecLen != 0.0f) {
-		norm.x = vec.x / vecLen;
-		norm.y = vec.y / vecLen;
-		norm.z = vec.z / vecLen; 
-	}
+  if (vecLen != 0.0f) {
+    norm.x = vec.x / vecLen;
+    norm.y = vec.y / vecLen;
+    norm.z = vec.z / vecLen; 
+  }
 
-	return norm;
+  return norm;
 }
 
 vec3 subtract(vec3 a, vec3 b) {
-    vec3 result;
-    result.x = a.x - b.x;
-    result.y = a.y - b.y;
-    result.z = a.z - b.z;
-    return result;
+  vec3 result;
+  result.x = a.x - b.x;
+  result.y = a.y - b.y;
+  result.z = a.z - b.z;
+  return result;
 }
 
 Matrix lookAt(vec3 eye, vec3 target, vec3 up) {
@@ -280,81 +280,81 @@ Matrix fpsView(vec3 eye, float pitch, float yaw){
 }
 
 float sign(vec2 p1, vec2 p2, vec2 p3){
-    return (p1.x - p3.x) * (p2.z - p3.z) - (p2.x - p3.x) * (p1.z - p3.z);
+  return (p1.x - p3.x) * (p2.z - p3.z) - (p2.x - p3.x) * (p1.z - p3.z);
 }
 
 vec3 interpolate2dTo3d(vec3 a, vec3 b, vec3 c, vec2 p){
-    float x1 = a.x;
-    float x2 = b.x;
-    float x3 = c.x;
+  float x1 = a.x;
+  float x2 = b.x;
+  float x3 = c.x;
 
-    float z1 = a.z;
-    float z2 = b.z;
-    float z3 = c.z;
+  float z1 = a.z;
+  float z2 = b.z;
+  float z3 = c.z;
 
-    float w1=((z2-z3)*(p.x-x3)+(x3-x2)*(p.z-z3))
-	/((z2-z3)*(x1-x3)+(x3-x2)*(z1-z3));
+  float w1=((z2-z3)*(p.x-x3)+(x3-x2)*(p.z-z3))
+    /((z2-z3)*(x1-x3)+(x3-x2)*(z1-z3));
 
-    float w2=((z3-z1)*(p.x-x3)+(x1-x3)*(p.z-z3))
-	/((z2-z3)*(x1-x3)+(x3-x2)*(z1-z3));
+  float w2=((z3-z1)*(p.x-x3)+(x1-x3)*(p.z-z3))
+    /((z2-z3)*(x1-x3)+(x3-x2)*(z1-z3));
 
-    float w3=1-w1-w2;
+  float w3=1-w1-w2;
 
-    float yP = w1 * a.y + w2 * b.y + w3 * c.y;
+  float yP = w1 * a.y + w2 * b.y + w3 * c.y;
 
-    return (vec3){p.x,yP,p.z};
+  return (vec3){p.x,yP,p.z};
 }
 
 float triArea2D(vec2 a, vec2 b, vec2 c){
-    return fabs((a.x*(b.z-c.z)
-		 + b.x*(c.z-a.z) + c.x*(a.z-b.z)));// * .5f);
+  return fabs((a.x*(b.z-c.z)
+	       + b.x*(c.z-a.z) + c.x*(a.z-b.z)));// * .5f);
 };
 
 float triArea2Di(vec2 a, vec2 b, vec2 c){
-    return fabs((a.x*(b.z-c.z)
-		 + b.x*(c.z-a.z) + c.x*(a.z-b.z)));// * .5f);
+  return fabs((a.x*(b.z-c.z)
+	       + b.x*(c.z-a.z) + c.x*(a.z-b.z)));// * .5f);
 };
 
 void inverse(float M[], float T[]) {
-    float s[6];
-    float c[6];
+  float s[6];
+  float c[6];
     
-    s[0] = M[0]*M[5] - M[4]*M[1];
-    s[1] = M[0]*M[6] - M[4]*M[2];
-    s[2] = M[0]*M[7] - M[4]*M[3];
-    s[3] = M[1]*M[6] - M[5]*M[2];
-    s[4] = M[1]*M[7] - M[5]*M[3];
-    s[5] = M[2]*M[7] - M[6]*M[3];
+  s[0] = M[0]*M[5] - M[4]*M[1];
+  s[1] = M[0]*M[6] - M[4]*M[2];
+  s[2] = M[0]*M[7] - M[4]*M[3];
+  s[3] = M[1]*M[6] - M[5]*M[2];
+  s[4] = M[1]*M[7] - M[5]*M[3];
+  s[5] = M[2]*M[7] - M[6]*M[3];
 
-    c[0] = M[8]*M[13] - M[12]*M[9];
-    c[1] = M[8]*M[14] - M[12]*M[10];
-    c[2] = M[8]*M[15] - M[12]*M[11];
-    c[3] = M[9]*M[14] - M[13]*M[10];
-    c[4] = M[9]*M[15] - M[13]*M[11];
-    c[5] = M[10]*M[15] - M[14]*M[11];
+  c[0] = M[8]*M[13] - M[12]*M[9];
+  c[1] = M[8]*M[14] - M[12]*M[10];
+  c[2] = M[8]*M[15] - M[12]*M[11];
+  c[3] = M[9]*M[14] - M[13]*M[10];
+  c[4] = M[9]*M[15] - M[13]*M[11];
+  c[5] = M[10]*M[15] - M[14]*M[11];
 
-    /* Assumes it is invertible */
-    float idet = 1.0f/( s[0]*c[5]-s[1]*c[4]+s[2]*c[3]+s[3]*c[2]-s[4]*c[1]+s[5]*c[0] );
+  /* Assumes it is invertible */
+  float idet = 1.0f/( s[0]*c[5]-s[1]*c[4]+s[2]*c[3]+s[3]*c[2]-s[4]*c[1]+s[5]*c[0] );
 
-    T[0] = ( M[5] * c[5] - M[6] * c[4] + M[7] * c[3]) * idet;
-    T[1] = (-M[1] * c[5] + M[2] * c[4] - M[3] * c[3]) * idet;
-    T[2] = ( M[13] * s[5] - M[14] * s[4] + M[15] * s[3]) * idet;
-    T[3] = (-M[9] * s[5] + M[10] * s[4] - M[11] * s[3]) * idet;
+  T[0] = ( M[5] * c[5] - M[6] * c[4] + M[7] * c[3]) * idet;
+  T[1] = (-M[1] * c[5] + M[2] * c[4] - M[3] * c[3]) * idet;
+  T[2] = ( M[13] * s[5] - M[14] * s[4] + M[15] * s[3]) * idet;
+  T[3] = (-M[9] * s[5] + M[10] * s[4] - M[11] * s[3]) * idet;
 
-    T[4] = (-M[4] * c[5] + M[6] * c[2] - M[7] * c[1]) * idet;
-    T[5] = ( M[0] * c[5] - M[2] * c[2] + M[3] * c[1]) * idet;
-    T[6] = (-M[12] * s[5] + M[14] * s[2] - M[15] * s[1]) * idet;
-    T[7] = ( M[8] * s[5] - M[10] * s[2] + M[11] * s[1]) * idet;
+  T[4] = (-M[4] * c[5] + M[6] * c[2] - M[7] * c[1]) * idet;
+  T[5] = ( M[0] * c[5] - M[2] * c[2] + M[3] * c[1]) * idet;
+  T[6] = (-M[12] * s[5] + M[14] * s[2] - M[15] * s[1]) * idet;
+  T[7] = ( M[8] * s[5] - M[10] * s[2] + M[11] * s[1]) * idet;
 
-    T[8] = ( M[4] * c[4] - M[5] * c[2] + M[7] * c[0]) * idet;
-    T[9] = (-M[0] * c[4] + M[1] * c[2] - M[3] * c[0]) * idet;
-    T[10] = ( M[12] * s[4] - M[13] * s[2] + M[15] * s[0]) * idet;
-    T[11] = (-M[8] * s[4] + M[9] * s[2] - M[11] * s[0]) * idet;
+  T[8] = ( M[4] * c[4] - M[5] * c[2] + M[7] * c[0]) * idet;
+  T[9] = (-M[0] * c[4] + M[1] * c[2] - M[3] * c[0]) * idet;
+  T[10] = ( M[12] * s[4] - M[13] * s[2] + M[15] * s[0]) * idet;
+  T[11] = (-M[8] * s[4] + M[9] * s[2] - M[11] * s[0]) * idet;
 
-    T[12] = (-M[4] * c[3] + M[5] * c[1] - M[6] * c[0]) * idet;
-    T[13] = ( M[0] * c[3] - M[1] * c[1] + M[2] * c[0]) * idet;
-    T[14] = (-M[12] * s[3] + M[13] * s[1] - M[14] * s[0]) * idet;
-    T[15] = ( M[8] * s[3] - M[9] * s[1] + M[10] * s[0]) * idet;
+  T[12] = (-M[4] * c[3] + M[5] * c[1] - M[6] * c[0]) * idet;
+  T[13] = ( M[0] * c[3] - M[1] * c[1] + M[2] * c[0]) * idet;
+  T[14] = (-M[12] * s[3] + M[13] * s[1] - M[14] * s[0]) * idet;
+  T[15] = ( M[8] * s[3] - M[9] * s[1] + M[10] * s[0]) * idet;
 }
 
 void mat4transpose(float *M, const float *N)
@@ -400,13 +400,13 @@ void rotate(Matrix *m, float rad, float x, float y, float z) {
 }
 
 Matrix mat4_from_quat(vec4 q) {
-    Matrix M = IDENTITY_MATRIX;
-    /*
+  Matrix M = IDENTITY_MATRIX;
+  /*
     float w = q.w;
     float x = q.x;
     float y = q.y;
     float z = q.z;
-//    float a2 = a*a;
+    //    float a2 = a*a;
     float x2 = x*x;
     float y2 = y*y;
     float z2 = z*z;
@@ -431,239 +431,239 @@ Matrix mat4_from_quat(vec4 q) {
     M.m[14] = 0;
     M.m[15] = 1;*/
 
-    float w = q.w;
-    float x = q.x;
-    float y = q.y;
-    float z = q.z;
+  float w = q.w;
+  float x = q.x;
+  float y = q.y;
+  float z = q.z;
 
-    float xy = x * y;
-    float xz = x * z;
-    float xw = x * w;
-    float yz = y * z;
-    float yw = y * w;
-    float zw = z * w;
-    float xSquared = x * x;
-    float ySquared = y * y;
-    float zSquared = z * z;
-    M.m[0] = 1 - 2 * (ySquared + zSquared);
-    M.m[1] = 2 * (xy - zw);
-    M.m[2] = 2 * (xz + yw);
-    M.m[3] = 0;
-    M.m[4] = 2 * (xy + zw);
-    M.m[5] = 1 - 2 * (xSquared + zSquared);
-    M.m[6] = 2 * (yz - xw);
-    M.m[7] = 0;
-    M.m[8] = 2 * (xz - yw);
-    M.m[9] = 2 * (yz + xw);
-    M.m[10] = 1 - 2 * (xSquared + ySquared);
-    M.m[11] = 0;
-    M.m[12] = 0;
-    M.m[13] = 0;
-    M.m[14] = 0;
-    M.m[15] = 1;
+  float xy = x * y;
+  float xz = x * z;
+  float xw = x * w;
+  float yz = y * z;
+  float yw = y * w;
+  float zw = z * w;
+  float xSquared = x * x;
+  float ySquared = y * y;
+  float zSquared = z * z;
+  M.m[0] = 1 - 2 * (ySquared + zSquared);
+  M.m[1] = 2 * (xy - zw);
+  M.m[2] = 2 * (xz + yw);
+  M.m[3] = 0;
+  M.m[4] = 2 * (xy + zw);
+  M.m[5] = 1 - 2 * (xSquared + zSquared);
+  M.m[6] = 2 * (yz - xw);
+  M.m[7] = 0;
+  M.m[8] = 2 * (xz - yw);
+  M.m[9] = 2 * (yz + xw);
+  M.m[10] = 1 - 2 * (xSquared + ySquared);
+  M.m[11] = 0;
+  M.m[12] = 0;
+  M.m[13] = 0;
+  M.m[14] = 0;
+  M.m[15] = 1;
 
-    return M;
+  return M;
 }
 
 //Matrix gltfTRS(vec3 T, vec4 R, vec3 S){
 Matrix gltfTRS(float* t){
-    float x = t[6];
-    float y = t[7];
-    float z = t[8];
-    float w = t[9];
+  float x = t[6];
+  float y = t[7];
+  float z = t[8];
+  float w = t[9];
     
-    float x2 = x + x;
-    float y2 = y + y;
-    float z2 = z + z;
-    float xx = x * x2;
-    float xy = x * y2;
-    float xz = x * z2;
-    float yy = y * y2;
-    float yz = y * z2;
-    float zz = z * z2;
-    float wx = w * x2;
-    float wy = w * y2;
-    float wz = w * z2;
-    float sx = t[3];
-    float sy = t[4];
-    float sz = t[5];
+  float x2 = x + x;
+  float y2 = y + y;
+  float z2 = z + z;
+  float xx = x * x2;
+  float xy = x * y2;
+  float xz = x * z2;
+  float yy = y * y2;
+  float yz = y * z2;
+  float zz = z * z2;
+  float wx = w * x2;
+  float wy = w * y2;
+  float wz = w * z2;
+  float sx = t[3];
+  float sy = t[4];
+  float sz = t[5];
 
-    Matrix out;
+  Matrix out;
     
-    out.m[0] = (1 - (yy + zz)) * sx;
-    out.m[1] = (xy + wz) * sx;
-    out.m[2] = (xz - wy) * sx;
-    out.m[3] = 0;
-    out.m[4] = (xy - wz) * sy;
-    out.m[5] = (1 - (xx + zz)) * sy;
-    out.m[6] = (yz + wx) * sy;
-    out.m[7] = 0;
-    out.m[8] = (xz + wy) * sz;
-    out.m[9] = (yz - wx) * sz;
-    out.m[10] = (1 - (xx + yy)) * sz;
-    out.m[11] = 0;
-    out.m[12] = t[0];
-    out.m[13] = t[1];
-    out.m[14] = t[2];
-    out.m[15] = 1;
+  out.m[0] = (1 - (yy + zz)) * sx;
+  out.m[1] = (xy + wz) * sx;
+  out.m[2] = (xz - wy) * sx;
+  out.m[3] = 0;
+  out.m[4] = (xy - wz) * sy;
+  out.m[5] = (1 - (xx + zz)) * sy;
+  out.m[6] = (yz + wx) * sy;
+  out.m[7] = 0;
+  out.m[8] = (xz + wy) * sz;
+  out.m[9] = (yz - wx) * sz;
+  out.m[10] = (1 - (xx + yy)) * sz;
+  out.m[11] = 0;
+  out.m[12] = t[0];
+  out.m[13] = t[1];
+  out.m[14] = t[2];
+  out.m[15] = 1;
     
-    return out;
+  return out;
 }
 
 vec3 rotateVectorByQuaternion(vec3 v, vec4 q) {
-    vec3 u = (vec3){ argVec3(q)};
-    float s = q.w;
+  vec3 u = (vec3){ argVec3(q)};
+  float s = q.w;
 
-    vec3 v1 = mulVec3Num(u, 2.0 * dotf3(u, v));
-    vec3 v2 = mulVec3Num(v, (s * s - dotf3(u, u)));
-    vec3 v3 = mulVec3Num(cross3(u, v), 2.0 * s);
+  vec3 v1 = mulVec3Num(u, 2.0 * dotf3(u, v));
+  vec3 v2 = mulVec3Num(v, (s * s - dotf3(u, u)));
+  vec3 v3 = mulVec3Num(cross3(u, v), 2.0 * s);
 
-    return addvec3(addvec3(v1, v2), v3);
+  return addvec3(addvec3(v1, v2), v3);
 }
 
 Matrix quatToMat(vec4 quat){
-    float x = quat.x;
-    float y = quat.y;
-    float z = quat.z;
-    float w = quat.w;
+  float x = quat.x;
+  float y = quat.y;
+  float z = quat.z;
+  float w = quat.w;
     
-    float x2 = x + x;
-    float y2 = y + y;
-    float z2 = z + z;
-    float xx = x * x2;
-    float xy = x * y2;
-    float xz = x * z2;
-    float yy = y * y2;
-    float yz = y * z2;
-    float zz = z * z2;
-    float wx = w * x2;
-    float wy = w * y2;
-    float wz = w * z2;
-    float sx = 1.0f;
-    float sy = 1.0f;
-    float sz = 1.0f;
+  float x2 = x + x;
+  float y2 = y + y;
+  float z2 = z + z;
+  float xx = x * x2;
+  float xy = x * y2;
+  float xz = x * z2;
+  float yy = y * y2;
+  float yz = y * z2;
+  float zz = z * z2;
+  float wx = w * x2;
+  float wy = w * y2;
+  float wz = w * z2;
+  float sx = 1.0f;
+  float sy = 1.0f;
+  float sz = 1.0f;
 
-    Matrix out;
+  Matrix out;
     
-    out.m[0] = (1 - (yy + zz)) * sx;
-    out.m[1] = (xy + wz) * sx;
-    out.m[2] = (xz - wy) * sx;
-    out.m[3] = 0;
-    out.m[4] = (xy - wz) * sy;
-    out.m[5] = (1 - (xx + zz)) * sy;
-    out.m[6] = (yz + wx) * sy;
-    out.m[7] = 0;
-    out.m[8] = (xz + wy) * sz;
-    out.m[9] = (yz - wx) * sz;
-    out.m[10] = (1 - (xx + yy)) * sz;
-    out.m[11] = 0;
-    out.m[12] = 0.0f;
-    out.m[13] = 0.0f;
-    out.m[14] = 0.0f;
-    out.m[15] = 1;
+  out.m[0] = (1 - (yy + zz)) * sx;
+  out.m[1] = (xy + wz) * sx;
+  out.m[2] = (xz - wy) * sx;
+  out.m[3] = 0;
+  out.m[4] = (xy - wz) * sy;
+  out.m[5] = (1 - (xx + zz)) * sy;
+  out.m[6] = (yz + wx) * sy;
+  out.m[7] = 0;
+  out.m[8] = (xz + wy) * sz;
+  out.m[9] = (yz - wx) * sz;
+  out.m[10] = (1 - (xx + yy)) * sz;
+  out.m[11] = 0;
+  out.m[12] = 0.0f;
+  out.m[13] = 0.0f;
+  out.m[14] = 0.0f;
+  out.m[15] = 1;
     
-    return out;
+  return out;
 }
 
 Matrix fromRotationTranslationScale(vec4 q, vec3 v, vec3 s) {
-    Matrix out;
-    // Quaternion math
-    float x = q.x, y = q.y, z = q.z, w = q.w;
-    float x2 = x + x;
-    float y2 = y + y;
-    float z2 = z + z;
-    float xx = x * x2;
-    float xy = x * y2;
-    float xz = x * z2;
-    float yy = y * y2;
-    float yz = y * z2;
-    float zz = z * z2;
-    float wx = w * x2;
-    float wy = w * y2;
-    float wz = w * z2;
+  Matrix out;
+  // Quaternion math
+  float x = q.x, y = q.y, z = q.z, w = q.w;
+  float x2 = x + x;
+  float y2 = y + y;
+  float z2 = z + z;
+  float xx = x * x2;
+  float xy = x * y2;
+  float xz = x * z2;
+  float yy = y * y2;
+  float yz = y * z2;
+  float zz = z * z2;
+  float wx = w * x2;
+  float wy = w * y2;
+  float wz = w * z2;
 
-    float sx = s.x;
-    float sy = s.y;
-    float sz = s.z;
+  float sx = s.x;
+  float sy = s.y;
+  float sz = s.z;
 
-    out.m[0] = (1 - (yy + zz)) * sx;
-    out.m[1] = (xy + wz) * sx;
-    out.m[2] = (xz - wy) * sx;
-    out.m[3] = 0;
+  out.m[0] = (1 - (yy + zz)) * sx;
+  out.m[1] = (xy + wz) * sx;
+  out.m[2] = (xz - wy) * sx;
+  out.m[3] = 0;
 
-    out.m[4] = (xy - wz) * sy;
-    out.m[5] = (1 - (xx + zz)) * sy;
-    out.m[6] = (yz + wx) * sy;
-    out.m[7] = 0;
+  out.m[4] = (xy - wz) * sy;
+  out.m[5] = (1 - (xx + zz)) * sy;
+  out.m[6] = (yz + wx) * sy;
+  out.m[7] = 0;
 
-    out.m[8] = (xz + wy) * sz;
-    out.m[9] = (yz - wx) * sz;
-    out.m[10] = (1 - (xx + yy)) * sz;
-    out.m[11] = 0;
+  out.m[8] = (xz + wy) * sz;
+  out.m[9] = (yz - wx) * sz;
+  out.m[10] = (1 - (xx + yy)) * sz;
+  out.m[11] = 0;
 
-    out.m[12] = v.x;
-    out.m[13] = v.y;
-    out.m[14] = v.z;
-    out.m[15] = 1;
+  out.m[12] = v.x;
+  out.m[13] = v.y;
+  out.m[14] = v.z;
+  out.m[15] = 1;
 
-    return out;
+  return out;
 }
 
 Matrix multMat4(Matrix a, Matrix b){
-    Matrix out;
+  Matrix out;
     
-    float     a00 = a.m[0];
-    float    a01 = a.m[1];
-    float    a02 = a.m[2];
-    float	a03 = a.m[3];
-    float	 a10 = a.m[4];
-    float	a11 = a.m[5];
-    float	a12 = a.m[6];
-				 float	a13 = a.m[7];
-    float	 a20 = a.m[8];
-    float	a21 = a.m[9];
-    float	a22 = a.m[10];
-    float	a23 = a.m[11];
-    float	 a30 = a.m[12];
-    float	a31 = a.m[13];
-    float	a32 = a.m[14];
-    float	a33 = a.m[15];
+  float     a00 = a.m[0];
+  float    a01 = a.m[1];
+  float    a02 = a.m[2];
+  float	a03 = a.m[3];
+  float	 a10 = a.m[4];
+  float	a11 = a.m[5];
+  float	a12 = a.m[6];
+  float	a13 = a.m[7];
+  float	 a20 = a.m[8];
+  float	a21 = a.m[9];
+  float	a22 = a.m[10];
+  float	a23 = a.m[11];
+  float	 a30 = a.m[12];
+  float	a31 = a.m[13];
+  float	a32 = a.m[14];
+  float	a33 = a.m[15];
 
-    float b0,b1,b2,b3;
+  float b0,b1,b2,b3;
 
-    b0 = b.m[0],
-	b1 = b.m[1],
-	b2 = b.m[2],
-	b3 = b.m[3];
-    out.m[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-    out.m[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-    out.m[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-    out.m[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-    b0 = b.m[4];
-    b1 = b.m[5];
-    b2 = b.m[6];
-    b3 = b.m[7];
-    out.m[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-    out.m[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-    out.m[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-    out.m[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-    b0 = b.m[8];
-    b1 = b.m[9];
-    b2 = b.m[10];
-    b3 = b.m[11];
-    out.m[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-    out.m[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-    out.m[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-    out.m[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-    b0 = b.m[12];
-    b1 = b.m[13];
-    b2 = b.m[14];
-    b3 = b.m[15];
-    out.m[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-    out.m[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-    out.m[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-    out.m[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-    return out;
+  b0 = b.m[0],
+    b1 = b.m[1],
+    b2 = b.m[2],
+    b3 = b.m[3];
+  out.m[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out.m[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out.m[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out.m[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b.m[4];
+  b1 = b.m[5];
+  b2 = b.m[6];
+  b3 = b.m[7];
+  out.m[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out.m[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out.m[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out.m[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b.m[8];
+  b1 = b.m[9];
+  b2 = b.m[10];
+  b3 = b.m[11];
+  out.m[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out.m[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out.m[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out.m[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b.m[12];
+  b1 = b.m[13];
+  b2 = b.m[14];
+  b3 = b.m[15];
+  out.m[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out.m[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out.m[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out.m[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  return out;
 
 }
 
@@ -671,27 +671,27 @@ Matrix multMat4(Matrix a, Matrix b){
 // v1 - dir v2 = v2 - P
 // where P - center
 float angle2Vec(vec2 v1, vec2 v2){    
-    float dot = v1.x * v2.x + v1.z * v2.z;
-    float mag_v1 = sqrtf(v1.x * v1.x + v1.z * v1.z);
-    float mag_v2 = sqrtf(v2.x * v2.x + v2.z * v2.z);
-    float angle = acosf(dot / (mag_v1 * mag_v2));
+  float dot = v1.x * v2.x + v1.z * v2.z;
+  float mag_v1 = sqrtf(v1.x * v1.x + v1.z * v1.z);
+  float mag_v2 = sqrtf(v2.x * v2.x + v2.z * v2.z);
+  float angle = acosf(dot / (mag_v1 * mag_v2));
 
-    float cross = v1.x * v2.z - v1.z * v2.x;
+  float cross = v1.x * v2.z - v1.z * v2.x;
 
-    if (mag_v1 == 0 || mag_v2 == 0) {
-	angle = 0.0f;  
-    }else {
-	float cosTheta = dot / (mag_v1 * mag_v2);
-	if (cosTheta > 1.0f) cosTheta = 1.0f;
-	if (cosTheta < -1.0f) cosTheta = -1.0f;
-	angle = acosf(cosTheta);
-    }
+  if (mag_v1 == 0 || mag_v2 == 0) {
+    angle = 0.0f;  
+  }else {
+    float cosTheta = dot / (mag_v1 * mag_v2);
+    if (cosTheta > 1.0f) cosTheta = 1.0f;
+    if (cosTheta < -1.0f) cosTheta = -1.0f;
+    angle = acosf(cosTheta);
+  }
 
-    if (cross < 0) {
-	angle *= -1;
-    }
+  if (cross < 0) {
+    angle *= -1;
+  }
 
-    return angle;
+  return angle;
 }
 
 Matrix lootAt2(vec3 eye, vec3 center, vec3 up){
@@ -772,37 +772,37 @@ Matrix lootAt2(vec3 eye, vec3 center, vec3 up){
 }
 
 Matrix addMats(Matrix a, Matrix b){
-    Matrix out = {.m={0}};
+  Matrix out = {.m={0}};
 
-    for(int i=0;i<16;i++){
-	out.m[i] = a.m[i] + b.m[i];
-    }
+  for(int i=0;i<16;i++){
+    out.m[i] = a.m[i] + b.m[i];
+  }
 
-    return out;
+  return out;
 }
 
 Matrix mulMatNum(Matrix a, float n){
-    Matrix out = {.m={0}};
+  Matrix out = {.m={0}};
 
-    for(int i=0;i<16;i++){
-	out.m[i] = a.m[i] * n;
-    }
+  for(int i=0;i<16;i++){
+    out.m[i] = a.m[i] * n;
+  }
 
-    return out;
+  return out;
 }
 
 vec3 mulVec3Num(vec3 a, float n){
-    vec3 res = {
-	a.x*n, a.y*n, a.z*n
-    };
+  vec3 res = {
+    a.x*n, a.y*n, a.z*n
+  };
     
-    return res;
+  return res;
 }
 
 
 float magnitude4(vec4 v){
-    float dot = dotf4(v, v);
-    return sqrtf(dot);
+  float dot = dotf4(v, v);
+  return sqrtf(dot);
 }
 
 float magnitude3(vec3 v){
@@ -811,85 +811,85 @@ float magnitude3(vec3 v){
 }
 
 vec4 addvec4(vec4 v1, vec4 v2){
-    return (vec4){v1.x+v2.x,v1.y+v2.y,v1.z+v2.z,v1.w+v2.w};
+  return (vec4){v1.x+v2.x,v1.y+v2.y,v1.z+v2.z,v1.w+v2.w};
 }
 
 vec3 addvec3(vec3 v1, vec3 v2){
-    return (vec3){v1.x+v2.x,v1.y+v2.y,v1.z+v2.z };
+  return (vec3){v1.x+v2.x,v1.y+v2.y,v1.z+v2.z };
 }
 
 vec4 multvec4(vec4 v, float n){
-    return (vec4){v.x*n,v.y*n,v.z*n,v.w*n};
+  return (vec4){v.x*n,v.y*n,v.z*n,v.w*n};
 }
 
 vec4 normalize4(vec4 v) {
-    float length = sqrtf(dotf4(v, v));
-    return multvec4(v, 1.0f / length);
+  float length = sqrtf(dotf4(v, v));
+  return multvec4(v, 1.0f / length);
 }
 
 /*vec4 slerp(vec4 p0, vec4 p1, float t) {
-    float norm_p0 = magnitude4(p0);
-    float norm_p1 = magnitude4(p1);
-    float dot_product = dotf4(p0, p1) / (norm_p0 * norm_p1);
+  float norm_p0 = magnitude4(p0);
+  float norm_p1 = magnitude4(p1);
+  float dot_product = dotf4(p0, p1) / (norm_p0 * norm_p1);
     
-    // Clamp the dot product to avoid numerical issues
-    if (dot_product > 1.0f) dot_product = 1.0f;
-    if (dot_product < -1.0f) dot_product = -1.0f;
+  // Clamp the dot product to avoid numerical issues
+  if (dot_product > 1.0f) dot_product = 1.0f;
+  if (dot_product < -1.0f) dot_product = -1.0f;
 
-    float omega = acosf(dot_product);
-    float so = sinf(omega);
+  float omega = acosf(dot_product);
+  float so = sinf(omega);
     
-    if (so == 0.0f) {
-        // If sin(omega) is zero, return one of the endpoints
-        return p0;
-    }
+  if (so == 0.0f) {
+  // If sin(omega) is zero, return one of the endpoints
+  return p0;
+  }
     
-    float factor_0 = sinf((1.0f - t) * omega) / so;
-    float factor_1 = sinf(t * omega) / so;
+  float factor_0 = sinf((1.0f - t) * omega) / so;
+  float factor_1 = sinf(t * omega) / so;
     
-    vec4 term1 = multvec4(p0, factor_0);
-    vec4 term2 = multvec4(p1, factor_1);
+  vec4 term1 = multvec4(p0, factor_0);
+  vec4 term2 = multvec4(p1, factor_1);
     
-    return addvec4(term1, term2);
-    }*/
+  return addvec4(term1, term2);
+  }*/
 
 vec4 negate4(vec4 v) {
-    return (vec4) {-v.x,-v.y,-v.z,-v.w};
+  return (vec4) {-v.x,-v.y,-v.z,-v.w};
 }
 
 vec4 slerp(vec4 p0, vec4 p1, float t) {
-    // Normalize p0 and p1 to ensure they are unit quaternions
-    p0 = normalize4(p0);
-    p1 = normalize4(p1);
+  // Normalize p0 and p1 to ensure they are unit quaternions
+  p0 = normalize4(p0);
+  p1 = normalize4(p1);
 
-    float dot_product = dotf4(p0, p1);
+  float dot_product = dotf4(p0, p1);
 
-    // Clamp the dot product to avoid numerical issues
-    if (dot_product > 1.0f) dot_product = 1.0f;
-    if (dot_product < -1.0f) dot_product = -1.0f;
+  // Clamp the dot product to avoid numerical issues
+  if (dot_product > 1.0f) dot_product = 1.0f;
+  if (dot_product < -1.0f) dot_product = -1.0f;
 
-    // If the dot product is negative, SLERP won't take the shorter path
-    // so we invert one quaternion to ensure the shorter path is taken
-    if (dot_product < 0.0f) {
-        p1 = negate4(p1);
-        dot_product = -dot_product;
-    }
+  // If the dot product is negative, SLERP won't take the shorter path
+  // so we invert one quaternion to ensure the shorter path is taken
+  if (dot_product < 0.0f) {
+    p1 = negate4(p1);
+    dot_product = -dot_product;
+  }
 
-    float omega = acosf(dot_product);
-    float so = sinf(omega);
+  float omega = acosf(dot_product);
+  float so = sinf(omega);
 
-    // If omega is very small, fall back to linear interpolation to avoid division by a small number
-    if (so < 1e-6) {
-        return addvec4(multvec4(p0, 1.0f - t), multvec4(p1, t));
-    }
+  // If omega is very small, fall back to linear interpolation to avoid division by a small number
+  if (so < 1e-6) {
+    return addvec4(multvec4(p0, 1.0f - t), multvec4(p1, t));
+  }
 
-    float factor_0 = sinf((1.0f - t) * omega) / so;
-    float factor_1 = sinf(t * omega) / so;
+  float factor_0 = sinf((1.0f - t) * omega) / so;
+  float factor_1 = sinf(t * omega) / so;
 
-    vec4 term1 = multvec4(p0, factor_0);
-    vec4 term2 = multvec4(p1, factor_1);
+  vec4 term1 = multvec4(p0, factor_0);
+  vec4 term2 = multvec4(p1, factor_1);
 
-    return addvec4(term1, term2);
+  return addvec4(term1, term2);
 }
 
 int inCircle(float x, float y, float circleX, float circleY, float r ){  
@@ -902,39 +902,137 @@ vec3 subVec3(vec3 v1, vec3 v2){
   return (vec3){v1.x-v2.x, v1.y-v2.y, v1.z-v2.z};
 }
 
-float distBetween3dLines(vec3 a1, vec3 a2, vec3 b1, vec3 b2){
-  vec3 d = subVec3(a2, a1);
-  vec3 n = cross3(b1, b2);
-  float n_mag = magnitude3(n);
-  float d_dot_n = fabs(dotf3(d, n));
-  return d_dot_n / n_mag;
+int cylinderVsLine3d(vec3 P1, vec3 P2, vec3 C, float r) {
+  // Line direction vector
+  vec3 D;
+  D.x = P2.x - P1.x;
+  D.y = P2.y - P1.y;
+  D.z = P2.z - P1.z;
+
+  // Cylinder center
+  float cx = C.x;
+  float cy = C.y;
+
+  // Line segment start point
+  float x1 = P1.x;
+  float y1 = P1.y;
+
+  // Quadratic coefficients
+  float A = D.x * D.x + D.y * D.y;
+  float B = 2 * ((x1 - cx) * D.x + (y1 - cy) * D.y);
+  float C1 = (x1 - cx) * (x1 - cx) + (y1 - cy) * (y1 - cy) - r * r;
+
+  // Discriminant
+  float discriminant = B * B - 4 * A * C1;
+
+  if (discriminant < 0) {
+    return false;
+    // No intersection
+    //    *count = 0;
+  } else if (discriminant == 0) {
+    return true;
+    /*
+    // One intersection point
+    *count = 1;
+    float t = -B / (2 * A);
+    intersect1->x = x1 + t * D.x;
+    intersect1->y = y1 + t * D.y;
+    intersect1->z = P1.z + t * D.z;*/
+  } else {
+    return true;
+    // Two intersection points
+    /*count = 2;
+      float sqrt_discriminant = sqrt(discriminant);
+      float t1 = (-B + sqrt_discriminant) / (2 * A);
+      float t2 = (-B - sqrt_discriminant) / (2 * A);
+
+      intersect1->x = x1 + t1 * D.x;
+      intersect1->y = y1 + t1 * D.y;
+      intersect1->z = P1.z + t1 * D.z;
+
+      intersect2->x = x1 + t2 * D.x;
+      intersect2->y = y1 + t2 * D.y;
+      intersect2->z = P1.z + t2 * D.z;
+    */
+  }
 }
 
-float isInsideCylinder(vec3 vertex, vec3 P1, vec3 P2) {
-  vec3 axis = subtract(P2, P1);
-  vec3 toVertex = subtract(vertex, P1);
-  vec3 projection = { dotf3(toVertex, axis) / dotf3(axis, axis) * axis.x,
-    dotf3(toVertex, axis) / dotf3(axis, axis) * axis.y,
-    dotf3(toVertex, axis) / dotf3(axis, axis) * axis.z };
-  vec3 closestPoint = addvec3(P1, projection);
-  vec3 d = subtract(vertex, closestPoint);
-  return sqrtf(dotf3(d, d));
-}
+int findLineCircleIntersection(vec2 A, vec2 B, vec2 C, float r) {
+  float dx = B.x - A.x;
+  float dy = B.z - A.z;
 
-float intersectCylinderLineSegment(vec3 P1, vec3 P2, vec3 A, vec3 B) {
-  vec3 AB = subtract(B, A);
-  vec3 P1P2 = subtract(P2, P1);
-  float dotP1P2_AB = dotf3(P1P2, AB);
-  float dotP1P2_P1P2 = dotf3(P1P2, P1P2);
-    
-  if (dotP1P2_P1P2 == 0) {
-    return 0; // The cylinder axis is a point
+  // Coefficients of the quadratic equation At^2 + Bt + C = 0
+  float A_coeff = dx * dx + dy * dy;
+  float B_coeff = 2 * ((A.x - C.x) * dx + (A.z - C.z) * dy);
+  float C_coeff = (A.x - C.x) * (A.x - C.x) + (A.z - C.z) * (A.z - C.z) - r * r;
+
+  // Discriminant
+  float discriminant = B_coeff * B_coeff - 4 * A_coeff * C_coeff;
+
+  if (discriminant < 0) {
+    // No intersection
+    return false;
   }
 
-  float t = dotP1P2_AB / dotP1P2_P1P2;
-  vec3 C1 = {P1.x + t * P1P2.x, P1.y + t * P1P2.y, P1.z + t * P1P2.z};
-  vec3 C2 = {A.x + t * AB.x, A.y + t * AB.y, A.z + t * AB.z};
-    
-  vec3 d = subtract(C2, C1);
-  return sqrtf(dotf3(d, d));
+  // Compute the two possible t values
+  float sqrt_discriminant = sqrt(discriminant);
+  float t1 = (-B_coeff - sqrt_discriminant) / (2 * A_coeff);
+  float t2 = (-B_coeff + sqrt_discriminant) / (2 * A_coeff);
+
+  // Check if the intersections are within the line segment bounds
+  if (t1 >= 0 && t1 <= 1) {
+    //        result.points[numIntersections].x = A.x + t1 * dx;
+    //        result.points[numIntersections].y = A.y + t1 * dy;
+    return true;
+  }
+  if (t2 >= 0 && t2 <= 1 && t1 != t2) {
+    //        result.points[numIntersections].x = A.x + t2 * dx;
+    //        result.points[numIntersections].y = A.y + t2 * dy;
+    //        numIntersections++;
+    return true;
+  }
+
+  return false;
+}
+
+int AABBvsTri(vec3 a, vec3 b, vec3 c, vec3 center, float e, float halfH){
+  a = subtract(a, center);
+  b = subtract(b, center);
+  c = subtract(c, center);
+
+  vec3 f0 = subtract(b,a);
+  vec3 f1 = subtract(c,b);
+  vec3 f2 = subtract(a,c);
+
+  vec3 aabbNormals[3] = {
+    {1.0f, .0f, .0f},
+    {.0f, 1.0f, .0f},
+    {.0f, .0f, 1.0f}
+  };
+
+  vec3 axis_u0_f0 = cross3(aabbNormals[0], f0);
+  vec3 axis_u0_f1 = cross3(aabbNormals[0], f1);
+  vec3 axis_u0_f2 = cross3(aabbNormals[0], f2);
+
+  vec3 axis_u1_f0 = cross3(aabbNormals[1], f0);
+  vec3 axis_u1_f1 = cross3(aabbNormals[1], f1);
+  vec3 axis_u1_f2 = cross3(aabbNormals[2], f2);
+
+  vec3 axis_u2_f0 = cross3(aabbNormals[2], f0);
+  vec3 axis_u2_f1 = cross3(aabbNormals[2], f1);
+  vec3 axis_u2_f2 = cross3(aabbNormals[2], f2);
+
+  float p0 = dotf3(a, axis_u0_f0);
+  float p1 = dotf3(b, axis_u0_f0);
+  float p2 = dotf3(c, axis_u0_f0);
+
+  float r = e * fabsf(dotf3(aabbNormals[0], axis_u0_f0)) +
+      halfH * fabsf(dotf3(aabbNormals[2], axis_u0_f0)) +
+      e * fabsf(dotf3(aabbNormals[2], axis_u0_f0));
+
+  if (max(-max(p0, max(p1, p2)), min(p0, min(p1, p2))) > r) {
+    return false;
+  }
+
+  //  return true;
 }

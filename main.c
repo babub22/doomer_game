@@ -16,9 +16,18 @@ int tempModelsPosSize;
 uint32_t skyboxVAO, skyboxVBO, cubemapTexture;
 
 bool collisionToDraw = false;
+bool hideScene = false;
 
 MeshBuffer AABBBoxes;
 MeshBuffer cylinderMesh;
+
+MeshBuffer linesVisualiser;
+float* linesVisualiserBuf;
+int linesVisualiserBufSize;
+
+MeshBuffer lines2Visualiser;
+float* lines2VisualiserBuf;
+int lines2VisualiserBufSize;
 
 MeshBuffer d2GridTri;
 MeshBuffer d2GridPlayerPoint;
@@ -362,6 +371,22 @@ int main(int argc, char* argv[]) {
     glBindVertexArray(0);
   }
 
+  {
+    glGenBuffers(1, &lines2Visualiser.VBO);
+    glGenVertexArrays(1, &lines2Visualiser.VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  {
+    glGenBuffers(1, &linesVisualiser.VBO);
+    glGenVertexArrays(1, &linesVisualiser.VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
   // 2d free rect
   {
     glGenBuffers(1, &dirPointerLine.VBO);
@@ -521,8 +546,7 @@ int main(int argc, char* argv[]) {
     
   glGenBuffers(1, &AABBBoxes.VBO);
   glGenVertexArrays(1, &AABBBoxes.VAO);
-    
-  bindObjectsAABBBoxes();
+  
   loadCubemap();
   
   // init cylinders buffers
@@ -631,6 +655,9 @@ int main(int argc, char* argv[]) {
 
     memcpy(&entityStorage[entity->type][entityStorageSize[entity->type]-1], entity, sizeof(Entity));
   }
+
+  bindObjectsAABBBoxes();
+  bindCylindersAroundEntities();
 
   {
     glGenFramebuffers(1, &depthMapFBO);
@@ -846,6 +873,10 @@ int main(int argc, char* argv[]) {
 
 	if(event.key.keysym.scancode == SDL_SCANCODE_F4){
 	  collisionToDraw = !collisionToDraw;
+	}
+
+	if(event.key.keysym.scancode == SDL_SCANCODE_F10){
+	  hideScene = !hideScene;
 	}
 
 	if(event.key.keysym.scancode == SDL_SCANCODE_P){
@@ -1196,6 +1227,7 @@ int main(int argc, char* argv[]) {
 	}
 
       // blender scene
+      if(!hideScene)
       {
 	glEnable(GL_BLEND);
 	glUseProgram(shadersId[mainShader]);
@@ -1216,7 +1248,7 @@ int main(int argc, char* argv[]) {
 	glUseProgram(shadersId[waterShader]);
 		
 	static float timeAcc = 0.0f;
-	static float lastTime = 0.0f;
+	static uint32_t lastTime = 0.0f;
 		
 	uint32_t time = SDL_GetTicks();
 	timeAcc += (time - lastTime) / 1000.0f;
@@ -1246,26 +1278,59 @@ int main(int argc, char* argv[]) {
       if(collisionToDraw)
 	{
 	  glUseProgram(shadersId[lightSourceShader]);
-	  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		
-	  glBindVertexArray(AABBBoxes.VAO);
-	  glBindBuffer(GL_ARRAY_BUFFER, AABBBoxes.VBO);
-
-	  Matrix out = IDENTITY_MATRIX;
-	  uniformMat4(lightSourceShader, "model", out.m);
-	  uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
-		    
-	  glDrawArrays(GL_TRIANGLES, 0, AABBBoxes.VBOsize);
-
-	  // cylinder draw
+	  
 	  {
-	    glBindVertexArray(cylinderMesh.VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, cylinderMesh.VBO);
-	    
+	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		
+	    glBindVertexArray(linesVisualiser.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, linesVisualiser.VBO);
+
+	    Matrix out = IDENTITY_MATRIX;
+	    uniformMat4(lightSourceShader, "model", out.m);
+	    uniformVec3(lightSourceShader, "color", (vec3) { redColor });
+		    
+	    glDrawArrays(GL_LINES, 0, linesVisualiser.VBOsize);
+	  }
+
+	  {
+	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		
+	    glBindVertexArray(lines2Visualiser.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, lines2Visualiser.VBO);
+
+	    Matrix out = IDENTITY_MATRIX;
 	    uniformMat4(lightSourceShader, "model", out.m);
 	    uniformVec3(lightSourceShader, "color", (vec3) { cyan });
 		    
-	    glDrawArrays(GL_TRIANGLE_STRIP, 0, cylinderMesh.VBOsize);
+	    glDrawArrays(GL_LINES, 0, lines2Visualiser.VBOsize);
+	  }
+
+	  if(false)
+	  {
+	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		
+	    glBindVertexArray(AABBBoxes.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, AABBBoxes.VBO);
+
+	    Matrix out = IDENTITY_MATRIX;
+	    uniformMat4(lightSourceShader, "model", out.m);
+	    uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
+		    
+	    glDrawArrays(GL_TRIANGLES, 0, AABBBoxes.VBOsize);
+	  }
+
+	  // cylinder draw
+	  if(false)
+	  {
+	    glBindVertexArray(cylinderMesh.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, cylinderMesh.VBO);
+
+        Matrix out = IDENTITY_MATRIX;
+	    uniformMat4(lightSourceShader, "model", out.m);
+	    uniformVec3(lightSourceShader, "color", (vec3) { cyan });
+		    
+	    //	    glDrawArrays(GL_TRIANGLE_STRIP, 0, cylinderMesh.VBOsize);
+	    glDrawArrays(GL_TRIANGLES, 0, cylinderMesh.VBOsize);
 
 	    glBindVertexArray(0);
 	    glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2867,6 +2932,11 @@ void loadGLTFModel(char* name){
 
   float* mesh = malloc(sizeof(float)*data->meshes->primitives->indices->count*16);
 
+  modelsData[modelsDataSize].rawBuf = malloc(sizeof(float)*data->meshes->primitives->indices->count*3);
+  modelsData[modelsDataSize].idxNum = data->meshes->primitives->indices->count;
+  
+  int rawBufIndex = 0;
+
   for(int i=0;i<3;i++){
     modelsData[modelsDataSize].size[i] = fabsf(data->meshes->primitives->attributes->data->min[i]) +
       data->meshes->primitives->attributes->data->max[i];
@@ -2884,7 +2954,6 @@ void loadGLTFModel(char* name){
     for(int i2=0;i2<data->meshes->primitives->attributes_count;i2++){
       int compSize = GLTFtypeSize[data->meshes->primitives->attributes[i2].data->component_type];
       int vecLen = GLTFmapSize[data->meshes->primitives->attributes[i2].data->type];
-      //	    float pos[3];
 	    
       for(int i3=0;i3<vecLen;i3++){
 	fseek(fo, data->meshes->primitives->attributes[i2].data->buffer_view->offset
@@ -2900,8 +2969,12 @@ void loadGLTFModel(char* name){
 	  fread(&mesh[(i*16)+i3+GLTFattrPad[data->meshes->primitives->attributes[i2].type]]
 		,compSize, 1, fo);
 
+	  if(data->meshes->primitives->attributes[i2].type == cgltf_attribute_type_position){
+	    modelsData[modelsDataSize].rawBuf[rawBufIndex] = mesh[(i*16)+i3+GLTFattrPad[data->meshes->primitives->attributes[i2].type]];
+	    rawBufIndex++;
+	  }
 	}
-      }	    
+      }
     }
 
     //	mulmatvec4();
@@ -4007,7 +4080,7 @@ void bindObjectsAABBBoxes(){
   int cubeSize = 432;
   int pad = cubeSize / sizeof(float);
 
-  int meshSize = cubeSize * aabbEntitiesSize; // + cubeSize for player AABB
+  int meshSize = cubeSize * (aabbEntitiesSize); // + cubeSize for player AABB
    
   float* mesh = malloc(meshSize);
     
@@ -4068,38 +4141,6 @@ void bindObjectsAABBBoxes(){
     };
 	
     memcpy(&mesh[index], box, sizeof(box));
-    /*
-      float x,y,z;
-
-      vec4 q1 = aabbEntities[i].rot;
-	
-      if (q1.w > 1) {
-      q1 = normalize4(q1);
-      }
-	
-      float angle = 2 * acosf(q1.w);
-      float s = sqrtf(1-q1.w*q1.w);
-	
-      if (s < 0.001) {
-      x = q1.x;
-      y = q1.y;
-      z = q1.z;
-      } else {
-      x = q1.x / s; 
-      y = q1.y / s;
-      z = q1.z / s;
-      }
-
-      vec3 orient = rotateVectorByQuaternion(aabbEntities[i].extents, aabbEntities[i].rot);
-      w	
-      float lowX = aabbEntities[i].center.x - aabbEntities[i].extents.x * aabbEntities[i].rot.x;
-      float lowY = aabbEntities[i].center.y - aabbEntities[i].extents.y * aabbEntities[i].rot.y;
-      float lowZ = aabbEntities[i].center.z - aabbEntities[i].extents.z * aabbEntities[i].rot.z;
-
-      float highX = aabbEntities[i].center.x + aabbEntities[i].extents.x * aabbEntities[i].rot.x;
-      float highY = aabbEntities[i].center.y + aabbEntities[i].extents.y * aabbEntities[i].rot.y;
-      float highZ = aabbEntities[i].center.z + aabbEntities[i].extents.z * aabbEntities[i].rot.z;
-    */
   }
 
   glBindVertexArray(AABBBoxes.VAO);
@@ -4328,20 +4369,53 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
       }
     }
 
-    if(valid){
-      float minH = finalPos.y + legH;
-      float maxH = finalPos.y + entityH;
+    if (valid) {
+      if(linesVisualiserBuf){
+	free(linesVisualiserBuf);
+	linesVisualiserBuf = NULL;
+	linesVisualiserBufSize=0;
 
-      vec3 cylinderP1 = {finalPos.x,minH,finalPos.z}; // low
-      vec3 cylinderP2 = {finalPos.x,maxH,finalPos.z}; // high
+      }
+
+      if(lines2VisualiserBuf){
+	free(lines2VisualiserBuf);
+	lines2VisualiserBuf = NULL;
+	lines2VisualiserBufSize=0;
+      }
+      
+        float minH = finalPos.y + legH;
+        float maxH = finalPos.y + entityH;
+
+        vec3 cylinderP1 = { finalPos.x,minH,finalPos.z }; // low
+        vec3 cylinderP2 = { finalPos.x,maxH,finalPos.z }; // high
+
+       // float a = entityStorage[0][0].model->data->animSize;
+        //vec3 rt = { finalPos.x + maxR,finalPos.y + entityStorage[0][0].model->data->size[1], finalPos.z + maxR };
+        //vec3 lb = { finalPos.x - maxR,finalPos.y + (entityStorage[0][0].model->data->size[1] * 0.25f),finalPos.z - maxR };
+
+        //vec3 lb = { finalPos.x - 1.0,finalPos.y + (entityStorage[0][0].model->data->size[1] * 0.25f),finalPos.z - 1.0 };
+    
+  
+      
+      AABB col = {0};
+      col.lb.x = finalPos.x - entityR;
+      col.lb.y = finalPos.y + legH;
+      col.lb.z = finalPos.z - entityR;
+    
+      col.rt.x = finalPos.x + entityR;
+      col.rt.y = finalPos.y + entityH;
+      col.rt.z = finalPos.z + entityR;
+
 
       float minDist = FLT_MAX;
       float minDist2 = FLT_MAX;
       
       bool intersect = false;
 
+      int intCounter = 0;
+
       for(int i=0;i<aabbEntitiesSize;++i){
-	Object obj = (*(aabbEntities[tempModelIdxs[i]].buf))[aabbEntities[i].bufId];
+	Object obj = (*(aabbEntities[i].buf))[aabbEntities[i].bufId];
 	int infoId = obj.infoId;
 
 	bool isInter = false;
@@ -4355,35 +4429,127 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
 	    vec4 c = mulmatvec4(obj.mat, (vec4){objectsInfo[infoId].meshes[i2].posBuf[index+6],objectsInfo[infoId].meshes[i2].posBuf[index+7]
 						,objectsInfo[infoId].meshes[i2].posBuf[index+8], 1.0f});
 
+	    float halftH = (entityH - legH)/2.0f;
+	    int triInter = AABBvsTri((vec3){argVec3(a)},
+				     (vec3){argVec3(b)},
+				     (vec3){argVec3(c)},
+				     (vec3){finalPos.x, finalPos.y+halftH+legH, finalPos.z}, entityR, halftH);
+	    
+	    if(triInter){
+	      printf("Intersected with tri \n");
+	    }
+
 	    vec4 edges[3][2] = {{a,b},{b,c},{a,c}};
-	    vec4 vtx[3] = {a,b,c};
 
-	    /*	    for(int i4=0;i4<3;++i4){
-            float dist = isInsideCylinder((vec3) {
-                argVec3(vtx[i4])}, cylinderP1, cylinderP2);
-	      minDist2 = min(minDist2, dist);
-	    }*/
+	    float maxY = max(a.y,max(b.y,c.y));
+	    float minY = min(a.y,min(b.y,c.y));
 
-	    for(int i4=0;i4<3;++i4){
-	      //float dist = intersectCylinderLineSegment(cylinderP1,cylinderP2,(vec3){argVec3(edges[i4][0])}, (vec3){argVec3(edges[i4][1])});
-	      float dist = intersectCylinderLineSegment(cylinderP2,cylinderP1,(vec3){argVec3(edges[i4][0])}, (vec3){argVec3(edges[i4][1])});
-	      minDist = min(minDist, dist);
-	      
-	      if(dist <=entityR){
-		valid=false;
+	    if(minY<=maxH && maxY>=minH){
+	      //     if(true){
+	      for(int i4=0;i4<3;++i4){
+		vec2 a1 = {edges[i4][0].x, edges[i4][0].z};
+		vec2 b1 = {edges[i4][1].x, edges[i4][1].z};
+
+
+		vec3 dir = { edges[i4][1].x - edges[i4][0].x, edges[i4][1].y - edges[i4][0].y, edges[i4][1].z - edges[i4][0].z };
+        dir = normalize3(dir);
+
+		float distPow = (edges[i4][1].x - edges[i4][0].x) * (edges[i4][1].x - edges[i4][0].x) +
+		  (edges[i4][1].y - edges[i4][0].y) * (edges[i4][1].y - edges[i4][0].y) +
+		  (edges[i4][1].z - edges[i4][0].z) * (edges[i4][1].z - edges[i4][0].z);
+
+		float dist = 0;
+		bool inter = false;
+		if(rayIntersectsTriangle((vec3){argVec3(edges[i4][0])}, dir, col.lb, col.rt, NULL, &dist)){
+		  if(dist * dist < distPow){
+		  inter = true;
+		  
+		  printf("%f %f %f dir\n", argVec3(dir));
+		    intCounter++;
+
+		    linesVisualiserBufSize++;
+
+		    if(!linesVisualiserBuf){
+		      linesVisualiserBuf = malloc(sizeof(float) * 6);
+		    }else{
+		      linesVisualiserBuf = realloc(linesVisualiserBuf, linesVisualiserBufSize*sizeof(float) * 6);
+		    }
+
+		    int ix = (linesVisualiserBufSize-1) * 6;
+		    linesVisualiserBuf[ix]= edges[i4][0].x;
+		    linesVisualiserBuf[ix+1]= edges[i4][0].y;
+		    linesVisualiserBuf[ix+2]= edges[i4][0].z;
+
+		    linesVisualiserBuf[ix+3]= edges[i4][1].x;
+		    linesVisualiserBuf[ix+4]= edges[i4][1].y;
+		    linesVisualiserBuf[ix+5]= edges[i4][1].z;
+		  }
+
+		    
+		    //      }
+		}
+
+		if(!inter){
+		  {
+		    lines2VisualiserBufSize++;
+
+		    if(!lines2VisualiserBuf){
+		      lines2VisualiserBuf = malloc(sizeof(float) * 6);
+		    }else{
+		      lines2VisualiserBuf = realloc(lines2VisualiserBuf, lines2VisualiserBufSize*sizeof(float) * 6);
+		    }
+
+		    int ix = (lines2VisualiserBufSize-1) * 6;
+		    lines2VisualiserBuf[ix]= edges[i4][0].x;
+		    lines2VisualiserBuf[ix+1]= edges[i4][0].y;
+		    lines2VisualiserBuf[ix+2]= edges[i4][0].z;
+
+		    lines2VisualiserBuf[ix+3]= edges[i4][1].x;
+		    lines2VisualiserBuf[ix+4]= edges[i4][1].y;
+		    lines2VisualiserBuf[ix+5]= edges[i4][1].z;
+		  }
+
+		}
+		
 	      }
 	    }
+
+
 	    
 	  }
 	}
       }
 
-      printf("minDist %f r: %f\n", minDist, entityR);
+      printf("inters %d \n", intCounter);
 
       if(valid){
 	entityPos = finalPos;
       }
     }
+  }
+
+  {
+    glBindVertexArray(linesVisualiser.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, linesVisualiser.VBO);
+
+    linesVisualiser.VBOsize = linesVisualiserBufSize * 2;
+
+    glBufferData(GL_ARRAY_BUFFER, linesVisualiserBufSize*sizeof(float) * 6, linesVisualiserBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+  }
+
+  {
+    glBindVertexArray(lines2Visualiser.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, lines2Visualiser.VBO);
+
+    lines2Visualiser.VBOsize = lines2VisualiserBufSize * 2;
+
+    glBufferData(GL_ARRAY_BUFFER, lines2VisualiserBufSize*sizeof(float) * 6, lines2VisualiserBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
   }
 
   *resPos = entityPos;
@@ -4401,13 +4567,115 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
 
 
 void bindCylindersAroundEntities(){
-  int segments = 7;
+  /*entityStorage[0][0].col.lb.x = FLT_MAX;
+  entityStorage[0][0].col.lb.y = FLT_MAX;
+  entityStorage[0][0].col.lb.z = FLT_MAX;
+    
+  entityStorage[0][0].col.rt.x = -FLT_MAX;
+  entityStorage[0][0].col.rt.y = -FLT_MAX;
+  entityStorage[0][0].col.rt.z = -FLT_MAX;
+  */
+  /*for(int i=0;i<entityStorage[0][0].model->data->idxNum/3;++i){
+    int index = i * 3;
 
-  int cylinderSize = (segments+1) * 6 * sizeof(float);
+    float x = entityStorage[0][0].model->data->rawBuf[index];
+    float y = entityStorage[0][0].model->data->rawBuf[index+1];
+    float z = entityStorage[0][0].model->data->rawBuf[index+2];
+
+    vec4 v = mulmatvec4(entityStorage[0][0].mat, (vec4){x,y,z,1.0f});
+
+    entityStorage[0][0].col.lb.x = min(entityStorage[0][0].col.lb.x, v.x);
+    entityStorage[0][0].col.lb.y = min(entityStorage[0][0].col.lb.y, v.y);
+    entityStorage[0][0].col.lb.z = min(entityStorage[0][0].col.lb.z, v.z);
+
+    entityStorage[0][0].col.rt.x = max(entityStorage[0][0].col.rt.x, v.x);
+    entityStorage[0][0].col.rt.y = max(entityStorage[0][0].col.rt.y, v.y);
+    entityStorage[0][0].col.rt.z = max(entityStorage[0][0].col.rt.z, v.z);
+  }*/
+
+  float maxR = max(entityStorage[0][0].model->data->size[0],entityStorage[0][0].model->data->size[2]) / 2.0f;
+  
+  entityStorage[0][0].col.lb.x = entityStorage[0][0].mat.m[12] - maxR;
+  entityStorage[0][0].col.lb.y = entityStorage[0][0].mat.m[13] + (entityStorage[0][0].model->data->size[1] * 0.25f);
+  entityStorage[0][0].col.lb.z = entityStorage[0][0].mat.m[14] - maxR;
+    
+  entityStorage[0][0].col.rt.x = entityStorage[0][0].mat.m[12] + maxR;
+  entityStorage[0][0].col.rt.y = entityStorage[0][0].mat.m[13] + entityStorage[0][0].model->data->size[1];
+  entityStorage[0][0].col.rt.z = entityStorage[0][0].mat.m[14] + maxR;
+
+  float lowX = entityStorage[0][0].col.lb.x;
+  float lowY = entityStorage[0][0].col.lb.y;
+  float lowZ = entityStorage[0][0].col.lb.z;
+
+  float highX = entityStorage[0][0].col.rt.x;
+  float highY = entityStorage[0][0].col.rt.y;
+  float highZ = entityStorage[0][0].col.rt.z;
+	    
+  float box[] = {
+    // positions          
+    lowX,  highY, lowZ,
+    lowX, lowY, lowZ,
+    highX, lowY, lowZ,
+    highX, lowY, lowZ,
+    highX,  highY, lowZ,
+    lowX,  highY, lowZ,
+
+    lowX, lowY,  highZ,
+    lowX, lowY, lowZ,
+    lowX,  highY, lowZ,
+    lowX,  highY, lowZ,
+    lowX,  highY,  highZ,
+    lowX, lowY,  highZ,
+
+    highX, lowY, lowZ,
+    highX, lowY,  highZ,
+    highX,  highY,  highZ,
+    highX,  highY,  highZ,
+    highX,  highY, lowZ,
+    highX, lowY, lowZ,
+
+    lowX, lowY,  highZ,
+    lowX,  highY,  highZ,
+    highX,  highY,  highZ,
+    highX,  highY,  highZ,
+    highX, lowY,  highZ,
+    lowX, lowY,  highZ,
+
+    lowX,  highY, lowZ,
+    highX,  highY, lowZ,
+    highX,  highY,  highZ,
+    highX,  highY,  highZ,
+    lowX,  highY,  highZ,
+    lowX,  highY, lowZ,
+
+    lowX, lowY, lowZ,
+    lowX, lowY,  highZ,
+    highX, lowY, lowZ,
+    highX, lowY, lowZ,
+    lowX, lowY,  highZ,
+    highX, lowY,  highZ
+  };
+	
+  //  memcpy(&mesh[index], box, sizeof(box));
+
+  glBindVertexArray(cylinderMesh.VAO);
+  glBindBuffer(GL_ARRAY_BUFFER, cylinderMesh.VBO);
+
+  cylinderMesh.VBOsize = sizeof(box) / 3 / sizeof(float);
+
+  glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+  glEnableVertexAttribArray(0);
+
+  /*
+    int segments = 7;
+
+    int cylinderSize = (segments+1) * 6 * sizeof(float);
   float* cylinder = malloc(cylinderSize);
 
   float legH = entityStorage[0][0].model->data->size[1] / 4.0f;
-  float height = entityStorage[0][0].model->data->size[1] -legH;
+  float height = entityStorage[0][0].model->data->size[1] - legH;
 
   float radius = max(entityStorage[0][0].model->data->size[0], entityStorage[0][0].model->data->size[2])/2.0f;
 
@@ -4456,5 +4724,6 @@ void bindCylindersAroundEntities(){
   glEnableVertexAttribArray(0);
 
   free(cylinder);
+  */
 }
 

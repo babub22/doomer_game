@@ -261,7 +261,7 @@ void gameEvents(SDL_Event event){
 	    
 	    entityStorage[playerEntityT][0].dir = dir;
 
-	    
+	    bindCylindersAroundEntities();
 	}
 	    
 	if(false && entityStorageSize[playerEntityT] && mouse.selectedType == mouseTileT){

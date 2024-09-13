@@ -95,6 +95,13 @@ vec4 mulmatvec4(Matrix m, vec4 v);
 vec4 cross4(vec4 v1, vec4 v2);
 vec3 normalize3(const vec3 vec);
 
+typedef struct {
+	vec3 rt;
+	vec3 lb;
+} AABB;
+
+int AABBvsLine(vec3 A, vec3 B, AABB col);
+
 float magnitude3(vec3 v);
 
 float magnitude4(vec4 v);
@@ -163,3 +170,8 @@ int inCircle(float x, float y, float circleX, float circleY, float r );
 
 float intersectCylinderLineSegment(vec3 P1, vec3 P2, vec3 A, vec3 B);
 float isInsideCylinder(vec3 vertex, vec3 P1, vec3 P2);
+
+int findLineCircleIntersection(vec2 A, vec2 B, vec2 C, float r);
+int cylinderVsLine3d(vec3 P1, vec3 P2, vec3 C, float r);
+
+int AABBvsTri(vec3 a, vec3 b, vec3 c, vec3 center, float e, float halfH);

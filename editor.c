@@ -2333,16 +2333,20 @@ void editorPreFrame(float deltaTime) {
     }
 
     if (!console.open && !curMenu && curUIBuf.rectsSize == 0) {
-	float cameraSpeed = 500.0f * deltaTime;
+	static uint32_t lastTime = 0.0f;
+	uint32_t time = SDL_GetTicks();
+	float dt = (time - lastTime) / 1000.0f;
+	lastTime = time;
+
+	float cameraSpeed = 10.0f * dt;
 	const Uint8* currentKeyStates = SDL_GetKeyboardState(NULL);
 
 	if(currentKeyStates[SDL_SCANCODE_LSHIFT]){
-	    cameraSpeed = 1000.0f * deltaTime;
+	    cameraSpeed = 60.0f * dt;
 	}
 	
 	isFreeGizmoRotation = currentKeyStates[SDL_SCANCODE_LALT];
 
-	// cursorMode will be started but we have focusedType
 	if (!cursorMode && currentKeyStates[SDL_SCANCODE_LCTRL]) {
 	    cursorMode = moveMode;
 	    mouse.focusedThing = NULL;
@@ -2359,274 +2363,28 @@ void editorPreFrame(float deltaTime) {
 	    mouse.focusedThing = NULL;
 	    mouse.focusedType = 0;
 	}
-		/*
-	if(false && currentKeyStates[SDL_SCANCODE_LSHIFT]){
-			if (mouse.clickL) {
-				if (selectedCollisionTileIndex != -1 &&
-					entityStorage[playerEntityT] != NULL) {
 
-
-					// astar
-				    if(false){
-					    //bool closedList[gridZ*3][gridX*3] = {{ 0 }};
-//					    AstarCell cellsDetails[gridZ][gridX] = {{ 0 }};
-
-					    bool** closedList = malloc(sizeof(bool*) * gridZ*3);
-
-					    for(int z=0;z<gridZ*3;z++){
-						closedList[z] = malloc(sizeof(bool) * gridX*3);
-					    }
-					    
-					    AstarCell** cellsDetails = malloc(sizeof(AstarCell*) * gridZ*3);
-
-					    for(int z=0;z<gridZ*3;z++){
-						cellsDetails[z] = malloc(sizeof(AstarCell) * gridX*3);
-					    }
-
-					    AstarOpenCell* openCells = malloc(sizeof(AstarOpenCell) * (gridZ*3) * (gridX * 3));
-					    int openCellsTop = 0;
-
-						bool pathFound = false;
-
-					    for (int z = 0; z < gridZ*3; z++) {
-						for (int x = 0; x < gridX*3; x++) {
-						    cellsDetails[z][x].g = FLT_MAX;
-						    cellsDetails[z][x].g = FLT_MAX;
-						    cellsDetails[z][x].f = FLT_MAX;
-						    cellsDetails[z][x].parX = -1;
-						    cellsDetails[z][x].parZ = -1;
-						}
-					    }
-
-					    cellsDetails[start.z][start.x].g = 0.0f;
-					    cellsDetails[start.z][start.x].h = 0.0f;
-					    cellsDetails[start.z][start.x].f = 0.0f;
-					    cellsDetails[start.z][start.x].parX = start.x;
-					    cellsDetails[start.z][start.x].parZ = start.z;
-
-					    openCells[openCellsTop] = (AstarOpenCell){
-						cellsDetails[start.z][start.x].f, .x = start.x, .z= start.z
-					    };
-					    openCellsTop++;
-					    
-					    while(openCellsTop != 0){
-						int curIndex = 0;
-						for (int i = 1; i < openCellsTop; i++) {
-						    if (openCells[i].f < openCells[curIndex].f) {
-							curIndex = i;
-						    }
-						}
-
-						AstarOpenCell cur = openCells[curIndex];
-						openCells[curIndex] = openCells[--openCellsTop];
-						
-						closedList[cur.z][cur.x] = true;
-
-						for(int dz=-1;dz<2;dz++){
-						    for(int dx=-1;dx<2;dx++){
-							if(dx==0 && dz == 0){
-							    continue;
-							}
-
-							vec2i mCur = { cur.x + dx, cur.z + dz };
-							
-							if(mCur.x < 0 || mCur.x >= (gridX * 3)){
-							    continue;
-							}
-
-							if(mCur.z < 0 || mCur.z >= (gridZ * 3)){
-							    continue;
-							}
-
-							if(mCur.z == dist.z && mCur.x == dist.x){
-
-								printf("pre dest: %d %d dest: %d %d \n", cur.z, cur.x, dist.z, dist.x);
-							    
-							    cellsDetails[mCur.z][mCur.x].parX = cur.x;
-							    cellsDetails[mCur.z][mCur.x].parZ = cur.z;
-							    
-							    printf("Destination found!: ");
-							    pathFound = true;
-
-							    int diZ = dist.z;
-							    int diX = dist.x;
-
-							    int pathSize = 0;
-
-		
-							    while (!(diZ == start.z && diX == start.x)) {
-								pathSize++;
-								int tZ = cellsDetails[diZ][diX].parZ;
-								int tX = cellsDetails[diZ][diX].parX;
-								diZ = tZ;
-								diX = tX;
-							    }
-
-							    vec2i* path = malloc(sizeof(vec2i) * pathSize);
-							    pathSize = 0;
-
-							    diZ = dist.z;
-							    diX = dist.x;
-								
-							    while (!(diZ == start.z && diX == start.x)) {
-								path[pathSize].z = diZ;
-								path[pathSize].x = diX;
-								pathSize++;
-
-								int tZ = cellsDetails[diZ][diX].parZ;
-								int tX = cellsDetails[diZ][diX].parX;
-								
-								diZ = tZ;
-								diX = tX;
-							    }
-
-							    printf("start: %d %d -> ", start.z, start.x);
-
-							    for(int i=pathSize-1;i>=0;i--){
-								printf("%d %d -> ", path[i].z, path[i].x);
-							    }
-
-//							    printf("end: %d %d", dist.z, dist.x);
-
-							    if(entityStorage[playerEntityT][0].path){
-								free(entityStorage[playerEntityT][0].path);
-							    }
-							    
-							    entityStorage[playerEntityT][0].path = malloc(sizeof(vec3) * ((pathSize)*2));
-							    entityStorage[playerEntityT][0].pathSize = pathSize*2;
-							    entityStorage[playerEntityT][0].curPath = 0;
-							    entityStorage[playerEntityT][0].frame = 0;
-							    
-
-							    entityStorage[playerEntityT][0].path[0] = (vec3){ start.x * div + div/2.0f, (float)h + 0.2f, start.z * div + div/2.0f };
-							    entityStorage[playerEntityT][0].path[1] = (vec3){ path[pathSize-1].x * div + div/2.0f, (float)h + 0.2f, path[pathSize-1].z * div + div/2.0f };
-
-							    int index = 2;
-							    for(int i=pathSize-1;i>0;i--){
-								entityStorage[playerEntityT][0].path[index] = (vec3){ path[i].x * div + div/2.0f, (float)h + 0.2f, path[i].z * div + div/2.0f };
-								index++;
-								
-								entityStorage[playerEntityT][0].path[index] = (vec3){ path[i-1].x * div + div/2.0f, (float)h + 0.2f, path[i-1].z * div + div/2.0f };
-								index++;
-							    }
-
-							    glBindVertexArray(lastFindedPath.VAO); 
-							    glBindBuffer(GL_ARRAY_BUFFER, lastFindedPath.VBO);
-
-							    lastFindedPath.VBOsize = (pathSize)*2;
-
-							    glBufferData(GL_ARRAY_BUFFER,
-									 sizeof(vec3) * (pathSize*2), entityStorage[playerEntityT][0].path, GL_STATIC_DRAW);
-
-							    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
-							    glEnableVertexAttribArray(0);
-
-							    glBindBuffer(GL_ARRAY_BUFFER, 0);
-							    glBindVertexArray(0);
-		  
-							    free(path);
-							    
-							    break;
-							}else if(!closedList[mCur.z][mCur.x]
-								 && !collisionGrid[h][mCur.z][mCur.x]){
-							    float gNew = cellsDetails[cur.z][cur.x].g + 1.0f;
-							    float hNew = sqrtf((mCur.z - dist.z) * (mCur.z - dist.z) + (mCur.x - dist.x) * (mCur.x - dist.x));
-							    float fNew = gNew + hNew;
-
-							    if(cellsDetails[mCur.z][mCur.x].f == FLT_MAX ||
-							       cellsDetails[mCur.z][mCur.x].f > fNew){
-
-								openCells[openCellsTop] = (AstarOpenCell){
-								    fNew, .z = mCur.z, .x = mCur.x
-								};
-								openCellsTop++;
-								
-								cellsDetails[mCur.z][mCur.x].g = gNew;
-								cellsDetails[mCur.z][mCur.x].h = hNew;
-								cellsDetails[mCur.z][mCur.x].f = fNew;
-								cellsDetails[mCur.z][mCur.x].parX = cur.x;
-								cellsDetails[mCur.z][mCur.x].parZ = cur.z;
-							    }
-							}
-							
-						    }
-						if (pathFound) break;
-						}
-
-						if (pathFound) break;
-
-					    }
-
-
-					for(int z=0;z<gridZ*3;z++){
-					    free(closedList[z]);
-					}
-
-					free(closedList);
-
-					for(int z=0;z<gridZ*3;z++){
-					    free(cellsDetails[z]);
-					}
-
-					free(cellsDetails);
-					free(openCells);
-					}
-
-
-					printf("start: %d %d dist: %d %d \n", argVec2(start), argVec2(dist));
-
-				}
-			}
-
-			    }
-		*/
+	vec3 forward = curCamera->front;
+	forward.y = 0.0f;
+	forward = normalize3(forward);
+    
+	vec3 right = normalize3(cross3((vec3) { .0f, 1.0f, .0f }, forward));
 
 	if (currentKeyStates[SDL_SCANCODE_W]) {
-	    if (curCamera) {//cameraMode){
-		//	vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
-
-		curCamera->pos.x += cameraSpeed * curCamera->front.x;
-		curCamera->pos.z += cameraSpeed * curCamera->front.z;
-	    }
+	  curCamera->pos.x += cameraSpeed * forward.x;
+	  curCamera->pos.z += cameraSpeed * forward.z;
 	}
-	else if (currentKeyStates[SDL_SCANCODE_S])
-	{
-	    if (curCamera) {//cameraMode){
-
-		//	  vec3 normFront = normalize3(cross3(curCamera->front, curCamera->up));
-
-		curCamera->pos.x -= cameraSpeed * curCamera->front.x;
-		curCamera->pos.z -= cameraSpeed * curCamera->front.z;
-	  
-		//	  curCamera->pos.y -= cameraSpeed * curCamera->front.y;
-
-		//	    glUniform3f(cameraPos, argVec3(curCamera->pos));
-	    }
-	    //else {
-	    //player.pos.x -= speed * sin(rad(player.angle));
-	    //player.pos.z -= speed * cos(rad(player.angle));
-	    //}
+	else if (currentKeyStates[SDL_SCANCODE_S]){
+	  curCamera->pos.x -= cameraSpeed * forward.x;
+	  curCamera->pos.z -= cameraSpeed * forward.z;
 	}
-	else if (currentKeyStates[SDL_SCANCODE_D])
-	{
-	    if (curCamera) {//cameraMode){
-		vec3 right = normalize3(cross3(curCamera->front, curCamera->up));
-	  
-		curCamera->pos.x += cameraSpeed * curCamera->right.x;
-		curCamera->pos.z += cameraSpeed * curCamera->right.z;
-
-		//	    glUniform3f(cameraPos, argVec3(curCamera->pos));
-	    }
+	else if (currentKeyStates[SDL_SCANCODE_D]){
+	  curCamera->pos.x -= cameraSpeed * right.x;
+	  curCamera->pos.z -= cameraSpeed * right.z;
 	}
-	else if (currentKeyStates[SDL_SCANCODE_A])
-	{
-	    if (curCamera) {//cameraMode){
-		//	  vec3 curCamera->right = normalize3(cross3(curCamera->front, curCamera->up));
-
-		curCamera->pos.x -= cameraSpeed * curCamera->right.x;
-		curCamera->pos.z -= cameraSpeed * curCamera->right.z;
-		//glUniform3f(cameraPos, argVec3(curCamera->pos));
-	    }
+	else if (currentKeyStates[SDL_SCANCODE_A]){
+	  curCamera->pos.x += cameraSpeed * right.x;
+	  curCamera->pos.z += cameraSpeed * right.z;
 	}
 
     }
@@ -2636,9 +2394,9 @@ void editorPreFrame(float deltaTime) {
 // 3d specific for editor mode 
 void editor3dRender() {
 
-    glUseProgram(shadersId[lightSourceShader]);
+  glUseProgram(shadersId[lightSourceShader]);
 
-    // markers
+  // markers
     for(int i=0;i<markersCounter;i++){
 	uniformVec3(lightSourceShader, "color", (vec3) { darkPurple });
 	

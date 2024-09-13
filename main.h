@@ -950,11 +950,6 @@ void allocateCollisionGrid(int gX, int gY, int gZ);
 
 void generateNavTiles();
 
-typedef struct{
-    vec3 rt;
-    vec3 lb;
-} AABB;
-
 AABB* acceptedCollisionTilesAABB;
 
 int selectedCollisionTileIndex;
@@ -1214,6 +1209,9 @@ typedef struct{
     uint8_t headNode;
     uint8_t neckNode;
     
+    float* rawBuf;
+    int idxNum;
+    
     uint32_t tx;
     
     uint8_t jointsIdxsSize;
@@ -1230,6 +1228,7 @@ typedef struct{
     ModelData* data;
     GLTFNode* nodes;
     float* tempTransforms; // t[10] values of each node for blending
+    
 
     uint8_t action; // AnimAction
     uint8_t nextAnim; // blend from cur to this anim
@@ -1253,18 +1252,19 @@ GLTFNode* nodes;
 int nodesSize;
 
 typedef struct {
-    Matrix mat;
-    EntityType type;
+  Matrix mat;
+  EntityType type;
 
-    Model2* model;
-    AABB col;
 
-    vec3 dir;
+  Model2* model;
+  AABB col;
 
-    vec3* path;
-    int pathSize;
-    int curPath;
-    int frame;
+  vec3 dir;
+
+  vec3* path;
+  int pathSize;
+  int curPath;
+  int frame;
 } Entity;
 
 Entity* entityStorage[entityTypesCounter];
