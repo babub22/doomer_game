@@ -1310,7 +1310,7 @@ typedef struct{
     uint32_t VBO;
     uint32_t VAO;
 
-    float* posBuf;
+    //    float* posBuf;
     
     uint32_t tx;    
     uint16_t VBOSize;
@@ -1325,14 +1325,20 @@ typedef struct{
 } ObjectInfo;
 
 typedef struct{
-//    ObjectInfo* info;
     int infoId;
+    
+    float* posBuf;
+    int posBufSize;
+    
     Matrix mat;
 } Object;
 
 
 ObjectInfo* objectsInfo;
 int objectsInfoSize;
+
+float* sceneTriBuf; // buffer for triangles
+size_t sceneTriBufSize; // buffer for triangles
 
 Object* objects;
 int objectsSize;

@@ -292,11 +292,18 @@ vec3 interpolate2dTo3d(vec3 a, vec3 b, vec3 c, vec2 p){
   float z2 = b.z;
   float z3 = c.z;
 
+  float denom = (z2 - z3) * (x1 - x3) + (x3 - x2) * (z1 - z3);
+
+  float w1 = ((z2 - z3) * (p.x - x3) + (x3 - x2) * (p.z - z3)) / denom;
+  float w2 = ((z3 - z1) * (p.x - x3) + (x1 - x3) * (p.z - z3)) / denom;
+
+  /*
+
   float w1=((z2-z3)*(p.x-x3)+(x3-x2)*(p.z-z3))
     /((z2-z3)*(x1-x3)+(x3-x2)*(z1-z3));
 
   float w2=((z3-z1)*(p.x-x3)+(x1-x3)*(p.z-z3))
-    /((z2-z3)*(x1-x3)+(x3-x2)*(z1-z3));
+    /((z2-z3)*(x1-x3)+(x3-x2)*(z1-z3));*/
 
   float w3=1-w1-w2;
 

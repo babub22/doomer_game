@@ -21,9 +21,9 @@ bool hideScene = false;
 MeshBuffer AABBBoxes;
 MeshBuffer cylinderMesh;
 
-MeshBuffer linesVisualiser;
-float* linesVisualiserBuf;
-int linesVisualiserBufSize;
+MeshBuffer step1TriVisualiser;
+float* step1TriVisualiserBuf;
+int step1TriVisualiserBufSize;
 
 MeshBuffer triInterVisualiser;
 float* triInterVisualiserBuf;
@@ -33,9 +33,9 @@ MeshBuffer triVisualiser;
 float* triVisualiserBuf;
 int triVisualiserBufSize;
 
-MeshBuffer lines2Visualiser;
-float* lines2VisualiserBuf;
-int lines2VisualiserBufSize;
+MeshBuffer step1TriInterVisualiser;
+float* step1TriInterVisualiserBuf;
+int step1TriInterVisualiserBufSize;
 
 MeshBuffer d2GridTri;
 MeshBuffer d2GridPlayerPoint;
@@ -380,8 +380,8 @@ int main(int argc, char* argv[]) {
   }
 
   {
-    glGenBuffers(1, &lines2Visualiser.VBO);
-    glGenVertexArrays(1, &lines2Visualiser.VAO);
+    glGenBuffers(1, &step1TriInterVisualiser.VBO);
+    glGenVertexArrays(1, &step1TriInterVisualiser.VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -396,8 +396,8 @@ int main(int argc, char* argv[]) {
   }
 
   {
-    glGenBuffers(1, &linesVisualiser.VBO);
-    glGenVertexArrays(1, &linesVisualiser.VAO);
+    glGenBuffers(1, &step1TriVisualiser.VBO);
+    glGenVertexArrays(1, &step1TriVisualiser.VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -1303,6 +1303,7 @@ int main(int argc, char* argv[]) {
 	{
 	  glUseProgram(shadersId[lightSourceShader]);
 
+	  if(false)
 	  {
 	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -1315,7 +1316,8 @@ int main(int argc, char* argv[]) {
 		    
 	    glDrawArrays(GL_LINES, 0, triVisualiser.VBOsize);
 	  }
-	  
+
+	  if(false)
 	  {
 	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		
@@ -1329,36 +1331,36 @@ int main(int argc, char* argv[]) {
 	    glDrawArrays(GL_LINES, 0, triInterVisualiser.VBOsize);
 	  }
 
-
-	  if(false)
+	  //  if(false)
 	  {
 	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		
-	    glBindVertexArray(linesVisualiser.VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, linesVisualiser.VBO);
-
-	    Matrix out = IDENTITY_MATRIX;
-	    uniformMat4(lightSourceShader, "model", out.m);
-	    uniformVec3(lightSourceShader, "color", (vec3) { redColor });
-		    
-	    glDrawArrays(GL_LINES, 0, linesVisualiser.VBOsize);
-	  }
-
-	  if(false)
-	  {
-	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		
-	    glBindVertexArray(lines2Visualiser.VAO);
-	    glBindBuffer(GL_ARRAY_BUFFER, lines2Visualiser.VBO);
+	    glBindVertexArray(step1TriInterVisualiser.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, step1TriInterVisualiser.VBO);
 
 	    Matrix out = IDENTITY_MATRIX;
 	    uniformMat4(lightSourceShader, "model", out.m);
 	    uniformVec3(lightSourceShader, "color", (vec3) { cyan });
 		    
-	    glDrawArrays(GL_LINES, 0, lines2Visualiser.VBOsize);
+	    glDrawArrays(GL_LINES, 0, step1TriInterVisualiser.VBOsize);
 	  }
 
-	  if(false)
+	  //	  if(false)
+	  {
+	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		
+	    glBindVertexArray(step1TriVisualiser.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, step1TriVisualiser.VBO);
+
+	    Matrix out = IDENTITY_MATRIX;
+	    uniformMat4(lightSourceShader, "model", out.m);
+	    uniformVec3(lightSourceShader, "color", (vec3) { redColor });
+		    
+	    glDrawArrays(GL_LINES, 0, step1TriVisualiser.VBOsize);
+	  }
+
+
+	  //	  if(false)
 	  {
 	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		
@@ -3322,17 +3324,20 @@ void loadGLTFScene(char* name){
     free(lightsStorage);
     free(aabbEntities);
     free(tempModelIdxs);
+    free(sceneTriBuf);
 
     objectsInfoSize = 0;
     waterSurfacesSize = 0;
     objectsSize = 0;
     lightsStorageSize = 0;
     aabbEntitiesSize = 0;
+    sceneTriBufSize = 0;
 
     waterSurfaces = NULL;
     aabbEntities = NULL;
     objectsInfo = NULL;
     objects = NULL;
+    sceneTriBuf = NULL;
     lightsStorage = NULL;
     tempModelIdxs = NULL;
   }
@@ -3462,11 +3467,16 @@ void loadGLTFScene(char* name){
     objectsPreSize++;
   }
 
+  /*
   aabbEntities = malloc(sizeof(AABBEntity) * aabbEntitiesSize);
   aabbEntitiesSize = 0;
+*/
 
 
   objectsInfo = malloc(sizeof(Object) * objectsInfoSize);
+
+  float** objectsInfoTempPosBufs = malloc(sizeof(float*) * objectsInfoSize);
+  int* objectsInfoTempPosBufsSize = malloc(sizeof(int) * objectsInfoSize); // size of bufs
 
   int bufSize = 0;
 
@@ -3476,6 +3486,17 @@ void loadGLTFScene(char* name){
     {
       objectsInfo[i].meshesSize = data->nodes[nodeIndex].mesh->primitives_count;
       objectsInfo[i].meshes = malloc(sizeof(Mesh) * objectsInfo[i].meshesSize);
+
+      objectsInfoTempPosBufsSize[i] = 0;
+      for(int i2=0;i2<objectsInfo[i].meshesSize;++i2){
+	objectsInfoTempPosBufsSize[i] += 3 * data->nodes[nodeIndex].mesh->primitives[i2].indices->count * sizeof(float);
+      }
+
+      objectsInfoTempPosBufs[i] = malloc(sizeof(float) * objectsInfoTempPosBufsSize[i]);
+
+      int tempBufCounter = 0;
+      
+      //      objectsInfoTempPosBufs = malloc(sizeof(float) * objectsInfo[i].meshesSize);
 
       for(int i2=0;i2<objectsInfo[i].meshesSize;++i2){
 	size_t attrPad = 0;
@@ -3492,13 +3513,13 @@ void loadGLTFScene(char* name){
 	int maxUsedSize = 0;
 
 	// copy of pos buffer
-	int copyPosIndex = 0;
+	/*	int copyPosIndex = 0;
 	{
 	  assert(data->nodes[nodeIndex].mesh->primitives[i2].attributes->type == cgltf_attribute_type_position);
 	  int size = 3 * data->nodes[nodeIndex].mesh->primitives[i2].indices->count * sizeof(float);
 	  objectsInfo[i].meshes[i2].posBuf = malloc(size);
 	  objectsInfo[i].meshes[i2].posBufSize = size / sizeof(float);
-	}
+	  }*/
 
 	int indexSize = GLTFtypeSize[data->nodes[nodeIndex].mesh->primitives[i2].indices->component_type];
 	bufSize += data->nodes[nodeIndex].mesh->primitives[i2].attributes->data->buffer_view->size;
@@ -3535,8 +3556,11 @@ void loadGLTFScene(char* name){
 		fread(&mesh[index], compSize, 1, fo);
 
 		if(data->nodes[nodeIndex].mesh->primitives[i2].attributes[i4].type == cgltf_attribute_type_position){
-		  objectsInfo[i].meshes[i2].posBuf[copyPosIndex] = mesh[index];
-		  copyPosIndex++;
+		  //		  objectsInfo[i].meshes[i2].posBuf[copyPosIndex] = mesh[index];
+		  // copyPosIndex++;
+
+		  objectsInfoTempPosBufs[i][tempBufCounter] = mesh[index];
+		  tempBufCounter++;
 		}
 	      }
 	    }
@@ -3598,7 +3622,10 @@ void loadGLTFScene(char* name){
 
   printf("bufSize: %d \n", bufSize);
 
-    
+  aabbEntities = malloc(sizeof(AABBEntity) * objectsPreSize);
+  aabbEntitiesSize = 0;
+
+  size_t sizeAcc = 0;
 
   for(int i=0;i<objectsPreSize;++i){
     int index = meshesIndx[i];
@@ -3647,81 +3674,53 @@ void loadGLTFScene(char* name){
     }
 	    
     (*targetBuffer)[targetBufSize].mat = gltfTRS(t);
-	
-    // aabb here
 
-    for(int i2=0;i2<data->nodes[index].mesh->primitives_count;++i2){
-      if (data->nodes[index].mesh->primitives[i2].attributes_count == 0) continue;
-      assert(data->nodes[index].mesh->primitives[i2].attributes->type == cgltf_attribute_type_position);
-	
-      int compSize = GLTFtypeSize[data->nodes[index].mesh->primitives[i2].attributes->data->component_type];
-      int vecLen = GLTFmapSize[data->nodes[index].mesh->primitives[i2].attributes->data->type];
+    int infoId = corespondingObjectInfo[i];
 
-      int posLen =  data->nodes[index].mesh->primitives[i2].attributes->data->buffer_view->size / vecLen / compSize;
+    (*targetBuffer)[targetBufSize].posBuf = malloc(objectsInfoTempPosBufsSize[infoId]);
+    sceneTriBufSize += objectsInfoTempPosBufsSize[infoId];
+    (*targetBuffer)[targetBufSize].posBufSize = objectsInfoTempPosBufsSize[infoId] / sizeof(float) / 3;
 
-      float pos[3];
-      int vecSize = vecLen * compSize;
+    aabbEntities[aabbEntitiesSize].col.rt = (vec3){-FLT_MAX, -FLT_MAX, -FLT_MAX};
+    aabbEntities[aabbEntitiesSize].col.lb = (vec3){FLT_MAX, FLT_MAX, FLT_MAX};
+    
+    for(int i2=0;i2<objectsInfoTempPosBufsSize[infoId] / sizeof(float) / 3;++i2){
+      int index = i2 * 3;
+      vec4 tV = mulmatvec4((*targetBuffer)[targetBufSize].mat, (vec4) { objectsInfoTempPosBufs[infoId][index], objectsInfoTempPosBufs[infoId][index + 1], objectsInfoTempPosBufs[infoId][index + 2], 1.0f });
 
-      aabbEntities[aabbEntitiesSize].col.rt = (vec3){-FLT_MAX, -FLT_MAX, -FLT_MAX};
-      aabbEntities[aabbEntitiesSize].col.lb = (vec3){FLT_MAX, FLT_MAX, FLT_MAX};
 
-      //		aabbEntities[aabbEntitiesSize].col[1].rt = (vec3){ -FLT_MAX, -FLT_MAX, -FLT_MAX };
-      //		aabbEntities[aabbEntitiesSize].col[1].lb = (vec3){ FLT_MAX, FLT_MAX, FLT_MAX };
+      (*targetBuffer)[targetBufSize].posBuf[index] = tV.x;
+      (*targetBuffer)[targetBufSize].posBuf[index + 1] = tV.y;
+      (*targetBuffer)[targetBufSize].posBuf[index + 2] = tV.z;
 
-      //		float height = (data->nodes[index].mesh->primitives[i2].attributes->data->min[1] + data->nodes[index].mesh->primitives[i2].attributes->data->max[1]) / 2.0f;
-	    
-      for (int i3 = 0; i3 < posLen; ++i3) {	
-	fseek(fo, data->nodes[index].mesh->primitives[i2].attributes->data->buffer_view->offset + i3 * vecSize, SEEK_SET);
-	fread(pos, vecSize, 1, fo);
+      aabbEntities[aabbEntitiesSize].col.lb.x = min(aabbEntities[aabbEntitiesSize].col.lb.x, tV.x);
+      aabbEntities[aabbEntitiesSize].col.lb.y = min(aabbEntities[aabbEntitiesSize].col.lb.y, tV.y);
+      aabbEntities[aabbEntitiesSize].col.lb.z = min(aabbEntities[aabbEntitiesSize].col.lb.z, tV.z);
 
-	vec4 transfPos = mulmatvec4((*targetBuffer)[targetBufSize].mat, (vec4) { pos[0], pos[1], pos[2], 1.0f });
-	int ix = 0;
-		
-	//		if(pos[1] >= height){
-	//			ix = 1;
-	//		}
-		
-	aabbEntities[aabbEntitiesSize].col.lb.x = min(aabbEntities[aabbEntitiesSize].col.lb.x, transfPos.x);
-	aabbEntities[aabbEntitiesSize].col.lb.y = min(aabbEntities[aabbEntitiesSize].col.lb.y, transfPos.y);
-	aabbEntities[aabbEntitiesSize].col.lb.z = min(aabbEntities[aabbEntitiesSize].col.lb.z, transfPos.z);
-
-	aabbEntities[aabbEntitiesSize].col.rt.x = max(aabbEntities[aabbEntitiesSize].col.rt.x, transfPos.x);
-	aabbEntities[aabbEntitiesSize].col.rt.y = max(aabbEntities[aabbEntitiesSize].col.rt.y, transfPos.y);
-	aabbEntities[aabbEntitiesSize].col.rt.z = max(aabbEntities[aabbEntitiesSize].col.rt.z, transfPos.z);
-      }
-
-      /*
-	aabbEntities[aabbEntitiesSize].rot = (vec4){  data->nodes[index].rotation[0],
-	data->nodes[index].rotation[1],
-	data->nodes[index].rotation[2],
-	data->nodes[index].rotation[3]
-	};
-	    
-	aabbEntities[aabbEntitiesSize].center = (vec3){
-	(aabbEntities[aabbEntitiesSize].col.lb.x + aabbEntities[aabbEntitiesSize].col.rt.x) * 0.5f,
-	(aabbEntities[aabbEntitiesSize].col.lb.y + aabbEntities[aabbEntitiesSize].col.rt.y) * 0.5f,
-	(aabbEntities[aabbEntitiesSize].col.lb.z + aabbEntities[aabbEntitiesSize].col.rt.z) * 0.5f
-	};
-
-	aabbEntities[aabbEntitiesSize].extents = (vec3){
-	(aabbEntities[aabbEntitiesSize].col.rt.x - aabbEntities[aabbEntitiesSize].col.lb.x) * 0.5f,
-	(aabbEntities[aabbEntitiesSize].col.rt.y - aabbEntities[aabbEntitiesSize].col.lb.y) * 0.5f,
-	(aabbEntities[aabbEntitiesSize].col.rt.z - aabbEntities[aabbEntitiesSize].col.lb.z) * 0.5f
-	};*/
-
-      aabbEntities[aabbEntitiesSize].buf = targetBuffer;
-      aabbEntities[aabbEntitiesSize].bufId = targetBufSize;
-      aabbEntitiesSize++;
+      aabbEntities[aabbEntitiesSize].col.rt.x = max(aabbEntities[aabbEntitiesSize].col.rt.x, tV.x);
+      aabbEntities[aabbEntitiesSize].col.rt.y = max(aabbEntities[aabbEntitiesSize].col.rt.y, tV.y);
+      aabbEntities[aabbEntitiesSize].col.rt.z = max(aabbEntities[aabbEntitiesSize].col.rt.z, tV.z);
     }
-
-    //aabbEntities[aabbEntitiesSize].objectId = targetBufSize;
-    //	aabbEntities[aabbEntitiesSize]. = targetBufSize;
-
-    (*targetBuffer)[targetBufSize].infoId = corespondingObjectInfo[i];
+    
+    aabbEntities[aabbEntitiesSize].buf = targetBuffer;
+    aabbEntities[aabbEntitiesSize].bufId = targetBufSize;
+    aabbEntitiesSize++;
+    
+    (*targetBuffer)[targetBufSize].infoId = infoId;
     (*targetBufferSize)++;
   }
 
+  
   printf("Pre pass objInfo %d objsSize %d\n", objectsInfoSize, objectsSize);
+
+  int sssize = sceneTriBufSize/1000.0f/1000.0f;
+  printf("sceneTriBufSize %f MB \n", sssize);
+  if((sssize) > 1.0f){
+    printf("size of scene triBuf more than 1mb \n");
+    exit(0);
+  }
+
+  sceneTriBuf = malloc(sceneTriBufSize);
 
   free(mesh);
   fclose(fo);
@@ -4314,112 +4313,243 @@ int entityVsMeshesRuns = 0;
 bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, vec3* resPos){
   entityVsMeshesRuns++;
   uint64_t start_time = SDL_GetPerformanceCounter();
+
+  vec3 finalPos;
   
   bool valid = false;
 
   vec4 playerPoint = { argVec3(entityPos), 1.0f};
 	
+  AABB generalAABB;
+  generalAABB.lb.x = entityPos.x - entityR;
+  generalAABB.lb.y = entityPos.y - legH;
+  generalAABB.lb.z = entityPos.z - entityR;
+    
+  generalAABB.rt.x = entityPos.x + entityR;
+  generalAABB.rt.y = entityPos.y + entityH;
+  generalAABB.rt.z = entityPos.z + entityR;
+
+  size_t acceptableTriSize = 0;
+    
   for(int i=0;i<aabbEntitiesSize;++i){
-    if(playerPoint.x > aabbEntities[i].col.lb.x && playerPoint.x < aabbEntities[i].col.rt.x &&
-       playerPoint.y * 0.95f > aabbEntities[i].col.lb.y && playerPoint.y * 0.95f < aabbEntities[i].col.rt.y &&
-       playerPoint.z > aabbEntities[i].col.lb.z && playerPoint.z < aabbEntities[i].col.rt.z)
-      {
-	tempModelIdxs[tempAABBSize] = i;
-	tempAABBSize++;
+    if(generalAABB.lb.x <= aabbEntities[i].col.rt.x &&
+       generalAABB.rt.x >= aabbEntities[i].col.lb.x &&
+       generalAABB.lb.y <= aabbEntities[i].col.rt.y &&
+       generalAABB.rt.y >= aabbEntities[i].col.lb.y &&
+       generalAABB.lb.z <= aabbEntities[i].col.rt.z &&
+       generalAABB.rt.z >= aabbEntities[i].col.lb.z
+       ){
+      Object obj = (*(aabbEntities[i].buf))[aabbEntities[i].bufId];
+      //      acceptableTriSize += obj.posBufSize/3;
+
+      for(int i2=0;i2<obj.posBufSize/3; i2++) {
+	int index = i2*3*3;
+	vec3 a = (vec3){obj.posBuf[index+0], obj.posBuf[index+1], obj.posBuf[index+2]};
+	vec3 b = (vec3){obj.posBuf[index+3],obj.posBuf[index+4], obj.posBuf[index+5]};
+	vec3 c = (vec3){obj.posBuf[index+6],obj.posBuf[index+7], obj.posBuf[index+8]};
+
+	bool outOfY = min(a.y,min(b.y,c.y)) > generalAABB.rt.y || max(a.y,max(b.y,c.y)) < generalAABB.lb.y;
+
+	if(outOfY){
+	  continue;
+	}
+
+	bool outOfX = min(a.x,min(b.x,c.x)) > generalAABB.rt.x || max(a.x,max(b.x,c.x)) < generalAABB.lb.x;
+
+	if(outOfX){
+	  continue;
+	}
+
+	bool outOfZ = min(a.z,min(b.z,c.z)) > generalAABB.rt.z || max(a.z,max(b.z,c.z)) < generalAABB.lb.z;
+
+	if(outOfZ){
+	  continue;
+	}
+
+	int index2 = acceptableTriSize*3*3;
+	  
+	sceneTriBuf[index2]=a.x;
+	sceneTriBuf[index2+1]=a.y;
+	sceneTriBuf[index2+2]=a.z;
+
+	sceneTriBuf[index2+3]=b.x;
+	sceneTriBuf[index2+4]=b.y;
+	sceneTriBuf[index2+5]=b.z;
+
+	sceneTriBuf[index2+6]=c.x;
+	sceneTriBuf[index2+7]=c.y;
+	sceneTriBuf[index2+8]=c.z;
+	  
+	acceptableTriSize++;
       }
+    }
   }
 
-  if(tempAABBSize != 0){
+  printf("acceptableTriSize: %d \n", acceptableTriSize);
+
+  if(acceptableTriSize != 0){
+    if(step1TriVisualiserBuf){
+      free(step1TriVisualiserBuf);
+      step1TriVisualiserBuf = NULL;
+      step1TriVisualiserBufSize=0;
+    }
+
+    if(step1TriInterVisualiserBuf){
+      free(step1TriInterVisualiserBuf);
+      step1TriInterVisualiserBuf = NULL;
+      step1TriInterVisualiserBufSize=0;
+    }
+
     float maxY = -FLT_MAX;
-    vec3 finalPos;
-	
-    vec2 player2DPos = {playerPoint.x, playerPoint.z};// no height
-	
-    for(int i=0;i<tempAABBSize;++i){
-      Object obj = (*(aabbEntities[tempModelIdxs[i]].buf))[aabbEntities[tempModelIdxs[i]].bufId];
-      int infoId = obj.infoId;
+    vec2 player2DPos = { playerPoint.x, playerPoint.z };// no height
 
-      bool isInter = false;
+    for(int i=0;i<acceptableTriSize; ++i) {
+      int index = i*3*3;
+      
+      vec3 a = (vec3){ sceneTriBuf[index + 0], sceneTriBuf[index + 1], sceneTriBuf[index + 2] };
+      vec3 b = (vec3){ sceneTriBuf[index + 3],sceneTriBuf[index + 4], sceneTriBuf[index + 5] };
+      vec3 c = (vec3){ sceneTriBuf[index + 6],sceneTriBuf[index + 7], sceneTriBuf[index+8]};
 
-      for(int i2=0;i2<objectsInfo[infoId].meshesSize;++i2){
-	for(int i3=0;i3<objectsInfo[infoId].meshes[i2].posBufSize/9; i3++) {
-	  int index = i3*3*3;
-	  vec4 a = mulmatvec4(obj.mat, (vec4){objectsInfo[infoId].meshes[i2].posBuf[index+0], objectsInfo[infoId].meshes[i2].posBuf[index+1], objectsInfo[infoId].meshes[i2].posBuf[index+2], 1.0f});
-	  vec4 b = mulmatvec4(obj.mat, (vec4){objectsInfo[infoId].meshes[i2].posBuf[index+3],objectsInfo[infoId].meshes[i2].posBuf[index+4]
-					      ,objectsInfo[infoId].meshes[i2].posBuf[index+5], 1.0f});
-	  vec4 c = mulmatvec4(obj.mat, (vec4){objectsInfo[infoId].meshes[i2].posBuf[index+6],objectsInfo[infoId].meshes[i2].posBuf[index+7]
-					      ,objectsInfo[infoId].meshes[i2].posBuf[index+8], 1.0f});
+      {
+	step1TriInterVisualiserBufSize++;
 
-	  float entityStepMax = entityPos.y + legH;
-	  float entityStepMin = entityPos.y - legH;
+	if(!step1TriInterVisualiserBuf){
+	  step1TriInterVisualiserBuf = malloc(sizeof(float) * 6 * 3);
+	}else{
+	  step1TriInterVisualiserBuf = realloc(step1TriInterVisualiserBuf, step1TriInterVisualiserBufSize*sizeof(float) * 6 * 3);
+	}
 
-	  bool invalidTri = min(a.y,min(b.y,c.y)) > entityStepMax || max(a.y,max(b.y,c.y)) < entityStepMin;
+	int ix = (step1TriInterVisualiserBufSize-1) * 6 * 3;
+	      
+	step1TriInterVisualiserBuf[ix]= a.x;
+	step1TriInterVisualiserBuf[ix+1]= a.y;
+	step1TriInterVisualiserBuf[ix+2]= a.z;
 
-	  // if tri unreachable skip it
-	  if(invalidTri){
-	    continue;
-	  }
+	step1TriInterVisualiserBuf[ix+3]= b.x;
+	step1TriInterVisualiserBuf[ix+4]= b.y;
+	step1TriInterVisualiserBuf[ix+5]= b.z;
+
+	step1TriInterVisualiserBuf[ix+6]= b.x;
+	step1TriInterVisualiserBuf[ix+7]= b.y;
+	step1TriInterVisualiserBuf[ix+8]= b.z;
+
+	step1TriInterVisualiserBuf[ix+9]= c.x;
+	step1TriInterVisualiserBuf[ix+10]= c.y;
+	step1TriInterVisualiserBuf[ix+11]= c.z;
+
+	step1TriInterVisualiserBuf[ix+12]= c.x;
+	step1TriInterVisualiserBuf[ix+13]=c.y;
+	step1TriInterVisualiserBuf[ix+14]=c.z;
+
+	step1TriInterVisualiserBuf[ix+15]= a.x;
+	step1TriInterVisualiserBuf[ix+16]= a.y;
+	step1TriInterVisualiserBuf[ix+17]= a.z;
+      }
 		    
-	  // can be faster
-	  vec2 a1 = (vec2){ argVec2(a) };
-	  vec2 b1 = (vec2){ argVec2(b) };
-	  vec2 c1 = (vec2){ argVec2(c) };
+      // can be faster
+      vec2 a1 = (vec2){ argVec2(a) };
+      vec2 b1 = (vec2){ argVec2(b) };
+      vec2 c1 = (vec2){ argVec2(c) };
 
-	  vec2 tri2d[3] = {(vec2){ argVec2(a) }, (vec2){ argVec2(b) }, (vec2){ argVec2(c) }};
+      vec2 tri2d[3] = {(vec2){ argVec2(a) }, (vec2){ argVec2(b) }, (vec2){ argVec2(c) }};
 
-	  int A = triArea2D(a1, b1, c1);
-	  int AA = A;
-	  //	  float A = triArea2D(a1, b1, c1);
-	  float sum = 0;
-	  sum += triArea2D(player2DPos,a1,b1);
-	  if((int)sum > A) continue;
+      float A1 = triArea2D(a1, b1, c1);
+
+      //	  if(A1 < 0.00f) continue;
 	  
-	  sum += triArea2D(player2DPos,b1,c1);
-	  if((int)sum > A) continue;
+      int A = A1;
 	  
-	  sum += triArea2D(player2DPos,c1,a1);
+      if(A == 0) continue;
+
 	  
-	  if((int)sum == A){
-	    vec3 a3 = {a.x, a.y, a.z};
-	    vec3 b3 = {b.x, b.y, b.z};
-	    vec3 c3 = {c.x, c.y, c.z};
-				
-	    printf("\nIntersected with: v1(%f %f %f) v2(%f %f %f) v3(%f %f %f)\n",
-		   argVec3(a3),argVec3(b3),argVec3(c3));
-				
-	    printf("Player pos: v1(%f %f) \n", player2DPos.x, player2DPos.z);
+      float sum = 0;
+      sum += triArea2D(player2DPos,a1,b1);
+      if((int)sum > A) continue;
+	  
+      sum += triArea2D(player2DPos,b1,c1);
+      if((int)sum > A) continue;
+	  
+      sum += triArea2D(player2DPos,c1,a1);
 
-	    vec3 interPos = interpolate2dTo3d(a3,b3,c3,player2DPos);
+      //	  printf("sum %f - A: %f | sum(int) %d - A(int) %d \n", sum, A1, (int)sum, A);
+	  
+      if((int)sum == A){
+	vec3 a3 = {a.x, a.y, a.z};
+	vec3 b3 = {b.x, b.y, b.z};
+	vec3 c3 = {c.x, c.y, c.z};
 
+	{
+	  step1TriVisualiserBufSize++;
 
-	    float minH = interPos.y - legH;
-	    float maxH = interPos.y + legH;
-
-	    float diff = max(entityPos.y, interPos.y) - min(entityPos.y, interPos.y);
-
-	    if(maxY < interPos.y){
-	      maxY=interPos.y;
-	      if(diff <= legH && diff >= -legH){
-		finalPos = interPos;
-
-		float minH = entityPos.y + legH;
-		float maxH = entityH;
-
-		//		if(inCircle()){
-		//valid = false;
-		//		}
-
-		valid = true;
-		//		valid = true;
-	      }
-	      else {
-		valid = false;
-	      }
-	    }
-	    
+	  if(!step1TriVisualiserBuf){
+	    step1TriVisualiserBuf = malloc(sizeof(float) * 6 * 3);
+	  }else{
+	    step1TriVisualiserBuf = realloc(step1TriVisualiserBuf, step1TriVisualiserBufSize*sizeof(float) * 6 * 3);
 	  }
+
+	  int ix = (step1TriVisualiserBufSize-1) * 6 * 3;
+	      
+	  step1TriVisualiserBuf[ix]= a3.x;
+	  step1TriVisualiserBuf[ix+1]= a3.y;
+	  step1TriVisualiserBuf[ix+2]= a3.z;
+
+	  step1TriVisualiserBuf[ix+3]= b3.x;
+	  step1TriVisualiserBuf[ix+4]= b3.y;
+	  step1TriVisualiserBuf[ix+5]= b3.z;
+
+	  step1TriVisualiserBuf[ix+6]= b3.x;
+	  step1TriVisualiserBuf[ix+7]= b3.y;
+	  step1TriVisualiserBuf[ix+8]= b3.z;
+
+	  step1TriVisualiserBuf[ix+9]= c3.x;
+	  step1TriVisualiserBuf[ix+10]= c3.y;
+	  step1TriVisualiserBuf[ix+11]= c3.z;
+
+	  step1TriVisualiserBuf[ix+12]= c3.x;
+	  step1TriVisualiserBuf[ix+13]=c3.y;
+	  step1TriVisualiserBuf[ix+14]=c3.z;
+
+	  step1TriVisualiserBuf[ix+15]= a3.x;
+	  step1TriVisualiserBuf[ix+16]= a3.y;
+	  step1TriVisualiserBuf[ix+17]= a3.z;
+	}
+
+	vec3 interPos = interpolate2dTo3d(a3,b3,c3,player2DPos);
+
+	float diff = max(entityPos.y, interPos.y) - min(entityPos.y, interPos.y);
+	    
+	if(maxY < interPos.y){
+	  printf("step height %f \n", diff);
+	  maxY=interPos.y;
+
+	  finalPos = interPos;
+	  valid = true;
 	}
       }
+    }
+
+    {
+      glBindVertexArray(step1TriVisualiser.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, step1TriVisualiser.VBO);
+
+      step1TriVisualiser.VBOsize = step1TriVisualiserBufSize * 6;
+
+      glBufferData(GL_ARRAY_BUFFER, step1TriVisualiserBufSize*sizeof(float) * 6 * 3, step1TriVisualiserBuf, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+    }
+
+    {
+      glBindVertexArray(step1TriInterVisualiser.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, step1TriInterVisualiser.VBO);
+
+      step1TriInterVisualiser.VBOsize = step1TriInterVisualiserBufSize * 6;
+
+      glBufferData(GL_ARRAY_BUFFER, step1TriInterVisualiserBufSize*sizeof(float) * 6 * 3, step1TriInterVisualiserBuf, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
     }
 
     if (valid) {
@@ -4434,19 +4564,409 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
 	triVisualiserBuf = NULL;
 	triVisualiserBufSize=0;
       }
+      float minH = finalPos.y + legH;
+      float maxH = finalPos.y + entityH;
 
-      if(linesVisualiserBuf){
-	free(linesVisualiserBuf);
-	linesVisualiserBuf = NULL;
-	linesVisualiserBufSize=0;
-      }
+      vec3 cylinderP1 = { finalPos.x,minH,finalPos.z }; // low
+      vec3 cylinderP2 = { finalPos.x,maxH,finalPos.z }; // high
 
-      if(lines2VisualiserBuf){
-	free(lines2VisualiserBuf);
-	lines2VisualiserBuf = NULL;
-	lines2VisualiserBufSize=0;
-      }
+      // float a = entityStorage[0][0].model->data->animSize;
+      //vec3 rt = { finalPos.x + maxR,finalPos.y + entityStorage[0][0].model->data->size[1], finalPos.z + maxR };
+      //vec3 lb = { finalPos.x - maxR,finalPos.y + (entityStorage[0][0].model->data->size[1] * 0.25f),finalPos.z - maxR };
+
+      //vec3 lb = { finalPos.x - 1.0,finalPos.y + (entityStorage[0][0].model->data->size[1] * 0.25f),finalPos.z - 1.0 };
+    
+  
       
+      AABB col = {0};
+      col.lb.x = finalPos.x - entityR;
+      col.lb.y = finalPos.y + legH;
+      col.lb.z = finalPos.z - entityR;
+    
+      col.rt.x = finalPos.x + entityR;
+      col.rt.y = finalPos.y + entityH;
+      col.rt.z = finalPos.z + entityR;
+
+
+      float minDist = FLT_MAX;
+      float minDist2 = FLT_MAX;
+      
+      bool intersect = false;
+
+      int intCounter = 0;
+
+      for(int i=0;i<acceptableTriSize; ++i) {
+	int index = i*3*3;
+      
+	vec3 a = (vec3){ sceneTriBuf[index + 0], sceneTriBuf[index + 1], sceneTriBuf[index + 2] };
+    vec3 b = (vec3){ sceneTriBuf[index + 3],sceneTriBuf[index + 4], sceneTriBuf[index + 5] };
+    vec3 c = (vec3){ sceneTriBuf[index + 6],sceneTriBuf[index + 7], sceneTriBuf[index+8]};
+	    
+	float halftH = (entityH - legH)/2.0f;
+	int triInter = AABBvsTri(a,b,c,
+				 (vec3){finalPos.x, finalPos.y + legH + halftH, finalPos.z}, halftH, entityR);
+	    
+	if(triInter){
+	  triInterVisualiserBufSize++;
+
+	  if(!triInterVisualiserBuf){
+	    triInterVisualiserBuf = malloc(sizeof(float) * 6 * 3);
+	  }else{
+	    triInterVisualiserBuf = realloc(triInterVisualiserBuf, triInterVisualiserBufSize*sizeof(float) * 6 * 3);
+	  }
+
+	  int ix = (triInterVisualiserBufSize-1) * 6 * 3;
+	      
+	  triInterVisualiserBuf[ix]= a.x;
+	  triInterVisualiserBuf[ix+1]= a.y;
+	  triInterVisualiserBuf[ix+2]= a.z;
+
+	  triInterVisualiserBuf[ix+3]= b.x;
+	  triInterVisualiserBuf[ix+4]= b.y;
+	  triInterVisualiserBuf[ix+5]= b.z;
+
+	  triInterVisualiserBuf[ix+6]= b.x;
+	  triInterVisualiserBuf[ix+7]= b.y;
+	  triInterVisualiserBuf[ix+8]= b.z;
+
+	  triInterVisualiserBuf[ix+9]= c.x;
+	  triInterVisualiserBuf[ix+10]= c.y;
+	  triInterVisualiserBuf[ix+11]= c.z;
+
+	  triInterVisualiserBuf[ix+12]= c.x;
+	  triInterVisualiserBuf[ix+13]=c.y;
+	  triInterVisualiserBuf[ix+14]=c.z;
+
+	  triInterVisualiserBuf[ix+15]= a.x;
+	  triInterVisualiserBuf[ix+16]= a.y;
+	  triInterVisualiserBuf[ix+17]= a.z;
+	  printf("Intersected with tri \n");
+
+	  valid = false;
+	}else{
+	  triVisualiserBufSize++;
+
+	  if(!triVisualiserBuf){
+	    triVisualiserBuf = malloc(sizeof(float) * 6 * 3);
+	  }else{
+	    triVisualiserBuf = realloc(triVisualiserBuf, triVisualiserBufSize*sizeof(float) * 6 * 3);
+	  }
+
+	  int ix = (triVisualiserBufSize-1) * 6 * 3;
+	      
+	  triVisualiserBuf[ix]= a.x;
+	  triVisualiserBuf[ix+1]= a.y;
+	  triVisualiserBuf[ix+2]= a.z;
+
+	  triVisualiserBuf[ix+3]= b.x;
+	  triVisualiserBuf[ix+4]= b.y;
+	  triVisualiserBuf[ix+5]= b.z;
+
+	  triVisualiserBuf[ix+6]= b.x;
+	  triVisualiserBuf[ix+7]= b.y;
+	  triVisualiserBuf[ix+8]= b.z;
+
+	  triVisualiserBuf[ix+9]= c.x;
+	  triVisualiserBuf[ix+10]= c.y;
+	  triVisualiserBuf[ix+11]= c.z;
+
+	  triVisualiserBuf[ix+12]= c.x;
+	  triVisualiserBuf[ix+13]=c.y;
+	  triVisualiserBuf[ix+14]=c.z;
+
+	  triVisualiserBuf[ix+15]= a.x;
+	  triVisualiserBuf[ix+16]= a.y;
+	  triVisualiserBuf[ix+17]= a.z;
+      }
+    }
+  }
+
+
+  if(valid){
+    entityPos = finalPos;
+  }
+  //}
+
+  {
+    glBindVertexArray(triVisualiser.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, triVisualiser.VBO);
+
+    triVisualiser.VBOsize = triVisualiserBufSize * 6;
+
+    glBufferData(GL_ARRAY_BUFFER, triVisualiserBufSize*sizeof(float) * 6 * 3, triVisualiserBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+  }
+
+  {
+    glBindVertexArray(triInterVisualiser.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, triInterVisualiser.VBO);
+
+    triInterVisualiser.VBOsize = triInterVisualiserBufSize * 6;
+
+    glBufferData(GL_ARRAY_BUFFER, triInterVisualiserBufSize*sizeof(float) * 6 * 3, triInterVisualiserBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+  }
+}
+
+  /*
+    for(int i=0;i<tempAABBSize;++i){
+    Object obj = (*(aabbEntities[tempModelIdxs[i]].buf))[aabbEntities[tempModelIdxs[i]].bufId];
+    int infoId = obj.infoId;
+
+    bool isInter = false;
+
+    for(int i2=0;i2<obj.posBufSize/3; i2++) {
+
+    }
+
+  }*/
+  /*
+  if(tempAABBSize != 0){
+    if(step1TriVisualiserBuf){
+      free(step1TriVisualiserBuf);
+      step1TriVisualiserBuf = NULL;
+      step1TriVisualiserBufSize=0;
+    }
+
+    if(step1TriInterVisualiserBuf){
+      free(step1TriInterVisualiserBuf);
+      step1TriInterVisualiserBuf = NULL;
+      step1TriInterVisualiserBufSize=0;
+    }
+    
+    float maxY = -FLT_MAX;
+    vec3 finalPos;
+	
+    vec2 player2DPos = {playerPoint.x, playerPoint.z};// no height
+
+    generalAABB.rt.x = entityPos.x + entityR;
+    generalAABB.rt.y = entityPos.y + legH;
+    generalAABB.rt.z = entityPos.z + entityR;
+	
+    for(int i=0;i<tempAABBSize;++i){
+      Object obj = (*(aabbEntities[tempModelIdxs[i]].buf))[aabbEntities[tempModelIdxs[i]].bufId];
+      int infoId = obj.infoId;
+
+      bool isInter = false;
+
+      //for(int i2=0;i2<objectsInfo[infoId].meshesSize;++i2){
+	for(int i2=0;i2<obj.posBufSize/3; i2++) {
+	  int index = i2*3*3;
+	  vec4 a = (vec4){obj.posBuf[index+0], obj.posBuf[index+1], obj.posBuf[index+2], 1.0f};
+	  vec4 b = (vec4){obj.posBuf[index+3],obj.posBuf[index+4]
+					      ,obj.posBuf[index+5], 1.0f};
+	  vec4 c = (vec4){obj.posBuf[index+6],obj.posBuf[index+7]
+					      ,obj.posBuf[index+8], 1.0f};
+
+	  bool outOfY = min(a.y,min(b.y,c.y)) > generalAABB.rt.y || max(a.y,max(b.y,c.y)) < generalAABB.lb.y;
+
+	  if(outOfY){
+	    continue;
+	  }
+
+	  bool outOfX = min(a.x,min(b.x,c.x)) > generalAABB.rt.x || max(a.x,max(b.x,c.x)) < generalAABB.lb.x;
+
+	  if(outOfX){
+	    continue;
+	  }
+
+	  bool outOfZ = min(a.z,min(b.z,c.z)) > generalAABB.rt.z || max(a.z,max(b.z,c.z)) < generalAABB.lb.z;
+
+	  if(outOfZ){
+	    continue;
+	  }
+	  
+	  {
+	    step1TriInterVisualiserBufSize++;
+
+	    if(!step1TriInterVisualiserBuf){
+	      step1TriInterVisualiserBuf = malloc(sizeof(float) * 6 * 3);
+	    }else{
+	      step1TriInterVisualiserBuf = realloc(step1TriInterVisualiserBuf, step1TriInterVisualiserBufSize*sizeof(float) * 6 * 3);
+	    }
+
+	    int ix = (step1TriInterVisualiserBufSize-1) * 6 * 3;
+	      
+	    step1TriInterVisualiserBuf[ix]= a.x;
+	    step1TriInterVisualiserBuf[ix+1]= a.y;
+	    step1TriInterVisualiserBuf[ix+2]= a.z;
+
+	    step1TriInterVisualiserBuf[ix+3]= b.x;
+	    step1TriInterVisualiserBuf[ix+4]= b.y;
+	    step1TriInterVisualiserBuf[ix+5]= b.z;
+
+	    step1TriInterVisualiserBuf[ix+6]= b.x;
+	    step1TriInterVisualiserBuf[ix+7]= b.y;
+	    step1TriInterVisualiserBuf[ix+8]= b.z;
+
+	    step1TriInterVisualiserBuf[ix+9]= c.x;
+	    step1TriInterVisualiserBuf[ix+10]= c.y;
+	    step1TriInterVisualiserBuf[ix+11]= c.z;
+
+	    step1TriInterVisualiserBuf[ix+12]= c.x;
+	    step1TriInterVisualiserBuf[ix+13]=c.y;
+	    step1TriInterVisualiserBuf[ix+14]=c.z;
+
+	    step1TriInterVisualiserBuf[ix+15]= a.x;
+	    step1TriInterVisualiserBuf[ix+16]= a.y;
+	    step1TriInterVisualiserBuf[ix+17]= a.z;
+	  }
+		    
+	  // can be faster
+	  vec2 a1 = (vec2){ argVec2(a) };
+	  vec2 b1 = (vec2){ argVec2(b) };
+	  vec2 c1 = (vec2){ argVec2(c) };
+
+	  vec2 tri2d[3] = {(vec2){ argVec2(a) }, (vec2){ argVec2(b) }, (vec2){ argVec2(c) }};
+
+	  float A1 = triArea2D(a1, b1, c1);
+
+	  //	  if(A1 < 0.00f) continue;
+	  
+	  int A = A1;
+	  
+	  if(A == 0) continue;
+
+	  
+	  int AA = A;
+	  //	  float A = triArea2D(a1, b1, c1);
+	  float sum = 0;
+	  sum += triArea2D(player2DPos,a1,b1);
+	  if((int)sum > A) continue;
+	  
+	  sum += triArea2D(player2DPos,b1,c1);
+	  if((int)sum > A) continue;
+	  
+	  sum += triArea2D(player2DPos,c1,a1);
+
+	  //	  printf("sum %f - A: %f | sum(int) %d - A(int) %d \n", sum, A1, (int)sum, A);
+	  
+	  if((int)sum == A){
+	    vec3 a3 = {a.x, a.y, a.z};
+	    vec3 b3 = {b.x, b.y, b.z};
+	    vec3 c3 = {c.x, c.y, c.z};
+
+	    {
+	      step1TriVisualiserBufSize++;
+
+	      if(!step1TriVisualiserBuf){
+		step1TriVisualiserBuf = malloc(sizeof(float) * 6 * 3);
+	      }else{
+		step1TriVisualiserBuf = realloc(step1TriVisualiserBuf, step1TriVisualiserBufSize*sizeof(float) * 6 * 3);
+	      }
+
+	      int ix = (step1TriVisualiserBufSize-1) * 6 * 3;
+	      
+	      step1TriVisualiserBuf[ix]= a3.x;
+	      step1TriVisualiserBuf[ix+1]= a3.y;
+	      step1TriVisualiserBuf[ix+2]= a3.z;
+
+	      step1TriVisualiserBuf[ix+3]= b3.x;
+	      step1TriVisualiserBuf[ix+4]= b3.y;
+	      step1TriVisualiserBuf[ix+5]= b3.z;
+
+	      step1TriVisualiserBuf[ix+6]= b3.x;
+	      step1TriVisualiserBuf[ix+7]= b3.y;
+	      step1TriVisualiserBuf[ix+8]= b3.z;
+
+	      step1TriVisualiserBuf[ix+9]= c3.x;
+	      step1TriVisualiserBuf[ix+10]= c3.y;
+	      step1TriVisualiserBuf[ix+11]= c3.z;
+
+	      step1TriVisualiserBuf[ix+12]= c3.x;
+	      step1TriVisualiserBuf[ix+13]=c3.y;
+	      step1TriVisualiserBuf[ix+14]=c3.z;
+
+	      step1TriVisualiserBuf[ix+15]= a3.x;
+	      step1TriVisualiserBuf[ix+16]= a3.y;
+	      step1TriVisualiserBuf[ix+17]= a3.z;
+	    }
+				
+	    printf("\nIntersected with: v1(%f %f %f) v2(%f %f %f) v3(%f %f %f)\n",
+		   argVec3(a3),argVec3(b3),argVec3(c3));
+				
+	    printf("Player pos: v1(%f %f) \n", player2DPos.x, player2DPos.z);
+
+	    vec3 interPos = interpolate2dTo3d(a3,b3,c3,player2DPos);
+
+
+	    float minH = interPos.y - legH;
+	    float maxH = interPos.y + legH;
+
+	    float diff = max(entityPos.y, interPos.y) - min(entityPos.y, interPos.y);
+
+
+	    
+	    if(maxY < interPos.y){
+	      printf("step height %f \n", diff);
+	      maxY=interPos.y;
+
+	      finalPos = interPos;
+	      valid = true;
+	    }
+	      //	      if(diff <= legH && diff >= -legH){
+
+		{
+		float minH = entityPos.y + legH;
+		float maxH = entityH;
+		}
+
+		//		if(inCircle()){
+		//valid = false;
+		//		}
+
+		//		valid = true;
+		//	      }
+	      //	      else {
+		//	valid = false;
+		//	      }
+	      //	    }
+	    
+	  }
+	//}
+      }
+    }
+
+    {
+      glBindVertexArray(step1TriVisualiser.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, step1TriVisualiser.VBO);
+
+      step1TriVisualiser.VBOsize = step1TriVisualiserBufSize * 6;
+
+      glBufferData(GL_ARRAY_BUFFER, step1TriVisualiserBufSize*sizeof(float) * 6 * 3, step1TriVisualiserBuf, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+    }
+
+    {
+      glBindVertexArray(step1TriInterVisualiser.VAO);
+      glBindBuffer(GL_ARRAY_BUFFER, step1TriInterVisualiser.VBO);
+
+      step1TriInterVisualiser.VBOsize = step1TriInterVisualiserBufSize * 6;
+
+      glBufferData(GL_ARRAY_BUFFER, step1TriInterVisualiserBufSize*sizeof(float) * 6 * 3, step1TriInterVisualiserBuf, GL_STATIC_DRAW);
+
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+      glEnableVertexAttribArray(0);
+    }
+
+    if (valid) {
+      if(triInterVisualiserBuf){
+	free(triInterVisualiserBuf);
+	triInterVisualiserBuf = NULL;
+	triInterVisualiserBufSize=0;
+      }
+
+      if(triVisualiserBuf){
+	free(triVisualiserBuf);
+	triVisualiserBuf = NULL;
+	triVisualiserBufSize=0;
+      }
         float minH = finalPos.y + legH;
         float maxH = finalPos.y + entityH;
 
@@ -4478,23 +4998,42 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
 
       int intCounter = 0;
 
-      for(int i=0;i<aabbEntitiesSize;++i){
-	Object obj = (*(aabbEntities[i].buf))[aabbEntities[i].bufId];
+      for(int i=0;i<tempAABBSize;++i){
+	Object obj = (*(aabbEntities[tempModelIdxs[i]].buf))[aabbEntities[tempModelIdxs[i]].bufId];
 	int infoId = obj.infoId;
 
 	bool isInter = false;
 
-	for(int i2=0;i2<objectsInfo[infoId].meshesSize;++i2){
-	  for(int i3=0;i3<objectsInfo[infoId].meshes[i2].posBufSize/9; i3++) {
-	    int index = i3*3*3;
-	    vec4 a = mulmatvec4(obj.mat, (vec4){objectsInfo[infoId].meshes[i2].posBuf[index+0], objectsInfo[infoId].meshes[i2].posBuf[index+1], objectsInfo[infoId].meshes[i2].posBuf[index+2], 1.0f});
-	    vec4 b = mulmatvec4(obj.mat, (vec4){objectsInfo[infoId].meshes[i2].posBuf[index+3],objectsInfo[infoId].meshes[i2].posBuf[index+4]
-						,objectsInfo[infoId].meshes[i2].posBuf[index+5], 1.0f});
-	    vec4 c = mulmatvec4(obj.mat, (vec4){objectsInfo[infoId].meshes[i2].posBuf[index+6],objectsInfo[infoId].meshes[i2].posBuf[index+7]
-						,objectsInfo[infoId].meshes[i2].posBuf[index+8], 1.0f});
+	  for(int i2=0;i2<obj.posBufSize/3; i2++) {
+	    int index = i2*3*3;
+	    
+	    vec3 a = (vec3){obj.posBuf[index+0], obj.posBuf[index+1], obj.posBuf[index+2]};
+	    vec3 b = (vec3){obj.posBuf[index+3],obj.posBuf[index+4], obj.posBuf[index+5]};
+	    vec3 c = (vec3){obj.posBuf[index+6],obj.posBuf[index+7], obj.posBuf[index+8]};
 
+	    float maxY = max(a.y,max(b.y,c.y));
+	    float minY = min(a.y,min(b.y,c.y));
+
+	    if(minY>maxH || maxY<minH){
+	      continue;
+	    }
+	    
+	    float maxX = max(a.x,max(b.x,c.x));
+	    float minX = min(a.x,min(b.x,c.x));
+
+	    if(minX>col.rt.x || maxX<col.lb.x){
+	      continue;
+	    }
+
+	    float maxZ = max(a.z,max(b.z,c.z));
+	    float minZ = min(a.z,min(b.z,c.z));
+
+	    if(minZ>col.rt.z || maxZ<col.lb.z){
+	      continue;
+	    }
+	    
 	    float halftH = (entityH - legH)/2.0f;
-	    int triInter = AABBvsTri((vec3){argVec3(a)},(vec3){argVec3(b)},(vec3){argVec3(c)},
+	    int triInter = AABBvsTri(a,b,c,
 				     (vec3){finalPos.x, finalPos.y + legH + halftH, finalPos.z}, halftH, entityR);
 	    
 	    if(triInter){
@@ -4532,6 +5071,8 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
 	      triInterVisualiserBuf[ix+16]= a.y;
 	      triInterVisualiserBuf[ix+17]= a.z;
 	      printf("Intersected with tri \n");
+
+	      valid = false;
 	    }else{
 	      triVisualiserBufSize++;
 
@@ -4567,95 +5108,14 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
 	      triVisualiserBuf[ix+16]= a.y;
 	      triVisualiserBuf[ix+17]= a.z;
 	    }
-
-	    /*
-	    vec4 edges[3][2] = {{a,b},{b,c},{a,c}};
-
-	    float maxY = max(a.y,max(b.y,c.y));
-	    float minY = min(a.y,min(b.y,c.y));
-
-	    if(minY<=maxH && maxY>=minH){
-	      //     if(true){
-	      for(int i4=0;i4<3;++i4){
-		vec2 a1 = {edges[i4][0].x, edges[i4][0].z};
-		vec2 b1 = {edges[i4][1].x, edges[i4][1].z};
-
-
-		vec3 dir = { edges[i4][1].x - edges[i4][0].x, edges[i4][1].y - edges[i4][0].y, edges[i4][1].z - edges[i4][0].z };
-        dir = normalize3(dir);
-
-		float distPow = (edges[i4][1].x - edges[i4][0].x) * (edges[i4][1].x - edges[i4][0].x) +
-		  (edges[i4][1].y - edges[i4][0].y) * (edges[i4][1].y - edges[i4][0].y) +
-		  (edges[i4][1].z - edges[i4][0].z) * (edges[i4][1].z - edges[i4][0].z);
-
-		float dist = 0;
-		bool inter = false;
-		if(rayIntersectsTriangle((vec3){argVec3(edges[i4][0])}, dir, col.lb, col.rt, NULL, &dist)){
-		  if(dist * dist < distPow){
-		  inter = true;
-		  
-		  printf("%f %f %f dir\n", argVec3(dir));
-		    intCounter++;
-
-		    linesVisualiserBufSize++;
-
-		    if(!linesVisualiserBuf){
-		      linesVisualiserBuf = malloc(sizeof(float) * 6);
-		    }else{
-		      linesVisualiserBuf = realloc(linesVisualiserBuf, linesVisualiserBufSize*sizeof(float) * 6);
-		    }
-
-		    int ix = (linesVisualiserBufSize-1) * 6;
-		    linesVisualiserBuf[ix]= edges[i4][0].x;
-		    linesVisualiserBuf[ix+1]= edges[i4][0].y;
-		    linesVisualiserBuf[ix+2]= edges[i4][0].z;
-
-		    linesVisualiserBuf[ix+3]= edges[i4][1].x;
-		    linesVisualiserBuf[ix+4]= edges[i4][1].y;
-		    linesVisualiserBuf[ix+5]= edges[i4][1].z;
-		  }
-
-		    
-		    //      }
-		}
-
-		if(!inter){
-		  {
-		    lines2VisualiserBufSize++;
-
-		    if(!lines2VisualiserBuf){
-		      lines2VisualiserBuf = malloc(sizeof(float) * 6);
-		    }else{
-		      lines2VisualiserBuf = realloc(lines2VisualiserBuf, lines2VisualiserBufSize*sizeof(float) * 6);
-		    }
-
-		    int ix = (lines2VisualiserBufSize-1) * 6;
-		    lines2VisualiserBuf[ix]= edges[i4][0].x;
-		    lines2VisualiserBuf[ix+1]= edges[i4][0].y;
-		    lines2VisualiserBuf[ix+2]= edges[i4][0].z;
-
-		    lines2VisualiserBuf[ix+3]= edges[i4][1].x;
-		    lines2VisualiserBuf[ix+4]= edges[i4][1].y;
-		    lines2VisualiserBuf[ix+5]= edges[i4][1].z;
-		  }
-
-		}
-		
-	      }
-	    }*/
-
-
-	    
 	  }
 	}
       }
 
-      printf("inters %d \n", intCounter);
 
       if(valid){
 	entityPos = finalPos;
       }
-    }
   }
 
   {
@@ -4680,32 +5140,33 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
-  }
+  }*/
 
+  /*
   {
-    glBindVertexArray(lines2Visualiser.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, lines2Visualiser.VBO);
+    glBindVertexArray(step1TriInterVisualiser.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, step1TriInterVisualiser.VBO);
 
-    lines2Visualiser.VBOsize = lines2VisualiserBufSize * 2;
+    step1TriInterVisualiser.VBOsize = step1TriInterVisualiserBufSize * 2;
 
-    glBufferData(GL_ARRAY_BUFFER, lines2VisualiserBufSize*sizeof(float) * 6, lines2VisualiserBuf, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, step1TriInterVisualiserBufSize*sizeof(float) * 6, step1TriInterVisualiserBuf, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
   }
 
   {
-    glBindVertexArray(lines2Visualiser.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, lines2Visualiser.VBO);
+    glBindVertexArray(step1TriInterVisualiser.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, step1TriInterVisualiser.VBO);
 
-    lines2Visualiser.VBOsize = lines2VisualiserBufSize * 2;
+    step1TriInterVisualiser.VBOsize = step1TriInterVisualiserBufSize * 2;
 
-    glBufferData(GL_ARRAY_BUFFER, lines2VisualiserBufSize*sizeof(float) * 6, lines2VisualiserBuf, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, step1TriInterVisualiserBufSize*sizeof(float) * 6, step1TriInterVisualiserBuf, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
-  }
-
+  }*/
+                    
   *resPos = entityPos;
 
   tempAABBSize = 0;

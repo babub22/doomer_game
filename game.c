@@ -31,13 +31,18 @@ int frameCounter;
 vec3 targetPos;
 
 void gamePreFrame(float deltaTime){
+    currentKeyStates = SDL_GetKeyboardState(NULL);
+    
     float step = 0.04f;
+
+    //    if(currentKeyStates[SDL_SCANCODE_LSHIFT]){
+      //      step = 0.12f;
+    //    }
     
     vec2 nextPos = {0};
     bool move = false;
     int preferedAnim = -1;
     
-    currentKeyStates = SDL_GetKeyboardState(NULL);
 
     vec3 forward = entityStorage[playerEntityT][0].dir;
     forward.y = 0.0f;
@@ -83,7 +88,7 @@ void gamePreFrame(float deltaTime){
       float entityR = max(entityStorage[0][0].model->data->size[0], entityStorage[0][0].model->data->size[2])/2.0f;
       float entityH = entityStorage[0][0].model->data->size[1];
     
-      bool validPos = entityVsMeshes((vec3){ nextPos.x, entityStorage[playerEntityT][0].mat.m[13], nextPos.z }, entityStorage[playerEntityT][0].model->data->size[1]*0.25f, entityR,entityH, &pos);
+      bool validPos = entityVsMeshes((vec3){ nextPos.x, entityStorage[playerEntityT][0].mat.m[13], nextPos.z }, entityStorage[playerEntityT][0].model->data->size[1]*0.3f, entityR,entityH, &pos);
 
 	if(validPos){
 	    entityStorage[playerEntityT][0].mat.m[12] = pos.x;
