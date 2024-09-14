@@ -1,6 +1,73 @@
 //#include "deps.h"
 #include <math.h>
 
+/*======================== X-tests ========================*/
+
+#define AXISTEST_X01(a1, b1, fa, fb)			   \
+	p0 = a1*a.y - b1*a.z;			       	   \
+	p2 = a1*c.y - b1*c.z;			       	   \
+        if(p0<p2) {min=p0; max=p2;} else {min=p2; max=p0;} \
+	rad = fa * halfH + fb * r;   \
+	if(min>rad || max<-rad) return 0;
+
+
+
+#define AXISTEST_X2(a1, b1, fa, fb)			   \
+	p0 = a1*a.y - b1*a.z;			           \
+	p1 = a1*b.y - b1*b.z;			       	   \
+        if(p0<p1) {min=p0; max=p1;} else {min=p1; max=p0;} \
+	rad = fa * halfH + fb * r;   \
+	if(min>rad || max<-rad) return 0;
+
+
+
+/*======================== Y-tests ========================*/
+
+#define AXISTEST_Y02(a1, b1, fa, fb)			   \
+	p0 = -a1*a.x + b1*a.z;		      	   \
+	p2 = -a1*c.x + b1*c.z;	       	       	   \
+        if(p0<p2) {min=p0; max=p2;} else {min=p2; max=p0;} \
+	rad = fa * r + fb * r;   \
+	if(min>rad || max<-rad) return 0;
+
+
+
+#define AXISTEST_Y1(a1, b1, fa, fb)			   \
+	p0 = -a1*a.x + b1*a.z;		      	   \
+	p1 = -a1*b.x + b1*b.z;	     	       	   \
+        if(p0<p1) {min=p0; max=p1;} else {min=p1; max=p0;} \
+	rad = fa * r + fb * r;   \
+	if(min>rad || max<-rad) return 0;
+
+
+
+/*======================== Z-tests ========================*/
+
+
+#define FINDMINMAX(x0,x1,x2,min,max) \
+  min = max = x0;   \
+  if(x1<min) min=x1;\
+  if(x1>max) max=x1;\
+  if(x2<min) min=x2;\
+  if(x2>max) max=x2;
+
+
+#define AXISTEST_Z12(a1, b1, fa, fb)			   \
+	p1 = a1*b.x - b1*b.y;			           \
+	p2 = a1*c.x - b1*c.y;			       	   \
+        if(p2<p1) {min=p2; max=p1;} else {min=p1; max=p2;} \
+	rad = fa * r + fb * halfH;   \
+	if(min>rad || max<-rad) return 0;
+
+
+
+#define AXISTEST_Z0(a1, b1, fa, fb)			   \
+	p0 = a1*a.x - b1*a.y;				   \
+	p1 = a1*b.x - b1*b.y;			           \
+        if(p0<p1) {min=p0; max=p1;} else {min=p1; max=p0;} \
+	rad = fa * r + fb * halfH;   \
+	if(min>rad || max<-rad) return 0;
+
 typedef struct {
 	// x z because i use vec2
 	// only when i work with grid
@@ -174,4 +241,4 @@ float isInsideCylinder(vec3 vertex, vec3 P1, vec3 P2);
 int findLineCircleIntersection(vec2 A, vec2 B, vec2 C, float r);
 int cylinderVsLine3d(vec3 P1, vec3 P2, vec3 C, float r);
 
-int AABBvsTri(vec3 a, vec3 b, vec3 c, vec3 center, float e, float halfH);
+int AABBvsTri(vec3 a, vec3 b, vec3 c, vec3 center, float halfH, float r);

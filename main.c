@@ -25,6 +25,14 @@ MeshBuffer linesVisualiser;
 float* linesVisualiserBuf;
 int linesVisualiserBufSize;
 
+MeshBuffer triInterVisualiser;
+float* triInterVisualiserBuf;
+int triInterVisualiserBufSize;
+
+MeshBuffer triVisualiser;
+float* triVisualiserBuf;
+int triVisualiserBufSize;
+
 MeshBuffer lines2Visualiser;
 float* lines2VisualiserBuf;
 int lines2VisualiserBufSize;
@@ -380,8 +388,24 @@ int main(int argc, char* argv[]) {
   }
 
   {
+    glGenBuffers(1, &triVisualiser.VBO);
+    glGenVertexArrays(1, &triVisualiser.VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  {
     glGenBuffers(1, &linesVisualiser.VBO);
     glGenVertexArrays(1, &linesVisualiser.VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  {
+    glGenBuffers(1, &triInterVisualiser.VBO);
+    glGenVertexArrays(1, &triInterVisualiser.VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -1278,7 +1302,35 @@ int main(int argc, char* argv[]) {
       if(collisionToDraw)
 	{
 	  glUseProgram(shadersId[lightSourceShader]);
+
+	  {
+	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	    glBindVertexArray(triVisualiser.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, triVisualiser.VBO);
+
+	    Matrix out = IDENTITY_MATRIX;
+	    uniformMat4(lightSourceShader, "model", out.m);
+	    uniformVec3(lightSourceShader, "color", (vec3) { cyan });
+		    
+	    glDrawArrays(GL_LINES, 0, triVisualiser.VBOsize);
+	  }
 	  
+	  {
+	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		
+	    glBindVertexArray(triInterVisualiser.VAO);
+	    glBindBuffer(GL_ARRAY_BUFFER, triInterVisualiser.VBO);
+
+	    Matrix out = IDENTITY_MATRIX;
+	    uniformMat4(lightSourceShader, "model", out.m);
+	    uniformVec3(lightSourceShader, "color", (vec3) { redColor });
+		    
+	    glDrawArrays(GL_LINES, 0, triInterVisualiser.VBOsize);
+	  }
+
+
+	  if(false)
 	  {
 	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		
@@ -1292,6 +1344,7 @@ int main(int argc, char* argv[]) {
 	    glDrawArrays(GL_LINES, 0, linesVisualiser.VBOsize);
 	  }
 
+	  if(false)
 	  {
 	    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		
@@ -1320,14 +1373,14 @@ int main(int argc, char* argv[]) {
 	  }
 
 	  // cylinder draw
-	  if(false)
+	  //  if(false)
 	  {
 	    glBindVertexArray(cylinderMesh.VAO);
 	    glBindBuffer(GL_ARRAY_BUFFER, cylinderMesh.VBO);
 
         Matrix out = IDENTITY_MATRIX;
 	    uniformMat4(lightSourceShader, "model", out.m);
-	    uniformVec3(lightSourceShader, "color", (vec3) { cyan });
+	    uniformVec3(lightSourceShader, "color", (vec3) { greenColor });
 		    
 	    //	    glDrawArrays(GL_TRIANGLE_STRIP, 0, cylinderMesh.VBOsize);
 	    glDrawArrays(GL_TRIANGLES, 0, cylinderMesh.VBOsize);
@@ -4370,11 +4423,22 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
     }
 
     if (valid) {
+      if(triInterVisualiserBuf){
+	free(triInterVisualiserBuf);
+	triInterVisualiserBuf = NULL;
+	triInterVisualiserBufSize=0;
+      }
+
+      if(triVisualiserBuf){
+	free(triVisualiserBuf);
+	triVisualiserBuf = NULL;
+	triVisualiserBufSize=0;
+      }
+
       if(linesVisualiserBuf){
 	free(linesVisualiserBuf);
 	linesVisualiserBuf = NULL;
 	linesVisualiserBufSize=0;
-
       }
 
       if(lines2VisualiserBuf){
@@ -4430,15 +4494,81 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
 						,objectsInfo[infoId].meshes[i2].posBuf[index+8], 1.0f});
 
 	    float halftH = (entityH - legH)/2.0f;
-	    int triInter = AABBvsTri((vec3){argVec3(a)},
-				     (vec3){argVec3(b)},
-				     (vec3){argVec3(c)},
-				     (vec3){finalPos.x, finalPos.y+halftH+legH, finalPos.z}, entityR, halftH);
+	    int triInter = AABBvsTri((vec3){argVec3(a)},(vec3){argVec3(b)},(vec3){argVec3(c)},
+				     (vec3){finalPos.x, finalPos.y + legH + halftH, finalPos.z}, halftH, entityR);
 	    
 	    if(triInter){
+	      triInterVisualiserBufSize++;
+
+	      if(!triInterVisualiserBuf){
+		triInterVisualiserBuf = malloc(sizeof(float) * 6 * 3);
+	      }else{
+		triInterVisualiserBuf = realloc(triInterVisualiserBuf, triInterVisualiserBufSize*sizeof(float) * 6 * 3);
+	      }
+
+	      int ix = (triInterVisualiserBufSize-1) * 6 * 3;
+	      
+	      triInterVisualiserBuf[ix]= a.x;
+	      triInterVisualiserBuf[ix+1]= a.y;
+	      triInterVisualiserBuf[ix+2]= a.z;
+
+	      triInterVisualiserBuf[ix+3]= b.x;
+	      triInterVisualiserBuf[ix+4]= b.y;
+	      triInterVisualiserBuf[ix+5]= b.z;
+
+	      triInterVisualiserBuf[ix+6]= b.x;
+	      triInterVisualiserBuf[ix+7]= b.y;
+	      triInterVisualiserBuf[ix+8]= b.z;
+
+	      triInterVisualiserBuf[ix+9]= c.x;
+	      triInterVisualiserBuf[ix+10]= c.y;
+	      triInterVisualiserBuf[ix+11]= c.z;
+
+	      triInterVisualiserBuf[ix+12]= c.x;
+	      triInterVisualiserBuf[ix+13]=c.y;
+	      triInterVisualiserBuf[ix+14]=c.z;
+
+	      triInterVisualiserBuf[ix+15]= a.x;
+	      triInterVisualiserBuf[ix+16]= a.y;
+	      triInterVisualiserBuf[ix+17]= a.z;
 	      printf("Intersected with tri \n");
+	    }else{
+	      triVisualiserBufSize++;
+
+	      if(!triVisualiserBuf){
+		triVisualiserBuf = malloc(sizeof(float) * 6 * 3);
+	      }else{
+		triVisualiserBuf = realloc(triVisualiserBuf, triVisualiserBufSize*sizeof(float) * 6 * 3);
+	      }
+
+	      int ix = (triVisualiserBufSize-1) * 6 * 3;
+	      
+	      triVisualiserBuf[ix]= a.x;
+	      triVisualiserBuf[ix+1]= a.y;
+	      triVisualiserBuf[ix+2]= a.z;
+
+	      triVisualiserBuf[ix+3]= b.x;
+	      triVisualiserBuf[ix+4]= b.y;
+	      triVisualiserBuf[ix+5]= b.z;
+
+	      triVisualiserBuf[ix+6]= b.x;
+	      triVisualiserBuf[ix+7]= b.y;
+	      triVisualiserBuf[ix+8]= b.z;
+
+	      triVisualiserBuf[ix+9]= c.x;
+	      triVisualiserBuf[ix+10]= c.y;
+	      triVisualiserBuf[ix+11]= c.z;
+
+	      triVisualiserBuf[ix+12]= c.x;
+	      triVisualiserBuf[ix+13]=c.y;
+	      triVisualiserBuf[ix+14]=c.z;
+
+	      triVisualiserBuf[ix+15]= a.x;
+	      triVisualiserBuf[ix+16]= a.y;
+	      triVisualiserBuf[ix+17]= a.z;
 	    }
 
+	    /*
 	    vec4 edges[3][2] = {{a,b},{b,c},{a,c}};
 
 	    float maxY = max(a.y,max(b.y,c.y));
@@ -4512,7 +4642,7 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
 		}
 		
 	      }
-	    }
+	    }*/
 
 
 	    
@@ -4529,12 +4659,36 @@ bool entityVsMeshes(vec3 entityPos, float legH, float entityR, float entityH, ve
   }
 
   {
-    glBindVertexArray(linesVisualiser.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, linesVisualiser.VBO);
+    glBindVertexArray(triVisualiser.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, triVisualiser.VBO);
 
-    linesVisualiser.VBOsize = linesVisualiserBufSize * 2;
+    triVisualiser.VBOsize = triVisualiserBufSize * 6;
 
-    glBufferData(GL_ARRAY_BUFFER, linesVisualiserBufSize*sizeof(float) * 6, linesVisualiserBuf, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, triVisualiserBufSize*sizeof(float) * 6 * 3, triVisualiserBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+  }
+
+  {
+    glBindVertexArray(triInterVisualiser.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, triInterVisualiser.VBO);
+
+    triInterVisualiser.VBOsize = triInterVisualiserBufSize * 6;
+
+    glBufferData(GL_ARRAY_BUFFER, triInterVisualiserBufSize*sizeof(float) * 6 * 3, triInterVisualiserBuf, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
+    glEnableVertexAttribArray(0);
+  }
+
+  {
+    glBindVertexArray(lines2Visualiser.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, lines2Visualiser.VBO);
+
+    lines2Visualiser.VBOsize = lines2VisualiserBufSize * 2;
+
+    glBufferData(GL_ARRAY_BUFFER, lines2VisualiserBufSize*sizeof(float) * 6, lines2VisualiserBuf, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);

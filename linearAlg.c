@@ -995,7 +995,174 @@ int findLineCircleIntersection(vec2 A, vec2 B, vec2 C, float r) {
   return false;
 }
 
-int AABBvsTri(vec3 a, vec3 b, vec3 c, vec3 center, float e, float halfH){
+int AABBvsTri(vec3 a, vec3 b, vec3 c, vec3 center, float halfH, float r)
+{
+float min,max,p0,p1,p2,rad,fex,fey,fez;
+  a=subtract(a,center);
+  b=subtract(b,center);
+  c=subtract(c,center);
+
+  vec3 triEdges[3] = {
+    subtract(b,a), subtract(c,b), subtract(a,c)
+  };
+
+  fex = fabsf(triEdges[0].x);
+  fey = fabsf(triEdges[0].y);
+  fez = fabsf(triEdges[0].z);
+  
+  AXISTEST_X01(triEdges[0].z, triEdges[0].y, fez, fey);
+  AXISTEST_Y02(triEdges[0].z, triEdges[0].x, fez, fex);
+  AXISTEST_Z12(triEdges[0].y, triEdges[0].x, fey, fex);
+
+  fex = fabsf(triEdges[1].x);
+  fey = fabsf(triEdges[1].y);
+  fez = fabsf(triEdges[1].z);
+
+  AXISTEST_X01(triEdges[1].z, triEdges[1].y, fez, fey);
+  AXISTEST_Y02(triEdges[1].z, triEdges[1].x, fez, fex);
+  AXISTEST_Z0(triEdges[1].y, triEdges[1].x, fey, fex);
+
+  fex = fabsf(triEdges[2].x);
+  fey = fabsf(triEdges[2].y);
+  fez = fabsf(triEdges[2].z);
+
+  AXISTEST_X2(triEdges[2].z, triEdges[2].y, fez, fey);
+  AXISTEST_Y1(triEdges[2].z, triEdges[2].x, fez, fex);
+  AXISTEST_Z12(triEdges[2].y, triEdges[2].x, fey, fex);
+
+  
+  FINDMINMAX(a.x,b.x,c.x,min,max);
+  if(min>r || max<-r) return 0;
+
+  FINDMINMAX(a.y,b.y,c.y,min,max);
+  if(min>halfH || max<-halfH) return 0;
+
+  FINDMINMAX(a.z,b.z,c.z,min,max);
+  if(min>r || max<-r) return 0;
+
+  vec3 normal = cross3(triEdges[0],triEdges[1]);
+
+  // planeBoxOverlap
+  int res;
+  {
+    float n[3] = {normal.x,normal.y,normal.z};
+    float vert[3] = {a.x,a.y,a.z};
+    float maxbox[3] = {r, halfH, r};
+    
+    int q;
+
+    float vmin[3],vmax[3],v;
+
+    for(q=0;q<=2;++q)
+
+      {
+	v=vert[q];
+	
+	if(n[q]>0.0f){
+	    vmin[q]=-maxbox[q] - v;	// -NJMP-
+	    vmax[q]= maxbox[q] - v;	// -NJMP-
+	  }else{
+	    vmin[q]= maxbox[q] - v;	// -NJMP-
+	    vmax[q]=-maxbox[q] - v;	// -NJMP-
+	  }
+      }
+
+    vec3 vminV = { vmin[0], vmin[1], vmin[2]};
+    vec3 vmaxV = { vmax[0], vmax[1], vmax[2] };
+    
+    if(dotf3(normal, vminV)>0.0f){
+      res = 0;
+    }else if(dotf3(normal, vmaxV)>=0.0f) {
+      res = 1;
+    }else{
+      res = 0;
+    }
+
+    /*
+    if(DOT(normal,vmin)>0.0f) return 0;	// -NJMP-
+
+    if(DOT(normal,vmax)>=0.0f) return 1;	// -NJMP-
+
+
+    res = 0;
+    return 0;*/
+  }
+
+  if(!res) return 0;
+
+
+  return 1;
+
+  
+  
+  /*
+  vec3 boxVerts[] = {
+    {col.lb.x, col.lb.y, col.lb.z},
+    {col.rt.x, col.lb.y, col.lb.z},
+    {col.rt.x, col.rt.y, col.lb.z},
+    {col.lb.x, col.rt.y, col.lb.z},
+    {col.lb.x, col.lb.y, col.rt.z},
+    {col.rt.x, col.lb.y, col.rt.z},
+    {col.rt.x, col.rt.y, col.rt.z},
+    {col.lb.x, col.rt.y, col.rt.z},
+  };
+
+  vec3 tVerts[] = { a,b,c };
+  
+  vec3 boxNormals[3] = {
+    {1.0f,.0f,.0f},
+    {.0f,1.0f,.0f},
+    {.0f,.0f,1.0f}
+  };
+
+  vec3 tNormal = normalize3(cross3(a,b));
+  float tOffset = dotf3(tNormal, a);
+
+  float boxMin = FLT_MAX;
+  float boxMax = -FLT_MAX;
+  for(int i=0;i<sizeof(boxVerts)/sizeof(vec3);++i){
+    float val = dotf3(tNormal, boxVerts[i]);
+    boxMin = min(boxMin, val);
+    boxMax = max(boxMax, val);
+  }
+
+  if (boxMax < tOffset || boxMin > tOffset){
+    return false;
+  }
+
+  vec3 triEdges[3] = {
+    subtract(a,b), subtract(b,c), subtract(c,a)
+  };
+
+
+  for(int i=0;i<3;++i){
+    for(int i2=0;i2<3;++i2){
+      vec3 axis = cross3(triEdges[i2], boxNormals[i]);
+
+      float boxMax = -FLT_MAX, boxMin = FLT_MAX;
+      float triMax = -FLT_MAX, triMin = FLT_MAX;
+
+      for(int i3=0;i3<sizeof(boxVerts)/sizeof(vec3);++i3){
+	float val = dotf3(axis, boxVerts[i3]);
+	boxMin = min(boxMin, val);
+	boxMax = max(boxMax, val);
+      }
+
+      for(int i3=0;i3<3;++i3){
+	float val = dotf3(axis, tVerts[i3]);
+	triMin = min(triMin, val);
+	triMax = max(triMax, val);
+      }
+
+      if (boxMax <= triMin || boxMin >= triMax){
+	return false;
+      }
+    }
+  }
+
+  return true;
+  */
+  /*
   a = subtract(a, center);
   b = subtract(b, center);
   c = subtract(c, center);
@@ -1027,12 +1194,13 @@ int AABBvsTri(vec3 a, vec3 b, vec3 c, vec3 center, float e, float halfH){
   float p2 = dotf3(c, axis_u0_f0);
 
   float r = e * fabsf(dotf3(aabbNormals[0], axis_u0_f0)) +
-      halfH * fabsf(dotf3(aabbNormals[2], axis_u0_f0)) +
+      halfH * fabsf(dotf3(aabbNormals[1], axis_u0_f0)) +
       e * fabsf(dotf3(aabbNormals[2], axis_u0_f0));
 
   if (max(-max(p0, max(p1, p2)), min(p0, min(p1, p2))) > r) {
     return false;
   }
 
-  //  return true;
+  return false;
+  //  return true;*/
 }
