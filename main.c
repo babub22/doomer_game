@@ -3715,8 +3715,8 @@ void loadGLTFScene(char* name){
 
   int sssize = sceneTriBufSize/1000.0f/1000.0f;
   printf("sceneTriBufSize %f MB \n", sssize);
-  if((sssize) > 1.0f){
-    printf("size of scene triBuf more than 1mb \n");
+  if((sssize) > 10.0f){
+    printf("size of scene triBuf more than 10mb \n");
     exit(0);
   }
 

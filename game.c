@@ -35,9 +35,9 @@ void gamePreFrame(float deltaTime){
     
     float step = 0.04f;
 
-    //    if(currentKeyStates[SDL_SCANCODE_LSHIFT]){
-      //      step = 0.12f;
-    //    }
+    if(currentKeyStates[SDL_SCANCODE_LSHIFT]){
+      step = 0.08f;
+    }
     
     vec2 nextPos = {0};
     bool move = false;
