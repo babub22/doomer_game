@@ -1313,7 +1313,7 @@ typedef struct{
     //    float* posBuf;
     
     uint32_t tx;    
-    uint16_t VBOSize;
+    size_t VBOSize;
     uint16_t posBufSize;
 } Mesh;
 

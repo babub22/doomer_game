@@ -1265,7 +1265,7 @@ int main(int argc, char* argv[]) {
 	    glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[objects[i].infoId].meshes[i2].VBO);
 	    glBindVertexArray(objectsInfo[objects[i].infoId].meshes[i2].VAO);
 		    
-	    glDrawArrays(GL_TRIANGLES, 0, objectsInfo[objects[i].infoId].meshes[i2].VBOSize);
+	    glDrawArrays(GL_TRIANGLES, 0, objectsInfo[objects[i].infoId].meshes[i2].VBOSize); 
 	  }
 	}
 
@@ -3492,7 +3492,8 @@ void loadGLTFScene(char* name){
 	objectsInfoTempPosBufsSize[i] += 3 * data->nodes[nodeIndex].mesh->primitives[i2].indices->count * sizeof(float);
       }
 
-      objectsInfoTempPosBufs[i] = malloc(sizeof(float) * objectsInfoTempPosBufsSize[i]);
+      objectsInfoTempPosBufs[i] = malloc(//sizeof(float) *
+					 objectsInfoTempPosBufsSize[i]);
 
       int tempBufCounter = 0;
       
@@ -3569,9 +3570,9 @@ void loadGLTFScene(char* name){
 		    
 	glGenVertexArrays(1, &objectsInfo[i].meshes[i2].VAO);
 	glGenBuffers(1, &objectsInfo[i].meshes[i2].VBO);
-
+     
 	glBindVertexArray(objectsInfo[i].meshes[i2].VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[i].meshes[i2].VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, objectsInfo[i].meshes[i2].VBO);  
     
 	objectsInfo[i].meshes[i2].VBOSize = data->nodes[nodeIndex].mesh->primitives[i2].indices->count;
 	glBufferData(GL_ARRAY_BUFFER, attrPad * data->nodes[nodeIndex].mesh->primitives[i2].indices->count * sizeof(float)
@@ -3597,9 +3598,10 @@ void loadGLTFScene(char* name){
 	//		}
 
 	// texture
-	objectsInfo[i].meshes[i2].VBOSize = data->nodes[nodeIndex].mesh->primitives[i2].indices->count;
+	//	objectsInfo[i].meshes[i2].VBOSize = data->nodes[nodeIndex].mesh->primitives[i2].indices->count;
 				    
 	{
+        printf("\n\n cur vbo %d\n\n", objectsInfo[i].meshes[i2].VBOSize);
 	  sprintf(buf, "%s%s", assetsFolder,
 		  data->nodes[nodeIndex].mesh->primitives[i2].material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
 	  SDL_Surface* texture = IMG_Load(buf);
@@ -3613,7 +3615,8 @@ void loadGLTFScene(char* name){
 	  sceneWeight += texture->w * texture->h * texture->format->BytesPerPixel;
 
 	  createTexture(&objectsInfo[i].meshes[i2].tx, texture->w,texture->h, texture->pixels);
-  
+      printf("\n\n cur vbo %d\n\n", objectsInfo[i].meshes[i2].VBOSize);
+
 	  SDL_FreeSurface(texture);
 	}
       }
